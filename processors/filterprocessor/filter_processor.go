@@ -3,7 +3,6 @@ package filterprocessor
 import (
 	"context"
 	"fmt"
-	"github.com/algorand/go-algorand/data/transactions"
 	"gopkg.in/yaml.v3"
 	"reflect"
 	"regexp"
@@ -11,6 +10,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/plugins"
 	"github.com/algorand/indexer/processors"

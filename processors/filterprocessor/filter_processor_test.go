@@ -2,16 +2,16 @@ package filterprocessor
 
 import (
 	"context"
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/indexer/conduit"
-	"github.com/algorand/indexer/data"
-	"github.com/algorand/indexer/plugins"
 	"testing"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/indexer/conduit"
+	"github.com/algorand/indexer/data"
+	"github.com/algorand/indexer/plugins"
 	"github.com/algorand/indexer/processors"
 )
 
