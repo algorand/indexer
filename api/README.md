@@ -35,7 +35,7 @@ A fixtures test
 4. persists the _Live Fixture_ to a json file not in source control
 5. asserts that the _Saved Fixture_ is equal to the _Live Fixture_
 
-In reality, because we always want to save the _Live Fixture_ before making asserstions that could fail the test and preempt saving, steps (3) and (4) happen in the opposite order.
+In reality, because we always want to save the _Live Fixture_ before making assertions that could fail the test and pre-empt saving, steps (3) and (4) happen in the opposite order.
 
 ## What's the purpose of a Fixtures Test?
 
