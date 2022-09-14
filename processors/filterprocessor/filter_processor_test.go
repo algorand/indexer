@@ -18,16 +18,14 @@ import (
 func TestCheckTagExistsAndHasCorrectFunction(t *testing.T) {
 	// check that something that doesn't exist throws an error
 	err := checkTagExistsAndHasCorrectFunction("const", "SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.LoreumIpsum.SDF")
-	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), "does not exist in transactions")
+	assert.ErrorContains(t, err, "does not exist in transactions")
 
 	err = checkTagExistsAndHasCorrectFunction("const", "LoreumIpsum")
 	assert.ErrorContains(t, err, "does not exist in transactions")
 
 	// Fee does not have a "String" Function so we cant use const with it.
 	err = checkTagExistsAndHasCorrectFunction("const", "SignedTxnWithAD.SignedTxn.Txn.Header.Fee")
-	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), "does not contain the needed method")
+	assert.ErrorContains(t, err, "does not contain the needed method")
 }
 
 // TestFilterProcessor_Init tests initialization of the filter processor
@@ -53,7 +51,7 @@ filters:
 
 	fp := fpBuilder.New()
 	err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(sampleCfgStr), logrus.New())
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	bd := data.BlockData{}
 	bd.Payset = append(bd.Payset,
@@ -94,7 +92,7 @@ filters:
 	)
 
 	output, err := fp.Process(bd)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, len(output.Payset), 2)
 
 }

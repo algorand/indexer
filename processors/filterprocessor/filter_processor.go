@@ -3,14 +3,15 @@ package filterprocessor
 import (
 	"context"
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"reflect"
 	"regexp"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v3"
 
 	"github.com/algorand/go-algorand/data/transactions"
+
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/plugins"
 	"github.com/algorand/indexer/processors"
@@ -23,7 +24,7 @@ func init() {
 	processors.RegisterProcessor(implementationName, &Constructor{})
 }
 
-// Constructor is the ProcessorConstructor implementation for the "address_filter" processor
+// Constructor is the ProcessorConstructor implementation for the "filter_processor" processor
 type Constructor struct{}
 
 // New initializes a FilterProcessor
