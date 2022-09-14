@@ -15,19 +15,6 @@ import (
 	"github.com/algorand/indexer/processors"
 )
 
-func TestCheckTagExistsAndHasCorrectFunction(t *testing.T) {
-	// check that something that doesn't exist throws an error
-	err := checkTagExistsAndHasCorrectFunction("const", "SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.LoreumIpsum.SDF")
-	assert.ErrorContains(t, err, "does not exist in transactions")
-
-	err = checkTagExistsAndHasCorrectFunction("const", "LoreumIpsum")
-	assert.ErrorContains(t, err, "does not exist in transactions")
-
-	// Fee does not have a "String" Function so we cant use const with it.
-	err = checkTagExistsAndHasCorrectFunction("const", "SignedTxnWithAD.SignedTxn.Txn.Header.Fee")
-	assert.ErrorContains(t, err, "does not contain the needed method")
-}
-
 // TestFilterProcessor_Init tests initialization of the filter processor
 func TestFilterProcessor_Init(t *testing.T) {
 
