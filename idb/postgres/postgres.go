@@ -48,7 +48,7 @@ func OpenPostgres(connection string, opts idb.IndexerDbOptions, log *log.Logger)
 
 	postgresConfig, err := pgxpool.ParseConfig(connection)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Couldn't parse config: %v", err)
+		return nil, nil, fmt.Errorf("couldn't parse config: %v", err)
 	}
 
 	if opts.MaxConn != 0 {

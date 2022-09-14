@@ -53,7 +53,7 @@ func createBoxesWithDelta(t *testing.T, numApps, maxBoxes int) (map[basics.AppIn
 	appBoxes := make(map[basics.AppIndex]map[string]string)
 
 	delta := ledgercore.StateDelta{
-		KvMods: map[string]*string{},
+		KvMods: map[string]ledgercore.ValueDelta{},
 		Accts:  ledgercore.MakeAccountDeltas(numApps),
 	}
 
@@ -71,7 +71,7 @@ func createBoxesWithDelta(t *testing.T, numApps, maxBoxes int) (map[basics.AppIn
 			require.Equal(t, appIndex, embeddedAppIdx)
 
 			val := string([]byte(value)[:])
-			delta.KvMods[key] = &val
+			delta.KvMods[key] = ledgercore.ValueDelta{Data: &val}
 
 			totalBoxBytes += len(name) + len(value)
 		}
@@ -82,7 +82,7 @@ func createBoxesWithDelta(t *testing.T, numApps, maxBoxes int) (map[basics.AppIn
 
 func mutateSomeBoxesWithDelta(t *testing.T, appBoxes map[basics.AppIndex]map[string]string) ledgercore.StateDelta {
 	var delta ledgercore.StateDelta
-	delta.KvMods = make(map[string]*string)
+	delta.KvMods = make(map[string]ledgercore.ValueDelta)
 
 	for _, boxes := range appBoxes {
 		for key, value := range boxes {
@@ -95,7 +95,7 @@ func mutateSomeBoxesWithDelta(t *testing.T, appBoxes map[basics.AppIndex]map[str
 			boxes[key] = string(valueBytes)
 
 			val := string([]byte(boxes[key])[:])
-			delta.KvMods[key] = &val
+			delta.KvMods[key] = ledgercore.ValueDelta{Data: &val}
 		}
 	}
 
@@ -106,7 +106,7 @@ func deleteSomeBoxesWithDelta(t *testing.T, appBoxes map[basics.AppIndex]map[str
 	deletedBoxes := make(map[basics.AppIndex]map[string]bool, len(appBoxes))
 
 	var delta ledgercore.StateDelta
-	delta.KvMods = make(map[string]*string)
+	delta.KvMods = make(map[string]ledgercore.ValueDelta)
 
 	for appIndex, boxes := range appBoxes {
 		deletedBoxes[appIndex] = map[string]bool{}
@@ -115,7 +115,7 @@ func deleteSomeBoxesWithDelta(t *testing.T, appBoxes map[basics.AppIndex]map[str
 				continue
 			}
 			deletedBoxes[appIndex][key] = true
-			delta.KvMods[key] = nil
+			delta.KvMods[key] = ledgercore.ValueDelta{Data: nil}
 		}
 	}
 
