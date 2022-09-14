@@ -610,7 +610,7 @@ func (si *ServerImplementation) LookupApplicationBoxByIDAndName(ctx echo.Context
 
 	box := boxes[0]
 	if len(box.Name) == 0 && len(boxName) > 0 {
-		return notFound(ctx, fmt.Sprintf("%s: round=%d, appid=%d, boxName=%+v", errNoBoxesFound, round, applicationID, encodedBoxName))
+		return notFound(ctx, fmt.Sprintf("%s: round=%d, appid=%d, boxName=%s", errNoBoxesFound, round, applicationID, encodedBoxName))
 	}
 
 	if string(box.Name) != string(boxName) {
