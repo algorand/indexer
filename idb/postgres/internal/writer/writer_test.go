@@ -1611,14 +1611,14 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	k4 := logic.MakeBoxKey(appID, n4)
 	k5 := logic.MakeBoxKey(appID, n5)
 
-	delta.KvMods = map[string]*string{}
-	delta.KvMods[k1] = &v1
-	delta.KvMods[k2] = &v2
-	delta.KvMods[k3] = &v3
-	delta.KvMods[k4] = &v4
-	delta.KvMods[k5] = &v5
+	delta.KvMods = map[string]ledgercore.ValueDelta{}
+	delta.KvMods[k1] = ledgercore.ValueDelta{Data: &v1}
+	delta.KvMods[k2] = ledgercore.ValueDelta{Data: &v2}
+	delta.KvMods[k3] = ledgercore.ValueDelta{Data: &v3}
+	delta.KvMods[k4] = ledgercore.ValueDelta{Data: &v4}
+	delta.KvMods[k5] = ledgercore.ValueDelta{Data: &v5}
 
-	delta2, newKvMods, accts := test.BuildAccountDeltasFromKvsAndMods(t, map[string]*string{}, delta.KvMods)
+	delta2, newKvMods, accts := test.BuildAccountDeltasFromKvsAndMods(t, map[string]ledgercore.ValueDelta{}, delta.KvMods)
 	delta.Accts = delta2.Accts
 
 	err := pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
@@ -1676,12 +1676,12 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 
 	k6 := logic.MakeBoxKey(appID, n6)
 
-	delta.KvMods = map[string]*string{}
-	delta.KvMods[k2] = &v2
-	delta.KvMods[k3] = nil
-	delta.KvMods[k4] = &v4
-	delta.KvMods[k5] = nil
-	delta.KvMods[k6] = &v6
+	delta.KvMods = map[string]ledgercore.ValueDelta{}
+	delta.KvMods[k2] = ledgercore.ValueDelta{Data: &v2}
+	delta.KvMods[k3] = ledgercore.ValueDelta{Data: nil}
+	delta.KvMods[k4] = ledgercore.ValueDelta{Data: &v4}
+	delta.KvMods[k5] = ledgercore.ValueDelta{Data: nil}
+	delta.KvMods[k6] = ledgercore.ValueDelta{Data: &v6}
 
 	delta2, newKvMods, accts = test.BuildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
 	delta.Accts = delta2.Accts
@@ -1703,9 +1703,9 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	// v4 is "deleted"
 	v5 = "re-inserted"
 
-	delta.KvMods = map[string]*string{}
-	delta.KvMods[k4] = nil
-	delta.KvMods[k5] = &v5
+	delta.KvMods = map[string]ledgercore.ValueDelta{}
+	delta.KvMods[k4] = ledgercore.ValueDelta{Data: nil}
+	delta.KvMods[k5] = ledgercore.ValueDelta{Data: &v5}
 
 	delta2, newKvMods, accts = test.BuildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
 	delta.Accts = delta2.Accts
@@ -1723,7 +1723,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	validateTotals()
 
 	/*** FOURTH ROUND  - NOOP ***/
-	delta.KvMods = map[string]*string{}
+	delta.KvMods = map[string]ledgercore.ValueDelta{}
 	delta2, _, accts = test.BuildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
 	delta.Accts = delta2.Accts
 
