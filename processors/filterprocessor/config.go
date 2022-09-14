@@ -7,7 +7,7 @@ type SubConfig struct {
 	// The tag of the struct to analyze
 	FilterTag string `yaml:"tag"`
 	// The type of expression to search for "const" or "regex"
-	ExpressionType expression.Type `yaml:"expression-type"`
+	ExpressionType expression.FilterType `yaml:"expression-type"`
 	// The expression to search
 	Expression string `yaml:"expression"`
 }

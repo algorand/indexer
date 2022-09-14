@@ -5,26 +5,26 @@ import (
 	"regexp"
 )
 
-// Type is the type of the filter (i.e. const, regex, etc)
-type Type string
+// FilterType is the type of the filter (i.e. const, regex, etc)
+type FilterType string
 
 const (
 	// ConstFilter a filter that looks at a constant string in its entirety
-	ConstFilter Type = "const"
+	ConstFilter FilterType = "const"
 	// RegexFilter a filter that applies regex rules to the matching
-	RegexFilter Type = "regex"
+	RegexFilter FilterType = "regex"
 )
 
 // TypeToFunctionMap maps the expression-type with the needed function for the expression.
 // For instance the const or regex expression-type might need the String() function
 // Can't make this consts because there are no constant maps in go...
-var TypeToFunctionMap = map[Type]string{
+var TypeToFunctionMap = map[FilterType]string{
 	ConstFilter: "String",
 	RegexFilter: "String",
 }
 
-// Interface the expression interface
-type Interface interface {
+// Expression the expression interface
+type Expression interface {
 	Search(input interface{}) bool
 }
 
@@ -37,7 +37,7 @@ func (e regexExpression) Search(input interface{}) bool {
 }
 
 // MakeExpression creates an expression based on an expression type
-func MakeExpression(expressionType Type, expressionSearchStr string) (*Interface, error) {
+func MakeExpression(expressionType FilterType, expressionSearchStr string) (*Expression, error) {
 	switch expressionType {
 	case ConstFilter:
 		{
@@ -46,7 +46,7 @@ func MakeExpression(expressionType Type, expressionSearchStr string) (*Interface
 				return nil, err
 			}
 
-			var exp Interface = regexExpression{Regex: r}
+			var exp Expression = regexExpression{Regex: r}
 			return &exp, nil
 		}
 	case RegexFilter:
@@ -56,7 +56,7 @@ func MakeExpression(expressionType Type, expressionSearchStr string) (*Interface
 				return nil, err
 			}
 
-			var exp Interface = regexExpression{Regex: r}
+			var exp Expression = regexExpression{Regex: r}
 			return &exp, nil
 		}
 	default:

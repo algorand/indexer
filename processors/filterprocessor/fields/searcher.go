@@ -11,7 +11,7 @@ import (
 
 // Searcher searches the struct with an expression and method to call
 type Searcher struct {
-	Exp          *expression.Interface
+	Exp          *expression.Expression
 	Tag          string
 	MethodToCall string
 }
@@ -37,7 +37,7 @@ func (f Searcher) Search(input transactions.SignedTxnInBlock) bool {
 }
 
 // checks that the supplied tag exists in the struct and recovers from any panics
-func checkTagExistsAndHasCorrectFunction(expressionType expression.Type, tag string) (outError error) {
+func checkTagExistsAndHasCorrectFunction(expressionType expression.FilterType, tag string) (outError error) {
 	var field string
 	defer func() {
 		if r := recover(); r != nil {
@@ -68,7 +68,7 @@ func checkTagExistsAndHasCorrectFunction(expressionType expression.Type, tag str
 }
 
 // MakeFieldSearcher will check that the field exists and that it contains the necessary "conversion" function
-func MakeFieldSearcher(e *expression.Interface, expressionType expression.Type, tag string) (*Searcher, error) {
+func MakeFieldSearcher(e *expression.Expression, expressionType expression.FilterType, tag string) (*Searcher, error) {
 
 	if err := checkTagExistsAndHasCorrectFunction(expressionType, tag); err != nil {
 		return nil, err
