@@ -3,6 +3,7 @@ package filterprocessor
 import (
 	"context"
 	"fmt"
+
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
