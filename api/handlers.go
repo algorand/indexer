@@ -588,7 +588,7 @@ func (si *ServerImplementation) LookupApplicationBoxByIDAndName(ctx echo.Context
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return notFound(ctx, fmt.Sprintf("%s: round=%d, appid=%d, boxName=%+v", errNoApplicationsFound, round, applicationID, encodedBoxName))
+			return notFound(ctx, fmt.Sprintf("%s: round=%d, appid=%d, boxName=%s", errNoApplicationsFound, round, applicationID, encodedBoxName))
 		}
 		// sql.ErrNoRows is the only expected error condition
 		msg := fmt.Sprintf("%s: round=?=%d, appid=%d, boxName=%s", errFailedLookingUpBoxes, round, applicationID, encodedBoxName)
