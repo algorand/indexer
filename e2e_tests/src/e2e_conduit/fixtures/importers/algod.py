@@ -16,7 +16,7 @@ class AlgodImporter(PluginFixture):
         self.algoddir = None
         self.name = "algod"
         self.lastblock = None
-        super(AlgodImporter, self).__init__()
+        super().__init__()
 
     def resolve_config_input(self):
         with open(os.path.join(self.algoddir, "algod.net"), "r") as algod_net:

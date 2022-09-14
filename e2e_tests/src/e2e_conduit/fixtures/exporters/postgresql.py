@@ -19,7 +19,7 @@ class PostgresqlExporter(PluginFixture):
         # Should we have a random port here so that we can run multiple of these in parallel?
         self.port = "45432"
         self.container_name = ""
-        super(PostgresqlExporter, self).__init__()
+        super().__init__()
 
     def setup(self, max_conn=0):
         self.container_name = "".join(

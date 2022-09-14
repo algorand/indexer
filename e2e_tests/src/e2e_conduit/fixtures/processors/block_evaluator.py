@@ -4,7 +4,7 @@ from e2e_conduit.fixtures.plugin_fixture import PluginFixture
 class BlockEvaluator(PluginFixture):
     def __init__(self):
         self.name = "block_evaluator"
-        super(BlockEvaluator, self).__init__()
+        super().__init__()
 
     def setup(
         self, algod_data_dir, algod_token, algod_net, indexer_data_dir, catchpoint=""
