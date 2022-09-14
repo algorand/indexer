@@ -80,7 +80,8 @@
           },
           {
             "type": "integer",
-            "description": "Include results for the specified round. For performance reasons, this parameter may be disabled on some configurations.",
+            "description": "Include results for the specified round. For performance reasons, this parameter may be disabled on some configurations. Using application-id or asset-id filters will return both creator and opt-in accounts. Filtering by include-all will return creator and opt-in accounts for deleted assets and accounts. Non-opt-in managers are not included in the results when asset-id is used.",
+
             "name": "round",
             "in": "query"
           },
@@ -1452,6 +1453,7 @@
         "previous-block-hash",
         "seed",
         "transactions-root",
+        "transactions-root-sha256",
         "timestamp",
         "genesis-id",
         "genesis-hash"
@@ -1503,6 +1505,11 @@
         },
         "transactions-root": {
           "description": "\\[txn\\] TransactionsRoot authenticates the set of transactions appearing in the block. More specifically, it's the root of a merkle tree whose leaves are the block's Txids, in lexicographic order. For the empty block, it's 0. Note that the TxnRoot does not authenticate the signatures on the transactions, only the transactions themselves. Two blocks with the same transactions but in a different order and with different signatures will have the same TxnRoot.",
+          "type": "string",
+          "format": "byte"
+        },
+        "transactions-root-sha256": {
+          "description": "\\[txn256\\] TransactionsRootSHA256 is an auxiliary TransactionRoot, built using a vector commitment instead of a merkle tree, and SHA256 hash function instead of the default SHA512_256. This commitment can be used on environments where only the SHA256 function exists.",
           "type": "string",
           "format": "byte"
         },
@@ -2063,10 +2070,10 @@
           "x-algorand-format": "uint64"
         },
         "state-proof": {
-          "$ref": "#/definitions/StateProof"
+          "$ref": "#/definitions/StateProofFields"
         },
         "message": {
-          "$ref": "#/definitions/StateProofMessage",
+          "$ref": "#/definitions/IndexerStateProofMessage",
           "description": "\\[spmsg\\]"
         }
       }
@@ -2259,7 +2266,7 @@
         }
       }
     },
-    "StateProof": {
+    "StateProofFields": {
       "description": "\\[sp\\] represents a state proof.\n\nDefinition:\ncrypto/stateproof/structs.go : StateProof",
       "type": "object",
       "properties": {
@@ -2302,7 +2309,7 @@
         }
       }
     },
-    "StateProofMessage": {
+    "IndexerStateProofMessage": {
       "type": "object",
       "properties": {
         "block-headers-commitment": {
