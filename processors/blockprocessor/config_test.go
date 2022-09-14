@@ -1,4 +1,4 @@
-package processors
+package blockprocessor
 
 import (
 	"github.com/stretchr/testify/require"
@@ -16,7 +16,7 @@ func TestConfigDeserialize(t *testing.T) {
                   algod-addr: "algod_addr"
  `
 
-	var processorConfig BlockProcessorConfig
+	var processorConfig Config
 	err := yaml.Unmarshal([]byte(configStr), &processorConfig)
 	require.Nil(t, err)
 	require.Equal(t, processorConfig.Catchpoint, "acatch")

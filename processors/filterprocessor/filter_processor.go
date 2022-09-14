@@ -44,12 +44,9 @@ func (e regexExpression) Search(input interface{}) bool {
 	return e.Regex.MatchString(input.(string))
 }
 
-const constantExpressionStr = "const"
-const regexExpressionStr = "regex"
-
-func makeExpression(expressionType string, expressionSearchStr string) (*expression, error) {
+func makeExpression(expressionType FilterExpressionType, expressionSearchStr string) (*expression, error) {
 	switch expressionType {
-	case constantExpressionStr:
+	case ConstFilter:
 		{
 			r, err := regexp.Compile("^" + expressionSearchStr + "$")
 			if err != nil {
@@ -59,7 +56,7 @@ func makeExpression(expressionType string, expressionSearchStr string) (*express
 			var exp expression = regexExpression{Regex: r}
 			return &exp, nil
 		}
-	case regexExpressionStr:
+	case RegexFilter:
 		{
 			r, err := regexp.Compile(expressionSearchStr)
 			if err != nil {
@@ -108,13 +105,13 @@ func (f fieldSearcher) Search(input transactions.SignedTxnInBlock) bool {
 // This maps the expression-type with the needed function for the expression.
 // For instance the const or regex expression-type might need the String() function
 // Can't make this consts because there are no constant maps in go...
-var expressionTypeToFunctionMap = map[string]string{
-	constantExpressionStr: "String",
-	regexExpressionStr:    "String",
+var expressionTypeToFunctionMap = map[FilterExpressionType]string{
+	ConstFilter: "String",
+	RegexFilter:    "String",
 }
 
 // checks that the supplied tag exists in the struct and recovers from any panics
-func checkTagExistsAndHasCorrectFunction(expressionType string, tag string) (outError error) {
+func checkTagExistsAndHasCorrectFunction(expressionType FilterExpressionType, tag string) (outError error) {
 	var field string
 	defer func() {
 		if r := recover(); r != nil {
@@ -145,7 +142,7 @@ func checkTagExistsAndHasCorrectFunction(expressionType string, tag string) (out
 }
 
 // makeFieldSearcher will check that the field exists and that it contains the necessary "conversion" function
-func makeFieldSearcher(e *expression, expressionType string, tag string) (*fieldSearcher, error) {
+func makeFieldSearcher(e *expression, expressionType FilterExpressionType, tag string) (*fieldSearcher, error) {
 
 	if err := checkTagExistsAndHasCorrectFunction(expressionType, tag); err != nil {
 		return nil, err
@@ -227,7 +224,7 @@ func (a *FilterProcessor) Init(ctx context.Context, _ data.InitProvider, cfg plu
 	a.ctx = ctx
 
 	// First get the configuration from the string
-	pCfg := processors.FilterProcessorConfig{}
+	pCfg := Config{}
 
 	err := yaml.Unmarshal([]byte(cfg), &pCfg)
 	if err != nil {

@@ -3,7 +3,6 @@ package blockprocessor_test
 import (
 	"context"
 	"fmt"
-	"github.com/algorand/indexer/processors"
 	"testing"
 
 	test2 "github.com/sirupsen/logrus/hooks/test"
@@ -166,7 +165,7 @@ func TestMakeProcessorWithLedgerInit_CatchpointErrors(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			config := processors.BlockProcessorConfig{Catchpoint: tc.catchpoint}
+			config := blockprocessor.Config{Catchpoint: tc.catchpoint}
 			_, err := blockprocessor.MakeBlockProcessorWithLedgerInit(
 				context.Background(),
 				logger,
