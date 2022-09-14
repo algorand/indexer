@@ -303,19 +303,19 @@ func writeAccountDeltas(round basics.Round, accountDeltas *ledgercore.AccountDel
 
 }
 
-func writeBoxMods(kvMods map[string]*string, batch *pgx.Batch) error {
+func writeBoxMods(kvMods map[string]ledgercore.ValueDelta, batch *pgx.Batch) error {
 	// INSERT INTO / UPDATE / DELETE FROM `app_box`
 	// WARNING: kvMods can in theory support more general storage types than app boxes.
 	// However, here we assume that all the provided kvMods represent app boxes.
 	// If a non-box is encountered inside kvMods, an error will be returned and
 	// AddBlock() will fail with the import getting stuck at the corresponding round.
-	for key, value := range kvMods {
+	for key, valueDelta := range kvMods {
 		app, name, err := logic.SplitBoxKey(key)
 		if err != nil {
 			return fmt.Errorf("writeBoxMods() err: %w", err)
 		}
-		if value != nil {
-			batch.Queue(upsertAppBoxStmtName, app, []byte(name), []byte(*value))
+		if valueDelta.Data != nil {
+			batch.Queue(upsertAppBoxStmtName, app, []byte(name), []byte(*valueDelta.Data))
 		} else {
 			batch.Queue(deleteAppBoxStmtName, app, []byte(name))
 		}
