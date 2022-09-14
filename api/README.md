@@ -46,7 +46,7 @@ A fixtures test should allow one to quickly stand up an end-to-end test to valid
 
 1. `setupIdbAndReturnShutdownFunc()` is called to set up the Indexer database
   * this isn't expected to require modification
-  2. `setupLiveBoxes()` is used to prepare the local ledger and process blocks in order to bring Indexer into a particular state
+2. `setupLiveBoxes()` is used to prepare the local ledger and process blocks in order to bring Indexer into a particular state
   * this will always depend on what the test is trying to achieve
   * in this case, an app was used to create and modify a set of boxes which are then queried against
   * it is conceivable that instead of bringing Indexer into a particular state, the responses from the DB or even the handler may be mocked, so we could have had `setupLiveBoxesMocker()` instead of `setupLiveBoxes()`
