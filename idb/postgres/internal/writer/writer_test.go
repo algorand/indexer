@@ -1565,7 +1565,7 @@ func TestWriterAddBlock0(t *testing.T) {
 		assert.Equal(t, expected, accounts)
 	}
 }
-func getNameAndAccountPointer(t *testing.T, value *string, fullKey string, accts map[basics.Address]*ledgercore.AccountData) (basics.Address, string, *ledgercore.AccountData) {
+func getNameAndAccountPointer(t *testing.T, value ledgercore.ValueDelta, fullKey string, accts map[basics.Address]*ledgercore.AccountData) (basics.Address, string, *ledgercore.AccountData) {
 	require.NotNil(t, value, "cannot handle a nil value for box stats modification")
 	appIdx, name, err := logic.SplitBoxKey(fullKey)
 	account := appIdx.Address()
@@ -1580,12 +1580,12 @@ func getNameAndAccountPointer(t *testing.T, value *string, fullKey string, accts
 	return account, name, acctData
 }
 
-func addBoxInfoToStats(t *testing.T, fullKey string, value *string,
+func addBoxInfoToStats(t *testing.T, fullKey string, value ledgercore.ValueDelta,
 	accts map[basics.Address]*ledgercore.AccountData, boxTotals map[basics.Address]basics.AccountData) {
 	addr, name, acctData := getNameAndAccountPointer(t, value, fullKey, accts)
 
 	acctData.TotalBoxes++
-	acctData.TotalBoxBytes += uint64(len(name) + len(*value))
+	acctData.TotalBoxBytes += uint64(len(name) + len(*value.Data))
 
 	boxTotals[addr] = basics.AccountData{
 		TotalBoxes:    acctData.TotalBoxes,
@@ -1593,11 +1593,11 @@ func addBoxInfoToStats(t *testing.T, fullKey string, value *string,
 	}
 }
 
-func subtractBoxInfoToStats(t *testing.T, fullKey string, value *string,
+func subtractBoxInfoToStats(t *testing.T, fullKey string, value ledgercore.ValueDelta,
 	accts map[basics.Address]*ledgercore.AccountData, boxTotals map[basics.Address]basics.AccountData) {
 	addr, name, acctData := getNameAndAccountPointer(t, value, fullKey, accts)
 
-	prevBoxBytes := uint64(len(name) + len(*value))
+	prevBoxBytes := uint64(len(name) + len(*value.Data))
 	require.GreaterOrEqual(t, acctData.TotalBoxes, uint64(0))
 	require.GreaterOrEqual(t, acctData.TotalBoxBytes, prevBoxBytes)
 
@@ -1611,9 +1611,9 @@ func subtractBoxInfoToStats(t *testing.T, fullKey string, value *string,
 }
 
 // buildAccountDeltasFromKvsAndMods simulates keeping track of the evolution of the box statistics
-func buildAccountDeltasFromKvsAndMods(t *testing.T, kvOriginals, kvMods map[string]*string) (
-	ledgercore.StateDelta, map[string]*string, map[basics.Address]basics.AccountData) {
-	kvUpdated := map[string]*string{}
+func buildAccountDeltasFromKvsAndMods(t *testing.T, kvOriginals, kvMods map[string]ledgercore.ValueDelta) (
+	ledgercore.StateDelta, map[string]ledgercore.ValueDelta, map[basics.Address]basics.AccountData) {
+	kvUpdated := map[string]ledgercore.ValueDelta{}
 	boxTotals := map[basics.Address]basics.AccountData{}
 	accts := map[basics.Address]*ledgercore.AccountData{}
 	/*
@@ -1643,14 +1643,14 @@ func buildAccountDeltasFromKvsAndMods(t *testing.T, kvOriginals, kvMods map[stri
 			continue
 		}
 		/* 2B. */
-		if value == nil {
+		if value.Data == nil {
 			/* 2Bi. */
 			subtractBoxInfoToStats(t, fullKey, prevValue, accts, boxTotals)
 			delete(kvUpdated, fullKey)
 			continue
 		}
 		/* 2Bii. */
-		require.Equal(t, len(*prevValue), len(*value))
+		require.Equal(t, len(*prevValue.Data), len(*value.Data))
 		require.Contains(t, kvUpdated, fullKey)
 		kvUpdated[fullKey] = value
 	}
