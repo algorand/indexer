@@ -49,7 +49,7 @@ filters:
 `
 
 	fpBuilder, err := processors.ProcessorBuilderByName(implementationName)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	fp := fpBuilder.New()
 	err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(sampleCfgStr), logrus.New())
