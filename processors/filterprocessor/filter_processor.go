@@ -26,7 +26,7 @@ func init() {
 // Constructor is the ProcessorConstructor implementation for the "address_filter" processor
 type Constructor struct{}
 
-// New initializes a blockProcessorConstructor
+// New initializes a FilterProcessor
 func (c *Constructor) New() processors.Processor {
 	return &FilterProcessor{}
 }
