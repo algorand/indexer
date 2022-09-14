@@ -54,7 +54,7 @@ func checkTagExistsAndHasCorrectFunction(expressionType expression.Type, tag str
 		}
 	}
 
-	method, ok := expression.ExpressionTypeToFunctionMap[expressionType]
+	method, ok := expression.TypeToFunctionMap[expressionType]
 
 	if !ok {
 		return fmt.Errorf("expression type (%s) is not supported.  tag value: %s", expressionType, tag)
@@ -74,5 +74,5 @@ func MakeFieldSearcher(e *expression.Interface, expressionType expression.Type, 
 		return nil, err
 	}
 
-	return &Searcher{Exp: e, Tag: tag, MethodToCall: expression.ExpressionTypeToFunctionMap[expressionType]}, nil
+	return &Searcher{Exp: e, Tag: tag, MethodToCall: expression.TypeToFunctionMap[expressionType]}, nil
 }

@@ -15,10 +15,10 @@ const (
 	RegexFilter Type = "regex"
 )
 
-// ExpressionTypeToFunctionMap maps the expression-type with the needed function for the expression.
+// TypeToFunctionMap maps the expression-type with the needed function for the expression.
 // For instance the const or regex expression-type might need the String() function
 // Can't make this consts because there are no constant maps in go...
-var ExpressionTypeToFunctionMap = map[Type]string{
+var TypeToFunctionMap = map[Type]string{
 	ConstFilter: "String",
 	RegexFilter: "String",
 }
