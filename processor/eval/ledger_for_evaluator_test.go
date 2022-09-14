@@ -2,6 +2,7 @@ package eval_test
 
 import (
 	"crypto/rand"
+	"fmt"
 	"testing"
 
 	test2 "github.com/sirupsen/logrus/hooks/test"
@@ -543,9 +544,45 @@ func TestLedgerForEvaluatorAppCreatorMultiple(t *testing.T) {
 	}
 }
 
+// compareAppBoxesAgainstLedger uses LedgerForEvaluator to assert that provided app boxes can be retrieved as expected
+func compareAppBoxesAgainstLedger(t *testing.T, ld indxLedger.LedgerForEvaluator, round basics.Round,
+	appBoxes map[basics.AppIndex]map[string]string, extras ...map[basics.AppIndex]map[string]bool) {
+	require.LessOrEqual(t, len(extras), 1)
+	var deletedBoxes map[basics.AppIndex]map[string]bool
+	if len(extras) == 1 {
+		deletedBoxes = extras[0]
+	}
+
+	caseNum := 1
+	for appIdx, boxes := range appBoxes {
+		for key, expectedValue := range boxes {
+			msg := fmt.Sprintf("caseNum=%d, appIdx=%d, key=%#v", caseNum, appIdx, key)
+			expectedAppIdx, _, err := logic.SplitBoxKey(key)
+			require.NoError(t, err, msg)
+			require.Equal(t, appIdx, expectedAppIdx, msg)
+
+			boxDeleted := false
+			if deletedBoxes != nil {
+				if _, ok := deletedBoxes[appIdx][key]; ok {
+					boxDeleted = true
+				}
+			}
+
+			value, err := ld.LookupKv(round, key)
+			require.NoError(t, err, msg)
+			if !boxDeleted {
+				require.Equal(t, expectedValue, *value, msg)
+			} else {
+				require.Nil(t, value, msg)
+			}
+		}
+		caseNum++
+	}
+}
+
 // Test the functionality of `func (l LedgerForEvaluator) LookupKv()`.
 // This is done by handing off a pointer to Struct `processor/eval/ledger_for_evaluator.go::LedgerForEvaluator`
-// in the `CompareAppBoxesAgainstLedger()` assertions function which then asserts using `LookupKv()`
+// to `compareAppBoxesAgainstLedger()` which then asserts using `LookupKv()`
 func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 	logger, _ := test2.NewNullLogger()
 	l := makeTestLedger(t)
@@ -554,7 +591,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 	defer l.Close()
 	defer ld.Close()
 
-	/**** ROUND 1: create and fund the box app ****/
+	// ---- ROUND 1: create and fund the box app  ---- //
 
 	appid := basics.AppIndex(1)
 	currentRound := basics.Round(1)
@@ -581,7 +618,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 	blockHdr, err := l.BlockHdr(currentRound)
 	require.NoError(t, err)
 
-	/**** ROUND 2: create 8 boxes of appid == 1 ****/
+	// ---- ROUND 2: create 8 boxes of appid == 1  ---- //
 	currentRound = basics.Round(2)
 
 	boxNames := []string{
@@ -597,7 +634,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 
 	expectedAppBoxes := map[basics.AppIndex]map[string]string{}
 	expectedAppBoxes[appid] = map[string]string{}
-	newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+	newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 	boxTxns := make([]*transactions.SignedTxnWithAD, 0)
 	for _, boxName := range boxNames {
 		expectedAppBoxes[appid][logic.MakeBoxKey(appid, boxName)] = newBoxValue
@@ -615,13 +652,13 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 	err = pr.Process(&rawBlock)
 	require.NoError(t, err)
 
-	test.CompareAppBoxesAgainstLedger(t, ld, currentRound, expectedAppBoxes)
+	compareAppBoxesAgainstLedger(t, ld, currentRound, expectedAppBoxes)
 
 	// block header handoff: round 2 --> round 3
 	blockHdr, err = l.BlockHdr(currentRound)
 	require.NoError(t, err)
 
-	/**** ROUND 3: populate the boxes appropriately ****/
+	// ---- ROUND 3: populate the boxes appropriately  ---- //
 	currentRound = basics.Round(3)
 
 	appBoxesToSet := map[string]string{
@@ -652,13 +689,13 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 	err = pr.Process(&rawBlock)
 	require.NoError(t, err)
 
-	test.CompareAppBoxesAgainstLedger(t, ld, currentRound, expectedAppBoxes)
+	compareAppBoxesAgainstLedger(t, ld, currentRound, expectedAppBoxes)
 
 	// block header handoff: round 3 --> round 4
 	blockHdr, err = l.BlockHdr(currentRound)
 	require.NoError(t, err)
 
-	/**** ROUND 4: delete the unhappy boxes ****/
+	// ---- ROUND 4: delete the unhappy boxes  ---- //
 	currentRound = basics.Round(4)
 
 	appBoxesToDelete := []string{
@@ -688,13 +725,13 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 	for _, deletedBox := range appBoxesToDelete {
 		deletedBoxes[appid][deletedBox] = true
 	}
-	test.CompareAppBoxesAgainstLedger(t, ld, currentRound, expectedAppBoxes, deletedBoxes)
+	compareAppBoxesAgainstLedger(t, ld, currentRound, expectedAppBoxes, deletedBoxes)
 
 	// block header handoff: round 4 --> round 5
 	blockHdr, err = l.BlockHdr(currentRound)
 	require.NoError(t, err)
 
-	/**** ROUND 5: create 3 new boxes, overwriting one of the former boxes ****/
+	// ---- ROUND 5: create 3 new boxes, overwriting one of the former boxes  ---- //
 	currentRound = basics.Round(5)
 
 	appBoxesToCreate := []string{
@@ -719,13 +756,13 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 	err = pr.Process(&rawBlock)
 	require.NoError(t, err)
 
-	test.CompareAppBoxesAgainstLedger(t, ld, currentRound, expectedAppBoxes)
+	compareAppBoxesAgainstLedger(t, ld, currentRound, expectedAppBoxes)
 
 	// block header handoff: round 5 --> round 6
 	blockHdr, err = l.BlockHdr(currentRound)
 	require.NoError(t, err)
 
-	/**** ROUND 6: populate the 3 new boxes ****/
+	// ---- ROUND 6: populate the 3 new boxes  ---- //
 	currentRound = basics.Round(6)
 
 	appBoxesToSet = map[string]string{
@@ -749,7 +786,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 	err = pr.Process(&rawBlock)
 	require.NoError(t, err)
 
-	test.CompareAppBoxesAgainstLedger(t, ld, currentRound, expectedAppBoxes, deletedBoxes)
+	compareAppBoxesAgainstLedger(t, ld, currentRound, expectedAppBoxes, deletedBoxes)
 }
 
 func TestLedgerForEvaluatorAccountTotals(t *testing.T) {

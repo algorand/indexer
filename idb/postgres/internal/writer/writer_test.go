@@ -1565,6 +1565,102 @@ func TestWriterAddBlock0(t *testing.T) {
 		assert.Equal(t, expected, accounts)
 	}
 }
+func getNameAndAccountPointer(t *testing.T, value ledgercore.ValueDelta, fullKey string, accts map[basics.Address]*ledgercore.AccountData) (basics.Address, string, *ledgercore.AccountData) {
+	require.NotNil(t, value, "cannot handle a nil value for box stats modification")
+	appIdx, name, err := logic.SplitBoxKey(fullKey)
+	account := appIdx.Address()
+	require.NoError(t, err)
+	acctData, ok := accts[account]
+	if !ok {
+		acctData = &ledgercore.AccountData{
+			AccountBaseData: ledgercore.AccountBaseData{},
+		}
+		accts[account] = acctData
+	}
+	return account, name, acctData
+}
+
+func addBoxInfoToStats(t *testing.T, fullKey string, value ledgercore.ValueDelta,
+	accts map[basics.Address]*ledgercore.AccountData, boxTotals map[basics.Address]basics.AccountData) {
+	addr, name, acctData := getNameAndAccountPointer(t, value, fullKey, accts)
+
+	acctData.TotalBoxes++
+	acctData.TotalBoxBytes += uint64(len(name) + len(*value.Data))
+
+	boxTotals[addr] = basics.AccountData{
+		TotalBoxes:    acctData.TotalBoxes,
+		TotalBoxBytes: acctData.TotalBoxBytes,
+	}
+}
+
+func subtractBoxInfoToStats(t *testing.T, fullKey string, value ledgercore.ValueDelta,
+	accts map[basics.Address]*ledgercore.AccountData, boxTotals map[basics.Address]basics.AccountData) {
+	addr, name, acctData := getNameAndAccountPointer(t, value, fullKey, accts)
+
+	prevBoxBytes := uint64(len(name) + len(*value.Data))
+	require.GreaterOrEqual(t, acctData.TotalBoxes, uint64(0))
+	require.GreaterOrEqual(t, acctData.TotalBoxBytes, prevBoxBytes)
+
+	acctData.TotalBoxes--
+	acctData.TotalBoxBytes -= prevBoxBytes
+
+	boxTotals[addr] = basics.AccountData{
+		TotalBoxes:    acctData.TotalBoxes,
+		TotalBoxBytes: acctData.TotalBoxBytes,
+	}
+}
+
+// buildAccountDeltasFromKvsAndMods simulates keeping track of the evolution of the box statistics
+func buildAccountDeltasFromKvsAndMods(t *testing.T, kvOriginals, kvMods map[string]ledgercore.ValueDelta) (
+	ledgercore.StateDelta, map[string]ledgercore.ValueDelta, map[basics.Address]basics.AccountData) {
+	kvUpdated := map[string]ledgercore.ValueDelta{}
+	boxTotals := map[basics.Address]basics.AccountData{}
+	accts := map[basics.Address]*ledgercore.AccountData{}
+	/*
+		1. fill the accts and kvUpdated using kvOriginals
+		2. for each (fullKey, value) in kvMod:
+			* (A) if the key is not present in kvOriginals just add the info as in #1
+			* (B) else (fullKey present):
+			    * (i)  if the value is nil
+					==> remove the box info from the stats and kvUpdated with assertions
+				* (ii) else (value is NOT nil):
+					==> reset kvUpdated and assert that the box hasn't changed shapes
+	*/
+
+	/* 1. */
+	for fullKey, value := range kvOriginals {
+		addBoxInfoToStats(t, fullKey, value, accts, boxTotals)
+		kvUpdated[fullKey] = value
+	}
+
+	/* 2. */
+	for fullKey, value := range kvMods {
+		prevValue, ok := kvOriginals[fullKey]
+		if !ok {
+			/* 2A. */
+			addBoxInfoToStats(t, fullKey, value, accts, boxTotals)
+			kvUpdated[fullKey] = value
+			continue
+		}
+		/* 2B. */
+		if value.Data == nil {
+			/* 2Bi. */
+			subtractBoxInfoToStats(t, fullKey, prevValue, accts, boxTotals)
+			delete(kvUpdated, fullKey)
+			continue
+		}
+		/* 2Bii. */
+		require.Equal(t, len(*prevValue.Data), len(*value.Data))
+		require.Contains(t, kvUpdated, fullKey)
+		kvUpdated[fullKey] = value
+	}
+
+	var delta ledgercore.StateDelta
+	for acct, acctData := range accts {
+		delta.Accts.Upsert(acct, *acctData)
+	}
+	return delta, kvUpdated, boxTotals
+}
 
 // Simulate a scenario where app boxes are created, mutated and deleted in consecutive rounds.
 func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
@@ -1598,7 +1694,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	appID := basics.AppIndex(3)
 	notPresent := "NOT PRESENT"
 
-	/*** FIRST ROUND - create 5 boxes ***/
+	// ---- ROUND 1: create 5 boxes  ---- //
 	n1, v1 := "box1", "inserted"
 	n2, v2 := "box2", "inserted"
 	n3, v3 := "box3", "inserted"
@@ -1618,7 +1714,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	delta.KvMods[k4] = ledgercore.ValueDelta{Data: &v4}
 	delta.KvMods[k5] = ledgercore.ValueDelta{Data: &v5}
 
-	delta2, newKvMods, accts := test.BuildAccountDeltasFromKvsAndMods(t, map[string]ledgercore.ValueDelta{}, delta.KvMods)
+	delta2, newKvMods, accts := buildAccountDeltasFromKvsAndMods(t, map[string]ledgercore.ValueDelta{}, delta.KvMods)
 	delta.Accts = delta2.Accts
 
 	err := pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
@@ -1667,7 +1763,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 
 	validateTotals()
 
-	/*** SECOND ROUND - mutate 2, delete 3, mutate 4, delete 5, create 6 ***/
+	// ---- ROUND 2: mutate 2, delete 3, mutate 4, delete 5, create 6  ---- //
 	v2 = "mutated"
 	// v3 is "deleted"
 	v4 = "mutated"
@@ -1683,7 +1779,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	delta.KvMods[k5] = ledgercore.ValueDelta{Data: nil}
 	delta.KvMods[k6] = ledgercore.ValueDelta{Data: &v6}
 
-	delta2, newKvMods, accts = test.BuildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
+	delta2, newKvMods, accts = buildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
 	delta.Accts = delta2.Accts
 
 	err = pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
@@ -1694,11 +1790,11 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	validateRow(n3, notPresent)
 	validateRow(n4, v4) // new v4
 	validateRow(n5, notPresent)
-	validateRow(n6, v6) // inserted
+	validateRow(n6, v6)
 
 	validateTotals()
 
-	/*** THIRD ROUND  - delete 4, insert 5 ***/
+	// ---- ROUND 3: delete 4, insert 5  ---- //
 
 	// v4 is "deleted"
 	v5 = "re-inserted"
@@ -1707,7 +1803,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	delta.KvMods[k4] = ledgercore.ValueDelta{Data: nil}
 	delta.KvMods[k5] = ledgercore.ValueDelta{Data: &v5}
 
-	delta2, newKvMods, accts = test.BuildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
+	delta2, newKvMods, accts = buildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
 	delta.Accts = delta2.Accts
 
 	err = pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
@@ -1724,7 +1820,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 
 	/*** FOURTH ROUND  - NOOP ***/
 	delta.KvMods = map[string]ledgercore.ValueDelta{}
-	delta2, _, accts = test.BuildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
+	delta2, _, accts = buildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
 	delta.Accts = delta2.Accts
 
 	err = pgutil.TxWithRetry(db, serializable, addNewBlock, nil)

@@ -91,6 +91,12 @@ type Account struct {
 	// The count of all assets that have been opted in, equivalent to the count of AssetHolding objects held by this account.
 	TotalAssetsOptedIn uint64 `json:"total-assets-opted-in"`
 
+	// For app-accounts only. The total number of bytes allocated for the keys and values of boxes which belong to the associated application.
+	TotalBoxBytes uint64 `json:"total-box-bytes"`
+
+	// For app-accounts only. The total number of boxes which belong to the associated application.
+	TotalBoxes uint64 `json:"total-boxes"`
+
 	// The count of all apps (AppParams objects) created by this account.
 	TotalCreatedApps uint64 `json:"total-created-apps"`
 
@@ -412,6 +418,23 @@ type BlockUpgradeVote struct {
 
 	// \[upgradeprop\] Indicates a proposed upgrade.
 	UpgradePropose *string `json:"upgrade-propose,omitempty"`
+}
+
+// Box defines model for Box.
+type Box struct {
+
+	// \[name\] box name, base64 encoded
+	Name []byte `json:"name"`
+
+	// \[value\] box value, base64 encoded.
+	Value []byte `json:"value"`
+}
+
+// BoxDescriptor defines model for BoxDescriptor.
+type BoxDescriptor struct {
+
+	// Base64 encoded box name
+	Name []byte `json:"name"`
 }
 
 // EvalDelta defines model for EvalDelta.
@@ -1009,6 +1032,9 @@ type AuthAddr string
 // BeforeTime defines model for before-time.
 type BeforeTime time.Time
 
+// BoxName defines model for box-name.
+type BoxName string
+
 // CurrencyGreaterThan defines model for currency-greater-than.
 type CurrencyGreaterThan uint64
 
@@ -1175,6 +1201,20 @@ type AssetsResponse struct {
 
 // BlockResponse defines model for BlockResponse.
 type BlockResponse Block
+
+// BoxResponse defines model for BoxResponse.
+type BoxResponse Box
+
+// BoxesResponse defines model for BoxesResponse.
+type BoxesResponse struct {
+
+	// \[appidx\] application index.
+	ApplicationId uint64          `json:"application-id"`
+	Boxes         []BoxDescriptor `json:"boxes"`
+
+	// Base64 encoded final box name result. Used for pagination, when making another request provide this token with the next parameter and prepend with "b64:" if keeping the provided encoding.
+	NextToken *string `json:"next-token,omitempty"`
+}
 
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
@@ -1395,6 +1435,23 @@ type LookupApplicationByIDParams struct {
 
 	// Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.
 	IncludeAll *bool `json:"include-all,omitempty"`
+}
+
+// LookupApplicationBoxByIDAndNameParams defines parameters for LookupApplicationBoxByIDAndName.
+type LookupApplicationBoxByIDAndNameParams struct {
+
+	// A box name in goal-arg form 'encoding:value'. For ints, use the form 'int:1234'. For raw bytes, use the form 'b64:A=='. For printable strings, use the form 'str:hello'. For addresses, use the form 'addr:XYZ...'.
+	Name string `json:"name"`
+}
+
+// SearchForApplicationBoxesParams defines parameters for SearchForApplicationBoxes.
+type SearchForApplicationBoxesParams struct {
+
+	// Maximum number of results to return. There could be additional pages even if the limit is not reached.
+	Limit *uint64 `json:"limit,omitempty"`
+
+	// The next page of results. Use the next token provided by the previous results.
+	Next *string `json:"next,omitempty"`
 }
 
 // LookupApplicationLogsByIDParams defines parameters for LookupApplicationLogsByID.
