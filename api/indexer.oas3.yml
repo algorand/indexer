@@ -1192,6 +1192,9 @@
             "description": "\\[gen\\] ID to which this block belongs.",
             "type": "string"
           },
+          "participation-updates": {
+            "$ref": "#/components/schemas/ParticipationUpdates"
+          },
           "previous-block-hash": {
             "description": "\\[prev\\] Previous block hash.",
             "format": "byte",
@@ -1581,6 +1584,19 @@
           "delete"
         ],
         "type": "string"
+      },
+      "ParticipationUpdates": {
+        "description": "Participation account data that needs to be checked/acted on by the network.",
+        "properties": {
+          "expired-participation-accounts": {
+            "description": "\\[partupdrmv\\] a list of online accounts that needs to be converted to offline since their participation key expired.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
       },
       "StateDelta": {
         "description": "Application state delta.",

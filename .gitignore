@@ -1,6 +1,7 @@
 # Build artifacts
 cmd/algorand-indexer/algorand-indexer
 api/.3tmp.json
+api/generate
 tmp/
 
 # Binaries for programs and plugins
