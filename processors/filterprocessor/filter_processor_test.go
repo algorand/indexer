@@ -22,8 +22,7 @@ func TestCheckTagExistsAndHasCorrectFunction(t *testing.T) {
 	assert.Contains(t, err.Error(), "does not exist in transactions")
 
 	err = checkTagExistsAndHasCorrectFunction("const", "LoreumIpsum")
-	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), "does not exist in transactions")
+	assert.ErrorContains(t, err, "does not exist in transactions")
 
 	// Fee does not have a "String" Function so we cant use const with it.
 	err = checkTagExistsAndHasCorrectFunction("const", "SignedTxnWithAD.SignedTxn.Txn.Header.Fee")
