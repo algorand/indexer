@@ -1,19 +1,30 @@
+import logging
+
 from e2e_conduit.fixtures.plugin_fixture import PluginFixture
+
+logger = logging.getLogger(__name__)
 
 
 class BlockEvaluator(PluginFixture):
-    def __init__(self):
-        self.name = "block_evaluator"
+    def __init__(self, catchpoint=""):
+        self.catchpoint = catchpoint
         super().__init__()
 
-    def setup(
-        self, algod_data_dir, algod_token, algod_net, indexer_data_dir, catchpoint=""
-    ):
-        self.algod_data_dir = algod_data_dir
-        self.algod_token = algod_token
-        self.algod_net = algod_net
-        self.indexer_data_dir = indexer_data_dir
-        self.catchpoint = catchpoint
+    @property
+    def name(self):
+        return "block_evaluator"
+
+    def setup(self, accumulated_config):
+        try:
+            self.algod_data_dir = accumulated_config["algod_data_dir"]
+            self.algod_token = accumulated_config["algod_token"]
+            self.algod_net = accumulated_config["algod_net"]
+            self.indexer_data_dir = accumulated_config["conduit_dir"]
+        except KeyError as exc:
+            logger.error(
+                f"BlockEvaluator must be provided with the proper config values {exc}"
+            )
+            raise
 
     def resolve_config_input(self):
         self.config_input = {

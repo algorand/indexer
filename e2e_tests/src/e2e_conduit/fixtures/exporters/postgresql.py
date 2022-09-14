@@ -11,21 +11,24 @@ logger = logging.getLogger(__name__)
 
 
 class PostgresqlExporter(PluginFixture):
-    def __init__(self):
-        self.name = "postgresql"
+    def __init__(self, max_conn=0):
         self.user = "algorand"
         self.password = "algorand"
         self.db_name = "e2e_db"
         # Should we have a random port here so that we can run multiple of these in parallel?
         self.port = "45432"
         self.container_name = ""
+        self.max_conn = max_conn
         super().__init__()
 
-    def setup(self, max_conn=0):
+    @property
+    def name(self):
+        return "postgresql"
+
+    def setup(self, _):
         self.container_name = "".join(
             random.choice(string.ascii_lowercase) for i in range(10)
         )
-        self.max_conn = max_conn
         try:
             xrun(
                 [

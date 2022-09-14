@@ -3,8 +3,15 @@ class PluginFixture:
         self.config_input = {}
         self.config_output = {}
 
+    @property
+    def name(self):
+        raise NotImplemented
+
     def resolve_config_input(self):
-        pass
+        return self.config_input
 
     def resolve_config_output(self):
-        pass
+        return self.config_output
+
+    def setup(self, accumulated_config):
+        raise NotImplemented
