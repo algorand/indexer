@@ -1714,7 +1714,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	delta.KvMods[k4] = ledgercore.ValueDelta{Data: &v4}
 	delta.KvMods[k5] = ledgercore.ValueDelta{Data: &v5}
 
-	delta2, newKvMods, accts := test.BuildAccountDeltasFromKvsAndMods(t, map[string]ledgercore.ValueDelta{}, delta.KvMods)
+	delta2, newKvMods, accts := buildAccountDeltasFromKvsAndMods(t, map[string]ledgercore.ValueDelta{}, delta.KvMods)
 	delta.Accts = delta2.Accts
 
 	err := pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
@@ -1820,7 +1820,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 
 	/*** FOURTH ROUND  - NOOP ***/
 	delta.KvMods = map[string]ledgercore.ValueDelta{}
-	delta2, _, accts = test.BuildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
+	delta2, _, accts = buildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
 	delta.Accts = delta2.Accts
 
 	err = pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
