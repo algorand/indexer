@@ -21,9 +21,7 @@ func (f Searcher) Search(input transactions.SignedTxnInBlock) bool {
 
 	e := reflect.ValueOf(&input).Elem()
 
-	var field string
-
-	for _, field = range strings.Split(f.Tag, ".") {
+	for _, field := range strings.Split(f.Tag, ".") {
 		e = e.FieldByName(field)
 	}
 
