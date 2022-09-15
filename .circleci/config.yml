@@ -113,7 +113,7 @@ commands:
           command: |
             sudo apt update
             sudo apt -y install python3 python3-pip python3-setuptools python3-wheel libboost-math-dev libffi-dev
-            pip3 install misc/e2e_tests/
+            pip3 install e2e_tests/
 
       - run:
           name: sync submodules (go-algorand)
