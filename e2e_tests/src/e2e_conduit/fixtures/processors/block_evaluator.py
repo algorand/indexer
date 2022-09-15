@@ -8,6 +8,10 @@ logger = logging.getLogger(__name__)
 class BlockEvaluator(PluginFixture):
     def __init__(self, catchpoint=""):
         self.catchpoint = catchpoint
+        self.algod_data_dir = None
+        self.algod_token = None
+        self.algod_net = None
+        self.indexer_data_dir = None
         super().__init__()
 
     @property

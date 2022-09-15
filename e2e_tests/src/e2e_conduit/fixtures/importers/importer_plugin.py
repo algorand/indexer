@@ -7,4 +7,4 @@ class ImporterPlugin(PluginFixture):
 
     @property
     def lastblock(self):
-        raise NotImplemented
+        raise NotImplementedError
