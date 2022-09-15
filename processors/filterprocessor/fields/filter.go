@@ -7,15 +7,15 @@ import (
 	"github.com/algorand/indexer/data"
 )
 
-// Operation an operation like "some" or "all" for boolean logic
+// Operation an operation like "any" or "all" for boolean logic
 type Operation string
 
-const someFieldOperation Operation = "some"
+const anyFieldOperation Operation = "any"
 const allFieldOperation Operation = "all"
 
 // ValidFieldOperation returns true if the input is a valid operation
 func ValidFieldOperation(input string) bool {
-	if input != string(someFieldOperation) && input != string(allFieldOperation) {
+	if input != string(anyFieldOperation) && input != string(allFieldOperation) {
 		return false
 	}
 
@@ -33,7 +33,7 @@ func (f Filter) SearchAndFilter(input data.BlockData) (data.BlockData, error) {
 
 	var newPayset []transactions.SignedTxnInBlock
 	switch f.Op {
-	case someFieldOperation:
+	case anyFieldOperation:
 		for _, txn := range input.Payset {
 			for _, fs := range f.Searchers {
 				if fs.Search(txn) {

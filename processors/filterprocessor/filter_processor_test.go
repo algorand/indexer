@@ -15,7 +15,7 @@ import (
 	"github.com/algorand/indexer/processors"
 )
 
-// TestFilterProcessor_Init_Multi tests initialization of the filter processor with the "all" and "some" filter types
+// TestFilterProcessor_Init_Multi tests initialization of the filter processor with the "all" and "any" filter types
 func TestFilterProcessor_Init_Multi(t *testing.T) {
 
 	sampleAddr1 := basics.Address{1}
@@ -24,9 +24,9 @@ func TestFilterProcessor_Init_Multi(t *testing.T) {
 
 	sampleCfgStr := `---
 filters:
-  - some: 
+  - any: 
     - tag: SignedTxnWithAD.SignedTxn.AuthAddr
-      expression-type: const
+      expression-type: exact
       expression: "` + sampleAddr1.String() + `"
     - tag: SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.AssetSender
       expression-type: regex
@@ -36,11 +36,11 @@ filters:
       expression-type: regex 
       expression: "` + sampleAddr2.String() + `"
     - tag: SignedTxnWithAD.SignedTxn.Txn.Header.Sender
-      expression-type: const
+      expression-type: exact
       expression: "` + sampleAddr2.String() + `"
-  - some: 
+  - any: 
     - tag: SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.AssetCloseTo
-      expression-type: const
+      expression-type: exact
       expression: "` + sampleAddr2.String() + `"
     - tag: SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.AssetReceiver
       expression-type: regex
@@ -142,7 +142,7 @@ filters:
       expression-type: regex 
       expression: "` + sampleAddr2.String() + `"
     - tag: SignedTxnWithAD.SignedTxn.Txn.Header.Sender
-      expression-type: const
+      expression-type: exact
       expression: "` + sampleAddr2.String() + `"
 `
 
@@ -201,7 +201,7 @@ filters:
 	assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.Header.Sender, sampleAddr2)
 }
 
-// TestFilterProcessor_Init_Some tests initialization of the filter processor with the "some" filter type
+// TestFilterProcessor_Init_Some tests initialization of the filter processor with the "any" filter type
 func TestFilterProcessor_Init(t *testing.T) {
 
 	sampleAddr1 := basics.Address{1}
@@ -210,12 +210,12 @@ func TestFilterProcessor_Init(t *testing.T) {
 
 	sampleCfgStr := `---
 filters:
-  - some:
+  - any:
     - tag: SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Receiver
       expression-type: regex 
       expression: "` + sampleAddr1.String() + `"
     - tag: SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Receiver
-      expression-type: const
+      expression-type: exact
       expression: "` + sampleAddr2.String() + `"
 `
 

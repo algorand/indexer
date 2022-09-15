@@ -9,17 +9,17 @@ import (
 type FilterType string
 
 const (
-	// ConstFilter a filter that looks at a constant string in its entirety
-	ConstFilter FilterType = "const"
+	// ExactFilter a filter that looks at a constant string in its entirety
+	ExactFilter FilterType = "exact"
 	// RegexFilter a filter that applies regex rules to the matching
 	RegexFilter FilterType = "regex"
 )
 
 // TypeToFunctionMap maps the expression-type with the needed function for the expression.
-// For instance the const or regex expression-type might need the String() function
-// Can't make this consts because there are no constant maps in go...
+// For instance the exact or regex expression-type might need the String() function
+// Can't make this const because there are no constant maps in go...
 var TypeToFunctionMap = map[FilterType]string{
-	ConstFilter: "String",
+	ExactFilter: "String",
 	RegexFilter: "String",
 }
 
@@ -39,7 +39,7 @@ func (e regexExpression) Search(input interface{}) bool {
 // MakeExpression creates an expression based on an expression type
 func MakeExpression(expressionType FilterType, expressionSearchStr string) (*Expression, error) {
 	switch expressionType {
-	case ConstFilter:
+	case ExactFilter:
 		{
 			r, err := regexp.Compile("^" + expressionSearchStr + "$")
 			if err != nil {
