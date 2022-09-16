@@ -2,6 +2,8 @@ package postgresql
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
@@ -10,7 +12,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"gopkg.in/yaml.v3"
-	"testing"
 
 	_ "github.com/algorand/indexer/idb/dummy"
 	"github.com/algorand/indexer/plugins"
@@ -102,4 +103,18 @@ func TestReceiveAddBlockSuccess(t *testing.T) {
 		Delta:       &ledgercore.StateDelta{},
 	}
 	assert.NoError(t, pgsqlExp.Receive(block))
+}
+
+func TestUnmarshalConfigsContainingDeleteTask(t *testing.T) {
+	pgsqlExp := postgresqlExporter{}
+	cfg := "test: true\ndelete-task:\n  rounds: 3000\n  interval: 1"
+	assert.NoError(t, pgsqlExp.unmarhshalConfig(cfg))
+	assert.Equal(t, 1, int(pgsqlExp.cfg.Delete.Interval))
+	assert.Equal(t, uint64(3000), pgsqlExp.cfg.Delete.Rounds)
+
+	pgsqlExp = postgresqlExporter{}
+	cfg = "test: true\ndelete-task:\n  interval: 3"
+	assert.NoError(t, pgsqlExp.unmarhshalConfig(cfg))
+	assert.Equal(t, 3, int(pgsqlExp.cfg.Delete.Interval))
+	assert.Equal(t, uint64(0), pgsqlExp.cfg.Delete.Rounds)
 }
