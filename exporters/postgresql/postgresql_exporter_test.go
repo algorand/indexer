@@ -106,15 +106,28 @@ func TestReceiveAddBlockSuccess(t *testing.T) {
 }
 
 func TestUnmarshalConfigsContainingDeleteTask(t *testing.T) {
+	// configured delete task
 	pgsqlExp := postgresqlExporter{}
-	cfg := "test: true\ndelete-task:\n  rounds: 3000\n  interval: 1"
+	cfg := "test: true\ndelete-task:\n  rounds: 3000\n  interval: daily"
 	assert.NoError(t, pgsqlExp.unmarhshalConfig(cfg))
-	assert.Equal(t, 1, int(pgsqlExp.cfg.Delete.Interval))
+	assert.Equal(t, "daily", string(pgsqlExp.cfg.Delete.Interval))
 	assert.Equal(t, uint64(3000), pgsqlExp.cfg.Delete.Rounds)
 
+	// delete task with default rounds
 	pgsqlExp = postgresqlExporter{}
-	cfg = "test: true\ndelete-task:\n  interval: 3"
+	cfg = "test: true\ndelete-task:\n  interval: once"
 	assert.NoError(t, pgsqlExp.unmarhshalConfig(cfg))
-	assert.Equal(t, 3, int(pgsqlExp.cfg.Delete.Interval))
+	assert.Equal(t, "once", string(pgsqlExp.cfg.Delete.Interval))
 	assert.Equal(t, uint64(0), pgsqlExp.cfg.Delete.Rounds)
+
+	// delete task with default interval
+	pgsqlExp = postgresqlExporter{}
+	cfg = "test: true\ndelete-task:\n  rounds: 3000\n"
+	assert.NoError(t, pgsqlExp.unmarhshalConfig(cfg))
+	assert.Equal(t, "", string(pgsqlExp.cfg.Delete.Interval))
+
+	// delete task with negative round
+	pgsqlExp = postgresqlExporter{}
+	cfg = "test: true\ndelete-task:\n  rounds: -1\n  interval: once"
+	assert.ErrorContains(t, pgsqlExp.unmarhshalConfig(cfg), "unmarshal errors")
 }

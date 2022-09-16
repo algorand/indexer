@@ -1,16 +1,18 @@
 package util
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/plugins"
 	"github.com/sirupsen/logrus"
 )
 
-type Interval int
+type Interval string
 
 const (
-	once Interval = iota
-	daily
+	once  Interval = "once"
+	daily Interval = "daily"
 )
 
 // PruneConfigurations a data type
@@ -23,18 +25,30 @@ type DataManager interface {
 	Delete(<-chan uint64)
 }
 
-type postgresDB struct {
-	configs *PruneConfigurations
-	db      idb.IndexerDb
-	logger  *logrus.Logger
+type Postgressql struct {
+	Config *PruneConfigurations
+	DB     idb.IndexerDb
+	Logger *logrus.Logger
 }
 
-func MakeDataManager(pc *plugins.PluginConfig, logger *logrus.Logger) DataManager {
-	db := postgresDB{
-		configs: nil,
-		db:      nil,
-		logger:  nil,
+func MakeDataManager(cfg *PruneConfigurations, dbname string, dataconnection string, logger *logrus.Logger) (DataManager, error) {
+	datasource := strings.Split(dataconnection, ":")[0]
+	if datasource == "postgres" {
+		conn, ready, err := idb.IndexerDbByName(dbname, dataconnection, idb.IndexerDbOptions{ReadOnly: false}, logger)
+		if err != nil {
+			return nil, err
+		}
+		<-ready
+		dm := Postgressql{
+			Config: cfg,
+			DB:     conn,
+			Logger: logger,
+		}
+		return dm, nil
+	} else {
+		return nil, fmt.Errorf("data source %s is not supported", datasource)
 	}
-	return db
 }
-func (p postgresDB) Delete(rnd <-chan uint64) {}
+func (p Postgressql) Delete(rnd <-chan uint64) {
+	fmt.Println("TO BE IMPLEMENTED")
+}
