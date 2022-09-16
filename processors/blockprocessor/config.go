@@ -1,7 +1,7 @@
-package processors
+package blockprocessor
 
-// BlockProcessorConfig configuration for a block processor
-type BlockProcessorConfig struct {
+// Config configuration for a block processor
+type Config struct {
 	// Catchpoint to initialize the local ledger to
 	Catchpoint string `yaml:"catchpoint"`
 

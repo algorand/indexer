@@ -13,7 +13,6 @@ import (
 	"github.com/algorand/go-algorand/rpcs"
 
 	"github.com/algorand/indexer/fetcher"
-	"github.com/algorand/indexer/processors"
 	"github.com/algorand/indexer/processors/blockprocessor/internal"
 )
 
@@ -21,7 +20,7 @@ import (
 // IndexerDbOpts.
 // nextRound - next round to process after initializing.
 // catchpoint - if provided, attempt to use fast catchup.
-func InitializeLedger(ctx context.Context, logger *log.Logger, nextDbRound uint64, genesis bookkeeping.Genesis, config *processors.BlockProcessorConfig) error {
+func InitializeLedger(ctx context.Context, logger *log.Logger, nextDbRound uint64, genesis bookkeeping.Genesis, config *Config) error {
 	if nextDbRound > 0 {
 		if config.Catchpoint != "" {
 			round, _, err := ledgercore.ParseCatchpointLabel(config.Catchpoint)
@@ -59,7 +58,7 @@ func InitializeLedgerFastCatchup(ctx context.Context, logger *log.Logger, catchp
 
 // InitializeLedgerSimple initializes a ledger with the block processor by
 // sending it one block at a time and letting it update the ledger as usual.
-func InitializeLedgerSimple(ctx context.Context, logger *log.Logger, round uint64, genesis *bookkeeping.Genesis, config *processors.BlockProcessorConfig) error {
+func InitializeLedgerSimple(ctx context.Context, logger *log.Logger, round uint64, genesis *bookkeeping.Genesis, config *Config) error {
 	ctx, cf := context.WithCancel(ctx)
 	defer cf()
 	var bot fetcher.Fetcher
@@ -138,7 +137,7 @@ func handleBlock(logger *log.Logger, block *rpcs.EncodedBlockCert, procHandler f
 	return nil
 }
 
-func getFetcher(logger *log.Logger, config *processors.BlockProcessorConfig) (fetcher.Fetcher, error) {
+func getFetcher(logger *log.Logger, config *Config) (fetcher.Fetcher, error) {
 	var err error
 	var bot fetcher.Fetcher
 	if config.AlgodDataDir != "" {

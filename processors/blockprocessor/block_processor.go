@@ -74,7 +74,7 @@ func (proc *blockProcessor) Init(ctx context.Context, initProvider data.InitProv
 	proc.logger = logger
 
 	// First get the configuration from the string
-	var pCfg processors.BlockProcessorConfig
+	var pCfg Config
 	err := yaml.Unmarshal([]byte(cfg), &pCfg)
 	if err != nil {
 		return fmt.Errorf("blockprocessor init error: %w", err)
@@ -184,7 +184,7 @@ func MakeBlockProcessorWithLedger(logger *log.Logger, l *ledger.Ledger, handler 
 }
 
 // MakeBlockProcessorWithLedgerInit creates a block processor and initializes the ledger.
-func MakeBlockProcessorWithLedgerInit(ctx context.Context, logger *log.Logger, nextDbRound uint64, genesis *bookkeeping.Genesis, config processors.BlockProcessorConfig, handler func(block *ledgercore.ValidatedBlock) error) (BlockProcessor, error) {
+func MakeBlockProcessorWithLedgerInit(ctx context.Context, logger *log.Logger, nextDbRound uint64, genesis *bookkeeping.Genesis, config Config, handler func(block *ledgercore.ValidatedBlock) error) (BlockProcessor, error) {
 	err := InitializeLedger(ctx, logger, nextDbRound, *genesis, &config)
 	if err != nil {
 		return nil, fmt.Errorf("MakeBlockProcessorWithLedgerInit() err: %w", err)
