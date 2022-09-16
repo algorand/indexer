@@ -7,7 +7,7 @@ class PluginFixture:
     def name(self):
         raise NotImplementedError
 
-    def resolve_config():
+    def resolve_config(self):
         self.resolve_config_input()
         self.resolve_config_output()
 
