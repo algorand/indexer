@@ -459,5 +459,5 @@ func TestRandomWriteReadBoxes(t *testing.T) {
 	addAppBoxesBlock(t, db, delta)
 	compareAppBoxesAgainstDB(t, db, appBoxes, deletedBoxes, false)
 
-	fmt.Printf("TestWriteReadBoxes total time: %s\n", time.Since(start))
+	fmt.Printf("TestRandomWriteReadBoxes total time: %s\n", time.Since(start))
 }
