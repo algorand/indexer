@@ -380,9 +380,9 @@ type ApplicationBoxQuery struct {
 	ApplicationID uint64
 	BoxName       []byte
 	OmitValues    bool
-	Ascending     *bool
 	Limit         uint64
 	PrevFinalBox  []byte
+	// Ascending  *bool - Currently, ORDER BY is hard coded to ASC
 }
 
 // ApplicationBoxRow provides a response wrapping box information.

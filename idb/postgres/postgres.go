@@ -2320,15 +2320,13 @@ LEFT OUTER JOIN app_box ab ON ab.app = a.app`, columns)
 		query += " AND name = $2"
 		whereArgs = append(whereArgs, queryOpts.BoxName)
 	} else if queryOpts.PrevFinalBox != nil {
+		// when enabling ORDER BY DESC, will need to filter by "name < $2":
 		query += " AND name > $2"
 		whereArgs = append(whereArgs, queryOpts.PrevFinalBox)
 	}
 
-	orderKind := "ASC"
-	if queryOpts.Ascending != nil && !*queryOpts.Ascending {
-		orderKind = "DESC"
-	}
-	query += fmt.Sprintf(" ORDER BY ab.name %s", orderKind)
+	// To enable ORDER BY DESC, consider re-introducing and exposing queryOpts.Ascending
+	query += " ORDER BY ab.name ASC"
 
 	if queryOpts.Limit != 0 {
 		query += fmt.Sprintf(" LIMIT %d", queryOpts.Limit)
