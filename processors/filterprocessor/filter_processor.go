@@ -66,7 +66,7 @@ func (a *FilterProcessor) Init(ctx context.Context, _ data.InitProvider, cfg plu
 	for _, configMaps := range pCfg.Filters {
 
 		// We only want one key in the map (i.e. either "any" or "all").  The reason we use a list is that want
-		// to maintain ordering of the filters and a straight up map doesn't do that.
+		// to maintain ordering of the filters and a straight-up map doesn't do that.
 		if len(configMaps) != 1 {
 			return fmt.Errorf("filter processor Init(): illegal filter tag formation.  tag length was: %d", len(configMaps))
 		}
@@ -88,7 +88,7 @@ func (a *FilterProcessor) Init(ctx context.Context, _ data.InitProvider, cfg plu
 
 				searcher, err := fields.MakeFieldSearcher(exp, subConfig.ExpressionType, subConfig.FilterTag)
 				if err != nil {
-					return fmt.Errorf("filter processor Init(): %w", err)
+					return fmt.Errorf("filter processor Init(): error making field searcher - %w", err)
 				}
 
 				searcherList = append(searcherList, searcher)

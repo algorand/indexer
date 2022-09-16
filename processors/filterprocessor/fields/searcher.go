@@ -16,9 +16,10 @@ type Searcher struct {
 	MethodToCall string
 }
 
-// Search returns true if block contains the expression
-func (f Searcher) Search(input transactions.SignedTxnInBlock) bool {
-
+// This function is ONLY to be used by the filter.field function.
+// The reason being is that without validation of the tag (which is provided by
+// MakeFieldSearcher) then this can panic
+func (f Searcher) search(input transactions.SignedTxnInBlock) bool {
 	e := reflect.ValueOf(&input).Elem()
 
 	for _, field := range strings.Split(f.Tag, ".") {
@@ -38,6 +39,10 @@ func (f Searcher) Search(input transactions.SignedTxnInBlock) bool {
 func checkTagExistsAndHasCorrectFunction(expressionType expression.FilterType, tag string) (outError error) {
 	var field string
 	defer func() {
+		// This defer'd function is a belt and suspenders type thing.  We check every reflected
+		// evaluation's IsValid() function to make sure not to operate on a zero value.  Therfore we can't
+		// actually reach inside the if conditional unless we intentionally panic.
+		// However, having this function gives additional safety to a critical function
 		if r := recover(); r != nil {
 			outError = fmt.Errorf("error occured regarding tag %s. last searched field was: %s - %v", tag, field, r)
 		}

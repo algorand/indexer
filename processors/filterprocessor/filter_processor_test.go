@@ -15,6 +15,66 @@ import (
 	"github.com/algorand/indexer/processors"
 )
 
+// TestFilterProcessor_VariousErrorPathsOnInit tests the various error paths in the filter processor init function
+func TestFilterProcessor_VariousErrorPathsOnInit(t *testing.T) {
+	tests := []struct {
+		name             string
+		sampleCfgStr     string
+		errorContainsStr string
+	}{
+
+		{"MakeExpressionError", `---
+filters:
+ - any:
+   - tag: DoesNot.ExistIn.Struct
+     expression-type: exact
+     expression: "sample"
+`, "error making field searcher"},
+
+		{"MakeExpressionError", `---
+filters:
+ - any:
+   - tag: SignedTxnWithAD.SignedTxn.AuthAddr
+     expression-type: wrong-expression-type
+     expression: "sample"
+`, "could not make expression with string"},
+
+		{"CorrectFilterType", `---
+filters:
+  - wrong-filter-type: 
+    - tag: SignedTxnWithAD.SignedTxn.AuthAddr
+      expression-type: exact
+      expression: "sample"
+
+`, "filter key was not a valid value"},
+
+		{"FilterTagFormation", `---
+filters:
+  - any: 
+    - tag: SignedTxnWithAD.SignedTxn.AuthAddr
+      expression-type: exact
+      expression: "sample"
+    all:
+    - tag: SignedTxnWithAD.SignedTxn.AuthAddr
+      expression-type: exact
+      expression: "sample"
+
+
+`, "illegal filter tag formation"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+
+			fpBuilder, err := processors.ProcessorBuilderByName(implementationName)
+			assert.NoError(t, err)
+
+			fp := fpBuilder.New()
+			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(test.sampleCfgStr), logrus.New())
+			assert.ErrorContains(t, err, test.errorContainsStr)
+		})
+	}
+}
+
 // TestFilterProcessor_Init_Multi tests initialization of the filter processor with the "all" and "any" filter types
 func TestFilterProcessor_Init_Multi(t *testing.T) {
 

@@ -36,7 +36,7 @@ func (f Filter) SearchAndFilter(input data.BlockData) (data.BlockData, error) {
 	case anyFieldOperation:
 		for _, txn := range input.Payset {
 			for _, fs := range f.Searchers {
-				if fs.Search(txn) {
+				if fs.search(txn) {
 					newPayset = append(newPayset, txn)
 					break
 				}
@@ -49,7 +49,7 @@ func (f Filter) SearchAndFilter(input data.BlockData) (data.BlockData, error) {
 
 			allTrue := true
 			for _, fs := range f.Searchers {
-				if !fs.Search(txn) {
+				if !fs.search(txn) {
 					allTrue = false
 					break
 				}
