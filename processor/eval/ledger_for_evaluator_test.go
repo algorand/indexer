@@ -604,7 +604,6 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createTxn, &payNewAppTxn)
 	require.NoError(t, err)
-	assert.Nil(t, err)
 
 	rawBlock := rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
 	err = pr.Process(&rawBlock)
