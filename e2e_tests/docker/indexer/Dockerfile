@@ -19,7 +19,6 @@ RUN make install
 WORKDIR /opt/go/indexer
 RUN make
 ENV PATH="${HOME}/go/bin/:${PATH}"
-COPY ./e2e_tests ./e2e_tests
 WORKDIR ./e2e_tests
 RUN pip3 install ./
 

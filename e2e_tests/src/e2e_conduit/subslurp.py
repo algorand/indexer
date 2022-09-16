@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 class subslurp:
-    # accumulate stdout or stderr from a subprocess and hold it for debugging if something goes wrong
+    """accumulate stdout or stderr from a subprocess and hold it for debugging if something goes wrong"""
     def __init__(self, f):
         self.f = f
         self.buf = io.BytesIO()

@@ -93,5 +93,5 @@ class AlgodImporter(ImporterPlugin):
                                 logger.error("   {}".format(line))
             raise
 
-        # atexitrun(["goal", "network", "stop", "-r", tempnet])
+        atexitrun(["goal", "network", "stop", "-r", tempnet])
         self.algoddir = os.path.join(tempnet, "Primary")

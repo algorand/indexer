@@ -7,11 +7,15 @@ class PluginFixture:
     def name(self):
         raise NotImplementedError
 
+    def resolve_config():
+        self.resolve_config_input()
+        self.resolve_config_output()
+
     def resolve_config_input(self):
-        return self.config_input
+        pass
 
     def resolve_config_output(self):
-        return self.config_output
+        pass
 
     def setup(self, accumulated_config):
         raise NotImplementedError

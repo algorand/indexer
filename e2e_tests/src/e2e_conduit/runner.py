@@ -27,7 +27,7 @@ class ConduitE2ETestRunner:
         if not self.keep_temps:
             atexit.register(shutil.rmtree, scenario.conduit_dir, onerror=logger.error)
         else:
-            logger.info("leaving temp dir %r", scenario.conduit_dir)
+            logger.info(f"leaving temp dir {scenario.conduit_dir}")
 
         scenario.accumulated_config = {
             "conduit_dir": scenario.conduit_dir,
@@ -35,8 +35,7 @@ class ConduitE2ETestRunner:
 
         for plugin in [scenario.importer, *scenario.processors, scenario.exporter]:
             plugin.setup(scenario.accumulated_config)
-            plugin.resolve_config_input()
-            plugin.resolve_config_output()
+            plugin.resolve_config()
             scenario.accumulated_config = (
                 scenario.accumulated_config | plugin.config_output
             )
