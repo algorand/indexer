@@ -73,7 +73,11 @@ integration: cmd/algorand-indexer/algorand-indexer
 	test/postgres_integration_test.sh
 
 e2e: cmd/algorand-indexer/algorand-indexer
-	cd misc && docker-compose build --build-arg GO_IMAGE=${GO_IMAGE} && docker-compose up --exit-code-from e2e
+	cd e2e_tests/docker/indexer/ && docker-compose build --build-arg GO_IMAGE=${GO_IMAGE} && docker-compose up --exit-code-from e2e
+
+e2e-conduit: conduit
+	cd third_party/go-algorand && make install
+	export PATH=$(PATH):$(shell go env GOPATH)/bin; pip3 install e2e_tests/ && e2econduit --s3-source-net rel-nightly --conduit-bin cmd/conduit/conduit
 
 deploy:
 	mule/deploy.sh

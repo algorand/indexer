@@ -10,7 +10,6 @@ import logging
 import os
 import random
 import shutil
-import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -18,7 +17,15 @@ import threading
 import time
 import urllib.request
 
-from util import xrun, atexitrun, find_indexer, ensure_test_db, firstFromS3Prefix
+from e2e_common.util import (
+    xrun,
+    atexitrun,
+    find_binary,
+    ensure_test_db,
+    firstFromS3Prefix,
+    hassuffix,
+    countblocks,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +65,7 @@ def main():
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO)
-    indexer_bin = find_indexer(args.indexer_bin)
+    indexer_bin = find_binary(args.indexer_bin)
     sourcenet = args.source_net
     source_is_tar = False
     if not sourcenet:
@@ -74,7 +81,9 @@ def main():
     if not (source_is_tar or (sourcenet and os.path.isdir(sourcenet))):
         tarname = args.s3_source_net
         if not tarname:
-            raise Exception("Must provide either local or s3 network to run test against")
+            raise Exception(
+                "Must provide either local or s3 network to run test against"
+            )
         tarname = f"{tarname}.tar.bz2"
 
         # fetch test data from S3
@@ -82,6 +91,7 @@ def main():
         import boto3
         from botocore.config import Config
         from botocore import UNSIGNED
+
         s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
         if "/" in tarname:
             tarname = tarname.split("/")[1]
@@ -164,8 +174,7 @@ def main():
         logger.info("reached expected round={}".format(lastblock))
         xrun(
             [
-                "python3",
-                "misc/validate_accounting.py",
+                "validate-accounting",
                 "--verbose",
                 "--algod",
                 algoddir,
@@ -184,23 +193,6 @@ def main():
     sys.stdout.write("indexer e2etest OK ({:.1f}s)\n".format(dt))
 
     return 0
-
-
-def hassuffix(x, *suffixes):
-    for s in suffixes:
-        if x.endswith(s):
-            return True
-    return False
-
-
-def countblocks(path):
-    db = sqlite3.connect(path)
-    cursor = db.cursor()
-    cursor.execute("SELECT max(rnd) FROM blocks")
-    row = cursor.fetchone()
-    cursor.close()
-    db.close()
-    return row[0]
 
 
 def tryhealthurl(healthurl, verbose=False, waitforround=200):

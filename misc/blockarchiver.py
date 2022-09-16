@@ -17,7 +17,7 @@ import time
 
 import algosdk
 
-from util import maybedecode, mloads, unmsgpack
+from e2e_common.util import maybedecode, mloads, unmsgpack
 
 logger = logging.getLogger(__name__)
 
