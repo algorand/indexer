@@ -1,7 +1,7 @@
 {
   "file": "boxes.json",
   "owner": "TestBoxes",
-  "lastModified": "2022-09-08 21:02:40.534512 -0500 CDT m=+3.770931351",
+  "lastModified": "2022-09-16 15:03:49.717073 -0500 CDT m=+8.213632969",
   "frozen": true,
   "cases": [
     {
@@ -888,7 +888,7 @@
       },
       "response": {
         "statusCode": 400,
-        "body": "{\"message\":\"SearchForApplication received illegal next token (Ym94ICM4): all arguments and box names should be of the form 'encoding:value'\"}\n"
+        "body": "{\"message\":\"SearchForApplicationBoxes received illegal next token (Ym94ICM4): all arguments and box names should be of the form 'encoding:value'\"}\n"
       },
       "witness": null,
       "witnessError": "400 error"
@@ -983,7 +983,7 @@
       },
       "response": {
         "statusCode": 400,
-        "body": "{\"message\":\"SearchForApplication received illegal next token (): all arguments and box names should be of the form 'encoding:value'\"}\n"
+        "body": "{\"message\":\"SearchForApplicationBoxes received illegal next token (): all arguments and box names should be of the form 'encoding:value'\"}\n"
       },
       "witness": null,
       "witnessError": "400 error"
