@@ -641,7 +641,7 @@ func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, appl
 		encodedBoxName := *params.Next
 		boxNameBytes, err := logic.NewAppCallBytes(encodedBoxName)
 		if err != nil {
-			return badRequest(ctx, fmt.Sprintf("SearchForApplication received illegal next token (%s): %s", encodedBoxName, err.Error()))
+			return badRequest(ctx, fmt.Sprintf("SearchForApplicationBoxes received illegal next token (%s): %s", encodedBoxName, err.Error()))
 		}
 		prevBox, err := boxNameBytes.Raw()
 		if err != nil {
