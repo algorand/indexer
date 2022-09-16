@@ -2296,7 +2296,7 @@ func (db *IndexerDb) yieldApplicationsThread(rows pgx.Rows, out chan idb.Applica
 // WITH apps AS (SELECT index AS app FROM app WHERE index = $1)
 // SELECT a.app, ab.name, ab.value
 // FROM apps a
-// LEFT OUTER JOIN app_box ab ON ab.app = a.app AND name [= or >] $2 ORDER BY ab.name [ASC or DESC] LIMIT {queryOpts.Limit}
+// LEFT OUTER JOIN app_box ab ON ab.app = a.app AND name [= or >] $2 ORDER BY ab.name ASC LIMIT {queryOpts.Limit}
 //
 // where the binary operator in the last line is `=` for the box lookup and `>` for boxes search
 // with query substitutions:
