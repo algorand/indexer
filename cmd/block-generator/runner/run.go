@@ -441,7 +441,7 @@ func startIndexer(dataDir string, logfile string, loglevel string, indexerBinary
 
 	// Ensure that the health endpoint can be queried.
 	// The service should start very quickly because the DB is empty.
-	time.Sleep(5 * time.Second)
+	time.Sleep(10 * time.Second)
 	resp, err := http.Get(fmt.Sprintf("http://%s/health", indexerNet))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "stdout:\n%s\n", stdout.String())
