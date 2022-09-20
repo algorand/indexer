@@ -3,12 +3,14 @@ package conduit
 import (
 	"context"
 	"fmt"
+	"github.com/algorand/indexer/util/metrics"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"os"
 	"path/filepath"
 	"runtime/pprof"
 	"sync"
+	"time"
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand/data/basics"
@@ -274,6 +276,19 @@ func (p *pipelineImpl) Stop() {
 	}
 }
 
+func (p *pipelineImpl) addMetrics(block data.BlockData, importTime time.Duration) {
+	metrics.BlockImportTimeSeconds.Observe(importTime.Seconds())
+	metrics.ImportedTxnsPerBlock.Observe(float64(len(block.Payset)))
+	metrics.ImportedRoundGauge.Set(float64(block.Round()))
+	txnCountByType := make(map[string]int)
+	for _, txn := range block.Payset {
+		txnCountByType[string(txn.Txn.Type)]++
+	}
+	for k, v := range txnCountByType {
+		metrics.ImportedTxns.WithLabelValues(k).Set(float64(v))
+	}
+}
+
 // Start pushes block data through the pipeline
 func (p *pipelineImpl) Start() {
 	p.wg.Add(1)
@@ -294,6 +309,9 @@ func (p *pipelineImpl) Start() {
 						p.setError(err)
 						goto pipelineRun
 					}
+					// Start time currently measures operations after block fetching is complete.
+					// This is for backwards compatibility w/ Indexer's metrics
+					start := time.Now()
 					// run through processors
 					for _, proc := range p.processors {
 						blkData, err = (*proc).Process(blkData)
@@ -318,6 +336,11 @@ func (p *pipelineImpl) Start() {
 							p.setError(err)
 							goto pipelineRun
 						}
+					}
+					importTime := time.Since(start)
+					// Ignore round 0 (which is empty).
+					if p.round > 0 {
+						p.addMetrics(blkData, importTime)
 					}
 					// Increment Round
 					p.setError(nil)

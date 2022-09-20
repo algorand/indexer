@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/indexer/util/metrics"
 	"net/url"
+	"time"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
 	"github.com/algorand/go-algorand/protocol"
@@ -120,7 +122,10 @@ func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 				"r=%d error getting status %d", retries, rnd)
 			continue
 		}
+		start := time.Now()
 		blockbytes, err = algodImp.aclient.BlockRaw(rnd).Do(algodImp.ctx)
+		dt := time.Since(start)
+		metrics.GetAlgodRawBlockTimeSeconds.Observe(dt.Seconds())
 		if err != nil {
 			return blk, err
 		}
