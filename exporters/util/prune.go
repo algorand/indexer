@@ -11,31 +11,35 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type Interval string
+type Frequency string
 
 const (
-	once    Interval = "once"
-	daily   Interval = "daily"
-	timeout          = 5 * time.Second
+	once    Frequency = "once"
+	daily   Frequency = "daily"
+	timeout uint64    = 15
+	day               = 24 * time.Hour
 )
 
 // PruneConfigurations a data type
 type PruneConfigurations struct {
-	Interval Interval `yaml:"interval"`
-	Rounds   uint64   `yaml:"rounds"`
+	Frequency Frequency `yaml:"frequency"`
+	Rounds    uint64    `yaml:"rounds"`
+	Timeout   uint64    `yaml:"timeout"`
 }
 
 type DataManager interface {
 	Delete()
+	Closed() bool
 }
 
 type Postgressql struct {
 	Config *PruneConfigurations
 	DB     *pgxpool.Pool
 	Logger *logrus.Logger
+	Ctx    context.Context
 }
 
-func MakeDataManager(cfg *PruneConfigurations, dbname string, connection string, logger *logrus.Logger) (DataManager, error) {
+func MakeDataManager(ctx context.Context, cfg *PruneConfigurations, dbname string, connection string, logger *logrus.Logger) (DataManager, error) {
 	if dbname == "postgres" {
 		postgresConfig, err := pgxpool.ParseConfig(connection)
 		if err != nil {
@@ -45,10 +49,17 @@ func MakeDataManager(cfg *PruneConfigurations, dbname string, connection string,
 		if err != nil {
 			return nil, fmt.Errorf("connecting to postgres: %w", err)
 		}
+
+		sec := timeout
+		if cfg.Timeout > 0 {
+			sec = cfg.Timeout
+		}
+		c, _ := context.WithTimeout(ctx, time.Duration(sec)*time.Second)
 		dm := Postgressql{
 			Config: cfg,
 			DB:     db,
 			Logger: logger,
+			Ctx:    c,
 		}
 		return dm, nil
 	} else {
@@ -56,126 +67,122 @@ func MakeDataManager(cfg *PruneConfigurations, dbname string, connection string,
 	}
 }
 func (p Postgressql) Delete() {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
+	// close db connection
+	defer p.DB.Close()
 
 	// set up delete task
-	day := 24 * time.Hour
 	ticker := time.NewTicker(day)
-	run := make(chan bool)
+	exec := make(chan bool)
 	done := make(chan bool)
 
 	go func() {
 		for {
 			select {
-			case <-done:
-				ticker.Stop()
-				return
-			case <-run:
-				p.deleteTransactions(ctx)
-				ticker.Reset(day)
 			case <-ticker.C:
-				p.deleteTransactions(ctx)
+				exec <- true
+			case <-exec:
+				p.Logger.Info("start data pruning")
+				err := p.deleteTransactions(p.Ctx)
+				if err != nil {
+					p.Logger.Warnf("exec: data pruning err: %v", err)
+				}
+				ticker.Reset(day)
+				done <- true
 			}
 		}
 	}()
 
-	// run pruning job base on configured interval
-	if p.Config.Interval == once {
-		run <- true
-		done <- true
-	} else if p.Config.Interval == daily {
-		// query last pruned date
-		var lastPruned time.Time
-		query := "SELECT last_pruned from metastate"
-		result, err := p.DB.Query(ctx, query)
-		if err != nil {
-			p.Logger.Warnf(" Delete(): %v", err)
-			return
-		}
-		err = result.Scan(lastPruned)
-		if err == nil {
-			currentTime := time.Now()
-			diff := currentTime.Sub(lastPruned)
-			if diff.Hours() < 24 {
-				// wait for next run
-				p.Logger.Infof("next data pruning in %v hours", diff.Hours())
-				time.Sleep(diff * time.Hour)
-			}
-		} else if err != nil && err != pgx.ErrNoRows {
-			p.Logger.Warnf("Delete(): %v", err)
+	// exec pruning job base on configured interval
+	if p.Config.Frequency == once {
+		exec <- true
+		<-done
+		ticker.Stop()
+		return
+	} else if p.Config.Frequency == daily {
+		// query last pruned time
+		var prunedms map[string]time.Time
+		query := "SELECT k from metastate WHERE k='pruned'"
+		err := p.DB.QueryRow(p.Ctx, query).Scan(&prunedms)
+		if err != nil && err != pgx.ErrNoRows {
+			p.Logger.Warnf(" Delete() metastate: %v", err)
 			return
 		}
 
 		// prune data
-		run <- true
-
+		exec <- true
+		<-p.Ctx.Done()
 	} else {
-		p.Logger.Warnf("%s pruning interval is not supported", p.Config.Interval)
+		p.Logger.Warnf("%s pruning interval is not supported", p.Config.Frequency)
 	}
-
 }
-
-func (p Postgressql) deleteTransactions(ctx context.Context) {
+func (p Postgressql) Closed() bool {
+	return p.DB.Stat().TotalConns() == 0
+}
+func (p Postgressql) deleteTransactions(ctx context.Context) error {
 	// get latest txn round
-	query := "SELECT round FROM txn ORDER BY round DESC LIMIT 1"
-	result, err := p.DB.Query(ctx, query)
-	if err != nil {
-		p.Logger.Warnf("Delete(): %v", err)
-		return
-	}
 	var latestRound uint64
-	err = result.Scan(&latestRound)
+	query := "SELECT round FROM txn ORDER BY round DESC LIMIT 1"
+	err := p.DB.QueryRow(ctx, query).Scan(&latestRound)
 	if err != nil {
-		p.Logger.Warnf("Delete(): %v", err)
-		return
+		fmt.Errorf("deleteTransactions: %v", err)
+		return err
 	}
+	p.Logger.Infof("last round in database %d", latestRound)
 	// latest round < desired number of rounds to keep
 	if latestRound < p.Config.Rounds {
 		// no data to remove
-		return
+		return nil
 	}
 	// oldest round to keep
-	keep := latestRound - p.Config.Rounds
+	keep := latestRound - p.Config.Rounds + 1
 
 	// atomic txn: delete old transactions and update metastate
-	deleteTxns := func() {
+	deleteTxns := func() error {
 		// start a transaction
-		tx, err := p.DB.BeginTx(ctx, pgx.TxOptions{})
-		if err != nil {
-			p.Logger.Warnf("delete transactions: %v", err)
-			return
+		tx, err2 := p.DB.BeginTx(ctx, pgx.TxOptions{})
+		if err2 != nil {
+			fmt.Errorf("delete transactions: %w", err)
+			return err2
 		}
 		defer tx.Rollback(ctx)
+
 		p.Logger.Infof("keeping round %d and later", keep)
+		// delete query
 		query = "DELETE FROM txn WHERE round < $1"
-		cmd, err := tx.Exec(ctx, query, keep)
+		cmd, err2 := tx.Exec(ctx, query, keep)
+		if err2 != nil {
+			fmt.Errorf("transaction delete err %w", err2)
+			return err2
+		}
 		t := time.Now()
-		if err != nil {
-			p.Logger.Warnf("transaction delete err %v", err)
-			return
-		} else {
-			// format time, "2006-01-02T15:04:05Z07:00"
-			ft := t.Format(time.RFC3339)
-			p.Logger.Infof("%d transactions deleted, last pruned at %s", cmd.RowsAffected(), ft)
-			// update last_pruned
-			metastate := fmt.Sprintf("{last_pruned: %s}", ft)
-			encoded, err := json.Marshal(metastate)
-			if err != nil {
-				p.Logger.Warnf("transaction delete err %v", err)
-				return
-			}
-			query = "INSERT INTO metastate (k,v) VALUES('prune',$1) ON CONFLICT(k) DO UPDATE SET v=EXCLUDED.v"
-			_, err = tx.Exec(ctx, query, string(encoded))
-			if err != nil {
-				p.Logger.Warnf("metastate update err %v", err)
-				return
-			}
+		// update last_pruned in metastate
+		// format time, "2006-01-02T15:04:05Z07:00"
+		ft := t.Format(time.RFC3339)
+		metastate := fmt.Sprintf("{last_pruned: %s}", ft)
+		encoded, err2 := json.Marshal(metastate)
+		if err2 != nil {
+			fmt.Errorf("transaction delete err %w", err2)
+			return err2
+		}
+		query = "INSERT INTO metastate (k,v) VALUES('prune',$1) ON CONFLICT(k) DO UPDATE SET v=EXCLUDED.v"
+		_, err2 = tx.Exec(ctx, query, string(encoded))
+		if err2 != nil {
+			fmt.Errorf("metastate update err %w", err2)
+			return err2
 		}
 		// Commit the transaction.
-		if err = tx.Commit(ctx); err != nil {
-			p.Logger.Warnf("delete transactions: %v", err)
+		if err = tx.Commit(ctx); err2 != nil {
+			fmt.Errorf("delete transactions: %w", err2)
+		}
+		p.Logger.Infof("%d transactions deleted, last pruned at %s", cmd.RowsAffected(), ft)
+		return nil
+	}
+	// retry
+	for i := 1; i < 3; i++ {
+		err = deleteTxns()
+		if err == nil {
+			return nil
 		}
 	}
-	deleteTxns()
+	return err
 }
