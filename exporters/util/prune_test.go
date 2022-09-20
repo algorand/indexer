@@ -84,7 +84,12 @@ func TestDelete(t *testing.T) {
 	assert.Equal(t, 10, rowsInTxnTable(db))
 	// check remaining rounds are correct
 	assert.True(t, validateTxnTable(db, 10, 20))
-
+	// todo: test rollback
+	// todo: test context closed.
+	// todo: test daily
+	// todo: test timeout
+	// todo: test round < p.Config.Rounds
+	// todo: test round == p.Config.Rounds
 	close(ch)
 }
 func makeMockedDataManager(db *pgxpool.Pool) util.DataManager {

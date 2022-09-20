@@ -14,8 +14,9 @@ import (
 type Interval string
 
 const (
-	once  Interval = "once"
-	daily Interval = "daily"
+	once    Interval = "once"
+	daily   Interval = "daily"
+	timeout          = 5 * time.Second
 )
 
 // PruneConfigurations a data type
@@ -25,7 +26,7 @@ type PruneConfigurations struct {
 }
 
 type DataManager interface {
-	Delete(context.Context, <-chan uint64)
+	Delete()
 }
 
 type Postgressql struct {
@@ -54,30 +55,90 @@ func MakeDataManager(cfg *PruneConfigurations, dbname string, connection string,
 		return nil, fmt.Errorf("data source %s is not supported", dbname)
 	}
 }
-func (p Postgressql) Delete(ctx context.Context, rnd <-chan uint64) {
-	select {
-	case round := <-rnd:
-		p.Logger.Infof("received exporter round %d", round)
-		p.deleteTransactions(round)
-	case <-ctx.Done():
-		p.Logger.Info("exporter closed")
-		p.DB.Close()
+func (p Postgressql) Delete() {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	// set up delete task
+	day := 24 * time.Hour
+	ticker := time.NewTicker(day)
+	run := make(chan bool)
+	done := make(chan bool)
+
+	go func() {
+		for {
+			select {
+			case <-done:
+				ticker.Stop()
+				return
+			case <-run:
+				p.deleteTransactions(ctx)
+				ticker.Reset(day)
+			case <-ticker.C:
+				p.deleteTransactions(ctx)
+			}
+		}
+	}()
+
+	// run pruning job base on configured interval
+	if p.Config.Interval == once {
+		run <- true
+		done <- true
+	} else if p.Config.Interval == daily {
+		// query last pruned date
+		var lastPruned time.Time
+		query := "SELECT last_pruned from metastate"
+		result, err := p.DB.Query(ctx, query)
+		if err != nil {
+			p.Logger.Warnf(" Delete(): %v", err)
+			return
+		}
+		err = result.Scan(lastPruned)
+		if err == nil {
+			currentTime := time.Now()
+			diff := currentTime.Sub(lastPruned)
+			if diff.Hours() < 24 {
+				// wait for next run
+				p.Logger.Infof("next data pruning in %v hours", diff.Hours())
+				time.Sleep(diff * time.Hour)
+			}
+		} else if err != nil && err != pgx.ErrNoRows {
+			p.Logger.Warnf("Delete(): %v", err)
+			return
+		}
+
+		// prune data
+		run <- true
+
+	} else {
+		p.Logger.Warnf("%s pruning interval is not supported", p.Config.Interval)
 	}
+
 }
 
-func (p Postgressql) deleteTransactions(round uint64) {
-	// current exporter round < desired number of rounds to keep
-	if round < p.Config.Rounds {
+func (p Postgressql) deleteTransactions(ctx context.Context) {
+	// get latest txn round
+	query := "SELECT round FROM txn ORDER BY round DESC LIMIT 1"
+	result, err := p.DB.Query(ctx, query)
+	if err != nil {
+		p.Logger.Warnf("Delete(): %v", err)
+		return
+	}
+	var latestRound uint64
+	err = result.Scan(&latestRound)
+	if err != nil {
+		p.Logger.Warnf("Delete(): %v", err)
+		return
+	}
+	// latest round < desired number of rounds to keep
+	if latestRound < p.Config.Rounds {
 		// no data to remove
 		return
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
 	// oldest round to keep
-	keep := round - p.Config.Rounds
+	keep := latestRound - p.Config.Rounds
 
-	// delete old txns and update metastate
+	// atomic txn: delete old transactions and update metastate
 	deleteTxns := func() {
 		// start a transaction
 		tx, err := p.DB.BeginTx(ctx, pgx.TxOptions{})
@@ -87,7 +148,7 @@ func (p Postgressql) deleteTransactions(round uint64) {
 		}
 		defer tx.Rollback(ctx)
 		p.Logger.Infof("keeping round %d and later", keep)
-		query := "DELETE FROM txn WHERE round < $1"
+		query = "DELETE FROM txn WHERE round < $1"
 		cmd, err := tx.Exec(ctx, query, keep)
 		t := time.Now()
 		if err != nil {
@@ -116,35 +177,5 @@ func (p Postgressql) deleteTransactions(round uint64) {
 			p.Logger.Warnf("delete transactions: %v", err)
 		}
 	}
-
-	if p.Config.Interval == once {
-		deleteTxns()
-	} else if p.Config.Interval == daily {
-		prune := false
-		var lastPruned time.Time
-		query := "SELECT last_pruned from metastate"
-		result, err := p.DB.Query(ctx, query)
-		if err != nil {
-			p.Logger.Warnf("err %v", err)
-		}
-		err = result.Scan(lastPruned)
-		if err == pgx.ErrNoRows {
-			// first prune
-			prune = true
-		} else if err != nil {
-			p.Logger.Warnf("err %v", err)
-		} else {
-			currentTime := time.Now()
-			diff := currentTime.Sub(lastPruned)
-			if diff.Hours() >= 24 {
-				prune = true
-			}
-		}
-		if prune {
-			deleteTxns()
-		}
-	} else {
-		p.Logger.Warnf("%s pruning interval is not supported", p.Config.Interval)
-	}
-
+	deleteTxns()
 }

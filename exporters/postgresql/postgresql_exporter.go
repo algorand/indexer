@@ -1,7 +1,6 @@
 package postgresql
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/algorand/indexer/exporters/util"
@@ -23,12 +22,10 @@ import (
 const exporterName = "postgresql"
 
 type postgresqlExporter struct {
-	round          uint64
-	cfg            ExporterConfig
-	db             idb.IndexerDb
-	logger         *logrus.Logger
-	deleteDataChan chan uint64
-	ctx            context.Context
+	round  uint64
+	cfg    ExporterConfig
+	db     idb.IndexerDb
+	logger *logrus.Logger
 }
 
 var postgresqlExporterMetadata = exporters.ExporterMetadata{
@@ -73,7 +70,6 @@ func (exp *postgresqlExporter) Init(cfg plugins.PluginConfig, logger *logrus.Log
 	if rnd, err := exp.db.GetNextRoundToAccount(); err == nil {
 		exp.round = rnd
 	}
-	exp.ctx = context.Background()
 	// if data pruning is enabled
 	if !exp.cfg.Test && exp.cfg.Delete.Rounds > 0 {
 		dm, err := util.MakeDataManager(&exp.cfg.Delete, dbName, exp.cfg.ConnectionString, logger)
@@ -81,8 +77,7 @@ func (exp *postgresqlExporter) Init(cfg plugins.PluginConfig, logger *logrus.Log
 			logger.Warnf("cannot start data pruning %v", err)
 		} else {
 			logger.Info("exporter running with data pruning ON")
-			exp.deleteDataChan = make(chan uint64)
-			go dm.Delete(exp.ctx, exp.deleteDataChan)
+			go dm.Delete()
 		}
 	}
 	return err
@@ -94,13 +89,10 @@ func (exp *postgresqlExporter) Config() plugins.PluginConfig {
 }
 
 func (exp *postgresqlExporter) Close() error {
-	exp.ctx.Done()
 	if exp.db != nil {
 		exp.db.Close()
 	}
-	if exp.deleteDataChan != nil {
-		close(exp.deleteDataChan)
-	}
+
 	return nil
 }
 
@@ -127,9 +119,6 @@ func (exp *postgresqlExporter) Receive(exportData data.BlockData) error {
 		delta)
 	if err := exp.db.AddBlock(&vb); err != nil {
 		return err
-	}
-	if exp.deleteDataChan != nil {
-		exp.deleteDataChan <- exp.round
 	}
 	exp.round = exportData.Round() + 1
 	return nil
