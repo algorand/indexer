@@ -80,13 +80,8 @@ func (exp *postgresqlExporter) Init(cfg plugins.PluginConfig, logger *logrus.Log
 	// if data pruning is enabled
 	if !exp.cfg.Test && exp.cfg.Delete.Rounds > 0 {
 		exp.wg.Add(1)
-		exp.dm, err = util.MakeDataManager(exp.ctx, &exp.cfg.Delete, dbName, exp.cfg.ConnectionString, logger)
-		if err != nil {
-			logger.Warnf("cannot start data pruning %v", err)
-		} else {
-			logger.Info("exporter running with data pruning ON")
-			go exp.dm.Delete(&exp.wg)
-		}
+		exp.dm = util.MakeDataManager(exp.ctx, &exp.cfg.Delete, exp.db, logger)
+		go exp.dm.Delete(&exp.wg)
 	}
 	return err
 }

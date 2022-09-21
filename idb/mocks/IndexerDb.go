@@ -15,6 +15,8 @@ import (
 
 	testing "testing"
 
+	time "time"
+
 	transactions "github.com/algorand/go-algorand/data/transactions"
 )
 
@@ -132,6 +134,27 @@ func (_m *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 // Close provides a mock function with given fields:
 func (_m *IndexerDb) Close() {
 	_m.Called()
+}
+
+// DeleteTransactions provides a mock function with given fields: ctx, keep, timeout
+func (_m *IndexerDb) DeleteTransactions(ctx context.Context, keep uint64, timeout time.Duration) (int64, error) {
+	ret := _m.Called(ctx, keep, timeout)
+
+	var r0 int64
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, time.Duration) int64); ok {
+		r0 = rf(ctx, keep, timeout)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, uint64, time.Duration) error); ok {
+		r1 = rf(ctx, keep, timeout)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // GetAccounts provides a mock function with given fields: ctx, opts

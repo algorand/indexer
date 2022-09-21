@@ -7,6 +7,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -2494,4 +2495,73 @@ func (db *IndexerDb) SetNetworkState(genesis bookkeeping.Genesis) error {
 		GenesisHash: crypto.HashObj(genesis),
 	}
 	return db.setNetworkState(nil, &networkState)
+}
+
+// DeleteTransactions removes old transactions
+func (db *IndexerDb) DeleteTransactions(ctx context.Context, keep uint64, timeout time.Duration) (int64, error) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	// get max round in db
+	var maxround uint64
+	query := "SELECT round FROM txn ORDER BY round DESC LIMIT 1"
+	err := db.db.QueryRow(ctx, query).Scan(&maxround)
+	if err != nil {
+		return 0, fmt.Errorf("DeleteTransactions(): %v", err)
+	}
+	db.log.Infof("max round in database %d", maxround)
+	// max round < desired number of rounds to keep
+	if maxround < keep {
+		// no data to remove
+		return 0, nil
+	}
+
+	// oldest round to keep
+	oldestRound := maxround - keep + 1
+
+	// delete old transactions and update metastate
+	deleteTxns := func() (int64, error) {
+		// start a transaction
+		tx, err2 := db.db.BeginTx(ctx, pgx.TxOptions{})
+		if err2 != nil {
+			return 0, fmt.Errorf("deleteTxns(): %w", err2)
+		}
+		defer tx.Rollback(ctx)
+
+		db.log.Infof("deleteTxns(): keeping round %d and later", oldestRound)
+		// delete query
+		query = "DELETE FROM txn WHERE round < $1"
+		cmd, err2 := tx.Exec(ctx, query, oldestRound)
+		if err2 != nil {
+			return 0, fmt.Errorf("deleteTxns(): transaction delete err %w", err2)
+		}
+		t := time.Now()
+		// update last_pruned in metastate
+		// format time, "2006-01-02T15:04:05Z07:00"
+		ft := t.Format(time.RFC3339)
+		metastate := fmt.Sprintf("{last_pruned: %s}", ft)
+		encoded, err2 := json.Marshal(metastate)
+		if err2 != nil {
+			return 0, fmt.Errorf("deleteTxns(): transaction delete err %w", err2)
+		}
+		query = "INSERT INTO metastate (k,v) VALUES('prune',$1) ON CONFLICT(k) DO UPDATE SET v=EXCLUDED.v"
+		_, err2 = tx.Exec(ctx, query, string(encoded))
+		if err2 != nil {
+			return 0, fmt.Errorf("deleteTxns(): metastate update err %w", err2)
+		}
+		// commit the transaction.
+		if err = tx.Commit(ctx); err2 != nil {
+			return 0, fmt.Errorf("deleteTxns(): delete transactions: %w", err2)
+		}
+		db.log.Infof("%d transactions deleted, last pruned at %s", cmd.RowsAffected(), ft)
+		return cmd.RowsAffected(), nil
+	}
+	// retry
+	for i := 1; i <= 3; i++ {
+		rows, err := deleteTxns()
+		if err == nil {
+			return rows, nil
+		}
+		db.log.Infof("data pruning retry %d", i)
+	}
+	return 0, err
 }

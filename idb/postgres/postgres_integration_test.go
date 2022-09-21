@@ -2305,3 +2305,50 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 	assert.Equal(t, txnF, *row.Txn)
 
 }
+
+func TestDeleteTransactions(t *testing.T) {
+	block := test.MakeGenesisBlock()
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+	defer l.Close()
+
+	txnA := test.MakeCreateAppTxn(test.AccountA)
+	txnB := test.MakeCreateAppTxn(test.AccountB)
+	txnC := test.MakeCreateAppTxn(test.AccountC)
+	txnD := test.MakeCreateAppTxn(test.AccountD)
+
+	txns := []transactions.SignedTxnWithAD{txnA, txnB, txnC, txnD}
+
+	// add 4 rounds of txns
+	for i := 1; i < 5; i++ {
+		block, err := test.MakeBlockForTxns(block.BlockHeader, &txns[i-1])
+		block.BlockHeader.Round = basics.Round(i)
+		require.NoError(t, err)
+		err = proc(&rpcs.EncodedBlockCert{Block: block})
+		require.NoError(t, err)
+	}
+
+	// context timeout
+	rowsDeleted, err := db.DeleteTransactions(context.Background(), 10, 0*time.Second)
+	assert.Contains(t, err.Error(), "context deadline exceeded")
+	assert.Equal(t, int64(0), rowsDeleted)
+
+	// keep rounds > rounds in db
+	rowsDeleted, err = db.DeleteTransactions(context.Background(), 10, 5*time.Second)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(0), rowsDeleted)
+
+	rowsDeleted, err = db.DeleteTransactions(context.Background(), 1, 5*time.Second)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(3), rowsDeleted)
+
+	// query txns
+	rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
+
+	// check remaining transaction is correct
+	row, ok := <-rowsCh
+	require.True(t, ok)
+	require.NoError(t, row.Error)
+	require.NotNil(t, row.Txn)
+	assert.Equal(t, txnD, *row.Txn)
+}
