@@ -108,26 +108,28 @@ func TestReceiveAddBlockSuccess(t *testing.T) {
 func TestUnmarshalConfigsContainingDeleteTask(t *testing.T) {
 	// configured delete task
 	pgsqlExp := postgresqlExporter{}
-	cfg := "test: true\ndelete-task:\n  rounds: 3000\n  interval: daily"
+	cfg := "test: true\ndelete-task:\n  rounds: 3000\n  frequency: daily\n  timeout: 5"
 	assert.NoError(t, pgsqlExp.unmarhshalConfig(cfg))
-	assert.Equal(t, "daily", string(pgsqlExp.cfg.Delete.Interval))
+	assert.Equal(t, "daily", string(pgsqlExp.cfg.Delete.Frequency))
 	assert.Equal(t, uint64(3000), pgsqlExp.cfg.Delete.Rounds)
+	assert.Equal(t, uint64(5), pgsqlExp.cfg.Delete.Timeout)
 
-	// delete task with default rounds
+	// delete task with rounds and timeout default to 0
 	pgsqlExp = postgresqlExporter{}
-	cfg = "test: true\ndelete-task:\n  interval: once"
+	cfg = "test: true\ndelete-task:\n  frequency: once"
 	assert.NoError(t, pgsqlExp.unmarhshalConfig(cfg))
-	assert.Equal(t, "once", string(pgsqlExp.cfg.Delete.Interval))
+	assert.Equal(t, "once", string(pgsqlExp.cfg.Delete.Frequency))
 	assert.Equal(t, uint64(0), pgsqlExp.cfg.Delete.Rounds)
+	assert.Equal(t, uint64(0), pgsqlExp.cfg.Delete.Timeout)
 
-	// delete task with default interval
+	// delete task with default frequency
 	pgsqlExp = postgresqlExporter{}
 	cfg = "test: true\ndelete-task:\n  rounds: 3000\n"
 	assert.NoError(t, pgsqlExp.unmarhshalConfig(cfg))
-	assert.Equal(t, "", string(pgsqlExp.cfg.Delete.Interval))
+	assert.Equal(t, "", string(pgsqlExp.cfg.Delete.Frequency))
 
 	// delete task with negative round
 	pgsqlExp = postgresqlExporter{}
-	cfg = "test: true\ndelete-task:\n  rounds: -1\n  interval: once"
+	cfg = "test: true\ndelete-task:\n  rounds: -1\n  frequency: once"
 	assert.ErrorContains(t, pgsqlExp.unmarhshalConfig(cfg), "unmarshal errors")
 }

@@ -26,6 +26,7 @@ func init() {
 var config = PruneConfigurations{
 	Frequency: "once",
 	Rounds:    10,
+	Timeout:   10,
 }
 
 func TestMakeDataManager(t *testing.T) {
@@ -35,6 +36,9 @@ func TestMakeDataManager(t *testing.T) {
 	dm, err := MakeDataManager(context.Background(), &config, "postgres", connStr, logger)
 	assert.NoError(t, err)
 	assert.NotNil(t, dm)
+
+	_, err = MakeDataManager(context.Background(), &config, "mysql", connStr, logger)
+	assert.Contains(t, err.Error(), "data source mysql is not supported")
 }
 
 func TestDeleteEmptyTxnTable(t *testing.T) {
@@ -130,6 +134,19 @@ func TestDeleteConfigs(t *testing.T) {
 	assert.Equal(t, 3, rowsInTxnTable(db))
 	//	processor ended
 	assert.True(t, dm.Closed())
+
+	// unsupported frequency
+	config = PruneConfigurations{
+		Frequency: "hourly",
+		Rounds:    1,
+	}
+	dm, err = MakeDataManager(context.Background(), &config, "postgres", connStr, logger)
+	assert.NoError(t, err)
+	dm.Delete()
+	// wait
+	time.Sleep(1 * time.Second)
+	// delete didn't happen
+	assert.Equal(t, 3, rowsInTxnTable(db))
 }
 
 func TestDeleteDaily(t *testing.T) {
@@ -196,19 +213,21 @@ func TestDeleteRollback(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 10, rowsInTxnTable(db))
 
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+
 	config = PruneConfigurations{
 		Frequency: "once",
 		Rounds:    5,
 	}
-	postgres := Postgressql{
-		Config: &config,
-		DB:     db,
-		Logger: logger,
+	postgres := postgressql{
+		config: &config,
+		db:     db,
+		logger: logger,
+		ctx:    ctx,
+		cf:     cancel,
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	err = postgres.deleteTransactions(ctx)
+	err = postgres.deleteTransactions()
 	// delete didn't happen
 	assert.Equal(t, 10, rowsInTxnTable(db))
 	// metastate update failed
@@ -231,20 +250,21 @@ func TestDeleteTimeout(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 10, rowsInTxnTable(db))
 
+	ctx, cancel := context.WithTimeout(context.Background(), 0)
+
 	config = PruneConfigurations{
 		Frequency: "once",
 		Rounds:    5,
-		Timeout:   0,
 	}
-	postgres := Postgressql{
-		Config: &config,
-		DB:     db,
-		Logger: logger,
+	postgres := postgressql{
+		config: &config,
+		db:     db,
+		logger: logger,
+		ctx:    ctx,
+		cf:     cancel,
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 0)
-	defer cancel()
-	err = postgres.deleteTransactions(ctx)
+	err = postgres.deleteTransactions()
 	// delete didn't happen
 	assert.Equal(t, 10, rowsInTxnTable(db))
 	// context deadline exceeded
