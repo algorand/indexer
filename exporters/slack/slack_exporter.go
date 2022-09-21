@@ -65,7 +65,6 @@ func (exp *slackExporter) Receive(exportData data.BlockData) error {
 			exp.logger.Infof("Sending txn message to webhook: %v", webhook)
 			err := slack.PostWebhook(webhook, &slack.WebhookMessage{
 				Username: "Conduit Slackbot",
-				IconEmoji: 
 				Text: fmt.Sprintf(
 					"Transaction:\nSender: %v\nReceiver: %v\nAmount: %v\nNote: %v\n",
 					txn.Txn.AssetSender,
