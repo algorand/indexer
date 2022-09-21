@@ -2,7 +2,9 @@ package slack
 
 import (
 	"fmt"
+	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
 	"github.com/algorand/indexer/plugins"
@@ -60,19 +62,34 @@ func (exp *slackExporter) Close() error {
 // Receive is the main handler function for blocks
 func (exp *slackExporter) Receive(exportData data.BlockData) error {
 	for _, txn := range exportData.Payset {
-		exp.logger.Infof("got %v txns", len(exportData.Payset))
+		exp.logger.Infof(string(json.Encode(txn)))
+		exp.logger.Infof("received %v txns", len(exportData.Payset))
 		for _, webhook := range exp.cfg.Webhooks {
 			exp.logger.Infof("Sending txn message to webhook: %v", webhook)
-			err := slack.PostWebhook(webhook, &slack.WebhookMessage{
+			msg := slack.WebhookMessage{
 				Username: "Conduit Slackbot",
-				Text: fmt.Sprintf(
+			}
+			switch txn.Txn.Type {
+			case protocol.AssetTransferTx:
+				msg.Text = fmt.Sprintf(
 					"Transaction:\nSender: %v\nReceiver: %v\nAmount: %v\nNote: %v\n",
-					txn.Txn.AssetSender,
-					txn.Txn.AssetReceiver,
+					txn.Txn.AssetSender.String(),
+					txn.Txn.AssetReceiver.String(),
 					txn.Txn.AssetAmount,
 					string(txn.Txn.Note),
-				),
-			})
+				)
+			case protocol.PaymentTx:
+				msg.Text = fmt.Sprintf(
+					"Transaction:\nSender: %v\nReceiver: %v\nAmount: %v\nNote: %v\n",
+					txn.Txn.Sender.String(),
+					txn.Txn.Receiver.String(),
+					txn.Txn.Amount.Raw,
+					string(txn.Txn.Note),
+				)
+			default:
+				return fmt.Errorf("slack notifications are not defined for txn type %v", txn.Txn.Type)
+			}
+			err := slack.PostWebhook(webhook, &msg)
 			if err != nil {
 				exp.logger.Errorf("failed to send webhook message: %v", err)
 				return err
