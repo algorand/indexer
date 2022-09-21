@@ -118,7 +118,7 @@ func makeConduitCmd() *cobra.Command {
 		SilenceUsage: true,
 	}
 
-	cfg.Flags = cmd.PersistentFlags()
+	cfg.Flags = cmd.Flags()
 	cfg.Flags.StringVarP(&cfg.ConduitDataDir, "data-dir", "d", "", "set the data directory for the conduit binary")
 
 	return cmd
