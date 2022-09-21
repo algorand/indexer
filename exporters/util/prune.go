@@ -28,7 +28,7 @@ type PruneConfigurations struct {
 
 // DataManager is a data pruning interface
 type DataManager interface {
-	Delete(*sync.WaitGroup, chan error)
+	Delete(*sync.WaitGroup)
 }
 
 type postgresql struct {
@@ -37,6 +37,7 @@ type postgresql struct {
 	logger *logrus.Logger
 	ctx    context.Context
 	cf     context.CancelFunc
+	test   bool
 }
 
 // MakeDataManager initializes resources need for removing data from data source
@@ -53,7 +54,7 @@ func MakeDataManager(ctx context.Context, cfg *PruneConfigurations, db idb.Index
 }
 
 // Delete removes data from the txn table in Postgres DB
-func (p postgresql) Delete(wg *sync.WaitGroup, errChan chan error) {
+func (p postgresql) Delete(wg *sync.WaitGroup) {
 	defer wg.Done()
 	timeout := defaultTimeout
 	if p.config.Timeout > 0 {
@@ -65,7 +66,6 @@ func (p postgresql) Delete(wg *sync.WaitGroup, errChan chan error) {
 		_, err := p.db.DeleteTransactions(p.ctx, p.config.Rounds, time.Duration(timeout)*time.Second)
 		if err != nil {
 			p.logger.Warnf("exec: data pruning err: %v", err)
-			errChan <- err
 		}
 		return
 	} else if p.config.Frequency == daily {
@@ -86,8 +86,6 @@ func (p postgresql) Delete(wg *sync.WaitGroup, errChan chan error) {
 				_, err := p.db.DeleteTransactions(p.ctx, p.config.Rounds, time.Duration(timeout)*time.Second)
 				if err != nil {
 					p.logger.Warnf("exec: data pruning err: %v", err)
-					errChan <- err
-					return
 				}
 				ticker.Reset(day)
 			}

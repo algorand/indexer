@@ -2556,9 +2556,8 @@ func (db *IndexerDb) DeleteTransactions(ctx context.Context, keep uint64, timeou
 		return cmd.RowsAffected(), nil
 	}
 	// retry
-	var rows int64
 	for i := 1; i <= 3; i++ {
-		rows, err = deleteTxns()
+		rows, err := deleteTxns()
 		if err == nil {
 			return rows, nil
 		}
