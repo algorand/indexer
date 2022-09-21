@@ -43,6 +43,10 @@ type PipelineConfig struct {
 	PIDFilePath string `yaml:"PIDFilePath"`
 
 	PipelineLogLevel string `yaml:"LogLevel"`
+	// If provided, Conduit will attempt to start processing from the specified Round.
+	// If not provided, Conduit defers to the configured Exporter to supply the desired starting round.
+	// This variable is here for ser/de and not really as a source of truth for which round we're processing.
+	_ uint64 `yaml:"Round"`
 	// Store a local copy to access parent variables
 	Importer   NameConfigPair   `yaml:"Importer"`
 	Processors []NameConfigPair `yaml:"Processors"`
@@ -213,7 +217,14 @@ func (p *pipelineImpl) Init() error {
 	if err != nil {
 		return fmt.Errorf("Pipeline.Start(): could not initialize importer (%s): %w", importerName, err)
 	}
-	p.round = basics.Round((*p.exporter).Round())
+	// Which round should we start with? Priority:
+	if viper.IsSet("Round") {
+		// 1. conduit.yml top level config variable "Round" set to a valid round number.
+		p.round = basics.Round(viper.GetInt64("Round"))
+	} else {
+		// 2. If no top level config round is specified, use the exporter's round as the source of truth.
+		p.round = basics.Round((*p.exporter).Round())
+	}
 	err = (*p.exporter).HandleGenesis(*genesis)
 	if err != nil {
 		return fmt.Errorf("Pipeline.Start(): exporter could not handle genesis (%s): %w", exporterName, err)
