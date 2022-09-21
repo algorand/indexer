@@ -3,7 +3,6 @@ package util
 import (
 	"context"
 	"fmt"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -19,9 +18,10 @@ import (
 )
 
 var logger *logrus.Logger
+var hook *test.Hook
 
 func init() {
-	logger, _ = test.NewNullLogger()
+	logger, hook = test.NewNullLogger()
 }
 
 var config = PruneConfigurations{
@@ -181,7 +181,6 @@ func TestDeleteDaily(t *testing.T) {
 }
 
 func TestDeleteRollback(t *testing.T) {
-	logger.SetOutput(os.Stdout)
 	db, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
@@ -218,6 +217,7 @@ func TestDeleteRollback(t *testing.T) {
 	wg.Wait()
 	// delete didn't happen
 	assert.Equal(t, 10, rowsInTxnTable(db))
+	assert.Contains(t, hook.LastEntry().Message, "relation \"metastate\" does not exist")
 }
 
 func populateTxnTable(db *pgxpool.Pool, n int) error {
