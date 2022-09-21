@@ -236,7 +236,7 @@ func TestDeleteRollback(t *testing.T) {
 		Frequency: "once",
 		Rounds:    5,
 	}
-	postgres := postgressql{
+	postgres := postgresql{
 		config: &config,
 		db:     db,
 		logger: logger,
@@ -274,7 +274,7 @@ func TestDeleteTimeout(t *testing.T) {
 		Rounds:    5,
 		Timeout:   0,
 	}
-	postgres := postgressql{
+	postgres := postgresql{
 		config: &config,
 		db:     db,
 		logger: logger,

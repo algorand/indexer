@@ -35,7 +35,7 @@ type DataManager interface {
 	Closed() bool
 }
 
-type postgressql struct {
+type postgresql struct {
 	config *PruneConfigurations
 	db     *pgxpool.Pool
 	logger *logrus.Logger
@@ -57,7 +57,7 @@ func MakeDataManager(ctx context.Context, cfg *PruneConfigurations, dbname strin
 		}
 
 		c, cf := context.WithCancel(ctx)
-		dm := postgressql{
+		dm := postgresql{
 			config: cfg,
 			db:     db,
 			logger: logger,
@@ -70,7 +70,7 @@ func MakeDataManager(ctx context.Context, cfg *PruneConfigurations, dbname strin
 }
 
 // Delete removes data from the txn table in Postgres DB
-func (p postgressql) Delete(wg *sync.WaitGroup) {
+func (p postgresql) Delete(wg *sync.WaitGroup) {
 
 	// set up a 24-hour ticker
 	ticker := time.NewTicker(day)
@@ -127,11 +127,11 @@ func (p postgressql) Delete(wg *sync.WaitGroup) {
 }
 
 // Closed indicates whether the process has exited Delete() and closed DB connection.
-func (p postgressql) Closed() bool {
+func (p postgresql) Closed() bool {
 	return p.db.Stat().TotalConns() == 0
 }
 
-func (p postgressql) deleteTransactions() error {
+func (p postgresql) deleteTransactions() error {
 	sec := timeout
 	// allow any timeout value for testing
 	if p.test || p.config.Timeout > 0 {
