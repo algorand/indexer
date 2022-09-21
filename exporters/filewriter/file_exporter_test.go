@@ -50,8 +50,17 @@ func TestExporterInit(t *testing.T) {
 	err = fileExp.Init(plugins.PluginConfig(config), logger)
 	assert.NoError(t, err)
 	fileExp.Close()
-
+	// re-initializes empty file
+	path := "/tmp/blocks/metadata.json"
+	assert.NoError(t, os.Remove(path))
+	f, err := os.Create(path)
+	f.Close()
+	assert.NoError(t, err)
+	err = fileExp.Init(plugins.PluginConfig(config), logger)
+	assert.NoError(t, err)
+	fileExp.Close()
 }
+
 func TestExporterHandleGenesis(t *testing.T) {
 	fileExp := fileCons.New()
 	fileExp.Init(plugins.PluginConfig(config), logger)
