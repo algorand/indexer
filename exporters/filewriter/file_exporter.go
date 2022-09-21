@@ -10,8 +10,10 @@ import (
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
+	sdkJson "github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-codec/codec"
 
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
@@ -149,7 +151,8 @@ func (exp *fileExporter) Receive(exportData data.BlockData) error {
 		return fmt.Errorf("Receive(): error opening file %s: %w", blockFile, err)
 	}
 	defer file.Close()
-	err = json.NewEncoder(file).Encode(exportData)
+	enc := codec.NewEncoder(file, sdkJson.CodecHandle)
+	err = enc.Encode(exportData)
 	if err != nil {
 		return fmt.Errorf("Receive(): error encoding exportData: %w", err)
 	}
