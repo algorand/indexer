@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+// DefaultConfigName is the default conduit configuration filename.
 const DefaultConfigName = "conduit.yml"
 
 // Config configuration for conduit running.

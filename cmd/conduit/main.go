@@ -152,8 +152,7 @@ func runConduitInit(path string) error {
 		return fmt.Errorf("runConduitInit(): failed to write sample config: %w", err)
 	}
 
-	fmt.Printf("A data directory has been created\n")
-	fmt.Printf("%s\n", location)
+	fmt.Printf("A data directory has been created %s.\n", location)
 	fmt.Printf("\nBefore it can be used, the config file needs to be updated\n")
 	fmt.Printf("by setting the algod address/token and the block-dir path where\n")
 	fmt.Printf("Conduit should write the block files.\n")
