@@ -22,11 +22,11 @@ import (
 )
 
 var (
-	logger *log.Logger
+	logger               *log.Logger
+	conduitCmd           = makeConduitCmd()
+	initCmd              = makeInitCmd()
+	defaultDataDirectory = "data"
 )
-
-var conduitCmd = makeConduitCmd()
-var initCmd = makeInitCmd()
 
 // init() function for main package
 func init() {
@@ -130,7 +130,7 @@ var sampleConfig string
 func runConduitInit(path string) error {
 	var location string
 	if path == "" {
-		path = "data"
+		path = defaultDataDirectory
 		location = "in the current working directory"
 	} else {
 		location = fmt.Sprintf("at '%s'", path)
@@ -164,19 +164,19 @@ func runConduitInit(path string) error {
 
 // makeInitCmd creates a sample data directory.
 func makeInitCmd() *cobra.Command {
-	var path string
+	var data string
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "initializes a sample data directory",
 		Long:  "initializes a Conduit data directory and conduit.yml file configured with the file_writer plugin. The config file needs to be modified slightly to include an algod address and token. Once ready, launch conduit with './conduit -d /path/to/data'.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runConduitInit(path)
+			return runConduitInit(data)
 		},
 		SilenceUsage: true,
 	}
 
-	cmd.Flags().StringVar(&path, "path", "", "Full path to new data directory. If not set, a directory named 'data' will be created in the current directory.")
+	cmd.Flags().StringVarP(&data, "data", "d", "", "Full path to new data directory. If not set, a directory named 'data' will be created in the current directory.")
 
 	return cmd
 }
