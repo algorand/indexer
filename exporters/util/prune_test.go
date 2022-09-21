@@ -48,7 +48,7 @@ func TestDeleteEmptyTxnTable(t *testing.T) {
 	dm := MakeDataManager(context.Background(), &config, idb, logger)
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go dm.Delete(&wg)
+	go dm.Delete(&wg, nil)
 	wg.Wait()
 	assert.Equal(t, 0, rowsInTxnTable(db))
 }
@@ -71,7 +71,7 @@ func TestDeleteTxns(t *testing.T) {
 	dm := MakeDataManager(context.Background(), &config, idb, logger)
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go dm.Delete(&wg)
+	go dm.Delete(&wg, nil)
 	wg.Wait()
 	// 10 rounds removed
 	assert.Equal(t, 10, rowsInTxnTable(db))
@@ -102,7 +102,7 @@ func TestDeleteConfigs(t *testing.T) {
 	assert.NoError(t, err)
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go dm.Delete(&wg)
+	go dm.Delete(&wg, nil)
 	wg.Wait()
 	// delete didn't happen
 	assert.Equal(t, 3, rowsInTxnTable(db))
@@ -112,7 +112,7 @@ func TestDeleteConfigs(t *testing.T) {
 	dm = MakeDataManager(context.Background(), &config, idb, logger)
 	assert.NoError(t, err)
 	wg.Add(1)
-	go dm.Delete(&wg)
+	go dm.Delete(&wg, nil)
 	wg.Wait()
 	// delete didn't happen
 	assert.Equal(t, 3, rowsInTxnTable(db))
@@ -125,7 +125,7 @@ func TestDeleteConfigs(t *testing.T) {
 	dm = MakeDataManager(context.Background(), &config, idb, logger)
 	assert.NoError(t, err)
 	wg.Add(1)
-	go dm.Delete(&wg)
+	go dm.Delete(&wg, nil)
 	wg.Wait()
 	// delete didn't happen
 	assert.Equal(t, 3, rowsInTxnTable(db))
@@ -154,7 +154,7 @@ func TestDeleteDaily(t *testing.T) {
 	dm := MakeDataManager(ctx, &config, idb, logger)
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go dm.Delete(&wg)
+	go dm.Delete(&wg, nil)
 	go func() {
 		time.Sleep(1 * time.Second)
 		cancel()
@@ -171,7 +171,7 @@ func TestDeleteDaily(t *testing.T) {
 	ctx, cancel = context.WithCancel(context.Background())
 	dm = MakeDataManager(ctx, &config, idb, logger)
 	wg.Add(1)
-	go dm.Delete(&wg)
+	go dm.Delete(&wg, nil)
 	go func() {
 		time.Sleep(1 * time.Second)
 		cancel()
@@ -204,13 +204,14 @@ func TestDeleteRollback(t *testing.T) {
 	config = PruneConfigurations{
 		Frequency: "once",
 		Rounds:    5,
-		Timeout:   0,
 	}
 
+	errChan := make(chan error)
 	dm := MakeDataManager(ctx, &config, idb, logger)
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go dm.Delete(&wg)
+	go dm.Delete(&wg, errChan)
+	err = <-errChan
 	go func() {
 		time.Sleep(1 * time.Second)
 		cancel()
@@ -218,48 +219,8 @@ func TestDeleteRollback(t *testing.T) {
 	wg.Wait()
 	// delete didn't happen
 	assert.Equal(t, 10, rowsInTxnTable(db))
-	// metastate update failed
-	//assert.Contains(t, err.Error(), "\"metastate\" does not exist")
+	assert.Contains(t, err.Error(), "relation \"metastate\" does not exist")
 }
-
-//
-//func TestDeleteTimeout(t *testing.T) {
-//	logger.SetOutput(os.Stdout)
-//	db, connStr, shutdownFunc := pgtest.SetupPostgres(t)
-//	defer shutdownFunc()
-//
-//	// init the tables
-//	idb, _, err := postgres.OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
-//	assert.NoError(t, err)
-//	idb.Close()
-//
-//	// add 10 record to txn table
-//	err = populateTxnTable(db, 10)
-//	assert.NoError(t, err)
-//	assert.Equal(t, 10, rowsInTxnTable(db))
-//
-//	ctx, cancel := context.WithCancel(context.Background())
-//
-//	config = PruneConfigurations{
-//		Frequency: "once",
-//		Rounds:    5,
-//		Timeout:   0,
-//	}
-//	postgres := postgresql{
-//		config: &config,
-//		db:     db,
-//		logger: logger,
-//		ctx:    ctx,
-//		cf:     cancel,
-//		test:   true,
-//	}
-//
-//	err = postgres.deleteTransactions()
-//	// delete didn't happen
-//	assert.Equal(t, 10, rowsInTxnTable(db))
-//	// context deadline exceeded
-//	assert.Contains(t, err.Error(), "context deadline exceeded")
-//}
 
 func populateTxnTable(db *pgxpool.Pool, n int) error {
 	batch := &pgx.Batch{}
