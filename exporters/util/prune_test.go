@@ -218,48 +218,7 @@ func TestDeleteRollback(t *testing.T) {
 	wg.Wait()
 	// delete didn't happen
 	assert.Equal(t, 10, rowsInTxnTable(db))
-	// metastate update failed
-	//assert.Contains(t, err.Error(), "\"metastate\" does not exist")
 }
-
-//
-//func TestDeleteTimeout(t *testing.T) {
-//	logger.SetOutput(os.Stdout)
-//	db, connStr, shutdownFunc := pgtest.SetupPostgres(t)
-//	defer shutdownFunc()
-//
-//	// init the tables
-//	idb, _, err := postgres.OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
-//	assert.NoError(t, err)
-//	idb.Close()
-//
-//	// add 10 record to txn table
-//	err = populateTxnTable(db, 10)
-//	assert.NoError(t, err)
-//	assert.Equal(t, 10, rowsInTxnTable(db))
-//
-//	ctx, cancel := context.WithCancel(context.Background())
-//
-//	config = PruneConfigurations{
-//		Frequency: "once",
-//		Rounds:    5,
-//		Timeout:   0,
-//	}
-//	postgres := postgresql{
-//		config: &config,
-//		db:     db,
-//		logger: logger,
-//		ctx:    ctx,
-//		cf:     cancel,
-//		test:   true,
-//	}
-//
-//	err = postgres.deleteTransactions()
-//	// delete didn't happen
-//	assert.Equal(t, 10, rowsInTxnTable(db))
-//	// context deadline exceeded
-//	assert.Contains(t, err.Error(), "context deadline exceeded")
-//}
 
 func populateTxnTable(db *pgxpool.Pool, n int) error {
 	batch := &pgx.Batch{}

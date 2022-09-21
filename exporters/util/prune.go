@@ -65,7 +65,7 @@ func (p postgresql) Delete(wg *sync.WaitGroup) {
 	if p.config.Frequency == once {
 		_, err := p.db.DeleteTransactions(p.ctx, p.config.Rounds, time.Duration(timeout)*time.Second)
 		if err != nil {
-			p.logger.Warnf("exec: data pruning err: %v", err)
+			p.logger.Warnf("Delete(): data pruning err: %v", err)
 		}
 		return
 	} else if p.config.Frequency == daily {
