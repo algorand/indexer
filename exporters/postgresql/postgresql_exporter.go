@@ -3,6 +3,7 @@ package postgresql
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/algorand/indexer/exporters/util"
 	"github.com/sirupsen/logrus"
@@ -27,6 +28,7 @@ type postgresqlExporter struct {
 	cfg    ExporterConfig
 	db     idb.IndexerDb
 	logger *logrus.Logger
+	wg     sync.WaitGroup
 	ctx    context.Context
 	cf     context.CancelFunc
 	dm     util.DataManager
@@ -74,15 +76,16 @@ func (exp *postgresqlExporter) Init(cfg plugins.PluginConfig, logger *logrus.Log
 	if rnd, err := exp.db.GetNextRoundToAccount(); err == nil {
 		exp.round = rnd
 	}
-	// if data pruning is enabled
 	exp.ctx, exp.cf = context.WithCancel(context.Background())
+	// if data pruning is enabled
 	if !exp.cfg.Test && exp.cfg.Delete.Rounds > 0 {
+		exp.wg.Add(1)
 		exp.dm, err = util.MakeDataManager(exp.ctx, &exp.cfg.Delete, dbName, exp.cfg.ConnectionString, logger)
 		if err != nil {
 			logger.Warnf("cannot start data pruning %v", err)
 		} else {
 			logger.Info("exporter running with data pruning ON")
-			go exp.dm.Delete()
+			go exp.dm.Delete(&exp.wg)
 		}
 	}
 	return err
@@ -98,6 +101,7 @@ func (exp *postgresqlExporter) Close() error {
 		exp.db.Close()
 	}
 	exp.cf()
+	exp.wg.Wait()
 	return nil
 }
 

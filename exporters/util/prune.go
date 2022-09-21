@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v4"
@@ -30,7 +31,7 @@ type PruneConfigurations struct {
 
 // DataManager is a data pruning interface
 type DataManager interface {
-	Delete()
+	Delete(*sync.WaitGroup)
 	Closed() bool
 }
 
@@ -40,6 +41,7 @@ type postgressql struct {
 	logger *logrus.Logger
 	ctx    context.Context
 	cf     context.CancelFunc
+	test   bool
 }
 
 // MakeDataManager initializes resources need for removing data from data source
@@ -54,11 +56,7 @@ func MakeDataManager(ctx context.Context, cfg *PruneConfigurations, dbname strin
 			return nil, fmt.Errorf("connecting to postgres: %w", err)
 		}
 
-		sec := timeout
-		if cfg.Timeout > 0 {
-			sec = cfg.Timeout
-		}
-		c, cf := context.WithTimeout(ctx, time.Duration(sec)*time.Second)
+		c, cf := context.WithCancel(ctx)
 		dm := postgressql{
 			config: cfg,
 			db:     db,
@@ -72,17 +70,22 @@ func MakeDataManager(ctx context.Context, cfg *PruneConfigurations, dbname strin
 }
 
 // Delete removes data from the txn table in Postgres DB
-func (p postgressql) Delete() {
-	// close db connection
-	defer p.db.Close()
-	defer p.cf()
+func (p postgressql) Delete(wg *sync.WaitGroup) {
 
-	// set up delete task
+	// set up a 24-hour ticker
 	ticker := time.NewTicker(day)
-	defer ticker.Stop()
+
+	// close resources
+	defer func() {
+		ticker.Stop()
+		p.db.Close()
+		wg.Done()
+	}()
+
 	exec := make(chan bool)
 	done := make(chan bool)
 
+	// execute delete
 	go func() {
 		for {
 			select {
@@ -129,10 +132,19 @@ func (p postgressql) Closed() bool {
 }
 
 func (p postgressql) deleteTransactions() error {
+	sec := timeout
+	// allow any timeout value for testing
+	if p.test || p.config.Timeout > 0 {
+		sec = p.config.Timeout
+	}
+
+	ctx, cancel := context.WithTimeout(p.ctx, time.Duration(sec)*time.Second)
+	defer cancel()
+
 	// get latest txn round
 	var latestRound uint64
 	query := "SELECT round FROM txn ORDER BY round DESC LIMIT 1"
-	err := p.db.QueryRow(p.ctx, query).Scan(&latestRound)
+	err := p.db.QueryRow(ctx, query).Scan(&latestRound)
 	if err != nil {
 		return fmt.Errorf("deleteTransactions: %v", err)
 	}
@@ -142,22 +154,23 @@ func (p postgressql) deleteTransactions() error {
 		// no data to remove
 		return nil
 	}
+
 	// oldest round to keep
 	keep := latestRound - p.config.Rounds + 1
 
 	// atomic txn: delete old transactions and update metastate
 	deleteTxns := func() error {
 		// start a transaction
-		tx, err2 := p.db.BeginTx(p.ctx, pgx.TxOptions{})
+		tx, err2 := p.db.BeginTx(ctx, pgx.TxOptions{})
 		if err2 != nil {
 			return fmt.Errorf("delete transactions: %w", err2)
 		}
-		defer tx.Rollback(p.ctx)
+		defer tx.Rollback(ctx)
 
 		p.logger.Infof("keeping round %d and later", keep)
 		// delete query
 		query = "DELETE FROM txn WHERE round < $1"
-		cmd, err2 := tx.Exec(p.ctx, query, keep)
+		cmd, err2 := tx.Exec(ctx, query, keep)
 		if err2 != nil {
 			return fmt.Errorf("transaction delete err %w", err2)
 		}
@@ -171,12 +184,12 @@ func (p postgressql) deleteTransactions() error {
 			return fmt.Errorf("transaction delete err %w", err2)
 		}
 		query = "INSERT INTO metastate (k,v) VALUES('prune',$1) ON CONFLICT(k) DO UPDATE SET v=EXCLUDED.v"
-		_, err2 = tx.Exec(p.ctx, query, string(encoded))
+		_, err2 = tx.Exec(ctx, query, string(encoded))
 		if err2 != nil {
 			return fmt.Errorf("metastate update err %w", err2)
 		}
 		// Commit the transaction.
-		if err = tx.Commit(p.ctx); err2 != nil {
+		if err = tx.Commit(ctx); err2 != nil {
 			return fmt.Errorf("delete transactions: %w", err2)
 		}
 		p.logger.Infof("%d transactions deleted, last pruned at %s", cmd.RowsAffected(), ft)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -59,9 +60,10 @@ func TestDeleteEmptyTxnTable(t *testing.T) {
 	// data manager
 	dm, err := MakeDataManager(context.Background(), &config, "postgres", connStr, logger)
 	assert.NoError(t, err)
-	go dm.Delete()
-	// wait
-	time.Sleep(1 * time.Second)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go dm.Delete(&wg)
+	wg.Wait()
 	assert.Equal(t, 0, rowsInTxnTable(db))
 }
 
@@ -83,9 +85,10 @@ func TestDeleteTxns(t *testing.T) {
 	// data manager
 	dm, err := MakeDataManager(context.Background(), &config, "postgres", connStr, logger)
 	assert.NoError(t, err)
-	go dm.Delete()
-	// wait
-	time.Sleep(1 * time.Second)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go dm.Delete(&wg)
+	wg.Wait()
 	// 10 rounds removed
 	assert.Equal(t, 10, rowsInTxnTable(db))
 	// check remaining rounds are correct
@@ -117,9 +120,10 @@ func TestDeleteConfigs(t *testing.T) {
 	}
 	dm, err := MakeDataManager(context.Background(), &config, "postgres", connStr, logger)
 	assert.NoError(t, err)
-	go dm.Delete()
-	// wait
-	time.Sleep(1 * time.Second)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go dm.Delete(&wg)
+	wg.Wait()
 	// delete didn't happen
 	assert.Equal(t, 3, rowsInTxnTable(db))
 
@@ -127,9 +131,9 @@ func TestDeleteConfigs(t *testing.T) {
 	config.Rounds = 3
 	dm, err = MakeDataManager(context.Background(), &config, "postgres", connStr, logger)
 	assert.NoError(t, err)
-	go dm.Delete()
-	// wait
-	time.Sleep(1 * time.Second)
+	wg.Add(1)
+	go dm.Delete(&wg)
+	wg.Wait()
 	// delete didn't happen
 	assert.Equal(t, 3, rowsInTxnTable(db))
 	//	processor ended
@@ -142,9 +146,9 @@ func TestDeleteConfigs(t *testing.T) {
 	}
 	dm, err = MakeDataManager(context.Background(), &config, "postgres", connStr, logger)
 	assert.NoError(t, err)
-	dm.Delete()
-	// wait
-	time.Sleep(1 * time.Second)
+	wg.Add(1)
+	go dm.Delete(&wg)
+	wg.Wait()
 	// delete didn't happen
 	assert.Equal(t, 3, rowsInTxnTable(db))
 }
@@ -168,16 +172,23 @@ func TestDeleteDaily(t *testing.T) {
 		Frequency: "daily",
 		Rounds:    15,
 	}
-	ctx, cf := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 	dm, err := MakeDataManager(ctx, &config, "postgres", connStr, logger)
 	assert.NoError(t, err)
-	go dm.Delete()
-	time.Sleep(1 * time.Second)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go dm.Delete(&wg)
+	go func() {
+		time.Sleep(1 * time.Second)
+		wg.Done()
+	}()
+	wg.Wait()
 	assert.Equal(t, 15, rowsInTxnTable(db))
 	// database connection stays open
 	assert.False(t, dm.Closed())
 	// cancel
-	cf()
+	wg.Add(1)
+	cancel()
 	// database connection should be closed
 	time.Sleep(1 * time.Second)
 	assert.True(t, dm.Closed())
@@ -187,10 +198,16 @@ func TestDeleteDaily(t *testing.T) {
 		Frequency: "daily",
 		Rounds:    10,
 	}
-	dm, err = MakeDataManager(context.Background(), &config, "postgres", connStr, logger)
+	ctx, cancel = context.WithCancel(context.Background())
+	dm, err = MakeDataManager(ctx, &config, "postgres", connStr, logger)
 	assert.NoError(t, err)
-	go dm.Delete()
-	time.Sleep(1 * time.Second)
+	wg.Add(1)
+	go dm.Delete(&wg)
+	go func() {
+		time.Sleep(1 * time.Second)
+		cancel()
+	}()
+	wg.Wait()
 	assert.Equal(t, 10, rowsInTxnTable(db))
 }
 
@@ -213,7 +230,7 @@ func TestDeleteRollback(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 10, rowsInTxnTable(db))
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithCancel(context.Background())
 
 	config = PruneConfigurations{
 		Frequency: "once",
@@ -250,11 +267,12 @@ func TestDeleteTimeout(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 10, rowsInTxnTable(db))
 
-	ctx, cancel := context.WithTimeout(context.Background(), 0)
+	ctx, cancel := context.WithCancel(context.Background())
 
 	config = PruneConfigurations{
 		Frequency: "once",
 		Rounds:    5,
+		Timeout:   0,
 	}
 	postgres := postgressql{
 		config: &config,
@@ -262,6 +280,7 @@ func TestDeleteTimeout(t *testing.T) {
 		logger: logger,
 		ctx:    ctx,
 		cf:     cancel,
+		test:   true,
 	}
 
 	err = postgres.deleteTransactions()
