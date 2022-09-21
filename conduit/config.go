@@ -7,7 +7,10 @@ import (
 	"strings"
 )
 
-// Config configuration for conduit running
+const DefaultConfigName = "conduit.yml"
+
+// Config configuration for conduit running.
+// This is needed to support a CONDUIT_DATA_DIR environment variable.
 type Config struct {
 	Flags          *pflag.FlagSet
 	ConduitDataDir string `yaml:"data-dir"`
