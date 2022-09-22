@@ -2338,17 +2338,55 @@ func TestDeleteTransactions(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, int64(0), rowsDeleted)
 
-	rowsDeleted, err = db.DeleteTransactions(context.Background(), 1, 5*time.Second)
+	// keep 3 rounds
+	rowsDeleted, err = db.DeleteTransactions(context.Background(), 3, 5*time.Second)
 	assert.NoError(t, err)
-	assert.Equal(t, int64(3), rowsDeleted)
+	assert.Equal(t, int64(1), rowsDeleted)
 
 	// query txns
 	rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
 
 	// check remaining transaction is correct
-	row, ok := <-rowsCh
-	require.True(t, ok)
-	require.NoError(t, row.Error)
-	require.NotNil(t, row.Txn)
-	assert.Equal(t, txnD, *row.Txn)
+	i := 1
+	for row := range rowsCh {
+		require.NoError(t, row.Error)
+		require.NotNil(t, row.Txn)
+		assert.Equal(t, txns[i], *row.Txn)
+		i++
+	}
+
+	// verify metastate
+	deleteStatus, err := db.getMetastate(context.Background(), nil, schema.DeleteStatusKey)
+	assert.NoError(t, err)
+	status, err := encoding.DecodeDeleteStatus([]byte(deleteStatus))
+	assert.NoError(t, err)
+	assert.Equal(t, uint64(2), status.OldestRound)
+
+	// add 2 txns for round 5
+	block, err = test.MakeBlockForTxns(block.BlockHeader, &txnA, &txnB)
+	block.BlockHeader.Round = basics.Round(5)
+	require.NoError(t, err)
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
+
+	// keep 1 round
+	rowsDeleted, err = db.DeleteTransactions(context.Background(), 1, 5*time.Second)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(3), rowsDeleted)
+
+	// 2 txns in round 5
+	rowsCh, _ = db.Transactions(context.Background(), idb.TransactionFilter{})
+	i = 0
+	for row := range rowsCh {
+		require.NoError(t, row.Error)
+		require.NotNil(t, row.Txn)
+		assert.Equal(t, txns[i], *row.Txn)
+		i++
+	}
+
+	deleteStatus, err = db.getMetastate(context.Background(), nil, schema.DeleteStatusKey)
+	assert.NoError(t, err)
+	status, err = encoding.DecodeDeleteStatus([]byte(deleteStatus))
+	assert.NoError(t, err)
+	assert.Equal(t, uint64(5), status.OldestRound)
 }

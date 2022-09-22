@@ -2497,6 +2497,7 @@ func (db *IndexerDb) SetNetworkState(genesis bookkeeping.Genesis) error {
 }
 
 // DeleteTransactions removes old transactions
+// keep is the number of rounds to keep in db
 func (db *IndexerDb) DeleteTransactions(ctx context.Context, keep uint64, timeout time.Duration) (int64, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -2533,7 +2534,7 @@ func (db *IndexerDb) DeleteTransactions(ctx context.Context, keep uint64, timeou
 		if err2 != nil {
 			return 0, fmt.Errorf("deleteTxns(): transaction delete err %w", err2)
 		}
-		t := time.Now()
+		t := time.Now().UTC()
 		// update metastate
 		status := types.DeleteStatus{
 			// format time, "2006-01-02T15:04:05Z07:00"
@@ -2543,7 +2544,7 @@ func (db *IndexerDb) DeleteTransactions(ctx context.Context, keep uint64, timeou
 		if err2 != nil {
 			return 0, fmt.Errorf("deleteTxns(): transaction delete err %w", err2)
 		}
-		err2 = db.setMetastate(tx, "pruned", string(encoding.EncodeDeleteStatus(&status)))
+		err2 = db.setMetastate(tx, schema.DeleteStatusKey, string(encoding.EncodeDeleteStatus(&status)))
 		if err2 != nil {
 			return 0, fmt.Errorf("deleteTxns(): metastate update err %w", err2)
 		}

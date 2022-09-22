@@ -749,7 +749,7 @@ func DecodeDeleteStatus(data []byte) (types.DeleteStatus, error) {
 	var status types.DeleteStatus
 	err := DecodeJSON(data, &status)
 	if err != nil {
-		return types.DeleteStatus{}, fmt.Errorf("DecodePruned() err: %w", err)
+		return types.DeleteStatus{}, fmt.Errorf("DecodeDeleteStatus() err: %w", err)
 	}
 
 	return status, nil

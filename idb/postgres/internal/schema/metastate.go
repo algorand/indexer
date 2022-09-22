@@ -7,4 +7,5 @@ const (
 	SpecialAccountsMetastateKey = "accounts"
 	AccountTotals               = "totals"
 	NetworkMetaStateKey         = "network"
+	DeleteStatusKey             = "pruned"
 )

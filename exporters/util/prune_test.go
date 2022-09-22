@@ -76,7 +76,7 @@ func TestDeleteTxns(t *testing.T) {
 	// 10 rounds removed
 	assert.Equal(t, 10, rowsInTxnTable(db))
 	// check remaining rounds are correct
-	assert.True(t, validateTxnTable(db, 10, 20))
+	assert.True(t, validateTxnTable(db, 11, 20))
 }
 
 func TestDeleteConfigs(t *testing.T) {
@@ -222,7 +222,8 @@ func TestDeleteRollback(t *testing.T) {
 
 func populateTxnTable(db *pgxpool.Pool, n int) error {
 	batch := &pgx.Batch{}
-	for i := 0; i < n; i++ {
+	// txn round starts at 1 because genesis block is empty
+	for i := 1; i <= n; i++ {
 		query := "INSERT INTO txn(round, intra, typeenum,asset,txn,extra) VALUES ($1,$2,$3,$4,$5,$6)"
 		batch.Queue(query, i, i, 1, 0, "{}", "{}")
 	}
@@ -262,14 +263,12 @@ func validateTxnTable(db *pgxpool.Pool, first, last uint64) bool {
 	var round uint64
 	// expected round
 	expected := first
-	next := first + 1
 	for res.Next() {
 		err = res.Scan(&round)
 		if err != nil || round != expected {
 			return false
 		}
-		expected = next
-		next++
+		expected++
 	}
-	return expected == last
+	return expected-1 == last
 }
