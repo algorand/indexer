@@ -34,7 +34,7 @@ filters:
 		{"MakeExpressionError", `---
 filters:
  - any:
-   - tag: SignedTxnWithAD.SignedTxn.AuthAddr
+   - tag: sgnr
      expression-type: wrong-expression-type
      expression: "sample"
 `, "could not make expression with string"},
@@ -42,7 +42,7 @@ filters:
 		{"CorrectFilterType", `---
 filters:
   - wrong-filter-type: 
-    - tag: SignedTxnWithAD.SignedTxn.AuthAddr
+    - tag: sgnr
       expression-type: exact
       expression: "sample"
 
@@ -51,11 +51,11 @@ filters:
 		{"FilterTagFormation", `---
 filters:
   - any: 
-    - tag: SignedTxnWithAD.SignedTxn.AuthAddr
+    - tag: sgnr
       expression-type: exact
       expression: "sample"
     all:
-    - tag: SignedTxnWithAD.SignedTxn.AuthAddr
+    - tag: sgnr
       expression-type: exact
       expression: "sample"
 
@@ -85,24 +85,24 @@ func TestFilterProcessor_Init_Multi(t *testing.T) {
 	sampleCfgStr := `---
 filters:
   - any: 
-    - tag: SignedTxnWithAD.SignedTxn.AuthAddr
+    - tag: sgnr
       expression-type: exact
       expression: "` + sampleAddr1.String() + `"
-    - tag: SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.AssetSender
+    - tag: txn.asnd
       expression-type: regex
       expression: "` + sampleAddr3.String() + `"
   - all:
-    - tag: SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Receiver
+    - tag: txn.rcv
       expression-type: regex 
       expression: "` + sampleAddr2.String() + `"
-    - tag: SignedTxnWithAD.SignedTxn.Txn.Header.Sender
+    - tag: txn.snd
       expression-type: exact
       expression: "` + sampleAddr2.String() + `"
   - any: 
-    - tag: SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.AssetCloseTo
+    - tag: txn.aclose
       expression-type: exact
       expression: "` + sampleAddr2.String() + `"
-    - tag: SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.AssetReceiver
+    - tag: txn.arcv
       expression-type: regex
       expression: "` + sampleAddr2.String() + `"
 `
@@ -198,10 +198,10 @@ func TestFilterProcessor_Init_All(t *testing.T) {
 	sampleCfgStr := `---
 filters:
   - all:
-    - tag: SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Receiver
+    - tag: txn.rcv
       expression-type: regex 
       expression: "` + sampleAddr2.String() + `"
-    - tag: SignedTxnWithAD.SignedTxn.Txn.Header.Sender
+    - tag: txn.snd
       expression-type: exact
       expression: "` + sampleAddr2.String() + `"
 `
@@ -271,10 +271,10 @@ func TestFilterProcessor_Init(t *testing.T) {
 	sampleCfgStr := `---
 filters:
   - any:
-    - tag: SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Receiver
+    - tag: txn.rcv
       expression-type: regex 
       expression: "` + sampleAddr1.String() + `"
-    - tag: SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Receiver
+    - tag: txn.rcv
       expression-type: exact
       expression: "` + sampleAddr2.String() + `"
 `

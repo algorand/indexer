@@ -1,12 +1,12 @@
 package fields
 
+//go:generate go run ../gen/generate.go fields ./generated_signed_txn_map.go
+
 import (
 	"fmt"
-	"reflect"
-	"strings"
-
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/indexer/processors/filterprocessor/expression"
+	"reflect"
 )
 
 // Searcher searches the struct with an expression and method to call
@@ -20,11 +20,10 @@ type Searcher struct {
 // The reason being is that without validation of the tag (which is provided by
 // MakeFieldSearcher) then this can panic
 func (f Searcher) search(input transactions.SignedTxnInBlock) bool {
-	e := reflect.ValueOf(&input).Elem()
 
-	for _, field := range strings.Split(f.Tag, ".") {
-		e = e.FieldByName(field)
-	}
+	val := SignedTxnMap[f.Tag](&input)
+
+	e := reflect.ValueOf(val).Elem()
 
 	toSearch := e.MethodByName(f.MethodToCall).Call([]reflect.Value{})[0].Interface()
 
@@ -48,14 +47,20 @@ func checkTagExistsAndHasCorrectFunction(expressionType expression.FilterType, t
 		}
 	}()
 
-	e := reflect.ValueOf(&transactions.SignedTxnInBlock{}).Elem()
+	fxn, ok := SignedTxnMap[tag]
 
-	for _, field = range strings.Split(tag, ".") {
-		e = e.FieldByName(field)
-		if !e.IsValid() {
-			return fmt.Errorf("%s does not exist in transactions.SignedTxnInBlock struct. last searched field was: %s", tag, field)
-		}
+	if !ok {
+		return fmt.Errorf("%s does not exist in transactions.SignedTxnInBlock struct. last searched field was: %s", tag, field)
 	}
+
+	e := reflect.ValueOf(fxn(&transactions.SignedTxnInBlock{})).Elem()
+
+	//for _, field = range strings.Split(tag, ".") {
+	//	e = e.FieldByName(field)
+	//	if !e.IsValid() {
+	//		return fmt.Errorf("%s does not exist in transactions.SignedTxnInBlock struct. last searched field was: %s", tag, field)
+	//	}
+	//}
 
 	method, ok := expression.TypeToFunctionMap[expressionType]
 
