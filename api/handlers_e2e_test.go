@@ -798,7 +798,7 @@ func TestBlockNotFound(t *testing.T) {
 	c.SetParamValues(strconv.Itoa(100))
 
 	api := testServerImplementation(db)
-	err := api.LookupBlock(c, 100)
+	err := api.LookupBlock(c, 100, generated.LookupBlockParams{})
 	require.NoError(t, err)
 
 	//////////
@@ -998,7 +998,7 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 		// Get first page with limit 1.
 		// Address filter causes results to return newest to oldest.
 		api := testServerImplementation(db)
-		err = api.LookupBlock(c, uint64(block.Round()))
+		err = api.LookupBlock(c, uint64(block.Round()), generated.LookupBlockParams{})
 		require.NoError(t, err)
 
 		//////////
@@ -1456,7 +1456,7 @@ func TestFetchBlockWithExpiredPartAccts(t *testing.T) {
 	c.SetParamValues(strconv.Itoa(1))
 
 	api := testServerImplementation(db)
-	err = api.LookupBlock(c, 1)
+	err = api.LookupBlock(c, 1, generated.LookupBlockParams{})
 	require.NoError(t, err)
 
 	////////////
@@ -1470,4 +1470,78 @@ func TestFetchBlockWithExpiredPartAccts(t *testing.T) {
 	expiredPartAccts := *response.ParticipationUpdates.ExpiredParticipationAccounts
 	assert.Equal(t, test.AccountB.String(), expiredPartAccts[0])
 	assert.Equal(t, test.AccountC.String(), expiredPartAccts[1])
+}
+
+func TestFetchBlockWithOptions(t *testing.T) {
+
+	testCases := []struct {
+		name           string
+		headerOnly     bool
+		expectedTxnLen int
+	}{
+		{
+			name:           "default",
+			headerOnly:     false,
+			expectedTxnLen: 3,
+		},
+		{
+			name:           "header-only=false",
+			headerOnly:     false,
+			expectedTxnLen: 3,
+		},
+		{
+			name:           "headerOnly=true",
+			headerOnly:     true,
+			expectedTxnLen: 0,
+		},
+	}
+
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+	defer l.Close()
+
+	///////////
+	// Given // a DB with a block with a txn in it.
+	///////////
+	txnA := test.MakeCreateAppTxn(test.AccountA)
+	txnB := test.MakeCreateAppTxn(test.AccountB)
+	txnC := test.MakeCreateAppTxn(test.AccountC)
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txnA, &txnB, &txnC)
+	require.NoError(t, err)
+	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
+
+	//////////
+	// When // We look up a block.
+	//////////
+
+	setupReq := func(path, paramName, paramValue string) (echo.Context, *ServerImplementation, *httptest.ResponseRecorder) {
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath(path)
+		c.SetParamNames(paramName)
+		c.SetParamValues(paramValue)
+		api := testServerImplementation(db)
+		return c, api, rec
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf(tc.name), func(t *testing.T) {
+			c, api, rec := setupReq("/v2/blocks/:round-number", "round-number", "1")
+			if tc.name == "default" {
+				err = api.LookupBlock(c, 1, generated.LookupBlockParams{})
+			} else {
+				err = api.LookupBlock(c, 1, generated.LookupBlockParams{HeaderOnly: &tc.headerOnly})
+			}
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, rec.Code)
+			var response generated.Block
+			err = json.Decode(rec.Body.Bytes(), &response)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedTxnLen, len(*response.Transactions))
+		})
+	}
+
 }

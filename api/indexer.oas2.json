@@ -779,6 +779,9 @@
         "parameters": [
           {
             "$ref": "#/parameters/round-number"
+          },
+          {
+            "$ref": "#/parameters/header-only"
           }
         ],
         "responses": {
@@ -2562,6 +2565,12 @@
       "type": "boolean",
       "description": "Combine with address and address-role parameters to define what type of address to search for. The close to fields are normally treated as a receiver, if you would like to exclude them set this parameter to true.",
       "name": "exclude-close-to",
+      "in": "query"
+    },
+    "header-only": {
+      "type": "boolean",
+      "description": "Header only flag. When this is provided, returned blocks do not include transactions",
+      "name": "header-only",
       "in": "query"
     },
     "include-all": {
