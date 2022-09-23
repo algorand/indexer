@@ -276,6 +276,20 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
+	// block header handoff: round 8 --> round 9
+	blockHdr, err = l.BlockHdr(currentRound)
+	require.NoError(t, err)
+
+	// ---- ROUND 9: delete appid == 5 thus orphaning the boxes
+	currentRound = basics.Round(9)
+
+	deleteTxn := test.MakeAppDestroyTxn(uint64(thirdAppid), test.AccountC)
+	block, err = test.MakeBlockForTxns(blockHdr, &deleteTxn)
+	require.NoError(t, err)
+
+	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
+
 	// ---- SUMMARY ---- //
 
 	totals := map[basics.AppIndex]map[string]int{}
@@ -336,14 +350,14 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
-			Name: "Lookup app (funded with boxes)",
+			Name: "Lookup app 1 (funded with boxes)",
 			Request: requestInfo{
 				Path:   "/v2/applications/1",
 				Params: []param{},
 			},
 		},
 		{
-			Name: "Lookup app (funded with encoding test named boxes)",
+			Name: "Lookup DELETED DELETED app 5 (funded with encoding test named boxes)",
 			Request: requestInfo{
 				Path:   "/v2/applications/5",
 				Params: []param{},
@@ -401,7 +415,7 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
-			Name: "Boxes of app 5 with goal encoded boxes: no params",
+			Name: "Boxes of DELETED app 5 with goal encoded boxes: no params",
 			Request: requestInfo{
 				Path:   "/v2/applications/5/boxes",
 				Params: []param{},
@@ -554,7 +568,7 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
-			Name: "App 5 encoding (str:str) - no params",
+			Name: "DELETED app 5 encoding (str:str) - no params",
 			Request: requestInfo{
 				Path: "/v2/applications/5/box",
 				Params: []param{
@@ -563,7 +577,7 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
-			Name: "App 5 encoding (integer:100) - no params",
+			Name: "DELETED app 5 encoding (integer:100) - no params",
 			Request: requestInfo{
 				Path: "/v2/applications/5/box",
 				Params: []param{
@@ -572,7 +586,7 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
-			Name: "App 5 encoding (base32:MJQXGZJTGI======) - no params",
+			Name: "DELETED app 5 encoding (base32:MJQXGZJTGI======) - no params",
 			Request: requestInfo{
 				Path: "/v2/applications/5/box",
 				Params: []param{
@@ -581,7 +595,7 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
-			Name: "App 5 encoding (b64:YjY0) - no params",
+			Name: "DELETED app 5 encoding (b64:YjY0) - no params",
 			Request: requestInfo{
 				Path: "/v2/applications/5/box",
 				Params: []param{
@@ -590,7 +604,7 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
-			Name: "App 5 encoding (base64:YmFzZTY0) - no params",
+			Name: "DELETED app 5 encoding (base64:YmFzZTY0) - no params",
 			Request: requestInfo{
 				Path: "/v2/applications/5/box",
 				Params: []param{
@@ -599,7 +613,7 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
-			Name: "App 5 encoding (string:string) - no params",
+			Name: "DELETED app 5 encoding (string:string) - no params",
 			Request: requestInfo{
 				Path: "/v2/applications/5/box",
 				Params: []param{
@@ -608,7 +622,7 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
-			Name: "App 5 encoding (int:42) - no params",
+			Name: "DELETED app 5 encoding (int:42) - no params",
 			Request: requestInfo{
 				Path: "/v2/applications/5/box",
 				Params: []param{
@@ -617,7 +631,7 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
-			Name: "App 5 encoding (abi:(uint64,string,bool[]):[399,\"pls pass\",[true,false]]) - no params",
+			Name: "DELETED app 5 encoding (abi:(uint64,string,bool[]):[399,\"pls pass\",[true,false]]) - no params",
 			Request: requestInfo{
 				Path: "/v2/applications/5/box",
 				Params: []param{
@@ -626,7 +640,7 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
-			Name: "App 5 encoding (addr:LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY) - no params",
+			Name: "DELETED app 5 encoding (addr:LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY) - no params",
 			Request: requestInfo{
 				Path: "/v2/applications/5/box",
 				Params: []param{
@@ -635,7 +649,7 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
-			Name: "App 5 encoding (address:2SYXFSCZAQCZ7YIFUCUZYOVR7G6Y3UBGSJIWT4EZ4CO3T6WVYTMHVSANOY) - no params",
+			Name: "DELETED app 5 encoding (address:2SYXFSCZAQCZ7YIFUCUZYOVR7G6Y3UBGSJIWT4EZ4CO3T6WVYTMHVSANOY) - no params",
 			Request: requestInfo{
 				Path: "/v2/applications/5/box",
 				Params: []param{
@@ -644,7 +658,7 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
-			Name: "App 5 encoding (b32:MIZTE===) - no params",
+			Name: "DELETED app 5 encoding (b32:MIZTE===) - no params",
 			Request: requestInfo{
 				Path: "/v2/applications/5/box",
 				Params: []param{
@@ -653,7 +667,7 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
-			Name: "App 5 encoding (byte base32:MJ4XIZJAMJQXGZJTGI======) - no params",
+			Name: "DELETED app 5 encoding (byte base32:MJ4XIZJAMJQXGZJTGI======) - no params",
 			Request: requestInfo{
 				Path: "/v2/applications/5/box",
 				Params: []param{
@@ -662,7 +676,7 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
-			Name: "App 5 encoding (byte base64:Ynl0ZSBiYXNlNjQ=) - no params",
+			Name: "DELETED app 5 encoding (byte base64:Ynl0ZSBiYXNlNjQ=) - no params",
 			Request: requestInfo{
 				Path: "/v2/applications/5/box",
 				Params: []param{
@@ -671,7 +685,7 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
-			Name: "App 5 illegal encoding (just a plain string) - no params",
+			Name: "DELETED app 5 illegal encoding (just a plain string) - no params",
 			Request: requestInfo{
 				Path: "/v2/applications/5/box",
 				Params: []param{
