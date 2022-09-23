@@ -79,11 +79,16 @@ func main() {
 
 package %s
 
-import "github.com/algorand/go-algorand/data/transactions"
+import (
+"fmt"
 
-// SignedTxnMap generates a map with the key as the codec tag and the value as a function
-// that returns the associated variable
-var SignedTxnMap = map[string]func(*transactions.SignedTxnInBlock) interface{}{
+"github.com/algorand/go-algorand/data/transactions"
+)
+
+// SignedTxnFunc takes a tag and associated SignedTxnInBlock and returns the value 
+// referenced by the tag.  An error is returned if the tag does not exist
+func SignedTxnFunc(tag string, input *transactions.SignedTxnInBlock) (interface{}, error) {
+
 `
 	_, err = fmt.Fprintf(&bb, initialStr, packageName)
 	if err != nil {
@@ -99,17 +104,29 @@ var SignedTxnMap = map[string]func(*transactions.SignedTxnInBlock) interface{}{
 
 	sort.Strings(keys)
 
-	for _, k := range keys {
-		fmt.Fprintf(&bb, "\"%s\": func(i *transactions.SignedTxnInBlock)interface{}{return &((*i).%s)},\n", k, output[k])
+	_, err = fmt.Fprintf(&bb, "switch tag {\n")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to write to %s: %v\n", outputFilepath, err)
+		os.Exit(1)
 	}
 
-	_, err = fmt.Fprintf(&bb, "}")
+	for _, k := range keys {
+		fmt.Fprintf(&bb, "case \"%s\":\nreturn &((*input).%s), nil\n", k, output[k])
+	}
+
+	_, err = fmt.Fprint(&bb, "default:\n"+
+		"return nil, fmt.Errorf(\"unknown tag: %s\", tag)\n"+
+		"}\n}")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to write to %s: %v\n", outputFilepath, err)
 		os.Exit(1)
 	}
 
 	bbuf, err := format.Source(bb.Bytes())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "formatting error: %v", err)
+		os.Exit(1)
+	}
 
 	outputStr := string(bbuf)
 

@@ -21,7 +21,10 @@ type Searcher struct {
 // MakeFieldSearcher) then this can panic
 func (f Searcher) search(input transactions.SignedTxnInBlock) bool {
 
-	val := SignedTxnMap[f.Tag](&input)
+	val, err := SignedTxnFunc(f.Tag, &input)
+	if err != nil {
+		return false
+	}
 
 	e := reflect.ValueOf(val).Elem()
 
@@ -36,31 +39,23 @@ func (f Searcher) search(input transactions.SignedTxnInBlock) bool {
 
 // checks that the supplied tag exists in the struct and recovers from any panics
 func checkTagExistsAndHasCorrectFunction(expressionType expression.FilterType, tag string) (outError error) {
-	var field string
 	defer func() {
 		// This defer'd function is a belt and suspenders type thing.  We check every reflected
 		// evaluation's IsValid() function to make sure not to operate on a zero value.  Therfore we can't
 		// actually reach inside the if conditional unless we intentionally panic.
 		// However, having this function gives additional safety to a critical function
 		if r := recover(); r != nil {
-			outError = fmt.Errorf("error occured regarding tag %s. last searched field was: %s - %v", tag, field, r)
+			outError = fmt.Errorf("error occured regarding tag %s - %v", tag, r)
 		}
 	}()
 
-	fxn, ok := SignedTxnMap[tag]
+	val, err := SignedTxnFunc(tag, &transactions.SignedTxnInBlock{})
 
-	if !ok {
-		return fmt.Errorf("%s does not exist in transactions.SignedTxnInBlock struct. last searched field was: %s", tag, field)
+	if err != nil {
+		return fmt.Errorf("%s does not exist in transactions.SignedTxnInBlock struct", tag)
 	}
 
-	e := reflect.ValueOf(fxn(&transactions.SignedTxnInBlock{})).Elem()
-
-	//for _, field = range strings.Split(tag, ".") {
-	//	e = e.FieldByName(field)
-	//	if !e.IsValid() {
-	//		return fmt.Errorf("%s does not exist in transactions.SignedTxnInBlock struct. last searched field was: %s", tag, field)
-	//	}
-	//}
+	e := reflect.ValueOf(val).Elem()
 
 	method, ok := expression.TypeToFunctionMap[expressionType]
 
