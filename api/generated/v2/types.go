@@ -1212,7 +1212,7 @@ type BoxesResponse struct {
 	ApplicationId uint64          `json:"application-id"`
 	Boxes         []BoxDescriptor `json:"boxes"`
 
-	// Base64 encoded final box name result. Used for pagination, when making another request provide this token with the next parameter and prepend with "b64:" if keeping the provided encoding.
+	// Used for pagination, when making another request provide this token with the next parameter.
 	NextToken *string `json:"next-token,omitempty"`
 }
 
