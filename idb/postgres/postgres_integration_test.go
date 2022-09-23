@@ -375,8 +375,7 @@ func TestBlockWithTransactions(t *testing.T) {
 	//////////
 	// When // We call GetBlock and Transactions
 	//////////
-	_, txnRows0, err := db.GetBlock(
-		context.Background(), round, idb.GetBlockOptions{Transactions: true})
+	_, txnRows0, err := db.GetBlock(context.Background(), round, idb.GetBlockOptions{Transactions: true, MaxTransactionsLimit: 100})
 	require.NoError(t, err)
 
 	rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{Round: &round})
@@ -2301,5 +2300,4 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 	require.NoError(t, row.Error)
 	require.NotNil(t, row.Txn)
 	assert.Equal(t, txnF, *row.Txn)
-
 }

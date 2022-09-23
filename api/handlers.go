@@ -787,6 +787,10 @@ func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64
 	}
 
 	blk, err := si.fetchBlock(ctx.Request().Context(), roundNumber, options)
+	var maxErr idb.MaxTransactionsError
+	if errors.As(err, &maxErr) {
+		return badRequest(ctx, err.Error())
+	}
 	if errors.Is(err, idb.ErrorBlockNotFound) {
 		return notFound(ctx, fmt.Sprintf("%s '%d': %v", errLookingUpBlockForRound, roundNumber, err))
 	}

@@ -1545,3 +1545,115 @@ func TestFetchBlockWithOptions(t *testing.T) {
 	}
 
 }
+
+func TestGetBlocksTransactionsLimit(t *testing.T) {
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+	defer l.Close()
+
+	///////////
+	// Given // A block containing 2 transactions, a block containing 10 transactions
+	//       // and a block containing 20 transactions
+	///////////
+
+	ntxns := []int{2, 10, 20}
+	for i, n := range ntxns {
+		var txns []transactions.SignedTxnWithAD
+		for j := 0; j < n; j++ {
+			txns = append(txns, test.MakePaymentTxn(1, 100, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{}, basics.Address{}))
+		}
+		ptxns := make([]*transactions.SignedTxnWithAD, n)
+		for k := range txns {
+			ptxns[k] = &txns[k]
+		}
+		block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, ptxns...)
+		block.BlockHeader.Round = basics.Round(i + 1)
+		require.NoError(t, err)
+
+		err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+		require.NoError(t, err)
+	}
+
+	//////////
+	// When // We look up a block using a ServerImplementation with a maxTransactionsLimit set,
+	//      // and blocks with # of transactions over & under the limit
+	//////////
+
+	maxTxns := 10
+	serverCtx, serverCancel := context.WithCancel(context.Background())
+	defer serverCancel()
+	opts := defaultOpts
+	opts.MaxTransactionsLimit = uint64(maxTxns)
+	listenAddr := "localhost:8989"
+	go Serve(serverCtx, listenAddr, db, nil, logrus.New(), opts)
+
+	// wait at most a few seconds for server to come up
+	serverUp := false
+	for maxWait := 3 * time.Second; !serverUp && maxWait > 0; maxWait -= 50 * time.Millisecond {
+		time.Sleep(50 * time.Millisecond)
+		resp, err := http.Get("http://" + listenAddr + "/health")
+		if err != nil {
+			t.Log("waiting for server:", err)
+			continue
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Log("waiting for server OK:", resp.StatusCode)
+			continue
+		}
+		serverUp = true // server is up now
+	}
+	require.True(t, serverUp, "api.Serve did not start server in time")
+
+	// make a real HTTP request (to additionally test generated param parsing logic)
+	makeReq := func(t *testing.T, path string, headerOnly bool) (*http.Response, []byte) {
+		if headerOnly {
+			path += "?header-only=true"
+		}
+
+		t.Log("making HTTP request path", path)
+		resp, err := http.Get("http://" + listenAddr + path)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+		require.NoError(t, err)
+		return resp, body
+	}
+
+	//////////
+	// Then // The limit is enforced, leading to a 400 error
+	//////////
+
+	testCases := []struct {
+		name       string
+		round      string
+		headerOnly bool
+		ntxns      int
+		errStatus  int
+	}{
+		{name: "block round 1 default", round: "1", headerOnly: false, ntxns: 2},
+		{name: "block round 1  with header-only set", round: "1", headerOnly: true, ntxns: 0},
+
+		{name: "block round 2 default", round: "2", headerOnly: false, ntxns: 10},
+		{name: "block round 2 with header-only set", round: "2", headerOnly: true, ntxns: 0},
+
+		{name: "block round 3 default", round: "3", headerOnly: false, errStatus: 400},
+		{name: "block round 3 with header-only set", round: "3", headerOnly: true, ntxns: 0},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			path := "/v2/blocks/" + tc.round
+			resp, data := makeReq(t, path, tc.headerOnly)
+			if tc.errStatus != 0 {
+				require.Equal(t, tc.errStatus, resp.StatusCode)
+				return
+			}
+			require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
+			var response generated.BlockResponse
+			err := json.Decode(data, &response)
+			require.NoError(t, err)
+			require.Equal(t, tc.ntxns, len(*response.Transactions))
+		})
+	}
+}

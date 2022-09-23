@@ -752,7 +752,8 @@ func (si *ServerImplementation) maxAccountsErrorToAccountsErrorResponse(maxErr i
 
 func (si *ServerImplementation) blockParamsToGetBlockOptions(params generated.LookupBlockParams) (idb.GetBlockOptions, error) {
 	query := idb.GetBlockOptions{
-		Transactions: !(boolOrDefault(params.HeaderOnly)),
+		Transactions:         !(boolOrDefault(params.HeaderOnly)),
+		MaxTransactionsLimit: si.opts.MaxTransactionsLimit,
 	}
 	return query, nil
 }
