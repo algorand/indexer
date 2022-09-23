@@ -357,7 +357,7 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
-			Name: "Lookup DELETED DELETED app 5 (funded with encoding test named boxes)",
+			Name: "Lookup DELETED app 5 (funded with encoding test named boxes)",
 			Request: requestInfo{
 				Path:   "/v2/applications/5",
 				Params: []param{},
