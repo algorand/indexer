@@ -2300,4 +2300,5 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 	require.NoError(t, row.Error)
 	require.NotNil(t, row.Txn)
 	assert.Equal(t, txnF, *row.Txn)
+
 }

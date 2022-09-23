@@ -1584,7 +1584,7 @@ func TestGetBlocksTransactionsLimit(t *testing.T) {
 	defer serverCancel()
 	opts := defaultOpts
 	opts.MaxTransactionsLimit = uint64(maxTxns)
-	listenAddr := "localhost:8989"
+	listenAddr := "localhost:8888"
 	go Serve(serverCtx, listenAddr, db, nil, logrus.New(), opts)
 
 	// wait at most a few seconds for server to come up
