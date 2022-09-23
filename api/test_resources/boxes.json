@@ -1,7 +1,7 @@
 {
   "file": "boxes.json",
   "owner": "TestBoxes",
-  "lastModified": "2022-09-16 15:03:49.717073 -0500 CDT m=+8.213632969",
+  "lastModified": "2022-09-23 11:23:54.295532 -0500 CDT m=+4.967894161",
   "frozen": true,
   "cases": [
     {
@@ -581,11 +581,17 @@
         "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
-        "statusCode": 404,
-        "body": "{\"message\":\"no application found for application-id: round=8, appid=9223372036854775807\"}\n"
+        "statusCode": 200,
+        "body": "{\"application-id\":9223372036854775807,\"boxes\":[]}\n"
       },
-      "witness": null,
-      "witnessError": "404 error"
+      "witness": {
+        "goType": "generated.BoxesResponse",
+        "boxes": {
+          "application-id": 9223372036854775807,
+          "boxes": []
+        }
+      },
+      "witnessError": null
     },
     {
       "name": "Boxes of a app with id == math.MaxInt64 + 1",
@@ -611,11 +617,17 @@
         "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
-        "statusCode": 404,
-        "body": "{\"message\":\"no application found for application-id: round=8, appid=1337\"}\n"
+        "statusCode": 200,
+        "body": "{\"application-id\":1337,\"boxes\":[]}\n"
       },
-      "witness": null,
-      "witnessError": "404 error"
+      "witness": {
+        "goType": "generated.BoxesResponse",
+        "boxes": {
+          "application-id": 1337,
+          "boxes": []
+        }
+      },
+      "witnessError": null
     },
     {
       "name": "Boxes of app 3 with no boxes: no params",
