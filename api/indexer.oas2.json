@@ -2569,7 +2569,7 @@
     },
     "header-only": {
       "type": "boolean",
-      "description": "Header only flag. When this is provided, returned blocks do not include transactions",
+      "description": "Header only flag. When this is set to true, returned block does not contain the transactions",
       "name": "header-only",
       "in": "query"
     },

@@ -1490,7 +1490,7 @@ func TestFetchBlockWithOptions(t *testing.T) {
 			expectedTxnLen: 3,
 		},
 		{
-			name:           "headerOnly=true",
+			name:           "header-only=true",
 			headerOnly:     true,
 			expectedTxnLen: 0,
 		},

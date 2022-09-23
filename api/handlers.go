@@ -781,9 +781,9 @@ func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64
 		return notFound(ctx, errValueExceedingInt64)
 	}
 
-	options, err := si.blockParamsToGetBlockOptions(params)
-	if err != nil {
-		return badRequest(ctx, err.Error())
+	options := idb.GetBlockOptions{
+		Transactions:         !(boolOrDefault(params.HeaderOnly)),
+		MaxTransactionsLimit: si.opts.MaxTransactionsLimit,
 	}
 
 	blk, err := si.fetchBlock(ctx.Request().Context(), roundNumber, options)

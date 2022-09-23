@@ -1532,7 +1532,7 @@ type LookupAssetTransactionsParams struct {
 // LookupBlockParams defines parameters for LookupBlock.
 type LookupBlockParams struct {
 
-	// Header only flag. When this is provided, returned blocks do not include transactions
+	// Header only flag. When this is set to true, returned block does not contain the transactions
 	HeaderOnly *bool `json:"header-only,omitempty"`
 }
 
