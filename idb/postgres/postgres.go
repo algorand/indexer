@@ -2501,22 +2501,20 @@ func (db *IndexerDb) SetNetworkState(genesis bookkeeping.Genesis) error {
 func (db *IndexerDb) DeleteTransactions(ctx context.Context, keep uint64, timeout time.Duration) (int64, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	// get max round in db
-	var maxround uint64
-	query := "SELECT round FROM txn ORDER BY round DESC LIMIT 1"
-	err := db.db.QueryRow(ctx, query).Scan(&maxround)
+	// get next round from metastate
+	importState, err := db.getImportState(ctx, nil)
 	if err != nil {
-		return 0, fmt.Errorf("DeleteTransactions(): %v", err)
+		return 0, fmt.Errorf("DeleteTransactions():  %w", err)
 	}
-	db.log.Infof("max round in database %d", maxround)
-	// max round < desired number of rounds to keep
-	if maxround < keep {
+	currentRound := importState.NextRoundToAccount - 1
+	db.log.Infof("current round in database %d", currentRound)
+	// currentRound < desired number of rounds to keep
+	if currentRound < keep {
 		// no data to remove
 		return 0, nil
 	}
-
 	// oldest round to keep
-	oldestRound := maxround - keep + 1
+	oldestRound := currentRound - keep + 1
 
 	// delete old transactions and update metastate
 	deleteTxns := func() (int64, error) {
@@ -2529,7 +2527,7 @@ func (db *IndexerDb) DeleteTransactions(ctx context.Context, keep uint64, timeou
 
 		db.log.Infof("deleteTxns(): keeping round %d and later", oldestRound)
 		// delete query
-		query = "DELETE FROM txn WHERE round < $1"
+		query := "DELETE FROM txn WHERE round < $1"
 		cmd, err2 := tx.Exec(ctx, query, oldestRound)
 		if err2 != nil {
 			return 0, fmt.Errorf("deleteTxns(): transaction delete err %w", err2)
