@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/algorand/go-codec/codec"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres"
 	pgtest "github.com/algorand/indexer/idb/postgres/testing"
@@ -19,15 +20,35 @@ import (
 
 var logger *logrus.Logger
 var hook *test.Hook
+var jsonCodecHandle *codec.JsonHandle
 
+// encodeJSON converts an object into JSON
+func encodeJSON(obj interface{}) []byte {
+	var buf []byte
+	enc := codec.NewEncoderBytes(&buf, jsonCodecHandle)
+	enc.MustEncode(obj)
+	return buf
+}
 func init() {
 	logger, hook = test.NewNullLogger()
+	jsonCodecHandle = new(codec.JsonHandle)
+	//jsonCodecHandle.ErrorIfNoField = true
+	//jsonCodecHandle.ErrorIfNoArrayExpand = true
+	//jsonCodecHandle.Canonical = true
+	//jsonCodecHandle.RecursiveEmptyCheck = true
+	//jsonCodecHandle.HTMLCharsAsIs = true
+	//jsonCodecHandle.Indent = 0
+	//jsonCodecHandle.MapKeyAsString = true
 }
 
 var config = PruneConfigurations{
 	Frequency: "once",
 	Rounds:    10,
 	Timeout:   10,
+}
+
+type ImportState struct {
+	NextRoundToAccount uint64 `codec:"next_account_round"`
 }
 
 func TestDeleteEmptyTxnTable(t *testing.T) {
@@ -180,46 +201,6 @@ func TestDeleteDaily(t *testing.T) {
 	assert.Equal(t, 10, rowsInTxnTable(db))
 }
 
-func TestDeleteRollback(t *testing.T) {
-	db, connStr, shutdownFunc := pgtest.SetupPostgres(t)
-	defer shutdownFunc()
-
-	// init the tables
-	idb, _, err := postgres.OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
-	assert.NoError(t, err)
-	defer idb.Close()
-
-	// remove metastate table
-	_, err = db.Exec(context.Background(), "DROP TABLE metastate")
-	assert.NoError(t, err)
-
-	// add 10 record to txn table
-	err = populateTxnTable(db, 10)
-	assert.NoError(t, err)
-	assert.Equal(t, 10, rowsInTxnTable(db))
-
-	ctx, cancel := context.WithCancel(context.Background())
-
-	config = PruneConfigurations{
-		Frequency: "once",
-		Rounds:    5,
-		Timeout:   0,
-	}
-
-	dm := MakeDataManager(ctx, &config, idb, logger)
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go dm.Delete(&wg)
-	go func() {
-		time.Sleep(1 * time.Second)
-		cancel()
-	}()
-	wg.Wait()
-	// delete didn't happen
-	assert.Equal(t, 10, rowsInTxnTable(db))
-	assert.Contains(t, hook.LastEntry().Message, "relation \"metastate\" does not exist")
-}
-
 func populateTxnTable(db *pgxpool.Pool, n int) error {
 	batch := &pgx.Batch{}
 	// txn round starts at 1 because genesis block is empty
@@ -234,6 +215,16 @@ func populateTxnTable(db *pgxpool.Pool, n int) error {
 		if err != nil {
 			return fmt.Errorf("populateTxnTable() exec err: %w", err)
 		}
+	}
+
+	// set state in metastate
+	setMetastateUpsert := `INSERT INTO metastate (k, v) VALUES ($1, $2)`
+	importstate := ImportState{
+		NextRoundToAccount: uint64(n + 1),
+	}
+	_, err := db.Exec(context.Background(), setMetastateUpsert, "state", string(encodeJSON(importstate)))
+	if err != nil {
+		return fmt.Errorf("populateTxnTable(): %w", err)
 	}
 	return nil
 }
