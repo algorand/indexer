@@ -1,6 +1,7 @@
 package fields
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -26,12 +27,12 @@ func TestInternalSearch(t *testing.T) {
 
 	var expressionType expression.FilterType = "exact"
 	tag := "sgnr"
-	exp, err := expression.MakeExpression(expressionType, address1.String())
+	exp, err := expression.MakeExpression(expressionType, address1.String(), reflect.String)
 	assert.NoError(t, err)
 	searcher, err := MakeFieldSearcher(exp, expressionType, tag)
 	assert.NoError(t, err)
 
-	result := searcher.search(
+	result, err := searcher.search(
 		transactions.SignedTxnInBlock{
 			SignedTxnWithAD: transactions.SignedTxnWithAD{
 				SignedTxn: transactions.SignedTxn{
@@ -41,9 +42,10 @@ func TestInternalSearch(t *testing.T) {
 		},
 	)
 
+	assert.NoError(t, err)
 	assert.True(t, result)
 
-	result = searcher.search(
+	result, err = searcher.search(
 		transactions.SignedTxnInBlock{
 			SignedTxnWithAD: transactions.SignedTxnWithAD{
 				SignedTxn: transactions.SignedTxn{
@@ -53,6 +55,7 @@ func TestInternalSearch(t *testing.T) {
 		},
 	)
 
+	assert.NoError(t, err)
 	assert.False(t, result)
 }
 
@@ -61,7 +64,7 @@ func TestMakeFieldSearcher(t *testing.T) {
 	var expressionType expression.FilterType = "exact"
 	tag := "sgnr"
 	sampleExpressionStr := "sample"
-	exp, err := expression.MakeExpression(expressionType, sampleExpressionStr)
+	exp, err := expression.MakeExpression(expressionType, sampleExpressionStr, reflect.String)
 	assert.NoError(t, err)
 	searcher, err := MakeFieldSearcher(exp, expressionType, tag)
 	assert.NoError(t, err)

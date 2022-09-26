@@ -19,22 +19,30 @@ type Searcher struct {
 // This function is ONLY to be used by the filter.field function.
 // The reason being is that without validation of the tag (which is provided by
 // MakeFieldSearcher) then this can panic
-func (f Searcher) search(input transactions.SignedTxnInBlock) bool {
+func (f Searcher) search(input transactions.SignedTxnInBlock) (bool, error) {
 
 	val, err := SignedTxnFunc(f.Tag, &input)
 	if err != nil {
-		return false
+		return false, err
 	}
 
 	e := reflect.ValueOf(val).Elem()
 
-	toSearch := e.MethodByName(f.MethodToCall).Call([]reflect.Value{})[0].Interface()
-
-	if (*f.Exp).Search(toSearch) {
-		return true
+	var toSearch interface{}
+	if f.MethodToCall != "" {
+		// If there is a function, search what is returned
+		toSearch = e.MethodByName(f.MethodToCall).Call([]reflect.Value{})[0].Interface()
+	} else {
+		// Otherwise, get the original value
+		toSearch = e.Interface()
 	}
 
-	return false
+	b, err := (*f.Exp).Search(toSearch)
+	if err != nil {
+		return false, err
+	}
+
+	return b, nil
 }
 
 // checks that the supplied tag exists in the struct and recovers from any panics
@@ -63,7 +71,7 @@ func checkTagExistsAndHasCorrectFunction(expressionType expression.FilterType, t
 		return fmt.Errorf("expression type (%s) is not supported.  tag value: %s", expressionType, tag)
 	}
 
-	if !e.MethodByName(method).IsValid() {
+	if method != "" && !e.MethodByName(method).IsValid() {
 		return fmt.Errorf("variable referenced by tag %s does not contain the needed method: %s", tag, method)
 	}
 

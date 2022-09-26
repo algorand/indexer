@@ -15,6 +15,570 @@ import (
 	"github.com/algorand/indexer/processors"
 )
 
+// TestFilterProcessor_Illegal tests that numerical operations won't occur on non-supported types
+func TestFilterProcessor_Illegal(t *testing.T) {
+	tests := []struct {
+		name          string
+		cfg           string
+		errorContains string
+	}{
+		{
+			"illegal 1", `---
+filters:
+  - any:
+    - tag: txn.type
+      expression-type: less-than 
+      expression: 4
+`, "unknown target kind"},
+
+		{
+			"illegal 2", `---
+filters:
+  - any:
+    - tag: txn.type
+      expression-type: less-than-equal
+      expression: 4
+`, "unknown target kind"},
+
+		{
+			"illegal 3", `---
+filters:
+  - any:
+    - tag: txn.type
+      expression-type: greater-than 
+      expression: 4
+`, "unknown target kind"},
+
+		{
+			"illegal 4", `---
+filters:
+  - any:
+    - tag: txn.type
+      expression-type: greater-than-equal
+      expression: 4
+`, "unknown target kind"},
+
+		{
+			"illegal 4", `---
+filters:
+  - any:
+    - tag: txn.type
+      expression-type: equal
+      expression: 4
+`, "unknown target kind"},
+
+		{
+			"illegal 5", `---
+filters:
+  - any:
+    - tag: txn.type
+      expression-type: not-equal
+      expression: 4
+`, "unknown target kind"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+
+			fpBuilder, err := processors.ProcessorBuilderByName(implementationName)
+			assert.NoError(t, err)
+
+			fp := fpBuilder.New()
+			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(test.cfg), logrus.New())
+			assert.ErrorContains(t, err, test.errorContains)
+		})
+	}
+}
+
+// TestFilterProcessor_Alias tests the various numerical operations on integers that are aliased
+func TestFilterProcessor_Alias(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  string
+		fxn  func(t *testing.T, output *data.BlockData)
+	}{
+
+		{"alias 1", `---
+filters:
+  - any:
+    - tag: apid 
+      expression-type: less-than 
+      expression: 4
+`, func(t *testing.T, output *data.BlockData) {
+
+			assert.Equal(t, len(output.Payset), 1)
+			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(2))
+		},
+		},
+		{"alias 2", `---
+filters:
+  - any:
+    - tag: apid
+      expression-type: less-than 
+      expression: 5
+`, func(t *testing.T, output *data.BlockData) {
+
+			assert.Equal(t, len(output.Payset), 2)
+			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(4))
+			assert.Equal(t, output.Payset[1].SignedTxnWithAD.ApplicationID, basics.AppIndex(2))
+		},
+		},
+
+		{"alias 3", `---
+filters:
+  - any:
+    - tag: apid
+      expression-type: less-than-equal
+      expression: 4
+`, func(t *testing.T, output *data.BlockData) {
+
+			assert.Equal(t, len(output.Payset), 2)
+			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(4))
+			assert.Equal(t, output.Payset[1].SignedTxnWithAD.ApplicationID, basics.AppIndex(2))
+		},
+		},
+		{"alias 4", `---
+filters:
+  - any:
+    - tag: apid
+      expression-type: equal
+      expression: 11
+`, func(t *testing.T, output *data.BlockData) {
+
+			assert.Equal(t, len(output.Payset), 1)
+			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(11))
+		},
+		},
+
+		{"alias 5", `---
+filters:
+  - any:
+    - tag: apid
+      expression-type: not-equal
+      expression: 11
+`, func(t *testing.T, output *data.BlockData) {
+
+			assert.Equal(t, len(output.Payset), 2)
+			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(4))
+			assert.Equal(t, output.Payset[1].SignedTxnWithAD.ApplicationID, basics.AppIndex(2))
+		},
+		},
+
+		{"alias 6", `---
+filters:
+  - any:
+    - tag: apid
+      expression-type: greater-than 
+      expression: 4
+`, func(t *testing.T, output *data.BlockData) {
+
+			assert.Equal(t, len(output.Payset), 1)
+			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(11))
+		},
+		},
+		{"alias 7", `---
+filters:
+  - any:
+    - tag: apid
+      expression-type: greater-than 
+      expression: 3
+`, func(t *testing.T, output *data.BlockData) {
+
+			assert.Equal(t, len(output.Payset), 2)
+			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(4))
+			assert.Equal(t, output.Payset[1].SignedTxnWithAD.ApplicationID, basics.AppIndex(11))
+		},
+		},
+
+		{"alias 8", `---
+filters:
+  - any:
+    - tag: apid
+      expression-type: greater-than-equal
+      expression: 4
+`, func(t *testing.T, output *data.BlockData) {
+
+			assert.Equal(t, len(output.Payset), 2)
+			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(4))
+			assert.Equal(t, output.Payset[1].SignedTxnWithAD.ApplicationID, basics.AppIndex(11))
+		},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+
+			fpBuilder, err := processors.ProcessorBuilderByName(implementationName)
+			assert.NoError(t, err)
+
+			fp := fpBuilder.New()
+			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(test.cfg), logrus.New())
+			assert.NoError(t, err)
+
+			bd := data.BlockData{}
+			bd.Payset = append(bd.Payset,
+
+				transactions.SignedTxnInBlock{
+					SignedTxnWithAD: transactions.SignedTxnWithAD{
+						ApplyData: transactions.ApplyData{
+							ApplicationID: 4,
+						},
+					},
+				},
+				transactions.SignedTxnInBlock{
+
+					SignedTxnWithAD: transactions.SignedTxnWithAD{
+						ApplyData: transactions.ApplyData{
+							ApplicationID: 2,
+						},
+					},
+				},
+				transactions.SignedTxnInBlock{
+
+					SignedTxnWithAD: transactions.SignedTxnWithAD{
+						ApplyData: transactions.ApplyData{
+							ApplicationID: 11,
+						},
+					},
+				},
+			)
+
+			output, err := fp.Process(bd)
+			assert.NoError(t, err)
+			test.fxn(t, &output)
+		})
+	}
+}
+
+// TestFilterProcessor_Numerical tests the various numerical operations on integers
+func TestFilterProcessor_Numerical(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  string
+		fxn  func(t *testing.T, output *data.BlockData)
+	}{
+
+		{"numerical 1", `---
+filters:
+  - any:
+    - tag: aca
+      expression-type: less-than 
+      expression: 4
+`, func(t *testing.T, output *data.BlockData) {
+
+			assert.Equal(t, len(output.Payset), 1)
+			assert.Equal(t, output.Payset[0].SignedTxnWithAD.AssetClosingAmount, uint64(2))
+		},
+		},
+		{"numerical 2", `---
+filters:
+  - any:
+    - tag: aca
+      expression-type: less-than 
+      expression: 5
+`, func(t *testing.T, output *data.BlockData) {
+
+			assert.Equal(t, len(output.Payset), 2)
+			assert.Equal(t, output.Payset[0].SignedTxnWithAD.AssetClosingAmount, uint64(4))
+			assert.Equal(t, output.Payset[1].SignedTxnWithAD.AssetClosingAmount, uint64(2))
+		},
+		},
+
+		{"numerical 3", `---
+filters:
+  - any:
+    - tag: aca
+      expression-type: less-than-equal
+      expression: 4
+`, func(t *testing.T, output *data.BlockData) {
+
+			assert.Equal(t, len(output.Payset), 2)
+			assert.Equal(t, output.Payset[0].SignedTxnWithAD.AssetClosingAmount, uint64(4))
+			assert.Equal(t, output.Payset[1].SignedTxnWithAD.AssetClosingAmount, uint64(2))
+		},
+		},
+		{"numerical 4", `---
+filters:
+  - any:
+    - tag: aca
+      expression-type: equal
+      expression: 11
+`, func(t *testing.T, output *data.BlockData) {
+
+			assert.Equal(t, len(output.Payset), 1)
+			assert.Equal(t, output.Payset[0].SignedTxnWithAD.AssetClosingAmount, uint64(11))
+		},
+		},
+
+		{"numerical 5", `---
+filters:
+  - any:
+    - tag: aca
+      expression-type: not-equal
+      expression: 11
+`, func(t *testing.T, output *data.BlockData) {
+
+			assert.Equal(t, len(output.Payset), 2)
+			assert.Equal(t, output.Payset[0].SignedTxnWithAD.AssetClosingAmount, uint64(4))
+			assert.Equal(t, output.Payset[1].SignedTxnWithAD.AssetClosingAmount, uint64(2))
+		},
+		},
+
+		{"numerical 6", `---
+filters:
+  - any:
+    - tag: aca
+      expression-type: greater-than 
+      expression: 4
+`, func(t *testing.T, output *data.BlockData) {
+
+			assert.Equal(t, len(output.Payset), 1)
+			assert.Equal(t, output.Payset[0].SignedTxnWithAD.AssetClosingAmount, uint64(11))
+		},
+		},
+		{"numerical 7", `---
+filters:
+  - any:
+    - tag: aca
+      expression-type: greater-than 
+      expression: 3
+`, func(t *testing.T, output *data.BlockData) {
+
+			assert.Equal(t, len(output.Payset), 2)
+			assert.Equal(t, output.Payset[0].SignedTxnWithAD.AssetClosingAmount, uint64(4))
+			assert.Equal(t, output.Payset[1].SignedTxnWithAD.AssetClosingAmount, uint64(11))
+		},
+		},
+
+		{"numerical 8", `---
+filters:
+  - any:
+    - tag: aca
+      expression-type: greater-than-equal
+      expression: 4
+`, func(t *testing.T, output *data.BlockData) {
+
+			assert.Equal(t, len(output.Payset), 2)
+			assert.Equal(t, output.Payset[0].SignedTxnWithAD.AssetClosingAmount, uint64(4))
+			assert.Equal(t, output.Payset[1].SignedTxnWithAD.AssetClosingAmount, uint64(11))
+		},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+
+			fpBuilder, err := processors.ProcessorBuilderByName(implementationName)
+			assert.NoError(t, err)
+
+			fp := fpBuilder.New()
+			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(test.cfg), logrus.New())
+			assert.NoError(t, err)
+
+			bd := data.BlockData{}
+			bd.Payset = append(bd.Payset,
+
+				transactions.SignedTxnInBlock{
+					SignedTxnWithAD: transactions.SignedTxnWithAD{
+						ApplyData: transactions.ApplyData{
+							AssetClosingAmount: 4,
+						},
+					},
+				},
+				transactions.SignedTxnInBlock{
+
+					SignedTxnWithAD: transactions.SignedTxnWithAD{
+						ApplyData: transactions.ApplyData{
+							AssetClosingAmount: 2,
+						},
+					},
+				},
+				transactions.SignedTxnInBlock{
+
+					SignedTxnWithAD: transactions.SignedTxnWithAD{
+						ApplyData: transactions.ApplyData{
+							AssetClosingAmount: 11,
+						},
+					},
+				},
+			)
+
+			output, err := fp.Process(bd)
+			assert.NoError(t, err)
+			test.fxn(t, &output)
+		})
+	}
+}
+
+// TestFilterProcessor_MicroAlgos tests the various numerical operations on microalgos
+func TestFilterProcessor_MicroAlgos(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  string
+		fxn  func(t *testing.T, output *data.BlockData)
+	}{
+		{"micro algo 1", `---
+filters:
+  - any:
+    - tag: txn.amt
+      expression-type: less-than 
+      expression: 4
+`, func(t *testing.T, output *data.BlockData) {
+
+			assert.Equal(t, len(output.Payset), 1)
+			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(2))
+		},
+		},
+		{"micro algo 2", `---
+filters:
+  - any:
+    - tag: txn.amt
+      expression-type: less-than 
+      expression: 5
+`, func(t *testing.T, output *data.BlockData) {
+
+			assert.Equal(t, len(output.Payset), 2)
+			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(4))
+			assert.Equal(t, output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(2))
+		},
+		},
+
+		{"micro algo 3", `---
+filters:
+  - any:
+    - tag: txn.amt
+      expression-type: less-than-equal
+      expression: 4
+`, func(t *testing.T, output *data.BlockData) {
+
+			assert.Equal(t, len(output.Payset), 2)
+			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(4))
+			assert.Equal(t, output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(2))
+		},
+		},
+		{"micro algo 4", `---
+filters:
+  - any:
+    - tag: txn.amt
+      expression-type: equal
+      expression: 11
+`, func(t *testing.T, output *data.BlockData) {
+
+			assert.Equal(t, len(output.Payset), 1)
+			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(11))
+		},
+		},
+
+		{"micro algo 5", `---
+filters:
+  - any:
+    - tag: txn.amt
+      expression-type: not-equal
+      expression: 11
+`, func(t *testing.T, output *data.BlockData) {
+
+			assert.Equal(t, len(output.Payset), 2)
+			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(4))
+			assert.Equal(t, output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(2))
+		},
+		},
+
+		{"micro algo 6", `---
+filters:
+  - any:
+    - tag: txn.amt
+      expression-type: greater-than 
+      expression: 4
+`, func(t *testing.T, output *data.BlockData) {
+
+			assert.Equal(t, len(output.Payset), 1)
+			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(11))
+		},
+		},
+		{"micro algo 7", `---
+filters:
+  - any:
+    - tag: txn.amt
+      expression-type: greater-than 
+      expression: 3
+`, func(t *testing.T, output *data.BlockData) {
+
+			assert.Equal(t, len(output.Payset), 2)
+			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(4))
+			assert.Equal(t, output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(11))
+		},
+		},
+
+		{"micro algo 8", `---
+filters:
+  - any:
+    - tag: txn.amt
+      expression-type: greater-than-equal
+      expression: 4
+`, func(t *testing.T, output *data.BlockData) {
+
+			assert.Equal(t, len(output.Payset), 2)
+			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(4))
+			assert.Equal(t, output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(11))
+		},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+
+			fpBuilder, err := processors.ProcessorBuilderByName(implementationName)
+			assert.NoError(t, err)
+
+			fp := fpBuilder.New()
+			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(test.cfg), logrus.New())
+			assert.NoError(t, err)
+
+			bd := data.BlockData{}
+			bd.Payset = append(bd.Payset,
+
+				transactions.SignedTxnInBlock{
+					SignedTxnWithAD: transactions.SignedTxnWithAD{
+						SignedTxn: transactions.SignedTxn{
+							Txn: transactions.Transaction{
+								PaymentTxnFields: transactions.PaymentTxnFields{
+									Amount: basics.MicroAlgos{Raw: 4},
+								},
+							},
+						},
+					},
+				},
+				transactions.SignedTxnInBlock{
+					SignedTxnWithAD: transactions.SignedTxnWithAD{
+						SignedTxn: transactions.SignedTxn{
+							Txn: transactions.Transaction{
+								PaymentTxnFields: transactions.PaymentTxnFields{
+									Amount: basics.MicroAlgos{Raw: 2},
+								},
+							},
+						},
+					},
+				},
+				transactions.SignedTxnInBlock{
+					SignedTxnWithAD: transactions.SignedTxnWithAD{
+						SignedTxn: transactions.SignedTxn{
+							Txn: transactions.Transaction{
+								PaymentTxnFields: transactions.PaymentTxnFields{
+									Amount: basics.MicroAlgos{Raw: 11},
+								},
+							},
+						},
+					},
+				},
+			)
+
+			output, err := fp.Process(bd)
+			assert.NoError(t, err)
+			test.fxn(t, &output)
+		})
+	}
+}
+
 // TestFilterProcessor_VariousErrorPathsOnInit tests the various error paths in the filter processor init function
 func TestFilterProcessor_VariousErrorPathsOnInit(t *testing.T) {
 	tests := []struct {
@@ -29,7 +593,7 @@ filters:
    - tag: DoesNot.ExistIn.Struct
      expression-type: exact
      expression: "sample"
-`, "error making field searcher"},
+`, "unknown tag"},
 
 		{"MakeExpressionError", `---
 filters:

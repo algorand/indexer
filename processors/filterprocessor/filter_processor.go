@@ -3,6 +3,8 @@ package filterprocessor
 import (
 	"context"
 	"fmt"
+	"github.com/algorand/go-algorand/data/transactions"
+	"reflect"
 
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
@@ -81,7 +83,15 @@ func (a *FilterProcessor) Init(ctx context.Context, _ data.InitProvider, cfg plu
 
 			for _, subConfig := range subConfigs {
 
-				exp, err := expression.MakeExpression(subConfig.ExpressionType, subConfig.Expression)
+				t, err := fields.SignedTxnFunc(subConfig.FilterTag, &transactions.SignedTxnInBlock{})
+				if err != nil {
+					return err
+				}
+
+				// We need the Elem() here because SignedTxnFunc returns a pointer underneath the interface{}
+				targetKind := reflect.TypeOf(t).Elem().Kind()
+
+				exp, err := expression.MakeExpression(subConfig.ExpressionType, subConfig.Expression, targetKind)
 				if err != nil {
 					return fmt.Errorf("filter processor Init(): could not make expression with string %s for filter tag %s - %w", subConfig.Expression, subConfig.FilterTag, err)
 				}
