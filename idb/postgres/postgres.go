@@ -2547,7 +2547,7 @@ func (db *IndexerDb) DeleteTransactions(ctx context.Context, keep uint64, timeou
 			return 0, fmt.Errorf("deleteTxns(): metastate update err %w", err2)
 		}
 		// commit the transaction.
-		if err = tx.Commit(ctx); err2 != nil {
+		if err2 = tx.Commit(ctx); err2 != nil {
 			return 0, fmt.Errorf("deleteTxns(): delete transactions: %w", err2)
 		}
 		db.log.Infof("%d transactions deleted, last pruned at %s", cmd.RowsAffected(), status.LastPruned)
