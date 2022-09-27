@@ -27,8 +27,6 @@ func init() {
 	viper.SetConfigType("yaml")
 }
 
-const autoLoadParameterConfigName = "conduit.yml"
-
 // NameConfigPair is a generic structure used across plugin configuration ser/de
 type NameConfigPair struct {
 	Name   string                 `yaml:"Name"`
@@ -84,13 +82,13 @@ func MakePipelineConfig(logger *log.Logger, cfg *Config) (*PipelineConfig, error
 	pCfg := PipelineConfig{PipelineLogLevel: logger.Level.String(), ConduitConfig: cfg}
 
 	// Search for pipeline configuration in data directory
-	autoloadParamConfigPath := filepath.Join(cfg.ConduitDataDir, autoLoadParameterConfigName)
+	autoloadParamConfigPath := filepath.Join(cfg.ConduitDataDir, DefaultConfigName)
 
 	_, err := os.Stat(autoloadParamConfigPath)
 	paramConfigFound := err == nil
 
 	if !paramConfigFound {
-		return nil, fmt.Errorf("MakePipelineConfig(): could not find %s in data directory (%s)", autoLoadParameterConfigName, cfg.ConduitDataDir)
+		return nil, fmt.Errorf("MakePipelineConfig(): could not find %s in data directory (%s)", DefaultConfigName, cfg.ConduitDataDir)
 	}
 
 	logger.Infof("Auto-loading Conduit Configuration: %s", autoloadParamConfigPath)

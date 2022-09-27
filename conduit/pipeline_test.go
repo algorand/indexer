@@ -106,7 +106,7 @@ Exporter:
   Config:
     connectionstring: ""`
 
-	err = os.WriteFile(filepath.Join(dataDir, autoLoadParameterConfigName), []byte(validConfigFile), 0777)
+	err = os.WriteFile(filepath.Join(dataDir, DefaultConfigName), []byte(validConfigFile), 0777)
 	assert.Nil(t, err)
 
 	cfg := &Config{ConduitDataDir: dataDir}
@@ -131,7 +131,7 @@ Exporter:
 	cfgBad := &Config{ConduitDataDir: invalidDataDir}
 	_, err = MakePipelineConfig(l, cfgBad)
 	assert.Equal(t, err,
-		fmt.Errorf("MakePipelineConfig(): could not find %s in data directory (%s)", autoLoadParameterConfigName, cfgBad.ConduitDataDir))
+		fmt.Errorf("MakePipelineConfig(): could not find %s in data directory (%s)", DefaultConfigName, cfgBad.ConduitDataDir))
 
 }
 
