@@ -1647,6 +1647,7 @@ func TestGetBlocksTransactionsLimit(t *testing.T) {
 			resp, data := makeReq(t, path, tc.headerOnly)
 			if tc.errStatus != 0 {
 				require.Equal(t, tc.errStatus, resp.StatusCode)
+				require.Contains(t, string(data), errTransactionsLimitReached)
 				return
 			}
 			require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))

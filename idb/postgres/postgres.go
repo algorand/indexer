@@ -457,7 +457,7 @@ func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.Get
 
 	if options.Transactions {
 		out := make(chan idb.TxnRow, 1)
-		query, whereArgs, err := buildTransactionQuery(idb.TransactionFilter{Round: &round})
+		query, whereArgs, err := buildTransactionQuery(idb.TransactionFilter{Round: &round, Limit: options.MaxTransactionsLimit + 1})
 		if err != nil {
 			err = fmt.Errorf("txn query err %v", err)
 			out <- idb.TxnRow{Error: err}

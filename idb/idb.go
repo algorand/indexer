@@ -414,5 +414,5 @@ type MaxTransactionsError struct {
 }
 
 func (e MaxTransactionsError) Error() string {
-	return "Max transactions limit exceeded. header-only flag should be enabled"
+	return "number of transactions exceeds MaxTransactionsLimit"
 }
