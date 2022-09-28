@@ -4,9 +4,10 @@ package fields
 
 import (
 	"fmt"
+	"reflect"
+
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/indexer/processors/filterprocessor/expression"
-	"reflect"
 )
 
 // Searcher searches the struct with an expression and method to call

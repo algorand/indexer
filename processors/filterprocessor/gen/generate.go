@@ -14,7 +14,7 @@ import (
 
 // recursiveTagFields recursively gets all field names in a struct
 // Output will contain a key of the full tag along with the fully qualified struct
-func recursiveTagFields(theStruct interface{}, Output *map[string]string, tagLevel []string, fieldLevel []string) {
+func recursiveTagFields(theStruct interface{}, output map[string]string, tagLevel []string, fieldLevel []string) {
 	rStruct := reflect.TypeOf(theStruct)
 	numFields := rStruct.NumField()
 	for i := 0; i < numFields; i++ {
@@ -35,7 +35,7 @@ func recursiveTagFields(theStruct interface{}, Output *map[string]string, tagLev
 			}
 
 			fullTag := strings.Join(append(tagLevel, tagValue), ".")
-			(*Output)[fullTag] = strings.Join(append(fieldLevel, name), ".")
+			output[fullTag] = strings.Join(append(fieldLevel, name), ".")
 		}
 
 		if field.Type.Kind() == reflect.Struct {
@@ -45,7 +45,7 @@ func recursiveTagFields(theStruct interface{}, Output *map[string]string, tagLev
 			} else {
 				passedTagLevel = tagLevel
 			}
-			recursiveTagFields(reflect.New(field.Type).Elem().Interface(), Output, passedTagLevel, append(fieldLevel, name))
+			recursiveTagFields(reflect.New(field.Type).Elem().Interface(), output, passedTagLevel, append(fieldLevel, name))
 		}
 	}
 }
@@ -70,7 +70,7 @@ func main() {
 	tagLevel := []string{}
 	fieldLevel := []string{}
 
-	recursiveTagFields(transactions.SignedTxnInBlock{}, &output, tagLevel, fieldLevel)
+	recursiveTagFields(transactions.SignedTxnInBlock{}, output, tagLevel, fieldLevel)
 
 	var err error
 	var bb bytes.Buffer
@@ -111,7 +111,7 @@ func SignedTxnFunc(tag string, input *transactions.SignedTxnInBlock) (interface{
 	}
 
 	for _, k := range keys {
-		fmt.Fprintf(&bb, "case \"%s\":\nreturn &((*input).%s), nil\n", k, output[k])
+		fmt.Fprintf(&bb, "case \"%s\":\nreturn &input.%s, nil\n", k, output[k])
 	}
 
 	_, err = fmt.Fprint(&bb, "default:\n"+
