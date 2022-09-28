@@ -2,10 +2,11 @@ package expression
 
 import (
 	"fmt"
-	"github.com/algorand/go-algorand/data/basics"
 	"reflect"
 	"regexp"
 	"strconv"
+
+	"github.com/algorand/go-algorand/data/basics"
 )
 
 // FilterType is the type of the filter (i.e. const, regex, etc)
