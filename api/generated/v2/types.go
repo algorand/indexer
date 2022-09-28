@@ -1021,6 +1021,9 @@ type Exclude []string
 // ExcludeCloseTo defines model for exclude-close-to.
 type ExcludeCloseTo bool
 
+// HeaderOnly defines model for header-only.
+type HeaderOnly bool
+
 // IncludeAll defines model for include-all.
 type IncludeAll bool
 
@@ -1524,6 +1527,13 @@ type LookupAssetTransactionsParams struct {
 
 	// Include results which include the rekey-to field.
 	RekeyTo *bool `json:"rekey-to,omitempty"`
+}
+
+// LookupBlockParams defines parameters for LookupBlock.
+type LookupBlockParams struct {
+
+	// Header only flag. When this is set to true, returned block does not contain the transactions
+	HeaderOnly *bool `json:"header-only,omitempty"`
 }
 
 // SearchForTransactionsParams defines parameters for SearchForTransactions.

@@ -983,7 +983,7 @@ func TestTimeouts(t *testing.T) {
 			errString: errLookingUpBlockForRound,
 			mockCall:  blockFunc,
 			callHandler: func(ctx echo.Context, si ServerImplementation) error {
-				return si.LookupBlock(ctx, 100)
+				return si.LookupBlock(ctx, 100, generated.LookupBlockParams{})
 			},
 		},
 		{
@@ -1211,7 +1211,7 @@ func TestBigNumbers(t *testing.T) {
 			name:      "LookupBlock",
 			errString: errValueExceedingInt64,
 			callHandler: func(ctx echo.Context, si ServerImplementation) error {
-				return si.LookupBlock(ctx, math.MaxInt64+1)
+				return si.LookupBlock(ctx, math.MaxInt64+1, generated.LookupBlockParams{})
 			},
 		},
 		{
@@ -1269,20 +1269,23 @@ func TestBigNumbers(t *testing.T) {
 
 func TestFetchBlock(t *testing.T) {
 	testcases := []struct {
-		name       string
-		blockBytes []byte
-		expected   generated.Block
-		created    uint64
+		name         string
+		blockBytes   []byte
+		blockOptions idb.GetBlockOptions
+		expected     generated.Block
+		created      uint64
 	}{
 		{
-			name:       "State Proof Block",
-			blockBytes: loadResourceFileOrPanic("test_resources/stpf_block.block"),
-			expected:   loadBlockFromFile("test_resources/stpf_block_response.json"),
+			name:         "State Proof Block",
+			blockBytes:   loadResourceFileOrPanic("test_resources/stpf_block.block"),
+			blockOptions: idb.GetBlockOptions{Transactions: true},
+			expected:     loadBlockFromFile("test_resources/stpf_block_response.json"),
 		},
 		{
-			name:       "State Proof Block - High Reveal Index",
-			blockBytes: loadResourceFileOrPanic("test_resources/stpf_block_high_index.block"),
-			expected:   loadBlockFromFile("test_resources/stpf_block_high_index_response.json"),
+			name:         "State Proof Block - High Reveal Index",
+			blockBytes:   loadResourceFileOrPanic("test_resources/stpf_block_high_index.block"),
+			blockOptions: idb.GetBlockOptions{Transactions: true},
+			expected:     loadBlockFromFile("test_resources/stpf_block_high_index_response.json"),
 		},
 	}
 
@@ -1318,7 +1321,7 @@ func TestFetchBlock(t *testing.T) {
 				On("GetBlock", mock.Anything, mock.Anything, mock.Anything).
 				Return(blk.Block.BlockHeader, txnRows, nil)
 
-			blkOutput, err := si.fetchBlock(context.Background(), 1)
+			blkOutput, err := si.fetchBlock(context.Background(), 1, tc.blockOptions)
 			require.NoError(t, err)
 			actualStr, _ := json.Marshal(blkOutput)
 			fmt.Printf("%s\n", actualStr)
