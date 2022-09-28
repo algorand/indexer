@@ -50,6 +50,11 @@ func init() {
 
 // runConduitCmdWithConfig run the main logic with a supplied conduit config
 func runConduitCmdWithConfig(cfg *conduit.Config) error {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Fatalf("conduit framework experienced a panic: %v", r)
+		}
+	}()
 
 	// From docs:
 	// BindEnv takes one or more parameters. The first parameter is the key name, the rest are the name of the
