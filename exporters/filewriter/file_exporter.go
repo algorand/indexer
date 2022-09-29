@@ -23,11 +23,7 @@ import (
 const (
 	exporterName = "filewriter"
 	// FileExporterFileFormat is used to name the output files.
-	//
-	// The default format places the round first and pads with 0. This way it
-	// is easy to sort. At 8.5 million rounds per year, 9 digits of padding
-	// should last for over 100 years.
-	FileExporterFileFormat = "%09[1]d_block.json"
+	FileExporterFileFormat = "%[1]d_block.json"
 )
 
 type fileExporter struct {
@@ -185,11 +181,22 @@ func (exp *fileExporter) HandleGenesis(genesis bookkeeping.Genesis) error {
 	// check genesis hash
 	gh := crypto.HashObj(genesis).String()
 	if exp.blockMetadata.GenesisHash == "" {
+		// First time initialization.
 		exp.blockMetadata.GenesisHash = gh
 		exp.blockMetadata.Network = string(genesis.Network)
 		err := exp.encodeMetadataToFile()
 		if err != nil {
 			return fmt.Errorf("HandleGenesis() metadata encoding err %w", err)
+		}
+
+		genesisFilename := path.Join(exp.cfg.BlocksDir, "genesis.json")
+		genesisWriter, err := os.Create(genesisFilename)
+		if err != nil {
+			return fmt.Errorf("HandleGenesis() failed to create genesis file: %w", err)
+		}
+		err = json.NewEncoder(genesisWriter).Encode(genesis)
+		if err != nil {
+			return fmt.Errorf("HandleGenesis() failed to serialize genesis file: %w", err)
 		}
 	} else {
 		if exp.blockMetadata.GenesisHash != gh {

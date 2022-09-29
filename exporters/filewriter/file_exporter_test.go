@@ -91,15 +91,32 @@ func TestExporterHandleGenesis(t *testing.T) {
 	err := fileExp.HandleGenesis(genesisA)
 	fileExp.Close()
 	assert.NoError(t, err)
-	metadataFile := fmt.Sprintf("%s/blocks/metadata.json", tempdir)
-	require.FileExists(t, metadataFile)
-	configs, err := ioutil.ReadFile(metadataFile)
-	assert.NoError(t, err)
-	var blockMetaData filewriter.BlockMetaData
-	err = json.Unmarshal(configs, &blockMetaData)
-	assert.Equal(t, uint64(0), blockMetaData.NextRound)
-	assert.Equal(t, string(genesisA.Network), blockMetaData.Network)
-	assert.Equal(t, crypto.HashObj(genesisA).String(), blockMetaData.GenesisHash)
+
+	{
+		// Check that metadata.json is written
+		metadataFile := fmt.Sprintf("%s/blocks/metadata.json", tempdir)
+		require.FileExists(t, metadataFile)
+		configs, err := ioutil.ReadFile(metadataFile)
+		assert.NoError(t, err)
+		var blockMetaData filewriter.BlockMetaData
+		err = json.Unmarshal(configs, &blockMetaData)
+		assert.NoError(t, err)
+		assert.Equal(t, uint64(0), blockMetaData.NextRound)
+		assert.Equal(t, string(genesisA.Network), blockMetaData.Network)
+		assert.Equal(t, crypto.HashObj(genesisA).String(), blockMetaData.GenesisHash)
+	}
+
+	{
+		// Check that genesis.json is written.
+		genesisFile := fmt.Sprintf("%s/blocks/genesis.json", tempdir)
+		require.FileExists(t, genesisFile)
+		genesisBytes, err := ioutil.ReadFile(genesisFile)
+		assert.NoError(t, err)
+		var genesis bookkeeping.Genesis
+		err = json.Unmarshal(genesisBytes, &genesis)
+		assert.NoError(t, err)
+		assert.Equal(t, genesisA, genesis)
+	}
 
 	// genesis mismatch
 	fileExp.Init(plugins.PluginConfig(config), logger)
