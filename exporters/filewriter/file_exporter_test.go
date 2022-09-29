@@ -7,24 +7,33 @@ import (
 	"os"
 	"testing"
 
-	"github.com/algorand/go-algorand/crypto"
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/indexer/data"
-	"github.com/algorand/indexer/exporters/filewriter"
-	"github.com/algorand/indexer/plugins"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/algorand/go-algorand/crypto"
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
+
+	"github.com/algorand/indexer/data"
+	"github.com/algorand/indexer/exporters"
+	"github.com/algorand/indexer/exporters/filewriter"
+	"github.com/algorand/indexer/plugins"
 )
 
 var logger *logrus.Logger
 var fileCons = &filewriter.Constructor{}
-var config = "block-dir: /tmp/blocks\n"
+var configNoDelta = "block-dir: %s/blocks\nexclude-state-delta: true\n"
+var configWithDelta = "block-dir: %s/blocks\nexclude-state-delta: false\n"
 
 func init() {
 	logger, _ = test.NewNullLogger()
-	os.RemoveAll("/tmp/blocks")
+}
+
+func insertTempDir(config string, dir string) string {
+	return fmt.Sprintf(config, dir)
 }
 
 func TestExporterMetadata(t *testing.T) {
@@ -37,6 +46,8 @@ func TestExporterMetadata(t *testing.T) {
 }
 
 func TestExporterInit(t *testing.T) {
+	tempdir := t.TempDir()
+	config := insertTempDir(configNoDelta, tempdir)
 	fileExp := fileCons.New()
 	assert.Equal(t, uint64(0), fileExp.Round())
 	// creates a new output file
@@ -51,7 +62,7 @@ func TestExporterInit(t *testing.T) {
 	assert.NoError(t, err)
 	fileExp.Close()
 	// re-initializes empty file
-	path := "/tmp/blocks/metadata.json"
+	path := fmt.Sprintf("%s/blocks/metadata.json", tempdir)
 	assert.NoError(t, os.Remove(path))
 	f, err := os.Create(path)
 	f.Close()
@@ -62,6 +73,9 @@ func TestExporterInit(t *testing.T) {
 }
 
 func TestExporterHandleGenesis(t *testing.T) {
+	tempdir := t.TempDir()
+	config := insertTempDir(configNoDelta, tempdir)
+
 	fileExp := fileCons.New()
 	fileExp.Init(plugins.PluginConfig(config), logger)
 	genesisA := bookkeeping.Genesis{
@@ -103,11 +117,9 @@ func TestExporterHandleGenesis(t *testing.T) {
 	err = fileExp.HandleGenesis(genesisB)
 	assert.Contains(t, err.Error(), "genesis hash in metadata does not match expected value")
 	fileExp.Close()
-
 }
 
-func TestExporterReceive(t *testing.T) {
-	fileExp := fileCons.New()
+func sendData(t *testing.T, fileExp exporters.Exporter, config string, numRounds int) {
 	block := data.BlockData{
 		BlockHeader: bookkeeping.BlockHeader{
 			Round: 3,
@@ -121,7 +133,8 @@ func TestExporterReceive(t *testing.T) {
 	assert.Contains(t, err.Error(), "exporter not initialized")
 
 	// initialize
-	fileExp.Init(plugins.PluginConfig(config), logger)
+	err = fileExp.Init(plugins.PluginConfig(config), logger)
+	require.NoError(t, err)
 
 	// incorrect round
 	err = fileExp.Receive(block)
@@ -143,13 +156,13 @@ func TestExporterReceive(t *testing.T) {
 	assert.NoError(t, err)
 
 	// write block to file
-	for i := 0; i < 5; i++ {
+	for i := 0; i < numRounds; i++ {
 		block = data.BlockData{
 			BlockHeader: bookkeeping.BlockHeader{
 				Round: basics.Round(i),
 			},
 			Payset:      nil,
-			Delta:       nil,
+			Delta:       &ledgercore.StateDelta{},
 			Certificate: nil,
 		}
 		err = fileExp.Receive(block)
@@ -157,14 +170,33 @@ func TestExporterReceive(t *testing.T) {
 		assert.Equal(t, uint64(i+1), fileExp.Round())
 
 	}
-	fileExp.Close()
 
-	// written data are valid
+	assert.NoError(t, fileExp.Close())
+}
+
+func TestExporterReceiveNoDelta(t *testing.T) {
+	tempdir := t.TempDir()
+	config := insertTempDir(configNoDelta, tempdir)
+	fileExp := fileCons.New()
+	numRounds := 5
+	sendData(t, fileExp, config, numRounds)
+
+	// block data is valid
 	for i := 0; i < 5; i++ {
-		b, _ := os.ReadFile(fmt.Sprintf("/tmp/blocks/block_%d.json", i))
+		filename := fmt.Sprintf(filewriter.FileExporterFileFormat, "block", i)
+		path := fmt.Sprintf("%s/blocks/%s", tempdir, filename)
+		assert.FileExists(t, path)
+		b, _ := os.ReadFile(path)
 		var blockData data.BlockData
-		err = json.Unmarshal(b, &blockData)
+		err := json.Unmarshal(b, &blockData)
 		assert.NoError(t, err)
+	}
+
+	// delta data is not written
+	for i := 0; i < 5; i++ {
+		filename := fmt.Sprintf(filewriter.FileExporterFileFormat, "delta", i)
+		path := fmt.Sprintf("%s/blocks/%s", tempdir, filename)
+		assert.NoFileExists(t, path)
 	}
 
 	//	should continue from round 6 after restart
@@ -173,9 +205,62 @@ func TestExporterReceive(t *testing.T) {
 	fileExp.Close()
 }
 
-func TestExporterClose(t *testing.T) {
+func TestExporterReceiveWithDelta(t *testing.T) {
+	tempdir := t.TempDir()
+	config := insertTempDir(configWithDelta, tempdir)
+	fileExp := fileCons.New()
+	numRounds := 5
+	sendData(t, fileExp, config, numRounds)
+
+	// block data is valid
+	for i := 0; i < 5; i++ {
+		filename := fmt.Sprintf(filewriter.FileExporterFileFormat, "block", i)
+		path := fmt.Sprintf("%s/blocks/%s", tempdir, filename)
+		assert.FileExists(t, path)
+		b, _ := os.ReadFile(path)
+		var blockData data.BlockData
+		err := json.Unmarshal(b, &blockData)
+		assert.NoError(t, err)
+	}
+
+	// delta data is not written
+	for i := 0; i < 5; i++ {
+		filename := fmt.Sprintf(filewriter.FileExporterFileFormat, "delta", i)
+		path := fmt.Sprintf("%s/blocks/%s", tempdir, filename)
+		assert.FileExists(t, path)
+		b, _ := os.ReadFile(path)
+		var blockData data.BlockData
+		err := json.Unmarshal(b, &blockData)
+		assert.NoError(t, err)
+	}
+
+	//	should continue from round 6 after restart
+	fileExp.Init(plugins.PluginConfig(configNoDelta), logger)
+	assert.Equal(t, uint64(5), fileExp.Round())
+	fileExp.Close()
+}
+
+func TestMissingStateDelta(t *testing.T) {
+	tempdir := t.TempDir()
+	config := insertTempDir(configWithDelta, tempdir)
 	fileExp := fileCons.New()
 	fileExp.Init(plugins.PluginConfig(config), logger)
+
+	block := data.BlockData{
+		BlockHeader: bookkeeping.BlockHeader{
+			Round: basics.Round(0),
+		},
+		Payset:      nil,
+		Delta:       nil,
+		Certificate: nil,
+	}
+	err := fileExp.Receive(block)
+	require.ErrorContains(t, err, "exporter is misconfigured, set 'exclude-state-delta: true' or enable a plugin that provides state deltas data")
+}
+
+func TestExporterClose(t *testing.T) {
+	fileExp := fileCons.New()
+	fileExp.Init(plugins.PluginConfig(configNoDelta), logger)
 	block := data.BlockData{
 		BlockHeader: bookkeeping.BlockHeader{
 			Round: 5,

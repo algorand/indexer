@@ -18,7 +18,17 @@ import (
 	"github.com/algorand/indexer/plugins"
 )
 
-const exporterName = "filewriter"
+const (
+	exporterName = "filewriter"
+	// FileExporterFileFormat is used to name the output files.
+	// Argument index 1: "block" or "delta"
+	// Argument index 2: round number
+	//
+	// The default format places the round first and pads with 0. This way it
+	// is easy to sort. At 8.5 million rounds per year, 9 digits of padding
+	// should last for over 100 years.
+	FileExporterFileFormat = "%09[2]d_%[1]s.json"
+)
 
 type fileExporter struct {
 	round             uint64
@@ -142,21 +152,51 @@ func (exp *fileExporter) Receive(exportData data.BlockData) error {
 	if exportData.Round() != exp.round {
 		return fmt.Errorf("Receive(): wrong block: received round %d, expected round %d", exportData.Round(), exp.round)
 	}
-	//write block to file
-	blockFile := path.Join(exp.cfg.BlocksDir, fmt.Sprintf("block_%d.json", exportData.Round()))
-	file, err := os.OpenFile(blockFile, os.O_WRONLY|os.O_CREATE, 0755)
-	if err != nil {
-		return fmt.Errorf("Receive(): error opening file %s: %w", blockFile, err)
+	if exportData.Delta == nil && !exp.cfg.ExcludeStateDelta {
+		return fmt.Errorf("exporter is misconfigured, set 'exclude-state-delta: true' or enable a plugin that provides state deltas data")
 	}
-	defer file.Close()
-	err = json.NewEncoder(file).Encode(exportData)
-	if err != nil {
-		return fmt.Errorf("Receive(): error encoding exportData: %w", err)
+
+	// write block to file
+	{
+		blockFile := path.Join(exp.cfg.BlocksDir, fmt.Sprintf(FileExporterFileFormat, "block", exportData.Round()))
+		file, err := os.OpenFile(blockFile, os.O_WRONLY|os.O_CREATE, 0755)
+		if err != nil {
+			return fmt.Errorf("Receive(): error opening file %s: %w", blockFile, err)
+		}
+		defer file.Close()
+		block := bookkeeping.Block{
+			BlockHeader: exportData.BlockHeader,
+			Payset:      exportData.Payset,
+		}
+		err = json.NewEncoder(file).Encode(block)
+		if err != nil {
+			return fmt.Errorf("Receive(): error encoding exportData: %w", err)
+		}
+		exp.logger.Infof("Wrote block %d to %s", exportData.Round(), blockFile)
 	}
-	exp.logger.Infof("Added block %d", exportData.Round())
+
+	// write state delta to file
+	if !exp.cfg.ExcludeStateDelta {
+		deltaFile := path.Join(exp.cfg.BlocksDir, fmt.Sprintf(FileExporterFileFormat, "delta", exportData.Round()))
+		file, err := os.OpenFile(deltaFile, os.O_WRONLY|os.O_CREATE, 0755)
+		if err != nil {
+			return fmt.Errorf("Receive(): error opening file %s: %w", deltaFile, err)
+		}
+		defer file.Close()
+		block := bookkeeping.Block{
+			BlockHeader: exportData.BlockHeader,
+			Payset:      exportData.Payset,
+		}
+		err = json.NewEncoder(file).Encode(block)
+		if err != nil {
+			return fmt.Errorf("Receive(): error encoding exportData: %w", err)
+		}
+		exp.logger.Infof("Wrote block %d to %s", exportData.Round(), deltaFile)
+	}
+
 	exp.round++
 	exp.blockMetadata.NextRound = exp.round
-	err = exp.encodeMetadataToFile()
+	err := exp.encodeMetadataToFile()
 	if err != nil {
 		return fmt.Errorf("Receive() metadata encoding err %w", err)
 	}
