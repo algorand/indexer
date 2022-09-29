@@ -18,4 +18,3 @@ Exporter:
     Name: filewriter
     Config:
       - block-dir: "path where data should be written"
-      - exclude-state-delta: true
