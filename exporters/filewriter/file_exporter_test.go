@@ -92,7 +92,9 @@ func TestExporterHandleGenesis(t *testing.T) {
 	err := fileExp.HandleGenesis(genesisA)
 	fileExp.Close()
 	assert.NoError(t, err)
-	configs, err := ioutil.ReadFile("/tmp/blocks/metadata.json")
+	metadataFile := fmt.Sprintf("%s/blocks/metadata.json", tempdir)
+	require.FileExists(t, metadataFile)
+	configs, err := ioutil.ReadFile(metadataFile)
 	assert.NoError(t, err)
 	var blockMetaData filewriter.BlockMetaData
 	err = json.Unmarshal(configs, &blockMetaData)
@@ -259,23 +261,28 @@ func TestMissingStateDelta(t *testing.T) {
 }
 
 func TestExporterClose(t *testing.T) {
+	tempdir := t.TempDir()
+	config := insertTempDir(configNoDelta, tempdir)
 	fileExp := fileCons.New()
-	fileExp.Init(plugins.PluginConfig(configNoDelta), logger)
+	fileExp.Init(plugins.PluginConfig(config), logger)
 	block := data.BlockData{
 		BlockHeader: bookkeeping.BlockHeader{
-			Round: 5,
+			Round: 0,
 		},
 		Payset:      nil,
 		Delta:       nil,
 		Certificate: nil,
 	}
-	fileExp.Receive(block)
-	err := fileExp.Close()
+	err := fileExp.Receive(block)
+	require.NoError(t, err)
+	err = fileExp.Close()
 	assert.NoError(t, err)
+	metadataFile := fmt.Sprintf("%s/blocks/metadata.json", tempdir)
+	require.FileExists(t, metadataFile)
 	// assert round is updated correctly
-	configs, err := ioutil.ReadFile("/tmp/blocks/metadata.json")
+	configs, err := ioutil.ReadFile(metadataFile)
 	assert.NoError(t, err)
 	var blockMetaData filewriter.BlockMetaData
 	err = json.Unmarshal(configs, &blockMetaData)
-	assert.Equal(t, uint64(6), blockMetaData.NextRound)
+	assert.Equal(t, uint64(1), blockMetaData.NextRound)
 }

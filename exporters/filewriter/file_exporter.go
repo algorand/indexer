@@ -10,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
+	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 
@@ -164,10 +165,23 @@ func (exp *fileExporter) Receive(exportData data.BlockData) error {
 			return fmt.Errorf("Receive(): error opening file %s: %w", blockFile, err)
 		}
 		defer file.Close()
-		block := bookkeeping.Block{
-			BlockHeader: exportData.BlockHeader,
-			Payset:      exportData.Payset,
+
+		// rpcs.EncodedBlockCert, but with pointers
+		type encodedBlockCert struct {
+			_struct struct{} `codec:""`
+
+			Block       *bookkeeping.Block     `codec:"block"`
+			Certificate *agreement.Certificate `codec:"cert"`
 		}
+
+		block := encodedBlockCert{
+			Block: &bookkeeping.Block{
+				BlockHeader: exportData.BlockHeader,
+				Payset:      exportData.Payset,
+			},
+			Certificate: exportData.Certificate,
+		}
+
 		err = json.NewEncoder(file).Encode(block)
 		if err != nil {
 			return fmt.Errorf("Receive(): error encoding exportData: %w", err)
