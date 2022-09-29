@@ -293,11 +293,7 @@ func (p *pipelineImpl) Start() {
 	go func() {
 		defer p.wg.Done()
 		// We need to add a separate recover function here since it launches its own go-routine
-		defer func() {
-			if r := recover(); r != nil {
-				p.logger.Fatalf("conduit pipeline experienced a panic: %v", r)
-			}
-		}()
+		defer HandlePanic(p.logger)
 		for {
 		pipelineRun:
 			select {
