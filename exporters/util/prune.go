@@ -77,7 +77,7 @@ func (p postgresql) Delete(wg *sync.WaitGroup, roundch chan uint64) {
 		case <-p.ctx.Done():
 			return
 		case currentRound := <-roundch:
-			p.logger.Debug("Delete: received round %d", currentRound)
+			p.logger.Debugf("Delete: received round %d", currentRound)
 			if currentRound > p.config.Rounds {
 				keep := currentRound - p.config.Rounds + 1
 				if (p.config.Interval == once || p.config.Interval > 0) && counter == 0 {
