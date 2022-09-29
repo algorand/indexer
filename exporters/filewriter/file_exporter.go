@@ -10,9 +10,10 @@ import (
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
-	"github.com/algorand/go-algorand/agreement"
+	sdk "github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-codec/codec"
 
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
@@ -22,13 +23,11 @@ import (
 const (
 	exporterName = "filewriter"
 	// FileExporterFileFormat is used to name the output files.
-	// Argument index 1: "block" or "delta"
-	// Argument index 2: round number
 	//
 	// The default format places the round first and pads with 0. This way it
 	// is easy to sort. At 8.5 million rounds per year, 9 digits of padding
 	// should last for over 100 years.
-	FileExporterFileFormat = "%09[2]d_%[1]s.json"
+	FileExporterFileFormat = "%09[1]d_block.json"
 )
 
 type fileExporter struct {
@@ -153,59 +152,24 @@ func (exp *fileExporter) Receive(exportData data.BlockData) error {
 	if exportData.Round() != exp.round {
 		return fmt.Errorf("Receive(): wrong block: received round %d, expected round %d", exportData.Round(), exp.round)
 	}
-	if exportData.Delta == nil && !exp.cfg.ExcludeStateDelta {
-		return fmt.Errorf("exporter is misconfigured, set 'exclude-state-delta: true' or enable a plugin that provides state deltas data")
-	}
 
 	// write block to file
 	{
-		blockFile := path.Join(exp.cfg.BlocksDir, fmt.Sprintf(FileExporterFileFormat, "block", exportData.Round()))
+		blockFile := path.Join(exp.cfg.BlocksDir, fmt.Sprintf(FileExporterFileFormat, exportData.Round()))
 		file, err := os.OpenFile(blockFile, os.O_WRONLY|os.O_CREATE, 0755)
 		if err != nil {
 			return fmt.Errorf("Receive(): error opening file %s: %w", blockFile, err)
 		}
 		defer file.Close()
 
-		// rpcs.EncodedBlockCert, but with pointers
-		type encodedBlockCert struct {
-			_struct struct{} `codec:""`
-
-			Block       *bookkeeping.Block     `codec:"block"`
-			Certificate *agreement.Certificate `codec:"cert"`
-		}
-
-		block := encodedBlockCert{
-			Block: &bookkeeping.Block{
-				BlockHeader: exportData.BlockHeader,
-				Payset:      exportData.Payset,
-			},
-			Certificate: exportData.Certificate,
-		}
-
-		err = json.NewEncoder(file).Encode(block)
+		// The state delta object contains maps with non-string key values
+		// which aren't supported by the standard json encoder.
+		enc := codec.NewEncoder(file, sdk.CodecHandle)
+		err = enc.Encode(exportData)
 		if err != nil {
 			return fmt.Errorf("Receive(): error encoding exportData: %w", err)
 		}
 		exp.logger.Infof("Wrote block %d to %s", exportData.Round(), blockFile)
-	}
-
-	// write state delta to file
-	if !exp.cfg.ExcludeStateDelta {
-		deltaFile := path.Join(exp.cfg.BlocksDir, fmt.Sprintf(FileExporterFileFormat, "delta", exportData.Round()))
-		file, err := os.OpenFile(deltaFile, os.O_WRONLY|os.O_CREATE, 0755)
-		if err != nil {
-			return fmt.Errorf("Receive(): error opening file %s: %w", deltaFile, err)
-		}
-		defer file.Close()
-		block := bookkeeping.Block{
-			BlockHeader: exportData.BlockHeader,
-			Payset:      exportData.Payset,
-		}
-		err = json.NewEncoder(file).Encode(block)
-		if err != nil {
-			return fmt.Errorf("Receive(): error encoding exportData: %w", err)
-		}
-		exp.logger.Infof("Wrote block %d to %s", exportData.Round(), deltaFile)
 	}
 
 	exp.round++

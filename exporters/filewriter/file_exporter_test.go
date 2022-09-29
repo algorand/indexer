@@ -25,15 +25,16 @@ import (
 
 var logger *logrus.Logger
 var fileCons = &filewriter.Constructor{}
-var configNoDelta = "block-dir: %s/blocks\nexclude-state-delta: true\n"
-var configWithDelta = "block-dir: %s/blocks\nexclude-state-delta: false\n"
+var configTemplate = "block-dir: %s/blocks\n"
 
 func init() {
 	logger, _ = test.NewNullLogger()
 }
 
-func insertTempDir(config string, dir string) string {
-	return fmt.Sprintf(config, dir)
+func getConfig(t *testing.T) (config, tempdir string) {
+	tempdir = t.TempDir()
+	config = fmt.Sprintf(configTemplate, tempdir)
+	return
 }
 
 func TestExporterMetadata(t *testing.T) {
@@ -46,8 +47,7 @@ func TestExporterMetadata(t *testing.T) {
 }
 
 func TestExporterInit(t *testing.T) {
-	tempdir := t.TempDir()
-	config := insertTempDir(configNoDelta, tempdir)
+	config, tempdir := getConfig(t)
 	fileExp := fileCons.New()
 	assert.Equal(t, uint64(0), fileExp.Round())
 	// creates a new output file
@@ -73,8 +73,7 @@ func TestExporterInit(t *testing.T) {
 }
 
 func TestExporterHandleGenesis(t *testing.T) {
-	tempdir := t.TempDir()
-	config := insertTempDir(configNoDelta, tempdir)
+	config, tempdir := getConfig(t)
 
 	fileExp := fileCons.New()
 	fileExp.Init(plugins.PluginConfig(config), logger)
@@ -177,57 +176,14 @@ func sendData(t *testing.T, fileExp exporters.Exporter, config string, numRounds
 }
 
 func TestExporterReceiveNoDelta(t *testing.T) {
-	tempdir := t.TempDir()
-	config := insertTempDir(configNoDelta, tempdir)
+	config, tempdir := getConfig(t)
 	fileExp := fileCons.New()
 	numRounds := 5
 	sendData(t, fileExp, config, numRounds)
 
 	// block data is valid
 	for i := 0; i < 5; i++ {
-		filename := fmt.Sprintf(filewriter.FileExporterFileFormat, "block", i)
-		path := fmt.Sprintf("%s/blocks/%s", tempdir, filename)
-		assert.FileExists(t, path)
-		b, _ := os.ReadFile(path)
-		var blockData data.BlockData
-		err := json.Unmarshal(b, &blockData)
-		assert.NoError(t, err)
-	}
-
-	// delta data is not written
-	for i := 0; i < 5; i++ {
-		filename := fmt.Sprintf(filewriter.FileExporterFileFormat, "delta", i)
-		path := fmt.Sprintf("%s/blocks/%s", tempdir, filename)
-		assert.NoFileExists(t, path)
-	}
-
-	//	should continue from round 6 after restart
-	fileExp.Init(plugins.PluginConfig(config), logger)
-	assert.Equal(t, uint64(5), fileExp.Round())
-	fileExp.Close()
-}
-
-func TestExporterReceiveWithDelta(t *testing.T) {
-	tempdir := t.TempDir()
-	config := insertTempDir(configWithDelta, tempdir)
-	fileExp := fileCons.New()
-	numRounds := 5
-	sendData(t, fileExp, config, numRounds)
-
-	// block data is valid
-	for i := 0; i < 5; i++ {
-		filename := fmt.Sprintf(filewriter.FileExporterFileFormat, "block", i)
-		path := fmt.Sprintf("%s/blocks/%s", tempdir, filename)
-		assert.FileExists(t, path)
-		b, _ := os.ReadFile(path)
-		var blockData data.BlockData
-		err := json.Unmarshal(b, &blockData)
-		assert.NoError(t, err)
-	}
-
-	// delta data is not written
-	for i := 0; i < 5; i++ {
-		filename := fmt.Sprintf(filewriter.FileExporterFileFormat, "delta", i)
+		filename := fmt.Sprintf(filewriter.FileExporterFileFormat, i)
 		path := fmt.Sprintf("%s/blocks/%s", tempdir, filename)
 		assert.FileExists(t, path)
 		b, _ := os.ReadFile(path)
@@ -237,32 +193,13 @@ func TestExporterReceiveWithDelta(t *testing.T) {
 	}
 
 	//	should continue from round 6 after restart
-	fileExp.Init(plugins.PluginConfig(configNoDelta), logger)
+	fileExp.Init(plugins.PluginConfig(config), logger)
 	assert.Equal(t, uint64(5), fileExp.Round())
 	fileExp.Close()
-}
-
-func TestMissingStateDelta(t *testing.T) {
-	tempdir := t.TempDir()
-	config := insertTempDir(configWithDelta, tempdir)
-	fileExp := fileCons.New()
-	fileExp.Init(plugins.PluginConfig(config), logger)
-
-	block := data.BlockData{
-		BlockHeader: bookkeeping.BlockHeader{
-			Round: basics.Round(0),
-		},
-		Payset:      nil,
-		Delta:       nil,
-		Certificate: nil,
-	}
-	err := fileExp.Receive(block)
-	require.ErrorContains(t, err, "exporter is misconfigured, set 'exclude-state-delta: true' or enable a plugin that provides state deltas data")
 }
 
 func TestExporterClose(t *testing.T) {
-	tempdir := t.TempDir()
-	config := insertTempDir(configNoDelta, tempdir)
+	config, tempdir := getConfig(t)
 	fileExp := fileCons.New()
 	fileExp.Init(plugins.PluginConfig(config), logger)
 	block := data.BlockData{
