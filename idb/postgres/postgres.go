@@ -2501,21 +2501,6 @@ func (db *IndexerDb) SetNetworkState(genesis bookkeeping.Genesis) error {
 func (db *IndexerDb) DeleteTransactions(ctx context.Context, keep uint64, timeout time.Duration) (int64, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	// get next round from metastate
-	importState, err := db.getImportState(ctx, nil)
-	if err != nil {
-		return 0, fmt.Errorf("DeleteTransactions():  %w", err)
-	}
-	currentRound := importState.NextRoundToAccount - 1
-	db.log.Infof("current round in database %d", currentRound)
-	// currentRound < desired number of rounds to keep
-	if currentRound < keep {
-		// no data to remove
-		return 0, nil
-	}
-	// oldest round to keep
-	oldestRound := currentRound - keep + 1
-
 	// delete old transactions and update metastate
 	deleteTxns := func() (int64, error) {
 		// start a transaction
@@ -2525,10 +2510,10 @@ func (db *IndexerDb) DeleteTransactions(ctx context.Context, keep uint64, timeou
 		}
 		defer tx.Rollback(ctx)
 
-		db.log.Infof("deleteTxns(): keeping round %d and later", oldestRound)
+		db.log.Infof("deleteTxns(): keeping round %d and later", keep)
 		// delete query
 		query := "DELETE FROM txn WHERE round < $1"
-		cmd, err2 := tx.Exec(ctx, query, oldestRound)
+		cmd, err2 := tx.Exec(ctx, query, keep)
 		if err2 != nil {
 			return 0, fmt.Errorf("deleteTxns(): transaction delete err %w", err2)
 		}
@@ -2537,7 +2522,7 @@ func (db *IndexerDb) DeleteTransactions(ctx context.Context, keep uint64, timeou
 		status := types.DeleteStatus{
 			// format time, "2006-01-02T15:04:05Z07:00"
 			LastPruned:  t.Format(time.RFC3339),
-			OldestRound: oldestRound,
+			OldestRound: keep,
 		}
 		if err2 != nil {
 			return 0, fmt.Errorf("deleteTxns(): transaction delete err %w", err2)
@@ -2555,6 +2540,7 @@ func (db *IndexerDb) DeleteTransactions(ctx context.Context, keep uint64, timeou
 	}
 	// retry
 	var rows int64
+	var err error
 	for i := 1; i <= 3; i++ {
 		rows, err = deleteTxns()
 		if err == nil {

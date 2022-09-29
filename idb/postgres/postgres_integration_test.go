@@ -2320,7 +2320,7 @@ func TestDeleteTransactions(t *testing.T) {
 	txns := []transactions.SignedTxnWithAD{txnA, txnB, txnC, txnD}
 
 	// add 4 rounds of txns
-	for i := 1; i < 5; i++ {
+	for i := 1; i <= 4; i++ {
 		block, err := test.MakeBlockForTxns(block.BlockHeader, &txns[i-1])
 		block.BlockHeader.Round = basics.Round(i)
 		require.NoError(t, err)
@@ -2333,20 +2333,15 @@ func TestDeleteTransactions(t *testing.T) {
 	assert.Contains(t, err.Error(), "context deadline exceeded")
 	assert.Equal(t, int64(0), rowsDeleted)
 
-	// keep rounds > rounds in db
-	rowsDeleted, err = db.DeleteTransactions(context.Background(), 10, 5*time.Second)
-	assert.NoError(t, err)
-	assert.Equal(t, int64(0), rowsDeleted)
-
-	// keep 3 rounds
-	rowsDeleted, err = db.DeleteTransactions(context.Background(), 3, 5*time.Second)
+	// keep rounds >= 2
+	rowsDeleted, err = db.DeleteTransactions(context.Background(), 2, 5*time.Second)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(1), rowsDeleted)
 
 	// query txns
 	rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
 
-	// check remaining transaction is correct
+	// check remaining transactions are correct
 	i := 1
 	for row := range rowsCh {
 		require.NoError(t, row.Error)
@@ -2369,8 +2364,8 @@ func TestDeleteTransactions(t *testing.T) {
 	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
-	// keep 1 round
-	rowsDeleted, err = db.DeleteTransactions(context.Background(), 1, 5*time.Second)
+	// keep round 5
+	rowsDeleted, err = db.DeleteTransactions(context.Background(), 5, 5*time.Second)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(3), rowsDeleted)
 

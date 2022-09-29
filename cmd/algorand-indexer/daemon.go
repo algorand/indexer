@@ -90,7 +90,7 @@ type daemonConfig struct {
 	configFile                string
 	suppliedAPIConfigFile     string
 	genesisJSONPath           string
-	frequency                 string
+	interval                  int
 	rounds                    uint64
 	pruneTimeout              time.Duration
 }
@@ -146,7 +146,7 @@ func DaemonCmd() *cobra.Command {
 	cfg.flags.StringVarP(&cfg.pidFilePath, "pidfile", "", "", "file to write daemon's process id to")
 	cfg.flags.StringVarP(&cfg.configFile, "configfile", "c", "", "file path to configuration file (indexer.yml)")
 
-	cfg.flags.StringVar(&cfg.frequency, "frequency", "once", "set the frequency, daily or once, for removing old transaction data (default once)")
+	cfg.flags.IntVar(&cfg.interval, "interval", 0, "set the interval, -1 or value>=0, for removing old transaction data (default 0). 0 disables the pruning process")
 	cfg.flags.Uint64VarP(&cfg.rounds, "rounds", "r", 0, "rounds of transactions to keep in the database during data pruning (default 0). 0 disables the pruning process")
 	cfg.flags.DurationVar(&cfg.pruneTimeout, "prune-timeout", 5*time.Second, "set the maximum duration for data pruning operation (default 5 seconds)")
 
@@ -393,9 +393,9 @@ func makeConduitConfig(dCfg *daemonConfig) conduit.PipelineConfig {
 				"max-conn":          dCfg.maxConn,
 				"test":              dummyIndexerDb,
 				"delete-task": map[string]interface{}{
-					"frequency": dCfg.frequency,
-					"rounds":    dCfg.rounds,
-					"timeout":   dCfg.pruneTimeout,
+					"interval": dCfg.interval,
+					"rounds":   dCfg.rounds,
+					"timeout":  dCfg.pruneTimeout,
 				},
 			},
 		},

@@ -22,6 +22,7 @@ import (
 )
 
 const exporterName = "postgresql"
+const MaxDeleteChanSize = 300
 
 type postgresqlExporter struct {
 	round  uint64
@@ -32,6 +33,7 @@ type postgresqlExporter struct {
 	ctx    context.Context
 	cf     context.CancelFunc
 	dm     util.DataManager
+	ch     chan uint64
 }
 
 var postgresqlExporterMetadata = exporters.ExporterMetadata{
@@ -75,13 +77,21 @@ func (exp *postgresqlExporter) Init(cfg plugins.PluginConfig, logger *logrus.Log
 	<-ready
 	if rnd, err := exp.db.GetNextRoundToAccount(); err == nil {
 		exp.round = rnd
+	} else {
+		return fmt.Errorf("Init() err getting next round: %v", err)
 	}
 	exp.ctx, exp.cf = context.WithCancel(context.Background())
 	// if data pruning is enabled
 	if !exp.cfg.Test && exp.cfg.Delete.Rounds > 0 {
+		// use buffered channel or Receive() could be blocked
+		// if delete takes a long time
+		exp.ch = make(chan uint64, MaxDeleteChanSize)
 		exp.wg.Add(1)
 		exp.dm = util.MakeDataManager(exp.ctx, &exp.cfg.Delete, exp.db, logger)
-		go exp.dm.Delete(&exp.wg)
+		logger.Info("Data pruning option is enabled")
+		go exp.dm.Delete(&exp.wg, exp.ch)
+		// current round
+		exp.ch <- exp.round - 1
 	}
 	return err
 }
@@ -94,6 +104,9 @@ func (exp *postgresqlExporter) Config() plugins.PluginConfig {
 func (exp *postgresqlExporter) Close() error {
 	if exp.db != nil {
 		exp.db.Close()
+	}
+	if exp.ch != nil {
+		close(exp.ch)
 	}
 	exp.cf()
 	exp.wg.Wait()
@@ -123,6 +136,9 @@ func (exp *postgresqlExporter) Receive(exportData data.BlockData) error {
 		delta)
 	if err := exp.db.AddBlock(&vb); err != nil {
 		return err
+	}
+	if exp.ch != nil && !exp.dm.Closed() {
+		exp.ch <- exp.round
 	}
 	exp.round = exportData.Round() + 1
 	return nil
