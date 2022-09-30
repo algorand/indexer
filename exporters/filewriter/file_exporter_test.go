@@ -1,10 +1,11 @@
-package filewriter_test
+package filewriter
 
 import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -19,12 +20,11 @@ import (
 
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
-	"github.com/algorand/indexer/exporters/filewriter"
 	"github.com/algorand/indexer/plugins"
 )
 
 var logger *logrus.Logger
-var fileCons = &filewriter.Constructor{}
+var fileCons = &Constructor{}
 var configTemplate = "block-dir: %s/blocks\n"
 
 func init() {
@@ -35,6 +35,42 @@ func getConfig(t *testing.T) (config, tempdir string) {
 	tempdir = t.TempDir()
 	config = fmt.Sprintf(configTemplate, tempdir)
 	return
+}
+
+func TestEncode(t *testing.T) {
+	tempdir := t.TempDir()
+
+	type test struct {
+		One string `json:"one"`
+		Two int    `json:"two"`
+	}
+	data := test{
+		One: "one",
+		Two: 2,
+	}
+
+	{
+		pretty := path.Join(tempdir, "pretty.json")
+		encode(pretty, data, true)
+		require.FileExists(t, pretty)
+		bytes, err := ioutil.ReadFile(pretty)
+		require.NoError(t, err)
+		require.Contains(t, string(bytes), "  \"one\": \"one\",\n")
+		var testDecode test
+		json.Unmarshal(bytes, &testDecode)
+		require.Equal(t, data, testDecode)
+	}
+
+	{
+		small := path.Join(tempdir, "small.json")
+		encode(small, data, false)
+		require.FileExists(t, small)
+		bytes, err := ioutil.ReadFile(small)
+		require.NoError(t, err)
+		var testDecode test
+		json.Unmarshal(bytes, &testDecode)
+		require.Equal(t, data, testDecode)
+	}
 }
 
 func TestExporterMetadata(t *testing.T) {
@@ -54,7 +90,8 @@ func TestExporterInit(t *testing.T) {
 	err := fileExp.Init(plugins.PluginConfig(config), logger)
 	assert.NoError(t, err)
 	pluginConfig := fileExp.Config()
-	assert.Equal(t, config, string(pluginConfig))
+	configWithDefault := config + "filename-pattern: '%[1]d_block.json'\n"
+	assert.Equal(t, configWithDefault, string(pluginConfig))
 	assert.Equal(t, uint64(0), fileExp.Round())
 	fileExp.Close()
 	// can open existing file
@@ -98,7 +135,7 @@ func TestExporterHandleGenesis(t *testing.T) {
 		require.FileExists(t, metadataFile)
 		configs, err := ioutil.ReadFile(metadataFile)
 		assert.NoError(t, err)
-		var blockMetaData filewriter.BlockMetaData
+		var blockMetaData BlockMetaData
 		err = json.Unmarshal(configs, &blockMetaData)
 		assert.NoError(t, err)
 		assert.Equal(t, uint64(0), blockMetaData.NextRound)
@@ -186,13 +223,12 @@ func sendData(t *testing.T, fileExp exporters.Exporter, config string, numRounds
 		err = fileExp.Receive(block)
 		assert.NoError(t, err)
 		assert.Equal(t, uint64(i+1), fileExp.Round())
-
 	}
 
 	assert.NoError(t, fileExp.Close())
 }
 
-func TestExporterReceiveNoDelta(t *testing.T) {
+func TestExporterReceive(t *testing.T) {
 	config, tempdir := getConfig(t)
 	fileExp := fileCons.New()
 	numRounds := 5
@@ -200,7 +236,7 @@ func TestExporterReceiveNoDelta(t *testing.T) {
 
 	// block data is valid
 	for i := 0; i < 5; i++ {
-		filename := fmt.Sprintf(filewriter.FileExporterFileFormat, i)
+		filename := fmt.Sprintf(FilePattern, i)
 		path := fmt.Sprintf("%s/blocks/%s", tempdir, filename)
 		assert.FileExists(t, path)
 		b, _ := os.ReadFile(path)
@@ -236,7 +272,29 @@ func TestExporterClose(t *testing.T) {
 	// assert round is updated correctly
 	configs, err := ioutil.ReadFile(metadataFile)
 	assert.NoError(t, err)
-	var blockMetaData filewriter.BlockMetaData
+	var blockMetaData BlockMetaData
 	err = json.Unmarshal(configs, &blockMetaData)
 	assert.Equal(t, uint64(1), blockMetaData.NextRound)
+}
+
+func TestPatternOverride(t *testing.T) {
+	config, tempdir := getConfig(t)
+	fileExp := fileCons.New()
+
+	patternOverride := "PREFIX_%[1]d_block.json"
+	config = fmt.Sprintf("%sfilename-pattern: '%s'\n", config, patternOverride)
+
+	numRounds := 5
+	sendData(t, fileExp, config, numRounds)
+
+	// block data is valid
+	for i := 0; i < 5; i++ {
+		filename := fmt.Sprintf(patternOverride, i)
+		path := fmt.Sprintf("%s/blocks/%s", tempdir, filename)
+		assert.FileExists(t, path)
+		b, _ := os.ReadFile(path)
+		var blockData data.BlockData
+		err := json.Unmarshal(b, &blockData)
+		assert.NoError(t, err)
+	}
 }

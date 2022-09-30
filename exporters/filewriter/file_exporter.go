@@ -22,8 +22,8 @@ import (
 
 const (
 	exporterName = "filewriter"
-	// FileExporterFileFormat is used to name the output files.
-	FileExporterFileFormat = "%[1]d_block.json"
+	// FilePattern is used to name the output files.
+	FilePattern = "%[1]d_block.json"
 )
 
 type fileExporter struct {
@@ -61,13 +61,31 @@ func (exp *fileExporter) Metadata() exporters.ExporterMetadata {
 	return fileExporterMetadata
 }
 
+func encode(filename string, v interface{}, pretty bool) error {
+	file, err := os.Create(filename)
+	if err != nil {
+		return fmt.Errorf("encodeMetadataToFile(): failed to create temp metadata file: %w", err)
+	}
+	defer file.Close()
+	enc := json.NewEncoder(file)
+	if pretty {
+		enc.SetIndent("", "  ")
+	}
+	return enc.Encode(v)
+}
+
 func (exp *fileExporter) Init(cfg plugins.PluginConfig, logger *logrus.Logger) error {
 	exp.logger = logger
-	if err := exp.unmarhshalConfig(string(cfg)); err != nil {
+	var err error
+	exp.cfg, err = unmarshalConfig(string(cfg))
+	if err != nil {
 		return fmt.Errorf("connect failure in unmarshalConfig: %w", err)
 	}
+	if exp.cfg.FilenamePattern == "" {
+		exp.cfg.FilenamePattern = FilePattern
+	}
 	// create block directory
-	err := os.Mkdir(exp.cfg.BlocksDir, 0755)
+	err = os.Mkdir(exp.cfg.BlocksDir, 0755)
 	if err != nil && errors.Is(err, os.ErrExist) {
 	} else if err != nil {
 		return fmt.Errorf("Init() error: %w", err)
@@ -118,12 +136,7 @@ func (exp *fileExporter) Config() plugins.PluginConfig {
 
 func (exp *fileExporter) encodeMetadataToFile() error {
 	tempFilename := fmt.Sprintf("%s.temp", exp.blockMetadataFile)
-	file, err := os.Create(tempFilename)
-	if err != nil {
-		return fmt.Errorf("encodeMetadataToFile(): failed to create temp metadata file: %w", err)
-	}
-	defer file.Close()
-	err = json.NewEncoder(file).Encode(exp.blockMetadata)
+	err := encode(tempFilename, exp.blockMetadata, true)
 	if err != nil {
 		return fmt.Errorf("encodeMetadataToFile(): failed to write temp metadata: %w", err)
 	}
@@ -151,7 +164,7 @@ func (exp *fileExporter) Receive(exportData data.BlockData) error {
 
 	// write block to file
 	{
-		blockFile := path.Join(exp.cfg.BlocksDir, fmt.Sprintf(FileExporterFileFormat, exportData.Round()))
+		blockFile := path.Join(exp.cfg.BlocksDir, fmt.Sprintf(exp.cfg.FilenamePattern, exportData.Round()))
 		file, err := os.OpenFile(blockFile, os.O_WRONLY|os.O_CREATE, 0755)
 		if err != nil {
 			return fmt.Errorf("Receive(): error opening file %s: %w", blockFile, err)
@@ -184,18 +197,12 @@ func (exp *fileExporter) HandleGenesis(genesis bookkeeping.Genesis) error {
 		// First time initialization.
 		exp.blockMetadata.GenesisHash = gh
 		exp.blockMetadata.Network = string(genesis.Network)
-		err := exp.encodeMetadataToFile()
-		if err != nil {
+		if err := exp.encodeMetadataToFile(); err != nil {
 			return fmt.Errorf("HandleGenesis() metadata encoding err %w", err)
 		}
 
 		genesisFilename := path.Join(exp.cfg.BlocksDir, "genesis.json")
-		genesisWriter, err := os.Create(genesisFilename)
-		if err != nil {
-			return fmt.Errorf("HandleGenesis() failed to create genesis file: %w", err)
-		}
-		err = json.NewEncoder(genesisWriter).Encode(genesis)
-		if err != nil {
+		if err := encode(genesisFilename, genesis, true); err != nil {
 			return fmt.Errorf("HandleGenesis() failed to serialize genesis file: %w", err)
 		}
 	} else {
@@ -210,8 +217,10 @@ func (exp *fileExporter) Round() uint64 {
 	return exp.round
 }
 
-func (exp *fileExporter) unmarhshalConfig(cfg string) error {
-	return yaml.Unmarshal([]byte(cfg), &exp.cfg)
+func unmarshalConfig(cfg string) (ExporterConfig, error) {
+	var config ExporterConfig
+	err := yaml.Unmarshal([]byte(cfg), &config)
+	return config, err
 }
 
 func init() {
