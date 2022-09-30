@@ -104,10 +104,6 @@ func (r *fileReader) GetBlock(rnd uint64) (data.BlockData, error) {
 			}
 			attempts--
 
-			if r.cfg.RetryDuration == 0 {
-				// TODO: Special error type that terminates the pipeline gracefully.
-			}
-
 			select {
 			case <-time.After(r.cfg.RetryDuration):
 			case <-r.ctx.Done():

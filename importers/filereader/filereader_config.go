@@ -9,7 +9,6 @@ type Config struct {
 	BlocksDir string `yaml:"block-dir"`
 	// RetryDuration controls the delay between checks when the importer has
 	// caught up and is waiting for new blocks to appear.
-	// When set to 0 the importer will
 	RetryDuration time.Duration `yaml:"retry-duration"`
 	// RetryCount controls the number of times to check for a missing block
 	// before generating an error. The retry count and retry duration should
