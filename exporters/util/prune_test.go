@@ -3,6 +3,7 @@ package util
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -22,7 +23,6 @@ var logger *logrus.Logger
 var hook *test.Hook
 var jsonCodecHandle *codec.JsonHandle
 var ch chan uint64
-var wg sync.WaitGroup
 
 // encodeJSON converts an object into JSON
 func encodeJSON(obj interface{}) []byte {
@@ -40,14 +40,14 @@ func init() {
 var config = PruneConfigurations{
 	Interval: -1,
 	Rounds:   10,
-	Timeout:  3,
+	Timeout:  5000000000,
 }
 
 type ImportState struct {
 	NextRoundToAccount uint64 `codec:"next_account_round"`
 }
 
-func delete(dm DataManager, cancel context.CancelFunc, round uint64) {
+func delete(dm DataManager, cancel context.CancelFunc, wg sync.WaitGroup, round uint64) {
 	wg.Add(1)
 	go dm.Delete(&wg, ch)
 	ch <- round
@@ -72,9 +72,10 @@ func TestDeleteEmptyTxnTable(t *testing.T) {
 	assert.Equal(t, 0, rowsInTxnTable(db))
 
 	// data manager
+	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
 	dm := MakeDataManager(ctx, &config, idb, logger)
-	delete(dm, cancel, 0)
+	delete(dm, cancel, wg, 0)
 	assert.Equal(t, 0, rowsInTxnTable(db))
 }
 
@@ -94,9 +95,10 @@ func TestDeleteTxns(t *testing.T) {
 	assert.Equal(t, ntxns, rowsInTxnTable(db))
 
 	// data manager
+	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
 	dm := MakeDataManager(ctx, &config, idb, logger)
-	delete(dm, cancel, uint64(ntxns))
+	delete(dm, cancel, wg, uint64(ntxns))
 	// 10 rounds removed
 	assert.Equal(t, 10, rowsInTxnTable(db))
 	// check remaining rounds are correct
@@ -123,10 +125,11 @@ func TestDeleteConfigs(t *testing.T) {
 		Interval: -1,
 		Rounds:   5,
 	}
+	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
 	dm := MakeDataManager(ctx, &config, idb, logger)
 	assert.NoError(t, err)
-	delete(dm, cancel, uint64(ntxns))
+	delete(dm, cancel, wg, uint64(ntxns))
 	// delete didn't happen
 	assert.Equal(t, 3, rowsInTxnTable(db))
 
@@ -135,7 +138,7 @@ func TestDeleteConfigs(t *testing.T) {
 	ctx, cancel = context.WithCancel(context.Background())
 	dm = MakeDataManager(ctx, &config, idb, logger)
 	assert.NoError(t, err)
-	delete(dm, cancel, uint64(ntxns))
+	delete(dm, cancel, wg, uint64(ntxns))
 	// delete didn't happen
 	assert.Equal(t, 3, rowsInTxnTable(db))
 
@@ -147,7 +150,7 @@ func TestDeleteConfigs(t *testing.T) {
 	ctx, cancel = context.WithCancel(context.Background())
 	dm = MakeDataManager(ctx, &config, idb, logger)
 	assert.NoError(t, err)
-	delete(dm, cancel, uint64(ntxns))
+	delete(dm, cancel, wg, uint64(ntxns))
 	// delete didn't happen
 	assert.Equal(t, 3, rowsInTxnTable(db))
 	assert.Contains(t, hook.LastEntry().Message, "Invalid Interval value")
@@ -171,8 +174,9 @@ func TestDeleteInterval(t *testing.T) {
 	config = PruneConfigurations{
 		Interval: 3,
 		Rounds:   3,
-		Timeout:  5,
+		Timeout:  5000000000,
 	}
+	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
 	dm := MakeDataManager(ctx, &config, idb, logger)
 	wg.Add(1)
@@ -214,12 +218,39 @@ func TestDeleteInterval(t *testing.T) {
 	config = PruneConfigurations{
 		Interval: -1,
 		Rounds:   1,
-		Timeout:  5,
+		Timeout:  5000000000,
 	}
 	ctx, cancel = context.WithCancel(context.Background())
 	dm = MakeDataManager(ctx, &config, idb, logger)
-	delete(dm, cancel, uint64(nextRound-1))
+	delete(dm, cancel, wg, uint64(nextRound-1))
 	assert.Equal(t, 1, rowsInTxnTable(db))
+}
+
+func TestDeleteTimeout(t *testing.T) {
+	logger.SetOutput(os.Stdout)
+	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
+	defer shutdownFunc()
+
+	// init the tables
+	idb, _, err := postgres.OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	assert.NoError(t, err)
+	defer idb.Close()
+
+	config = PruneConfigurations{
+		Interval: 3,
+		Rounds:   3,
+		Timeout:  50,
+	}
+
+	var wg sync.WaitGroup
+	dm := MakeDataManager(context.Background(), &config, idb, logger)
+	assert.NoError(t, err)
+	wg.Add(1)
+	go dm.Delete(&wg, ch)
+	ch <- 5
+	wg.Wait()
+	assert.Contains(t, hook.LastEntry().Message, "context deadline exceeded")
+
 }
 
 // populate n records starting with round starting at r.
