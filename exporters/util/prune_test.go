@@ -30,7 +30,7 @@ func init() {
 var config = PruneConfigurations{
 	Interval: -1,
 	Rounds:   10,
-	Timeout:  5000000000,
+	Timeout:  5 * time.Second,
 }
 
 func delete(idb idb.IndexerDb, round uint64) DataManager {
@@ -149,7 +149,7 @@ func TestDeleteInterval(t *testing.T) {
 	config = PruneConfigurations{
 		Interval: 3,
 		Rounds:   3,
-		Timeout:  5000000000,
+		Timeout:  5 * time.Second,
 	}
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
@@ -193,7 +193,7 @@ func TestDeleteInterval(t *testing.T) {
 	config = PruneConfigurations{
 		Interval: -1,
 		Rounds:   1,
-		Timeout:  5000000000,
+		Timeout:  5 * time.Second,
 	}
 	delete(idb, uint64(nextRound-1))
 	assert.Equal(t, 1, rowsInTxnTable(db))
@@ -212,7 +212,7 @@ func TestDeleteTimeout(t *testing.T) {
 	config = PruneConfigurations{
 		Interval: 3,
 		Rounds:   3,
-		Timeout:  50,
+		Timeout:  50 * time.Nanosecond,
 	}
 
 	var wg sync.WaitGroup

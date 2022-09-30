@@ -3,6 +3,7 @@ package postgresql
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/data/bookkeeping"
@@ -108,11 +109,11 @@ func TestReceiveAddBlockSuccess(t *testing.T) {
 func TestUnmarshalConfigsContainingDeleteTask(t *testing.T) {
 	// configured delete task
 	pgsqlExp := postgresqlExporter{}
-	cfg := "test: true\ndelete-task:\n  rounds: 3000\n  interval: 3\n  timeout: 5"
+	cfg := "test: true\ndelete-task:\n  rounds: 3000\n  interval: 3\n  timeout: 5s"
 	assert.NoError(t, pgsqlExp.unmarhshalConfig(cfg))
 	assert.Equal(t, 3, int(pgsqlExp.cfg.Delete.Interval))
 	assert.Equal(t, uint64(3000), pgsqlExp.cfg.Delete.Rounds)
-	assert.Equal(t, uint64(5), pgsqlExp.cfg.Delete.Timeout)
+	assert.Equal(t, 5*time.Second, pgsqlExp.cfg.Delete.Timeout)
 
 	// delete task with fields default to 0
 	pgsqlExp = postgresqlExporter{}
@@ -120,7 +121,7 @@ func TestUnmarshalConfigsContainingDeleteTask(t *testing.T) {
 	assert.NoError(t, pgsqlExp.unmarhshalConfig(cfg))
 	assert.Equal(t, 0, int(pgsqlExp.cfg.Delete.Interval))
 	assert.Equal(t, uint64(0), pgsqlExp.cfg.Delete.Rounds)
-	assert.Equal(t, uint64(0), pgsqlExp.cfg.Delete.Timeout)
+	assert.Equal(t, time.Duration(0), pgsqlExp.cfg.Delete.Timeout)
 
 	// delete task with negative round
 	pgsqlExp = postgresqlExporter{}
@@ -132,4 +133,15 @@ func TestUnmarshalConfigsContainingDeleteTask(t *testing.T) {
 	cfg = "test: true\ndelete-task:\n  interval: -1"
 	assert.NoError(t, pgsqlExp.unmarhshalConfig(cfg))
 	assert.Equal(t, -1, int(pgsqlExp.cfg.Delete.Interval))
+
+	// delete task with various timeouts
+	cfg = "test: true\ndelete-task:\n  timeout: 5m"
+	assert.NoError(t, pgsqlExp.unmarhshalConfig(cfg))
+	assert.Equal(t, 5*time.Minute, pgsqlExp.cfg.Delete.Timeout)
+	cfg = "test: true\ndelete-task:\n  timeout: 10h"
+	assert.NoError(t, pgsqlExp.unmarhshalConfig(cfg))
+	assert.Equal(t, 10*time.Hour, pgsqlExp.cfg.Delete.Timeout)
+	cfg = "test: true\ndelete-task:\n  timeout: 1h30m15s"
+	assert.NoError(t, pgsqlExp.unmarhshalConfig(cfg))
+	assert.Equal(t, 1*time.Hour+30*time.Minute+15*time.Second, pgsqlExp.cfg.Delete.Timeout)
 }

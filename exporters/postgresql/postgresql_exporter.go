@@ -137,7 +137,8 @@ func (exp *postgresqlExporter) Receive(exportData data.BlockData) error {
 	if err := exp.db.AddBlock(&vb); err != nil {
 		return err
 	}
-	if exp.ch != nil && !exp.dm.Closed() {
+	// keep Receiver() unblocked
+	if exp.ch != nil && len(exp.ch) < maxDeleteChanSize && !exp.dm.Closed() {
 		exp.ch <- exp.round
 	}
 	exp.round = exportData.Round() + 1

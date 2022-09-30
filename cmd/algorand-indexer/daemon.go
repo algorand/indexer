@@ -92,7 +92,7 @@ type daemonConfig struct {
 	genesisJSONPath           string
 	interval                  int
 	rounds                    uint64
-	pruneTimeout              time.Duration
+	pruneTimeout              string
 }
 
 // DaemonCmd creates the main cobra command, initializes flags, and viper aliases
@@ -148,7 +148,7 @@ func DaemonCmd() *cobra.Command {
 
 	cfg.flags.IntVar(&cfg.interval, "interval", 0, "set the interval, -1 or value>=0, for removing old transaction data (default 0). 0 disables the pruning process")
 	cfg.flags.Uint64VarP(&cfg.rounds, "rounds", "r", 0, "rounds of transactions to keep in the database during data pruning (default 0). 0 disables the pruning process")
-	cfg.flags.DurationVar(&cfg.pruneTimeout, "prune-timeout", 5*time.Second, "set the maximum duration for data pruning operation (default 5 seconds)")
+	cfg.flags.StringVar(&cfg.pruneTimeout, "prune-timeout", "5s", "set the maximum duration for data pruning operation (default 5 seconds)")
 
 	viper.RegisterAlias("algod", "algod-data-dir")
 	viper.RegisterAlias("algod-net", "algod-address")

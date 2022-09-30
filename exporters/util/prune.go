@@ -2,7 +2,10 @@ package util
 
 import (
 	"context"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/algorand/indexer/idb"
@@ -15,8 +18,7 @@ type Interval int
 var counter uint64
 
 const (
-	// default timeout 5s
-	defaultTimeout uint64   = 5000000000
+	defaultTimeout          = 5 * time.Second
 	once           Interval = -1
 	disabled       Interval = 0
 )
@@ -28,7 +30,7 @@ type PruneConfigurations struct {
 	// A recurring interval to prune the data. The values can be -1, 0 or N
 	Interval Interval `yaml:"interval"`
 	// Timeout sets a max duration for Delete()
-	Timeout uint64 `yaml:"timeout"`
+	Timeout time.Duration `yaml:"timeout"`
 }
 
 // DataManager is a data pruning interface
@@ -63,6 +65,16 @@ func MakeDataManager(ctx context.Context, cfg *PruneConfigurations, db idb.Index
 
 // Delete removes data from the txn table in Postgres DB
 func (p *postgresql) Delete(wg *sync.WaitGroup, roundch chan uint64) {
+
+	{
+		cancelCh := make(chan os.Signal, 1)
+		signal.Notify(cancelCh, syscall.SIGTERM, syscall.SIGINT)
+		go func() {
+			<-cancelCh
+			p.logger.Info("Stopping data pruning.")
+			p.cf()
+		}()
+	}
 
 	defer func() {
 		p.close = true
