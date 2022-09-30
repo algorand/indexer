@@ -286,11 +286,10 @@ func TestDropCertificate(t *testing.T) {
 	// block data is valid
 	for i := 0; i < numRounds; i++ {
 		filename := fmt.Sprintf(FilePattern, i)
-		path := fmt.Sprintf("%s/blocks/%s", tempdir, filename)
+		path := fmt.Sprintf("%s/%s", tempdir, filename)
 		assert.FileExists(t, path)
-		b, _ := os.ReadFile(path)
 		var blockData data.BlockData
-		err := json.Unmarshal(b, &blockData)
+		err := util.DecodeFromFile(path, &blockData)
 		assert.NoError(t, err)
 		assert.Nil(t, blockData.Certificate)
 	}

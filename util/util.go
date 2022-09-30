@@ -35,7 +35,7 @@ func DecodeFromFile(filename string, v interface{}) error {
 		return fmt.Errorf("DecodeFromFile(): failed to open %s: %w", filename, err)
 	}
 	defer file.Close()
-	enc := json.NewDecoder(file)
+	enc := codec.NewDecoder(file, json.CodecHandle)
 	return enc.Decode(v)
 }
 
