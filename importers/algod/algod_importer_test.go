@@ -28,7 +28,7 @@ func init() {
 	ctx, cancel = context.WithCancel(context.Background())
 }
 
-func TestImporterorterMetadata(t *testing.T) {
+func TestImporterMetadata(t *testing.T) {
 	testImporter = New()
 	metadata := testImporter.Metadata()
 	assert.Equal(t, metadata.Type(), algodImporterMetadata.Type())
