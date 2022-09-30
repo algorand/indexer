@@ -47,9 +47,9 @@ type ImportState struct {
 	NextRoundToAccount uint64 `codec:"next_account_round"`
 }
 
-func delete(dm DataManager, cancel context.CancelFunc, wg sync.WaitGroup, round uint64) {
+func delete(dm DataManager, cancel context.CancelFunc, wg *sync.WaitGroup, round uint64) {
 	wg.Add(1)
-	go dm.Delete(&wg, ch)
+	go dm.Delete(wg, ch)
 	ch <- round
 	go func() {
 		time.Sleep(1 * time.Second)
@@ -75,7 +75,7 @@ func TestDeleteEmptyTxnTable(t *testing.T) {
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
 	dm := MakeDataManager(ctx, &config, idb, logger)
-	delete(dm, cancel, wg, 0)
+	delete(dm, cancel, &wg, 0)
 	assert.Equal(t, 0, rowsInTxnTable(db))
 }
 
@@ -98,7 +98,7 @@ func TestDeleteTxns(t *testing.T) {
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
 	dm := MakeDataManager(ctx, &config, idb, logger)
-	delete(dm, cancel, wg, uint64(ntxns))
+	delete(dm, cancel, &wg, uint64(ntxns))
 	// 10 rounds removed
 	assert.Equal(t, 10, rowsInTxnTable(db))
 	// check remaining rounds are correct
@@ -129,7 +129,7 @@ func TestDeleteConfigs(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	dm := MakeDataManager(ctx, &config, idb, logger)
 	assert.NoError(t, err)
-	delete(dm, cancel, wg, uint64(ntxns))
+	delete(dm, cancel, &wg, uint64(ntxns))
 	// delete didn't happen
 	assert.Equal(t, 3, rowsInTxnTable(db))
 
@@ -138,7 +138,7 @@ func TestDeleteConfigs(t *testing.T) {
 	ctx, cancel = context.WithCancel(context.Background())
 	dm = MakeDataManager(ctx, &config, idb, logger)
 	assert.NoError(t, err)
-	delete(dm, cancel, wg, uint64(ntxns))
+	delete(dm, cancel, &wg, uint64(ntxns))
 	// delete didn't happen
 	assert.Equal(t, 3, rowsInTxnTable(db))
 
@@ -150,7 +150,7 @@ func TestDeleteConfigs(t *testing.T) {
 	ctx, cancel = context.WithCancel(context.Background())
 	dm = MakeDataManager(ctx, &config, idb, logger)
 	assert.NoError(t, err)
-	delete(dm, cancel, wg, uint64(ntxns))
+	delete(dm, cancel, &wg, uint64(ntxns))
 	// delete didn't happen
 	assert.Equal(t, 3, rowsInTxnTable(db))
 	assert.Contains(t, hook.LastEntry().Message, "Invalid Interval value")
@@ -222,7 +222,7 @@ func TestDeleteInterval(t *testing.T) {
 	}
 	ctx, cancel = context.WithCancel(context.Background())
 	dm = MakeDataManager(ctx, &config, idb, logger)
-	delete(dm, cancel, wg, uint64(nextRound-1))
+	delete(dm, cancel, &wg, uint64(nextRound-1))
 	assert.Equal(t, 1, rowsInTxnTable(db))
 }
 
