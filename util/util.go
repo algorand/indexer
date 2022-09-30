@@ -11,6 +11,7 @@ import (
 	"github.com/algorand/go-codec/codec"
 )
 
+// EncodeToFile is used to encode an object to a file.
 func EncodeToFile(filename string, v interface{}, pretty bool) error {
 	file, err := os.Create(filename)
 	if err != nil {
@@ -27,6 +28,7 @@ func EncodeToFile(filename string, v interface{}, pretty bool) error {
 	return enc.Encode(v)
 }
 
+// DecodeFromFile is used to decode a file to an object.
 func DecodeFromFile(filename string, v interface{}) error {
 	file, err := os.Open(filename)
 	if err != nil {
