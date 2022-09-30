@@ -75,8 +75,11 @@ func (exp *postgresqlExporter) Init(cfg plugins.PluginConfig, logger *logrus.Log
 	}
 	exp.db = db
 	<-ready
-	if rnd, err := exp.db.GetNextRoundToAccount(); err == nil {
+	rnd, err := exp.db.GetNextRoundToAccount()
+	if err == nil {
 		exp.round = rnd
+	} else if err == idb.ErrorNotInitialized {
+		exp.round = 0
 	} else {
 		return fmt.Errorf("Init() err getting next round: %v", err)
 	}
@@ -91,9 +94,11 @@ func (exp *postgresqlExporter) Init(cfg plugins.PluginConfig, logger *logrus.Log
 		logger.Info("Data pruning option is enabled")
 		go exp.dm.Delete(&exp.wg, exp.ch)
 		// current round
-		exp.ch <- exp.round - 1
+		if exp.round > 0 {
+			exp.ch <- exp.round - 1
+		}
 	}
-	return err
+	return nil
 }
 
 func (exp *postgresqlExporter) Config() plugins.PluginConfig {
@@ -147,7 +152,16 @@ func (exp *postgresqlExporter) Receive(exportData data.BlockData) error {
 
 func (exp *postgresqlExporter) HandleGenesis(genesis bookkeeping.Genesis) error {
 	_, err := importer.EnsureInitialImport(exp.db, genesis)
-	return err
+	if err != nil {
+		return err
+	}
+	// update round
+	if rnd, err := exp.db.GetNextRoundToAccount(); err == nil {
+		exp.round = rnd
+	} else {
+		return fmt.Errorf("Init() err getting next round: %v", err)
+	}
+	return nil
 }
 
 func (exp *postgresqlExporter) Round() uint64 {
