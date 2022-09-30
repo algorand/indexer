@@ -31,7 +31,7 @@ type fileExporter struct {
 	round             uint64
 	blockMetadataFile string
 	blockMetadata     BlockMetaData
-	cfg               ExporterConfig
+	cfg               Config
 	logger            *logrus.Logger
 }
 
@@ -152,6 +152,10 @@ func (exp *fileExporter) Receive(exportData data.BlockData) error {
 
 	// write block to file
 	{
+		if exp.cfg.DropCertificate {
+			exportData.Certificate = nil
+		}
+
 		blockFile := path.Join(exp.cfg.BlocksDir, fmt.Sprintf(exp.cfg.FilenamePattern, exportData.Round()))
 		file, err := os.OpenFile(blockFile, os.O_WRONLY|os.O_CREATE, 0755)
 		if err != nil {
@@ -205,8 +209,8 @@ func (exp *fileExporter) Round() uint64 {
 	return exp.round
 }
 
-func unmarshalConfig(cfg string) (ExporterConfig, error) {
-	var config ExporterConfig
+func unmarshalConfig(cfg string) (Config, error) {
+	var config Config
 	err := yaml.Unmarshal([]byte(cfg), &config)
 	return config, err
 }

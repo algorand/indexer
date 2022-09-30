@@ -26,16 +26,16 @@ type InitProvider interface {
 type BlockData struct {
 
 	// BlockHeader is the immutable header from the block
-	BlockHeader bookkeeping.BlockHeader `json:"block"`
+	BlockHeader bookkeeping.BlockHeader `json:"block,omitempty"`
 
 	// Payset is the set of data the block is carrying--can be modified as it is processed
-	Payset []transactions.SignedTxnInBlock `json:"payset"`
+	Payset []transactions.SignedTxnInBlock `json:"payset,omitempty"`
 
 	// Delta contains a list of account changes resulting from the block. Processor plugins may have modify this data.
-	Delta *ledgercore.StateDelta `json:"delta"`
+	Delta *ledgercore.StateDelta `json:"delta,omitempty"`
 
 	// Certificate contains voting data that certifies the block. The certificate is non deterministic, a node stops collecting votes once the voting threshold is reached.
-	Certificate *agreement.Certificate `json:"cert"`
+	Certificate *agreement.Certificate `json:"cert,omitempty"`
 }
 
 // MakeBlockDataFromValidatedBlock makes BlockData from agreement.ValidatedBlock

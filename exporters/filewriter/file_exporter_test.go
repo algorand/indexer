@@ -11,7 +11,9 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 
+	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
@@ -20,6 +22,7 @@ import (
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
 	"github.com/algorand/indexer/plugins"
+	"github.com/algorand/indexer/util"
 )
 
 var logger *logrus.Logger
@@ -53,7 +56,7 @@ func TestExporterInit(t *testing.T) {
 	err := fileExp.Init(plugins.PluginConfig(config), logger)
 	assert.NoError(t, err)
 	pluginConfig := fileExp.Config()
-	configWithDefault := config + "filename-pattern: '%[1]d_block.json'\n"
+	configWithDefault := config + "filename-pattern: '%[1]d_block.json'\n" + "drop-certificate: false\n"
 	assert.Equal(t, configWithDefault, string(pluginConfig))
 	assert.Equal(t, uint64(0), fileExp.Round())
 	fileExp.Close()
@@ -110,10 +113,8 @@ func TestExporterHandleGenesis(t *testing.T) {
 		// Check that genesis.json is written.
 		genesisFile := fmt.Sprintf("%s/blocks/genesis.json", tempdir)
 		require.FileExists(t, genesisFile)
-		genesisBytes, err := ioutil.ReadFile(genesisFile)
-		assert.NoError(t, err)
 		var genesis bookkeeping.Genesis
-		err = json.Unmarshal(genesisBytes, &genesis)
+		err := util.DecodeFromFile(genesisFile, &genesis)
 		assert.NoError(t, err)
 		assert.Equal(t, genesisA, genesis)
 	}
@@ -179,9 +180,15 @@ func sendData(t *testing.T, fileExp exporters.Exporter, config string, numRounds
 			BlockHeader: bookkeeping.BlockHeader{
 				Round: basics.Round(i),
 			},
-			Payset:      nil,
-			Delta:       &ledgercore.StateDelta{},
-			Certificate: nil,
+			Payset: nil,
+			Delta: &ledgercore.StateDelta{
+				PrevTimestamp: 1234,
+			},
+			Certificate: &agreement.Certificate{
+				Round:  basics.Round(i),
+				Period: 2,
+				Step:   2,
+			},
 		}
 		err = fileExp.Receive(block)
 		assert.NoError(t, err)
@@ -206,6 +213,7 @@ func TestExporterReceive(t *testing.T) {
 		var blockData data.BlockData
 		err := json.Unmarshal(b, &blockData)
 		assert.NoError(t, err)
+		assert.NotNil(t, blockData.Certificate)
 	}
 
 	//	should continue from round 6 after restart
@@ -259,5 +267,31 @@ func TestPatternOverride(t *testing.T) {
 		var blockData data.BlockData
 		err := json.Unmarshal(b, &blockData)
 		assert.NoError(t, err)
+	}
+}
+
+func TestDropCertificate(t *testing.T) {
+	tempdir := t.TempDir()
+	cfg := Config{
+		BlocksDir:       tempdir,
+		DropCertificate: true,
+	}
+	config, err := yaml.Marshal(cfg)
+	require.NoError(t, err)
+
+	numRounds := 10
+	exporter := fileCons.New()
+	sendData(t, exporter, string(config), numRounds)
+
+	// block data is valid
+	for i := 0; i < numRounds; i++ {
+		filename := fmt.Sprintf(FilePattern, i)
+		path := fmt.Sprintf("%s/blocks/%s", tempdir, filename)
+		assert.FileExists(t, path)
+		b, _ := os.ReadFile(path)
+		var blockData data.BlockData
+		err := json.Unmarshal(b, &blockData)
+		assert.NoError(t, err)
+		assert.Nil(t, blockData.Certificate)
 	}
 }
