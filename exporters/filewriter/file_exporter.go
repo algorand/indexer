@@ -18,6 +18,7 @@ import (
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
 	"github.com/algorand/indexer/plugins"
+	"github.com/algorand/indexer/util"
 )
 
 const (
@@ -59,19 +60,6 @@ func (c *Constructor) New() exporters.Exporter {
 
 func (exp *fileExporter) Metadata() exporters.ExporterMetadata {
 	return fileExporterMetadata
-}
-
-func encode(filename string, v interface{}, pretty bool) error {
-	file, err := os.Create(filename)
-	if err != nil {
-		return fmt.Errorf("encodeMetadataToFile(): failed to create temp metadata file: %w", err)
-	}
-	defer file.Close()
-	enc := json.NewEncoder(file)
-	if pretty {
-		enc.SetIndent("", "  ")
-	}
-	return enc.Encode(v)
 }
 
 func (exp *fileExporter) Init(cfg plugins.PluginConfig, logger *logrus.Logger) error {
@@ -136,7 +124,7 @@ func (exp *fileExporter) Config() plugins.PluginConfig {
 
 func (exp *fileExporter) encodeMetadataToFile() error {
 	tempFilename := fmt.Sprintf("%s.temp", exp.blockMetadataFile)
-	err := encode(tempFilename, exp.blockMetadata, true)
+	err := util.EncodeToFile(tempFilename, exp.blockMetadata, true)
 	if err != nil {
 		return fmt.Errorf("encodeMetadataToFile(): failed to write temp metadata: %w", err)
 	}
@@ -202,7 +190,7 @@ func (exp *fileExporter) HandleGenesis(genesis bookkeeping.Genesis) error {
 		}
 
 		genesisFilename := path.Join(exp.cfg.BlocksDir, "genesis.json")
-		if err := encode(genesisFilename, genesis, true); err != nil {
+		if err := util.EncodeToFile(genesisFilename, genesis, true); err != nil {
 			return fmt.Errorf("HandleGenesis() failed to serialize genesis file: %w", err)
 		}
 	} else {

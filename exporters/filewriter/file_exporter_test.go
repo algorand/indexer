@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -35,42 +34,6 @@ func getConfig(t *testing.T) (config, tempdir string) {
 	tempdir = t.TempDir()
 	config = fmt.Sprintf(configTemplate, tempdir)
 	return
-}
-
-func TestEncode(t *testing.T) {
-	tempdir := t.TempDir()
-
-	type test struct {
-		One string `json:"one"`
-		Two int    `json:"two"`
-	}
-	data := test{
-		One: "one",
-		Two: 2,
-	}
-
-	{
-		pretty := path.Join(tempdir, "pretty.json")
-		encode(pretty, data, true)
-		require.FileExists(t, pretty)
-		bytes, err := ioutil.ReadFile(pretty)
-		require.NoError(t, err)
-		require.Contains(t, string(bytes), "  \"one\": \"one\",\n")
-		var testDecode test
-		json.Unmarshal(bytes, &testDecode)
-		require.Equal(t, data, testDecode)
-	}
-
-	{
-		small := path.Join(tempdir, "small.json")
-		encode(small, data, false)
-		require.FileExists(t, small)
-		bytes, err := ioutil.ReadFile(small)
-		require.NoError(t, err)
-		var testDecode test
-		json.Unmarshal(bytes, &testDecode)
-		require.Equal(t, data, testDecode)
-	}
 }
 
 func TestExporterMetadata(t *testing.T) {

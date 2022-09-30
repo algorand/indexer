@@ -7,8 +7,35 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-codec/codec"
 )
+
+func EncodeToFile(filename string, v interface{}, pretty bool) error {
+	file, err := os.Create(filename)
+	if err != nil {
+		return fmt.Errorf("EncodeToFile(): failed to create %s: %w", filename, err)
+	}
+	defer file.Close()
+	handle := json.CodecHandle
+	if pretty {
+		handle.Indent = 2
+	} else {
+		handle.Indent = 0
+	}
+	enc := codec.NewEncoder(file, json.CodecHandle)
+	return enc.Encode(v)
+}
+
+func DecodeFromFile(filename string, v interface{}) error {
+	file, err := os.Open(filename)
+	if err != nil {
+		return fmt.Errorf("DecodeFromFile(): failed to open %s: %w", filename, err)
+	}
+	defer file.Close()
+	enc := json.NewDecoder(file)
+	return enc.Decode(v)
+}
 
 // PrintableUTF8OrEmpty checks to see if the entire string is a UTF8 printable string.
 // If this is the case, the string is returned as is. Otherwise, the empty string is returned.
