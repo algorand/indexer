@@ -45,6 +45,17 @@ func TestEncodeToAndFromFile(t *testing.T) {
 		err = DecodeFromFile(small, &testDecode)
 		require.Equal(t, data, testDecode)
 	}
+
+	// gzip test
+	{
+		small := path.Join(tempdir, "small.json.gz")
+		err := EncodeToFile(small, data, false)
+		require.NoError(t, err)
+		require.FileExists(t, small)
+		var testDecode test
+		err = DecodeFromFile(small, &testDecode)
+		require.Equal(t, data, testDecode)
+	}
 }
 
 func TestPrintableUTF8OrEmpty(t *testing.T) {

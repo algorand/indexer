@@ -1,7 +1,9 @@
 package util
 
 import (
+	"compress/gzip"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"unicode"
@@ -11,31 +13,54 @@ import (
 	"github.com/algorand/go-codec/codec"
 )
 
-// EncodeToFile is used to encode an object to a file.
+// EncodeToFile is used to encode an object to a file. If the file ends in .gz it will be gzipped.
 func EncodeToFile(filename string, v interface{}, pretty bool) error {
+	var writer io.Writer
+
 	file, err := os.Create(filename)
 	if err != nil {
 		return fmt.Errorf("EncodeToFile(): failed to create %s: %w", filename, err)
 	}
 	defer file.Close()
+
+	if strings.HasSuffix(filename, ".gz") {
+		gz := gzip.NewWriter(file)
+		defer gz.Close()
+		writer = gz
+	} else {
+		writer = file
+	}
+
 	handle := json.CodecHandle
 	if pretty {
 		handle.Indent = 2
 	} else {
 		handle.Indent = 0
 	}
-	enc := codec.NewEncoder(file, json.CodecHandle)
+	enc := codec.NewEncoder(writer, handle)
 	return enc.Encode(v)
 }
 
 // DecodeFromFile is used to decode a file to an object.
 func DecodeFromFile(filename string, v interface{}) error {
+	var reader io.Reader
+
 	file, err := os.Open(filename)
 	if err != nil {
 		return fmt.Errorf("DecodeFromFile(): failed to open %s: %w", filename, err)
 	}
 	defer file.Close()
-	enc := codec.NewDecoder(file, json.CodecHandle)
+
+	if strings.HasSuffix(filename, ".gz") {
+		reader, err = gzip.NewReader(file)
+		if err != nil {
+			return fmt.Errorf("DecodeFromFile(): failed to make gzip reader: %w", err)
+		}
+	} else {
+		reader = file
+	}
+
+	enc := codec.NewDecoder(reader, json.CodecHandle)
 	return enc.Decode(v)
 }
 
