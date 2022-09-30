@@ -24,13 +24,6 @@ var hook *test.Hook
 var jsonCodecHandle *codec.JsonHandle
 var ch chan uint64
 
-// encodeJSON converts an object into JSON
-func encodeJSON(obj interface{}) []byte {
-	var buf []byte
-	enc := codec.NewEncoderBytes(&buf, jsonCodecHandle)
-	enc.MustEncode(obj)
-	return buf
-}
 func init() {
 	logger, hook = test.NewNullLogger()
 	jsonCodecHandle = new(codec.JsonHandle)
@@ -43,19 +36,20 @@ var config = PruneConfigurations{
 	Timeout:  5000000000,
 }
 
-type ImportState struct {
-	NextRoundToAccount uint64 `codec:"next_account_round"`
-}
+func delete(idb idb.IndexerDb, round uint64) DataManager {
+	var wg sync.WaitGroup
+	ctx, cancel := context.WithCancel(context.Background())
+	dm := MakeDataManager(ctx, &config, idb, logger)
 
-func delete(dm DataManager, cancel context.CancelFunc, wg *sync.WaitGroup, round uint64) {
 	wg.Add(1)
-	go dm.Delete(wg, ch)
+	go dm.Delete(&wg, ch)
 	ch <- round
 	go func() {
 		time.Sleep(1 * time.Second)
 		cancel()
 	}()
 	wg.Wait()
+	return dm
 }
 func TestDeleteEmptyTxnTable(t *testing.T) {
 	db, connStr, shutdownFunc := pgtest.SetupPostgres(t)
@@ -71,11 +65,7 @@ func TestDeleteEmptyTxnTable(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 0, rowsInTxnTable(db))
 
-	// data manager
-	var wg sync.WaitGroup
-	ctx, cancel := context.WithCancel(context.Background())
-	dm := MakeDataManager(ctx, &config, idb, logger)
-	delete(dm, cancel, &wg, 0)
+	delete(idb, 0)
 	assert.Equal(t, 0, rowsInTxnTable(db))
 }
 
@@ -94,11 +84,7 @@ func TestDeleteTxns(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, ntxns, rowsInTxnTable(db))
 
-	// data manager
-	var wg sync.WaitGroup
-	ctx, cancel := context.WithCancel(context.Background())
-	dm := MakeDataManager(ctx, &config, idb, logger)
-	delete(dm, cancel, &wg, uint64(ntxns))
+	delete(idb, uint64(ntxns))
 	// 10 rounds removed
 	assert.Equal(t, 10, rowsInTxnTable(db))
 	// check remaining rounds are correct
@@ -125,20 +111,14 @@ func TestDeleteConfigs(t *testing.T) {
 		Interval: -1,
 		Rounds:   5,
 	}
-	var wg sync.WaitGroup
-	ctx, cancel := context.WithCancel(context.Background())
-	dm := MakeDataManager(ctx, &config, idb, logger)
-	assert.NoError(t, err)
-	delete(dm, cancel, &wg, uint64(ntxns))
+
+	delete(idb, uint64(ntxns))
 	// delete didn't happen
 	assert.Equal(t, 3, rowsInTxnTable(db))
 
 	// config.Rounds == rounds in DB
 	config.Rounds = 3
-	ctx, cancel = context.WithCancel(context.Background())
-	dm = MakeDataManager(ctx, &config, idb, logger)
-	assert.NoError(t, err)
-	delete(dm, cancel, &wg, uint64(ntxns))
+	delete(idb, uint64(ntxns))
 	// delete didn't happen
 	assert.Equal(t, 3, rowsInTxnTable(db))
 
@@ -147,12 +127,10 @@ func TestDeleteConfigs(t *testing.T) {
 		Rounds:   1,
 		Interval: -2,
 	}
-	ctx, cancel = context.WithCancel(context.Background())
-	dm = MakeDataManager(ctx, &config, idb, logger)
-	assert.NoError(t, err)
-	delete(dm, cancel, &wg, uint64(ntxns))
+	delete(idb, uint64(ntxns))
 	// delete didn't happen
 	assert.Equal(t, 3, rowsInTxnTable(db))
+	// due to an error
 	assert.Contains(t, hook.LastEntry().Message, "Invalid Interval value")
 }
 
@@ -220,9 +198,7 @@ func TestDeleteInterval(t *testing.T) {
 		Rounds:   1,
 		Timeout:  5000000000,
 	}
-	ctx, cancel = context.WithCancel(context.Background())
-	dm = MakeDataManager(ctx, &config, idb, logger)
-	delete(dm, cancel, &wg, uint64(nextRound-1))
+	delete(idb, uint64(nextRound-1))
 	assert.Equal(t, 1, rowsInTxnTable(db))
 }
 
@@ -250,7 +226,8 @@ func TestDeleteTimeout(t *testing.T) {
 	ch <- 5
 	wg.Wait()
 	assert.Contains(t, hook.LastEntry().Message, "context deadline exceeded")
-
+	// and process has closed
+	assert.True(t, dm.Closed())
 }
 
 // populate n records starting with round starting at r.

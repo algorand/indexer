@@ -23,9 +23,12 @@ const (
 
 // PruneConfigurations contains the configurations for data pruning
 type PruneConfigurations struct {
-	Rounds   uint64   `yaml:"rounds"`
+	// Rounds to keep
+	Rounds uint64 `yaml:"rounds"`
+	// A recurring interval to prune the data. The values can be -1, 0 or N
 	Interval Interval `yaml:"interval"`
-	Timeout  uint64   `yaml:"timeout"`
+	// Timeout sets a max duration for Delete()
+	Timeout uint64 `yaml:"timeout"`
 }
 
 // DataManager is a data pruning interface
@@ -46,7 +49,7 @@ type postgresql struct {
 // MakeDataManager initializes resources need for removing data from data source
 func MakeDataManager(ctx context.Context, cfg *PruneConfigurations, db idb.IndexerDb, logger *logrus.Logger) DataManager {
 	c, cf := context.WithCancel(ctx)
-	dm := postgresql{
+	dm := &postgresql{
 		config: cfg,
 		db:     db,
 		logger: logger,
@@ -59,12 +62,12 @@ func MakeDataManager(ctx context.Context, cfg *PruneConfigurations, db idb.Index
 }
 
 // Delete removes data from the txn table in Postgres DB
-func (p postgresql) Delete(wg *sync.WaitGroup, roundch chan uint64) {
+func (p *postgresql) Delete(wg *sync.WaitGroup, roundch chan uint64) {
 
 	defer func() {
-		wg.Done()
-		p.cf()
 		p.close = true
+		p.cf()
+		wg.Done()
 	}()
 
 	timeout := defaultTimeout
@@ -112,6 +115,6 @@ func (p postgresql) Delete(wg *sync.WaitGroup, roundch chan uint64) {
 
 // Closed - if true, the data pruning process has exited and
 // stopped reading round from <-roundch
-func (p postgresql) Closed() bool {
+func (p *postgresql) Closed() bool {
 	return p.close
 }
