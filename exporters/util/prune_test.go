@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/algorand/go-codec/codec"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres"
 	pgtest "github.com/algorand/indexer/idb/postgres/testing"
@@ -21,12 +20,10 @@ import (
 
 var logger *logrus.Logger
 var hook *test.Hook
-var jsonCodecHandle *codec.JsonHandle
 var ch chan uint64
 
 func init() {
 	logger, hook = test.NewNullLogger()
-	jsonCodecHandle = new(codec.JsonHandle)
 	ch = make(chan uint64)
 }
 
