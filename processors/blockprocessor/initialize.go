@@ -127,13 +127,14 @@ func blockHandler(logger *log.Logger, dbRound uint64, procHandler func(block *rp
 }
 
 func handleBlock(logger *log.Logger, block *rpcs.EncodedBlockCert, procHandler func(block *rpcs.EncodedBlockCert) error) error {
+	start := time.Now()
 	err := procHandler(block)
 	if err != nil {
 		logger.WithError(err).Errorf(
 			"block %d import failed", block.Block.Round())
 		return fmt.Errorf("handleBlock() err: %w", err)
 	}
-	logger.Infof("Initialize Ledger: added block %d to ledger", block.Block.Round())
+	logger.Infof("Initialize Ledger: added block %d to ledger (%s)", block.Block.Round(), time.Since(start))
 	return nil
 }
 

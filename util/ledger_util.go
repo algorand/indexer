@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	log "github.com/sirupsen/logrus"
@@ -64,6 +65,10 @@ func createInitState(genesis *bookkeeping.Genesis) (ledgercore.InitState, error)
 // MakeLedger opens a ledger, initializing if necessary.
 func MakeLedger(logger *log.Logger, inMemory bool, genesis *bookkeeping.Genesis, dataDir string) (*ledger.Ledger, error) {
 	const prefix = "ledger"
+	err := os.MkdirAll(dataDir, 0755)
+	if err != nil {
+		return nil, fmt.Errorf("MakeProcessor() failed to create '%s': %w", dataDir, err)
+	}
 	dbPrefix := filepath.Join(dataDir, prefix)
 	initState, err := createInitState(genesis)
 	if err != nil {

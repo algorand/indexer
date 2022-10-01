@@ -5,6 +5,7 @@ import (
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
+	"time"
 
 	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/config"
@@ -220,6 +221,7 @@ func addGenesisBlock(l *ledger.Ledger, handler func(block *ledgercore.ValidatedB
 }
 
 func (proc *blockProcessor) Process(input data.BlockData) (data.BlockData, error) {
+	start := time.Now()
 
 	blockCert := input.EncodedBlockCertificate()
 
@@ -235,6 +237,8 @@ func (proc *blockProcessor) Process(input data.BlockData) (data.BlockData, error
 	delta := vb.Delta()
 	input.Payset = modifiedTxns
 	input.Delta = &delta
+
+	proc.logger.Infof("Block processor: processed block %d (%s)", input.Round(), time.Since(start))
 
 	return input, nil
 }
