@@ -10,11 +10,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
-	sdk "github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-codec/codec"
-
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
 	"github.com/algorand/indexer/plugins"
@@ -157,18 +154,9 @@ func (exp *fileExporter) Receive(exportData data.BlockData) error {
 		}
 
 		blockFile := path.Join(exp.cfg.BlocksDir, fmt.Sprintf(exp.cfg.FilenamePattern, exportData.Round()))
-		file, err := os.OpenFile(blockFile, os.O_WRONLY|os.O_CREATE, 0755)
+		err := util.EncodeToFile(blockFile, exportData, true)
 		if err != nil {
-			return fmt.Errorf("Receive(): error opening file %s: %w", blockFile, err)
-		}
-		defer file.Close()
-
-		// The state delta object contains maps with non-string key values
-		// which aren't supported by the standard json encoder.
-		enc := codec.NewEncoder(file, sdk.CodecHandle)
-		err = enc.Encode(exportData)
-		if err != nil {
-			return fmt.Errorf("Receive(): error encoding exportData: %w", err)
+			return fmt.Errorf("Receive(): failed to write file %s: %w", blockFile, err)
 		}
 		exp.logger.Infof("Wrote block %d to %s", exportData.Round(), blockFile)
 	}
