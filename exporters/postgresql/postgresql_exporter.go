@@ -86,7 +86,11 @@ func (exp *postgresqlExporter) Close() error {
 
 func (exp *postgresqlExporter) Receive(exportData data.BlockData) error {
 	if exportData.Delta == nil {
-		return fmt.Errorf("receive got an invalid block: %#v", exportData)
+		if exportData.Round() == 0 {
+			exportData.Delta = &ledgercore.StateDelta{}
+		} else {
+			return fmt.Errorf("receive got an invalid block: %#v", exportData)
+		}
 	}
 	// Do we need to test for consensus protocol here?
 	/*
