@@ -53,10 +53,12 @@ func DecodeFromFile(filename string, v interface{}) error {
 	defer file.Close()
 
 	if strings.HasSuffix(filename, ".gz") {
-		reader, err = gzip.NewReader(file)
+		gz, err := gzip.NewReader(file)
+		defer gz.Close()
 		if err != nil {
 			return fmt.Errorf("DecodeFromFile(): failed to make gzip reader: %w", err)
 		}
+		reader = gz
 	} else {
 		reader = file
 	}
