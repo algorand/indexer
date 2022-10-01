@@ -25,6 +25,7 @@ func EncodeToFile(filename string, v interface{}, pretty bool) error {
 
 	if strings.HasSuffix(filename, ".gz") {
 		gz := gzip.NewWriter(file)
+		gz.Name = filename
 		defer gz.Close()
 		writer = gz
 	} else {
