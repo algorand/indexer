@@ -71,7 +71,7 @@ func (r *fileReader) Init(ctx context.Context, cfg plugins.PluginConfig, logger 
 
 	genesisFile := path.Join(r.cfg.BlocksDir, "genesis.json")
 	var genesis bookkeeping.Genesis
-	util.DecodeFromFile(genesisFile, &genesis)
+	err = util.DecodeFromFile(genesisFile, &genesis)
 	if err != nil {
 		return nil, fmt.Errorf("Init(): failed to process genesis file: %w", err)
 	}

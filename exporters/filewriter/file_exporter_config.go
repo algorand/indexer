@@ -12,4 +12,10 @@ type Config struct {
 	FilenamePattern string `yaml:"filename-pattern"`
 	// DropCertificate is used to remove the vote certificate from the block data before writing files.
 	DropCertificate bool `yaml:"drop-certificate"`
+
+	// TODO: compression level - Default, Fastest, Best compression, etc
+
+	// TODO: How to avoid having millions of files in a directory?
+	//       Write batches of blocks to a single file?
+	//       Tree of directories
 }

@@ -16,4 +16,6 @@ type Config struct {
 	RetryCount uint64 `yaml:"retry-count"`
 	// FilenamePattern is the format used to find block files. It uses go string formatting and should accept one number for the round.
 	FilenamePattern string `yaml:"filename-pattern"`
+
+	// TODO: Option to delete files after processing them
 }
