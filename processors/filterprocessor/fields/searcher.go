@@ -1,9 +1,10 @@
 package fields
 
+//go:generate go run ../gen/generate.go fields ./generated_signed_txn_map.go
+
 import (
 	"fmt"
 	"reflect"
-	"strings"
 
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/indexer/processors/filterprocessor/expression"
@@ -19,43 +20,51 @@ type Searcher struct {
 // This function is ONLY to be used by the filter.field function.
 // The reason being is that without validation of the tag (which is provided by
 // MakeFieldSearcher) then this can panic
-func (f Searcher) search(input transactions.SignedTxnInBlock) bool {
-	e := reflect.ValueOf(&input).Elem()
+func (f Searcher) search(input transactions.SignedTxnInBlock) (bool, error) {
 
-	for _, field := range strings.Split(f.Tag, ".") {
-		e = e.FieldByName(field)
+	val, err := SignedTxnFunc(f.Tag, &input)
+	if err != nil {
+		return false, err
 	}
 
-	toSearch := e.MethodByName(f.MethodToCall).Call([]reflect.Value{})[0].Interface()
+	e := reflect.ValueOf(val).Elem()
 
-	if (*f.Exp).Search(toSearch) {
-		return true
+	var toSearch interface{}
+	if f.MethodToCall != "" {
+		// If there is a function, search what is returned
+		toSearch = e.MethodByName(f.MethodToCall).Call([]reflect.Value{})[0].Interface()
+	} else {
+		// Otherwise, get the original value
+		toSearch = e.Interface()
 	}
 
-	return false
+	b, err := (*f.Exp).Search(toSearch)
+	if err != nil {
+		return false, err
+	}
+
+	return b, nil
 }
 
 // checks that the supplied tag exists in the struct and recovers from any panics
 func checkTagExistsAndHasCorrectFunction(expressionType expression.FilterType, tag string) (outError error) {
-	var field string
 	defer func() {
 		// This defer'd function is a belt and suspenders type thing.  We check every reflected
 		// evaluation's IsValid() function to make sure not to operate on a zero value.  Therfore we can't
 		// actually reach inside the if conditional unless we intentionally panic.
 		// However, having this function gives additional safety to a critical function
 		if r := recover(); r != nil {
-			outError = fmt.Errorf("error occured regarding tag %s. last searched field was: %s - %v", tag, field, r)
+			outError = fmt.Errorf("error occured regarding tag %s - %v", tag, r)
 		}
 	}()
 
-	e := reflect.ValueOf(&transactions.SignedTxnInBlock{}).Elem()
+	val, err := SignedTxnFunc(tag, &transactions.SignedTxnInBlock{})
 
-	for _, field = range strings.Split(tag, ".") {
-		e = e.FieldByName(field)
-		if !e.IsValid() {
-			return fmt.Errorf("%s does not exist in transactions.SignedTxnInBlock struct. last searched field was: %s", tag, field)
-		}
+	if err != nil {
+		return fmt.Errorf("%s does not exist in transactions.SignedTxnInBlock struct", tag)
 	}
+
+	e := reflect.ValueOf(val).Elem()
 
 	method, ok := expression.TypeToFunctionMap[expressionType]
 
@@ -63,7 +72,7 @@ func checkTagExistsAndHasCorrectFunction(expressionType expression.FilterType, t
 		return fmt.Errorf("expression type (%s) is not supported.  tag value: %s", expressionType, tag)
 	}
 
-	if !e.MethodByName(method).IsValid() {
+	if method != "" && !e.MethodByName(method).IsValid() {
 		return fmt.Errorf("variable referenced by tag %s does not contain the needed method: %s", tag, method)
 	}
 
