@@ -96,6 +96,7 @@ func (r *fileReader) GetBlock(rnd uint64) (data.BlockData, error) {
 	for {
 		filename := path.Join(r.cfg.BlocksDir, fmt.Sprintf(r.cfg.FilenamePattern, rnd))
 		var blockData data.BlockData
+		start := time.Now()
 		err := util.DecodeFromFile(filename, &blockData)
 		if err != nil && errors.Is(err, fs.ErrNotExist) {
 			// If the file read failed because the file didn't exist, wait before trying again
@@ -113,6 +114,7 @@ func (r *fileReader) GetBlock(rnd uint64) (data.BlockData, error) {
 			// Other error, return error to pipeline
 			return data.BlockData{}, fmt.Errorf("GetBlock(): unable to read block file '%s': %w", filename, err)
 		} else {
+			r.logger.Infof("Block %d read time: %s", rnd, time.Since(start))
 			// The read was fine, return the data.
 			return blockData, nil
 		}
