@@ -1047,6 +1047,9 @@ type Exclude []string
 // ExcludeCloseTo defines model for exclude-close-to.
 type ExcludeCloseTo bool
 
+// HeaderOnly defines model for header-only.
+type HeaderOnly bool
+
 // IncludeAll defines model for include-all.
 type IncludeAll bool
 

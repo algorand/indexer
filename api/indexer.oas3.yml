@@ -135,6 +135,14 @@
           "type": "boolean"
         }
       },
+      "header-only": {
+        "description": "Header only flag. When this is set to true, returned block does not contain the transactions",
+        "in": "query",
+        "name": "header-only",
+        "schema": {
+          "type": "boolean"
+        }
+      },
       "include-all": {
         "description": "Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.",
         "in": "query",
@@ -4721,6 +4729,14 @@
             "required": true,
             "schema": {
               "type": "integer"
+            }
+          },
+          {
+            "description": "Header only flag. When this is set to true, returned block does not contain the transactions",
+            "in": "query",
+            "name": "header-only",
+            "schema": {
+              "type": "boolean"
             }
           }
         ],
