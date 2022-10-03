@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestInitDataDirectory tests the initialization of the data directory
 func TestInitDataDirectory(t *testing.T) {
 	verifyFile := func(file string) {
 		require.FileExists(t, file)
