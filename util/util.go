@@ -1,9 +1,11 @@
 package util
 
 import (
+	"bytes"
 	"compress/gzip"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"strings"
 	"unicode"
@@ -44,23 +46,23 @@ func EncodeToFile(filename string, v interface{}, pretty bool) error {
 
 // DecodeFromFile is used to decode a file to an object.
 func DecodeFromFile(filename string, v interface{}) error {
-	var reader io.Reader
-
-	file, err := os.Open(filename)
+	// Streaming into the decoder was slow.
+	fileBytes, err := ioutil.ReadFile(filename)
 	if err != nil {
-		return fmt.Errorf("DecodeFromFile(): failed to open %s: %w", filename, err)
+		return fmt.Errorf("DecodeFromFile(): failed to read %s: %w", filename, err)
 	}
-	defer file.Close()
+
+	var reader io.Reader = bytes.NewReader(fileBytes)
 
 	if strings.HasSuffix(filename, ".gz") {
-		gz, err := gzip.NewReader(file)
+		gz, err := gzip.NewReader(reader)
 		defer gz.Close()
 		if err != nil {
 			return fmt.Errorf("DecodeFromFile(): failed to make gzip reader: %w", err)
 		}
 		reader = gz
 	} else {
-		reader = file
+		reader = reader
 	}
 
 	enc := codec.NewDecoder(reader, json.CodecHandle)
