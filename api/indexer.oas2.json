@@ -3070,7 +3070,7 @@
             }
           },
           "next-token": {
-            "description": "Base64 encoded final box name result. Used for pagination, when making another request provide this token with the next parameter and prepend with \"b64:\" if keeping the provided encoding.",
+            "description": "Used for pagination, when making another request provide this token with the next parameter.",
             "type": "string"
           }
         }

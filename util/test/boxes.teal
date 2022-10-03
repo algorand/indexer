@@ -1,6 +1,8 @@
 #pragma version 8
 	txn ApplicationID
-	bz end
+	bz end					// go create the app
+	txn NumAppArgs
+	bz end					// approve when no args (so can delete with no questions asked)
 	txn ApplicationArgs 0   // [arg[0]] // fails if no args && app already exists
 	byte "create"			// [arg[0], "create"] // create box named arg[1]
 	==                      // [arg[0]=?="create"]

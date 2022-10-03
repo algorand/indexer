@@ -629,6 +629,7 @@ func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, appl
 	if uint64(applicationID) > math.MaxInt64 {
 		return notFound(ctx, errValueExceedingInt64)
 	}
+	happyResponse := generated.BoxesResponse{ApplicationId: applicationID, Boxes: []generated.BoxDescriptor{}}
 
 	q := idb.ApplicationBoxQuery{
 		ApplicationID: applicationID,
@@ -654,7 +655,8 @@ func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, appl
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return notFound(ctx, fmt.Sprintf("%s: round=%d, appid=%d", errNoApplicationsFound, round, applicationID))
+			// NOTE: as an application may have once existed, we DO NOT error when not finding the corresponding application ID
+			return ctx.JSON(http.StatusOK, happyResponse)
 		}
 		// sql.ErrNoRows is the only expected error condition
 		msg := fmt.Sprintf("%s: round=?=%d, appid=%d", errFailedSearchingBoxes, round, applicationID)
@@ -679,10 +681,7 @@ func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, appl
 			next = strPtr("b64:" + string(*next))
 		}
 	}
-	res := generated.BoxesResponse{
-		ApplicationId: applicationID,
-		NextToken:     next,
-	}
+	happyResponse.NextToken = next
 	descriptors := []generated.BoxDescriptor{}
 	for _, box := range boxes {
 		if box.Name == nil {
@@ -690,9 +689,9 @@ func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, appl
 		}
 		descriptors = append(descriptors, generated.BoxDescriptor{Name: box.Name})
 	}
-	res.Boxes = descriptors
+	happyResponse.Boxes = descriptors
 
-	return ctx.JSON(http.StatusOK, res)
+	return ctx.JSON(http.StatusOK, happyResponse)
 }
 
 // LookupApplicationLogsByID returns one application logs
