@@ -85,6 +85,7 @@ def main():
         s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
         prefix = "indexer/e2e4"
         if "/" in tarname:
+        # parse tarname like fafa8862/rel-nightly
             cmhash_tarnme = tarname.split("/")
             cmhash = cmhash_tarnme[0]
             tarname =cmhash_tarnme[1]
