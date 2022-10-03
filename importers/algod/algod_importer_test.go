@@ -65,9 +65,9 @@ func TestInitUnmarshalFailure(t *testing.T) {
 
 func TestConfigDefault(t *testing.T) {
 	testImporter = New()
-	expected, err := yaml.Marshal(&ImporterConfig{})
+	expected, err := yaml.Marshal(&Config{})
 	if err != nil {
-		t.Fatalf("unable to Marshal default algodimporter.ImporterConfig: %v", err)
+		t.Fatalf("unable to Marshal default algodimporter.Config: %v", err)
 	}
 	assert.Equal(t, plugins.PluginConfig(expected), testImporter.Config())
 }
