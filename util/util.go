@@ -61,8 +61,6 @@ func DecodeFromFile(filename string, v interface{}) error {
 			return fmt.Errorf("DecodeFromFile(): failed to make gzip reader: %w", err)
 		}
 		reader = gz
-	} else {
-		reader = reader
 	}
 
 	enc := codec.NewDecoder(reader, json.CodecHandle)
