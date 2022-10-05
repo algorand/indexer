@@ -468,14 +468,15 @@ func MakePipeline(ctx context.Context, cfg *PipelineConfig, logger *log.Logger) 
 	cancelContext, cancelFunc := context.WithCancel(ctx)
 
 	pipeline := &pipelineImpl{
-		ctx:          cancelContext,
-		cf:           cancelFunc,
-		cfg:          cfg,
-		logger:       logger,
-		initProvider: nil,
-		importer:     nil,
-		processors:   []*processors.Processor{},
-		exporter:     nil,
+		ctx:           cancelContext,
+		cf:            cancelFunc,
+		cfg:           cfg,
+		logger:        logger,
+		initProvider:  nil,
+		importer:      nil,
+		processors:    []*processors.Processor{},
+		exporter:      nil,
+		blockMetadata: BlockMetaData{},
 	}
 
 	importerName := cfg.Importer.Name

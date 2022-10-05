@@ -221,7 +221,7 @@ func (m *mockExporter) Metadata() exporters.ExporterMetadata {
 	}
 }
 
-func (m *mockExporter) Init(_ plugins.PluginConfig, _ *log.Logger) error {
+func (m *mockExporter) Init(initProvider data.InitProvider, cfg plugins.PluginConfig, logger *log.Logger) error {
 	return nil
 }
 
@@ -274,7 +274,10 @@ func TestPipelineRun(t *testing.T) {
 		importer:     &pImporter,
 		processors:   []*processors.Processor{&pProcessor},
 		exporter:     &pExporter,
-		round:        0,
+		blockMetadata: BlockMetaData{
+			NextRound:   0,
+			GenesisHash: "",
+		},
 	}
 
 	go func() {
@@ -304,6 +307,10 @@ func TestPipelineCpuPidFiles(t *testing.T) {
 
 	pImpl := pipelineImpl{
 		cfg: &PipelineConfig{
+			ConduitConfig: &Config{
+				Flags:          nil,
+				ConduitDataDir: "",
+			},
 			Importer: NameConfigPair{
 				Name:   "",
 				Config: map[string]interface{}{},
@@ -324,7 +331,11 @@ func TestPipelineCpuPidFiles(t *testing.T) {
 		importer:     &pImporter,
 		processors:   []*processors.Processor{&pProcessor},
 		exporter:     &pExporter,
-		round:        0,
+		blockMetadata: BlockMetaData{
+			GenesisHash: "",
+			Network:     "",
+			NextRound:   0,
+		},
 	}
 
 	err := pImpl.Init()
@@ -380,7 +391,6 @@ func TestPipelineErrors(t *testing.T) {
 		importer:     &pImporter,
 		processors:   []*processors.Processor{&pProcessor},
 		exporter:     &pExporter,
-		round:        0,
 	}
 
 	mImporter.returnError = true
@@ -421,4 +431,71 @@ func TestPipelineErrors(t *testing.T) {
 	pImpl.Wait()
 	assert.Error(t, pImpl.Error(), fmt.Errorf("exporter"))
 
+}
+
+// TestBlockMetaDataFile tests that metadata.json file is created as expected
+func TestBlockMetaDataFile(t *testing.T) {
+
+	var pImporter importers.Importer = &mockImporter{}
+	var pProcessor processors.Processor = &mockProcessor{}
+	var pExporter exporters.Exporter = &mockExporter{}
+
+	datadir := t.TempDir()
+	pImpl := pipelineImpl{
+		cfg: &PipelineConfig{
+			ConduitConfig: &Config{
+				Flags:          nil,
+				ConduitDataDir: datadir,
+			},
+			Importer: NameConfigPair{
+				Name:   "",
+				Config: map[string]interface{}{},
+			},
+			Processors: []NameConfigPair{
+				{
+					Name:   "",
+					Config: map[string]interface{}{},
+				},
+			},
+			Exporter: NameConfigPair{
+				Name:   "",
+				Config: map[string]interface{}{},
+			},
+		},
+		logger:       log.New(),
+		initProvider: nil,
+		importer:     &pImporter,
+		processors:   []*processors.Processor{&pProcessor},
+		exporter:     &pExporter,
+		blockMetadata: BlockMetaData{
+			GenesisHash: "AAAAAAAAAA",
+			Network:     "pipeline_test",
+			NextRound:   3,
+		},
+	}
+
+	err := pImpl.Init()
+	assert.NoError(t, err)
+
+	// Test that file is created
+	blockMetaDataFile := filepath.Join(datadir, "metadata.json")
+	_, err = os.Stat(blockMetaDataFile)
+	assert.Nil(t, err)
+
+	// Test that file loads correctly
+	metaData, err := pImpl.loadBlockMetadata()
+	assert.Nil(t, err)
+	assert.Equal(t, pImpl.blockMetadata.GenesisHash, metaData.GenesisHash)
+	assert.Equal(t, pImpl.blockMetadata.NextRound, metaData.NextRound)
+	assert.Equal(t, pImpl.blockMetadata.Network, metaData.Network)
+
+	// Test that file encodes correctly
+	pImpl.blockMetadata.GenesisHash = "HASH"
+	pImpl.blockMetadata.NextRound = 7
+	pImpl.encodeMetadataToFile()
+	metaData, err = pImpl.loadBlockMetadata()
+	assert.Nil(t, err)
+	assert.Equal(t, "HASH", metaData.GenesisHash)
+	assert.Equal(t, uint64(7), metaData.NextRound)
+	assert.Equal(t, pImpl.blockMetadata.Network, metaData.Network)
 }
