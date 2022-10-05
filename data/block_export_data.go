@@ -18,7 +18,7 @@ type RoundProvider interface {
 // InitProvider is the interface that can be used when initializing to get common algod related
 // variables
 type InitProvider interface {
-	Genesis() *bookkeeping.Genesis
+	GetGenesis() *bookkeeping.Genesis
 	NextDBRound() basics.Round
 }
 

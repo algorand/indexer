@@ -33,7 +33,7 @@ func (exp *exampleExporter) Metadata() exporters.ExporterMetadata {
 }
 
 // Init provides the opportunity for your Exporter to initialize connections, store config variables, etc.
-func (exp *exampleExporter) Init(_ plugins.PluginConfig, _ *logrus.Logger) error {
+func (exp *exampleExporter) Init(initiProvider data.InitProvider, cfg plugins.PluginConfig, logger *logrus.Logger) error {
 	panic("not implemented")
 }
 

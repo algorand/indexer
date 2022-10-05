@@ -14,7 +14,6 @@ import (
 	"github.com/algorand/indexer/idb"
 	// Necessary to ensure the postgres implementation has been registered in the idb factory
 	_ "github.com/algorand/indexer/idb/postgres"
-	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/plugins"
 )
 
@@ -38,16 +37,14 @@ type Constructor struct{}
 
 // New initializes a postgresqlExporter
 func (c *Constructor) New() exporters.Exporter {
-	return &postgresqlExporter{
-		round: 0,
-	}
+	return &postgresqlExporter{}
 }
 
 func (exp *postgresqlExporter) Metadata() exporters.ExporterMetadata {
 	return postgresqlExporterMetadata
 }
 
-func (exp *postgresqlExporter) Init(cfg plugins.PluginConfig, logger *logrus.Logger) error {
+func (exp *postgresqlExporter) Init(initProvider data.InitProvider, cfg plugins.PluginConfig, logger *logrus.Logger) error {
 	dbName := "postgres"
 	exp.logger = logger
 	if err := exp.unmarhshalConfig(string(cfg)); err != nil {
@@ -66,9 +63,7 @@ func (exp *postgresqlExporter) Init(cfg plugins.PluginConfig, logger *logrus.Log
 	}
 	exp.db = db
 	<-ready
-	if rnd, err := exp.db.GetNextRoundToAccount(); err == nil {
-		exp.round = rnd
-	}
+	exp.round = uint64(initProvider.NextDBRound())
 	return err
 }
 
@@ -110,17 +105,6 @@ func (exp *postgresqlExporter) Receive(exportData data.BlockData) error {
 	}
 	exp.round = exportData.Round() + 1
 	return nil
-}
-
-func (exp *postgresqlExporter) HandleGenesis(genesis bookkeeping.Genesis) error {
-	_, err := importer.EnsureInitialImport(exp.db, genesis)
-	return err
-}
-
-func (exp *postgresqlExporter) Round() uint64 {
-	// should we try to retrieve this from the db? That could fail.
-	// return exp.db.GetNextRoundToAccount()
-	return exp.round
 }
 
 func (exp *postgresqlExporter) unmarhshalConfig(cfg string) error {

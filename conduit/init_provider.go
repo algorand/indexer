@@ -12,7 +12,7 @@ type PipelineInitProvider struct {
 }
 
 // Genesis produces genesis pointer
-func (a *PipelineInitProvider) Genesis() *bookkeeping.Genesis {
+func (a *PipelineInitProvider) GetGenesis() *bookkeeping.Genesis {
 	return a.genesis
 }
 
