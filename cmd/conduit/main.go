@@ -117,6 +117,8 @@ func makeConduitCmd() *cobra.Command {
 			return runConduitCmdWithConfig(cfg)
 		},
 		SilenceUsage: true,
+		// Silence errors because our logger will catch and print any errors
+		SilenceErrors: true,
 	}
 
 	cfg.Flags = cmd.Flags()
@@ -183,7 +185,7 @@ func makeInitCmd() *cobra.Command {
 
 func main() {
 	if err := conduitCmd.Execute(); err != nil {
-		log.Errorf("%v", err)
+		logger.Errorf("%v", err)
 		os.Exit(1)
 	}
 

@@ -19,7 +19,15 @@ type Config struct {
 
 func (cfg *Config) String() string {
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "Data Directory: %s ", cfg.ConduitDataDir)
+
+	var dataDirToPrint string
+	if cfg.ConduitDataDir == "" {
+		dataDirToPrint = "[EMPTY]"
+	} else {
+		dataDirToPrint = cfg.ConduitDataDir
+	}
+
+	fmt.Fprintf(&sb, "Data Directory: %s ", dataDirToPrint)
 
 	return sb.String()
 }
