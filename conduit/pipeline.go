@@ -2,18 +2,22 @@ package conduit
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/algorand/indexer/util/metrics"
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime/pprof"
 	"sync"
 	"time"
 
-	"github.com/algorand/go-algorand-sdk/encoding/json"
+	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/indexer/util/metrics"
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+	"gopkg.in/yaml.v3"
 
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
@@ -143,7 +147,16 @@ type pipelineImpl struct {
 	importer   *importers.Importer
 	processors []*processors.Processor
 	exporter   *exporters.Exporter
-	round      basics.Round
+
+	blockMetadata         BlockMetaData
+	blockMetadataFilePath string
+}
+
+// BlockMetaData contains the metadata for block file storage
+type BlockMetaData struct {
+	GenesisHash string `json:"genesis-hash"`
+	Network     string `json:"network"`
+	NextRound   uint64 `json:"next-round"`
 }
 
 func (p *pipelineImpl) Error() error {
@@ -187,40 +200,44 @@ func (p *pipelineImpl) Init() error {
 
 	// TODO Need to change interfaces to accept config of map[string]interface{}
 
-	// Initialize Exporter first since the pipeline derives its round from the Exporter
-	exporterLogger := log.New()
-	exporterLogger.SetFormatter(makePluginLogFormatter(plugins.Exporter, (*p.exporter).Metadata().Name()))
-
-	jsonEncode := string(json.Encode(p.cfg.Exporter.Config))
-	err := (*p.exporter).Init(plugins.PluginConfig(jsonEncode), exporterLogger)
-	exporterName := (*p.exporter).Metadata().Name()
+	// load pipeline metadata
+	blockMetadata, err := p.loadBlockMetadata()
 	if err != nil {
-		return fmt.Errorf("Pipeline.Start(): could not initialize Exporter (%s): %w", exporterName, err)
+		return fmt.Errorf("Pipeline.Start(): could not read metadata: %w", err)
 	}
-	p.logger.Infof("Initialized Exporter: %s", exporterName)
 
 	// Initialize Importer
 	importerLogger := log.New()
 	importerName := (*p.importer).Metadata().Name()
 	importerLogger.SetFormatter(makePluginLogFormatter(plugins.Importer, importerName))
 
-	// TODO modify/fix ?
-	jsonEncode = string(json.Encode(p.cfg.Importer.Config))
-	genesis, err := (*p.importer).Init(p.ctx, plugins.PluginConfig(jsonEncode), importerLogger)
-
+	configs, err := yaml.Marshal(p.cfg.Importer.Config)
+	if err != nil {
+		return fmt.Errorf("Pipeline.Start(): could not serialize Importer.Config: %w", err)
+	}
+	genesis, err := (*p.importer).Init(p.ctx, plugins.PluginConfig(configs), importerLogger)
 	if err != nil {
 		return fmt.Errorf("Pipeline.Start(): could not initialize importer (%s): %w", importerName, err)
 	}
-	p.round = basics.Round((*p.exporter).Round())
-	err = (*p.exporter).HandleGenesis(*genesis)
-	if err != nil {
-		return fmt.Errorf("Pipeline.Start(): exporter could not handle genesis (%s): %w", exporterName, err)
+
+	gh := crypto.HashObj(genesis).String()
+	if blockMetadata.GenesisHash == "" {
+		blockMetadata.GenesisHash = gh
+		blockMetadata.Network = string(genesis.Network)
+		err = p.encodeMetadataToFile()
+		if err != nil {
+			return fmt.Errorf("HandleGenesis() metadata encoding err %w", err)
+		}
+	} else {
+		if blockMetadata.GenesisHash != gh {
+			return fmt.Errorf("HandleGenesis() genesis hash in metadata does not match expected value: actual %s, expected %s", gh, blockMetadata.GenesisHash)
+		}
 	}
-	p.logger.Infof("Initialized Importer: %s", importerName)
 
 	// Initialize Processors
+	round := basics.Round(p.blockMetadata.NextRound)
 	var initProvider data.InitProvider = &PipelineInitProvider{
-		currentRound: &p.round,
+		currentRound: &round,
 		genesis:      genesis,
 	}
 	p.initProvider = &initProvider
@@ -228,14 +245,33 @@ func (p *pipelineImpl) Init() error {
 	for idx, processor := range p.processors {
 		processorLogger := log.New()
 		processorLogger.SetFormatter(makePluginLogFormatter(plugins.Processor, (*processor).Metadata().Name()))
-		jsonEncode = string(json.Encode(p.cfg.Processors[idx].Config))
-		err := (*processor).Init(p.ctx, *p.initProvider, plugins.PluginConfig(jsonEncode), processorLogger)
+		configs, err = yaml.Marshal(p.cfg.Processors[idx].Config)
+		if err != nil {
+			return fmt.Errorf("Pipeline.Start(): could not serialize Processors[%d].Config : %w", idx, err)
+		}
+		err := (*processor).Init(p.ctx, *p.initProvider, plugins.PluginConfig(configs), processorLogger)
 		processorName := (*processor).Metadata().Name()
 		if err != nil {
 			return fmt.Errorf("Pipeline.Start(): could not initialize processor (%s): %w", processorName, err)
 		}
 		p.logger.Infof("Initialized Processor: %s", processorName)
 	}
+	p.logger.Infof("Initialized Importer: %s", importerName)
+
+	// Initialize Exporter
+	exporterLogger := log.New()
+	exporterLogger.SetFormatter(makePluginLogFormatter(plugins.Exporter, (*p.exporter).Metadata().Name()))
+
+	configs, err = yaml.Marshal(p.cfg.Exporter.Config)
+	if err != nil {
+		return fmt.Errorf("Pipeline.Start(): could not serialize Exporter.Config : %w", err)
+	}
+	err = (*p.exporter).Init(*p.initProvider, plugins.PluginConfig(configs), exporterLogger)
+	exporterName := (*p.exporter).Metadata().Name()
+	if err != nil {
+		return fmt.Errorf("Pipeline.Start(): could not initialize Exporter (%s): %w", exporterName, err)
+	}
+	p.logger.Infof("Initialized Exporter: %s", exporterName)
 
 	return err
 }
@@ -301,9 +337,9 @@ func (p *pipelineImpl) Start() {
 				return
 			default:
 				{
-					p.logger.Infof("Pipeline round: %v", p.round)
+					p.logger.Infof("Pipeline round: %v", p.blockMetadata.NextRound)
 					// fetch block
-					blkData, err := (*p.importer).GetBlock(uint64(p.round))
+					blkData, err := (*p.importer).GetBlock(p.blockMetadata.NextRound)
 					if err != nil {
 						p.logger.Errorf("%v", err)
 						p.setError(err)
@@ -339,12 +375,13 @@ func (p *pipelineImpl) Start() {
 					}
 					importTime := time.Since(start)
 					// Ignore round 0 (which is empty).
-					if p.round > 0 {
+					if p.blockMetadata.NextRound > 0 {
 						p.addMetrics(blkData, importTime)
 					}
 					// Increment Round
 					p.setError(nil)
-					p.round++
+					p.blockMetadata.NextRound++
+					p.encodeMetadataToFile()
 				}
 			}
 
@@ -354,6 +391,57 @@ func (p *pipelineImpl) Start() {
 
 func (p *pipelineImpl) Wait() {
 	p.wg.Wait()
+}
+
+func (p *pipelineImpl) encodeMetadataToFile() error {
+	tempFilename := fmt.Sprintf("%s.temp", p.blockMetadataFilePath)
+	file, err := os.Create(tempFilename)
+	if err != nil {
+		return fmt.Errorf("encodeMetadataToFile(): failed to create temp metadata file: %w", err)
+	}
+	defer file.Close()
+	err = json.NewEncoder(file).Encode(p.blockMetadata)
+	if err != nil {
+		return fmt.Errorf("encodeMetadataToFile(): failed to write temp metadata: %w", err)
+	}
+
+	err = os.Rename(tempFilename, p.blockMetadataFilePath)
+	if err != nil {
+		return fmt.Errorf("encodeMetadataToFile(): failed to replace metadata file: %w", err)
+	}
+
+	return nil
+}
+
+func (p *pipelineImpl) loadBlockMetadata() (BlockMetaData, error) {
+	p.blockMetadataFilePath = path.Join(p.cfg.ConduitConfig.ConduitDataDir, "metadata.json")
+	var blockMetadata BlockMetaData
+	if stat, err := os.Stat(p.blockMetadataFilePath); errors.Is(err, os.ErrNotExist) || (stat != nil && stat.Size() == 0) {
+		if stat != nil && stat.Size() == 0 {
+			err = os.Remove(p.blockMetadataFilePath)
+			if err != nil {
+				return blockMetadata, fmt.Errorf("Init(): error creating file: %w", err)
+			}
+		}
+		err = p.encodeMetadataToFile()
+		if err != nil {
+			return blockMetadata, fmt.Errorf("Init(): error creating file: %w", err)
+		}
+	} else {
+		if err != nil {
+			return blockMetadata, fmt.Errorf("error opening file: %w", err)
+		}
+		var data []byte
+		data, err = os.ReadFile(p.blockMetadataFilePath)
+		if err != nil {
+			return blockMetadata, fmt.Errorf("error reading metadata: %w", err)
+		}
+		err = json.Unmarshal(data, &blockMetadata)
+		if err != nil {
+			return blockMetadata, fmt.Errorf("error reading metadata: %w", err)
+		}
+	}
+	return blockMetadata, nil
 }
 
 // MakePipeline creates a Pipeline
