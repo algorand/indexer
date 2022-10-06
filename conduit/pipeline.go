@@ -244,21 +244,6 @@ func (p *pipelineImpl) Init() error {
 	}
 	p.initProvider = &initProvider
 
-	// Initialize Exporter
-	exporterLogger := log.New()
-	exporterLogger.SetFormatter(makePluginLogFormatter(plugins.Exporter, (*p.exporter).Metadata().Name()))
-
-	configs, err = yaml.Marshal(p.cfg.Exporter.Config)
-	if err != nil {
-		return fmt.Errorf("Pipeline.Start(): could not serialize Exporter.Config : %w", err)
-	}
-	err = (*p.exporter).Init(*p.initProvider, plugins.PluginConfig(configs), exporterLogger)
-	exporterName := (*p.exporter).Metadata().Name()
-	if err != nil {
-		return fmt.Errorf("Pipeline.Start(): could not initialize Exporter (%s): %w", exporterName, err)
-	}
-	p.logger.Infof("Initialized Exporter: %s", exporterName)
-
 	// Initialize Processors
 	for idx, processor := range p.processors {
 		processorLogger := log.New()
@@ -274,7 +259,21 @@ func (p *pipelineImpl) Init() error {
 		}
 		p.logger.Infof("Initialized Processor: %s", processorName)
 	}
-	p.logger.Infof("Initialized Importer: %s", importerName)
+
+	// Initialize Exporter
+	exporterLogger := log.New()
+	exporterLogger.SetFormatter(makePluginLogFormatter(plugins.Exporter, (*p.exporter).Metadata().Name()))
+
+	configs, err = yaml.Marshal(p.cfg.Exporter.Config)
+	if err != nil {
+		return fmt.Errorf("Pipeline.Start(): could not serialize Exporter.Config : %w", err)
+	}
+	err = (*p.exporter).Init(*p.initProvider, plugins.PluginConfig(configs), exporterLogger)
+	exporterName := (*p.exporter).Metadata().Name()
+	if err != nil {
+		return fmt.Errorf("Pipeline.Start(): could not initialize Exporter (%s): %w", exporterName, err)
+	}
+	p.logger.Infof("Initialized Exporter: %s", exporterName)
 
 	return err
 }
