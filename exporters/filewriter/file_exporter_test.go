@@ -11,7 +11,7 @@ import (
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/plugins"
-	testUtil "github.com/algorand/indexer/util/test"
+	testutil "github.com/algorand/indexer/util/test"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
@@ -19,14 +19,6 @@ import (
 
 var logger *logrus.Logger
 var fileCons = &Constructor{}
-
-var round = basics.Round(2)
-var mockedInitProvider = &testUtil.MockInitProvider{
-	CurrentRound: &round,
-	Genesis: &bookkeeping.Genesis{
-		Network: "file_exporter_test",
-	},
-}
 
 func init() {
 	logger, _ = test.NewNullLogger()
@@ -46,11 +38,11 @@ func TestExporterInit(t *testing.T) {
 	config := fmt.Sprintf("block-dir: %s/blocks\n", t.TempDir())
 	fileExp := fileExporter{}
 	defer fileExp.Close()
-	err := fileExp.Init(mockedInitProvider, plugins.PluginConfig(config), logger)
+	err := fileExp.Init(testutil.MockedInitProvider, plugins.PluginConfig(config), logger)
 	assert.NoError(t, err)
 	pluginConfig := fileExp.Config()
 	assert.Equal(t, config, string(pluginConfig))
-	assert.Equal(t, uint64(*mockedInitProvider.CurrentRound), fileExp.round)
+	assert.Equal(t, uint64(*testutil.MockedInitProvider.CurrentRound), fileExp.round)
 }
 
 func TestExporterReceive(t *testing.T) {
@@ -69,12 +61,12 @@ func TestExporterReceive(t *testing.T) {
 	err := fileExp.Receive(block)
 	assert.Contains(t, err.Error(), "exporter not initialized")
 
-	err = fileExp.Init(mockedInitProvider, plugins.PluginConfig(config), logger)
+	err = fileExp.Init(testutil.MockedInitProvider, plugins.PluginConfig(config), logger)
 	assert.Nil(t, err)
 	err = fileExp.Receive(block)
 	assert.Contains(t, err.Error(), "received round 3, expected round 2")
 
-	// write block to file
+	// write block to file; pipeline starts at round 2, set in MockedInitProvider
 	for i := 2; i < 7; i++ {
 		block = data.BlockData{
 			BlockHeader: bookkeeping.BlockHeader{

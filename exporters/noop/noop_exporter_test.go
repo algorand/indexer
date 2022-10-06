@@ -3,7 +3,6 @@ package noop
 import (
 	"testing"
 
-	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
@@ -16,12 +15,6 @@ import (
 var nc = &Constructor{}
 
 var ne = nc.New()
-
-var round = basics.Round(0)
-var mockedInitProvider = &testutil.MockInitProvider{
-	CurrentRound: &round,
-	Genesis:      &bookkeeping.Genesis{},
-}
 
 func TestExporterBuilderByName(t *testing.T) {
 	exporters.RegisterExporter(noopExporterMetadata.ExpName, nc)
@@ -40,7 +33,7 @@ func TestExporterMetadata(t *testing.T) {
 }
 
 func TestExporterInit(t *testing.T) {
-	assert.NoError(t, ne.Init(mockedInitProvider, "", nil))
+	assert.NoError(t, ne.Init(testutil.MockedInitProvider, "", nil))
 }
 
 func TestExporterConfig(t *testing.T) {
@@ -49,7 +42,7 @@ func TestExporterConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unable to Marshal default noop.ExporterConfig: %v", err)
 	}
-	assert.NoError(t, ne.Init(mockedInitProvider, "", nil))
+	assert.NoError(t, ne.Init(testutil.MockedInitProvider, "", nil))
 	assert.Equal(t, plugins.PluginConfig(expected), ne.Config())
 }
 

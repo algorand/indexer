@@ -221,7 +221,7 @@ func (m *mockExporter) Metadata() exporters.ExporterMetadata {
 	}
 }
 
-func (m *mockExporter) Init(initProvider data.InitProvider, cfg plugins.PluginConfig, logger *log.Logger) error {
+func (m *mockExporter) Init(_ data.InitProvider, _ plugins.PluginConfig, _ *log.Logger) error {
 	return nil
 }
 
@@ -383,14 +383,15 @@ func TestPipelineErrors(t *testing.T) {
 
 	ctx, cf := context.WithCancel(context.Background())
 	pImpl := pipelineImpl{
-		ctx:          ctx,
-		cf:           cf,
-		cfg:          &PipelineConfig{},
-		logger:       log.New(),
-		initProvider: nil,
-		importer:     &pImporter,
-		processors:   []*processors.Processor{&pProcessor},
-		exporter:     &pExporter,
+		ctx:           ctx,
+		cf:            cf,
+		cfg:           &PipelineConfig{},
+		logger:        log.New(),
+		initProvider:  nil,
+		importer:      &pImporter,
+		processors:    []*processors.Processor{&pProcessor},
+		exporter:      &pExporter,
+		blockMetadata: BlockMetaData{},
 	}
 
 	mImporter.returnError = true
@@ -498,4 +499,52 @@ func TestBlockMetaDataFile(t *testing.T) {
 	assert.Equal(t, "HASH", metaData.GenesisHash)
 	assert.Equal(t, uint64(7), metaData.NextRound)
 	assert.Equal(t, pImpl.blockMetadata.Network, metaData.Network)
+}
+
+func TestGenesisHash(t *testing.T) {
+	var pImporter importers.Importer = &mockImporter{}
+	var pProcessor processors.Processor = &mockProcessor{}
+	var pExporter exporters.Exporter = &mockExporter{}
+
+	datadir := t.TempDir()
+	pImpl := pipelineImpl{
+		cfg: &PipelineConfig{
+			ConduitConfig: &Config{
+				Flags:          nil,
+				ConduitDataDir: datadir,
+			},
+			Importer: NameConfigPair{
+				Name:   "",
+				Config: map[string]interface{}{},
+			},
+			Processors: []NameConfigPair{
+				{
+					Name:   "",
+					Config: map[string]interface{}{},
+				},
+			},
+			Exporter: NameConfigPair{
+				Name:   "",
+				Config: map[string]interface{}{},
+			},
+		},
+		logger:       log.New(),
+		initProvider: nil,
+		importer:     &pImporter,
+		processors:   []*processors.Processor{&pProcessor},
+		exporter:     &pExporter,
+		blockMetadata: BlockMetaData{
+			GenesisHash: "AAAAAAAAAA",
+			Network:     "pipeline_test",
+			NextRound:   3,
+		},
+	}
+
+	// write genesis hash to metadata.json
+	err := pImpl.Init()
+	assert.NoError(t, err)
+
+	// read genesis hash from metadata.json
+	err = pImpl.Init()
+	assert.Contains(t, err.Error(), "genesis hash in metadata does not match")
 }

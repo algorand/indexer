@@ -139,3 +139,11 @@ func (m *MockInitProvider) GetGenesis() *bookkeeping.Genesis {
 func (m *MockInitProvider) NextDBRound() basics.Round {
 	return *m.CurrentRound
 }
+
+var round = basics.Round(2)
+var MockedInitProvider = &MockInitProvider{
+	CurrentRound: &round,
+	Genesis: &bookkeeping.Genesis{
+		Network: "file_exporter_test",
+	},
+}
