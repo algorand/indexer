@@ -248,7 +248,6 @@ func (m *mockExporter) Receive(exportData data.BlockData) error {
 
 // TestPipelineRun tests that running the pipeline calls the correct functions with mocking
 func TestPipelineRun(t *testing.T) {
-
 	mImporter := mockImporter{}
 	mImporter.On("GetBlock", mock.Anything).Return(uniqueBlockData, nil)
 	mProcessor := mockProcessor{}
@@ -268,7 +267,6 @@ func TestPipelineRun(t *testing.T) {
 	pImpl := pipelineImpl{
 		ctx:          ctx,
 		cf:           cf,
-		cfg:          &PipelineConfig{},
 		logger:       log.New(),
 		initProvider: nil,
 		importer:     &pImporter,
@@ -278,6 +276,7 @@ func TestPipelineRun(t *testing.T) {
 			NextRound:   0,
 			GenesisHash: "",
 		},
+		blockMetadataFilePath: filepath.Join(t.TempDir(), "metadata.json"),
 	}
 
 	go func() {
@@ -297,7 +296,6 @@ func TestPipelineRun(t *testing.T) {
 
 // TestPipelineCpuPidFiles tests that cpu and pid files are created when specified
 func TestPipelineCpuPidFiles(t *testing.T) {
-
 	var pImporter importers.Importer = &mockImporter{}
 	var pProcessor processors.Processor = &mockProcessor{}
 	var pExporter exporters.Exporter = &mockExporter{}
@@ -309,7 +307,7 @@ func TestPipelineCpuPidFiles(t *testing.T) {
 		cfg: &PipelineConfig{
 			ConduitConfig: &Config{
 				Flags:          nil,
-				ConduitDataDir: "",
+				ConduitDataDir: t.TempDir(),
 			},
 			Importer: NameConfigPair{
 				Name:   "",
