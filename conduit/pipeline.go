@@ -234,29 +234,15 @@ func (p *pipelineImpl) Init() error {
 		}
 	}
 
-	// Initialize Processors
+	p.logger.Infof("Initialized Importer: %s", importerName)
+
+	// InitProvider
 	round := basics.Round(p.blockMetadata.NextRound)
 	var initProvider data.InitProvider = &PipelineInitProvider{
 		currentRound: &round,
 		genesis:      genesis,
 	}
 	p.initProvider = &initProvider
-
-	for idx, processor := range p.processors {
-		processorLogger := log.New()
-		processorLogger.SetFormatter(makePluginLogFormatter(plugins.Processor, (*processor).Metadata().Name()))
-		configs, err = yaml.Marshal(p.cfg.Processors[idx].Config)
-		if err != nil {
-			return fmt.Errorf("Pipeline.Start(): could not serialize Processors[%d].Config : %w", idx, err)
-		}
-		err := (*processor).Init(p.ctx, *p.initProvider, plugins.PluginConfig(configs), processorLogger)
-		processorName := (*processor).Metadata().Name()
-		if err != nil {
-			return fmt.Errorf("Pipeline.Start(): could not initialize processor (%s): %w", processorName, err)
-		}
-		p.logger.Infof("Initialized Processor: %s", processorName)
-	}
-	p.logger.Infof("Initialized Importer: %s", importerName)
 
 	// Initialize Exporter
 	exporterLogger := log.New()
@@ -272,6 +258,23 @@ func (p *pipelineImpl) Init() error {
 		return fmt.Errorf("Pipeline.Start(): could not initialize Exporter (%s): %w", exporterName, err)
 	}
 	p.logger.Infof("Initialized Exporter: %s", exporterName)
+
+	// Initialize Processors
+	for idx, processor := range p.processors {
+		processorLogger := log.New()
+		processorLogger.SetFormatter(makePluginLogFormatter(plugins.Processor, (*processor).Metadata().Name()))
+		configs, err = yaml.Marshal(p.cfg.Processors[idx].Config)
+		if err != nil {
+			return fmt.Errorf("Pipeline.Start(): could not serialize Processors[%d].Config : %w", idx, err)
+		}
+		err := (*processor).Init(p.ctx, *p.initProvider, plugins.PluginConfig(configs), processorLogger)
+		processorName := (*processor).Metadata().Name()
+		if err != nil {
+			return fmt.Errorf("Pipeline.Start(): could not initialize processor (%s): %w", processorName, err)
+		}
+		p.logger.Infof("Initialized Processor: %s", processorName)
+	}
+	p.logger.Infof("Initialized Importer: %s", importerName)
 
 	return err
 }

@@ -3,6 +3,7 @@ package postgresql
 import (
 	"fmt"
 
+	"github.com/algorand/indexer/importer"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
@@ -63,6 +64,7 @@ func (exp *postgresqlExporter) Init(initProvider data.InitProvider, cfg plugins.
 	}
 	exp.db = db
 	<-ready
+	importer.EnsureInitialImport(exp.db, *initProvider.GetGenesis())
 	exp.round = uint64(initProvider.NextDBRound())
 	return err
 }
