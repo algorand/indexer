@@ -58,13 +58,24 @@ func (exp *postgresqlExporter) Init(initProvider data.InitProvider, cfg plugins.
 	var opts idb.IndexerDbOptions
 	opts.MaxConn = exp.cfg.MaxConn
 	opts.ReadOnly = false
+
+	// for some reason when ConnectionString is empty, it's automatically
+	// connecting to a local instance that's running.
+	// this behavior can be reproduced in TestConnectDbFailure.
+	if !exp.cfg.Test && exp.cfg.ConnectionString == "" {
+		return fmt.Errorf("connection string is empty for %s", dbName)
+	}
+
 	db, ready, err := idb.IndexerDbByName(dbName, exp.cfg.ConnectionString, opts, exp.logger)
 	if err != nil {
 		return fmt.Errorf("connect failure constructing db, %s: %v", dbName, err)
 	}
 	exp.db = db
 	<-ready
-	importer.EnsureInitialImport(exp.db, *initProvider.GetGenesis())
+	_, err = importer.EnsureInitialImport(exp.db, *initProvider.GetGenesis())
+	if err != nil {
+		return fmt.Errorf("error importing genesis: %v", err)
+	}
 	dbRound, err := db.GetNextRoundToAccount()
 	if err != nil {
 		return fmt.Errorf("error getting next db round : %v", err)

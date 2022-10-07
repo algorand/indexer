@@ -140,12 +140,10 @@ func (m *MockInitProvider) NextDBRound() basics.Round {
 	return *m.CurrentRound
 }
 
-var round = basics.Round(2)
-
 // MockedInitProvider returns an InitProvider for testing
-var MockedInitProvider = &MockInitProvider{
-	CurrentRound: &round,
-	Genesis: &bookkeeping.Genesis{
-		Network: "file_exporter_test",
-	},
+func MockedInitProvider(round *basics.Round) *MockInitProvider {
+	return &MockInitProvider{
+		CurrentRound: round,
+		Genesis:      &bookkeeping.Genesis{},
+	}
 }
