@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/algorand/go-algorand/crypto"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -145,11 +146,12 @@ var uniqueBlockData = data.BlockData{
 type mockImporter struct {
 	mock.Mock
 	importers.Importer
+	genesis     bookkeeping.Genesis
 	returnError bool
 }
 
 func (m *mockImporter) Init(_ context.Context, _ plugins.PluginConfig, _ *log.Logger) (*bookkeeping.Genesis, error) {
-	return &bookkeeping.Genesis{}, nil
+	return &m.genesis, nil
 }
 
 func (m *mockImporter) Close() error {
@@ -467,9 +469,7 @@ func TestBlockMetaDataFile(t *testing.T) {
 		processors:   []*processors.Processor{&pProcessor},
 		exporter:     &pExporter,
 		blockMetadata: BlockMetaData{
-			GenesisHash: "AAAAAAAAAA",
-			Network:     "pipeline_test",
-			NextRound:   3,
+			NextRound: 3,
 		},
 	}
 
@@ -500,10 +500,9 @@ func TestBlockMetaDataFile(t *testing.T) {
 }
 
 func TestGenesisHash(t *testing.T) {
-	var pImporter importers.Importer = &mockImporter{}
+	var pImporter importers.Importer = &mockImporter{genesis: bookkeeping.Genesis{Network: "test"}}
 	var pProcessor processors.Processor = &mockProcessor{}
 	var pExporter exporters.Exporter = &mockExporter{}
-
 	datadir := t.TempDir()
 	pImpl := pipelineImpl{
 		cfg: &PipelineConfig{
@@ -532,8 +531,8 @@ func TestGenesisHash(t *testing.T) {
 		processors:   []*processors.Processor{&pProcessor},
 		exporter:     &pExporter,
 		blockMetadata: BlockMetaData{
-			GenesisHash: "AAAAAAAAAA",
-			Network:     "pipeline_test",
+			GenesisHash: "",
+			Network:     "",
 			NextRound:   3,
 		},
 	}
@@ -543,6 +542,14 @@ func TestGenesisHash(t *testing.T) {
 	assert.NoError(t, err)
 
 	// read genesis hash from metadata.json
+	blockmetaData, err := pImpl.loadBlockMetadata()
+	assert.Nil(t, err)
+	assert.Equal(t, blockmetaData.GenesisHash, crypto.HashObj(&bookkeeping.Genesis{Network: "test"}).String())
+	assert.Equal(t, blockmetaData.Network, "test")
+
+	// mock a different genesis hash
+	pImporter = &mockImporter{genesis: bookkeeping.Genesis{Network: "dev"}}
+	pImpl.importer = &pImporter
 	err = pImpl.Init()
 	assert.Contains(t, err.Error(), "genesis hash in metadata does not match")
 }
