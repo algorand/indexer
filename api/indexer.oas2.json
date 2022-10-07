@@ -80,7 +80,8 @@
           },
           {
             "type": "integer",
-            "description": "Include results for the specified round. For performance reasons, this parameter may be disabled on some configurations.",
+            "description": "Include results for the specified round. For performance reasons, this parameter may be disabled on some configurations. Using application-id or asset-id filters will return both creator and opt-in accounts. Filtering by include-all will return creator and opt-in accounts for deleted assets and accounts. Non-opt-in managers are not included in the results when asset-id is used.",
+
             "name": "round",
             "in": "query"
           },
@@ -778,6 +779,9 @@
         "parameters": [
           {
             "$ref": "#/parameters/round-number"
+          },
+          {
+            "$ref": "#/parameters/header-only"
           }
         ],
         "responses": {
@@ -1521,6 +1525,9 @@
         },
         "upgrade-vote": {
           "$ref": "#/definitions/BlockUpgradeVote"
+        },
+        "participation-updates": {
+          "$ref": "#/definitions/ParticipationUpdates"
         }
       }
     },
@@ -1606,6 +1613,19 @@
         "upgrade-propose": {
           "description": "\\[upgradeprop\\] Indicates a proposed upgrade.",
           "type": "string"
+        }
+      }
+    },
+    "ParticipationUpdates": {
+      "description": "Participation account data that needs to be checked/acted on by the network.",
+      "type": "object",
+      "properties": {
+        "expired-participation-accounts": {
+          "description": "\\[partupdrmv\\] a list of online accounts that needs to be converted to offline since their participation key expired.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -2545,6 +2565,12 @@
       "type": "boolean",
       "description": "Combine with address and address-role parameters to define what type of address to search for. The close to fields are normally treated as a receiver, if you would like to exclude them set this parameter to true.",
       "name": "exclude-close-to",
+      "in": "query"
+    },
+    "header-only": {
+      "type": "boolean",
+      "description": "Header only flag. When this is set to true, returned block does not contain the transactions",
+      "name": "header-only",
       "in": "query"
     },
     "include-all": {

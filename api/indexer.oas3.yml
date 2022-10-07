@@ -126,6 +126,14 @@
           "type": "boolean"
         }
       },
+      "header-only": {
+        "description": "Header only flag. When this is set to true, returned block does not contain the transactions",
+        "in": "query",
+        "name": "header-only",
+        "schema": {
+          "type": "boolean"
+        }
+      },
       "include-all": {
         "description": "Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.",
         "in": "query",
@@ -1133,6 +1141,9 @@
             "description": "\\[gen\\] ID to which this block belongs.",
             "type": "string"
           },
+          "participation-updates": {
+            "$ref": "#/components/schemas/ParticipationUpdates"
+          },
           "previous-block-hash": {
             "description": "\\[prev\\] Previous block hash.",
             "format": "byte",
@@ -1485,6 +1496,19 @@
           "delete"
         ],
         "type": "string"
+      },
+      "ParticipationUpdates": {
+        "description": "Participation account data that needs to be checked/acted on by the network.",
+        "properties": {
+          "expired-participation-accounts": {
+            "description": "\\[partupdrmv\\] a list of online accounts that needs to be converted to offline since their participation key expired.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
       },
       "StateDelta": {
         "description": "Application state delta.",
@@ -2314,7 +2338,7 @@
             "x-algorand-format": "Address"
           },
           {
-            "description": "Include results for the specified round. For performance reasons, this parameter may be disabled on some configurations.",
+            "description": "Include results for the specified round. For performance reasons, this parameter may be disabled on some configurations. Using application-id or asset-id filters will return both creator and opt-in accounts. Filtering by include-all will return creator and opt-in accounts for deleted assets and accounts. Non-opt-in managers are not included in the results when asset-id is used.",
             "in": "query",
             "name": "round",
             "schema": {
@@ -4368,6 +4392,14 @@
             "required": true,
             "schema": {
               "type": "integer"
+            }
+          },
+          {
+            "description": "Header only flag. When this is set to true, returned block does not contain the transactions",
+            "in": "query",
+            "name": "header-only",
+            "schema": {
+              "type": "boolean"
             }
           }
         ],

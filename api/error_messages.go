@@ -39,6 +39,7 @@ const (
 	errZeroAddressAssetCloseToRole     = "searching transactions by zero address with asset close address role is not supported"
 	ErrResultLimitReached              = "Result limit exceeded"
 	errValueExceedingInt64             = "searching by round or application-id or asset-id or filter by value greater than 9223372036854775807 is not supported"
+	errTransactionsLimitReached        = "Max transactions limit exceeded. header-only flag should be enabled"
 )
 
 var errUnknownAddressRole string

@@ -11,8 +11,8 @@ import (
 // EnvPrefix is the prefix for environment variable configurations.
 const EnvPrefix = "INDEXER"
 
-// FileType is the type of the config file.
-const FileType = "yml"
+// FileTypes is an array of types of the config file.
+var FileTypes = [...]string{"yml", "yaml"}
 
 // FileName is the name of the config file. Don't use 'algorand-indexer', viper
 // gets confused and thinks the binary is a config file with no extension.

@@ -773,7 +773,7 @@ func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generat
 
 // LookupBlock returns the block for a given round number
 // (GET /v2/blocks/{round-number})
-func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64) error {
+func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64, params generated.LookupBlockParams) error {
 	if err := si.verifyHandler("LookupBlock", ctx); err != nil {
 		return badRequest(ctx, err.Error())
 	}
@@ -781,7 +781,16 @@ func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64
 		return notFound(ctx, errValueExceedingInt64)
 	}
 
-	blk, err := si.fetchBlock(ctx.Request().Context(), roundNumber)
+	options := idb.GetBlockOptions{
+		Transactions:         !(boolOrDefault(params.HeaderOnly)),
+		MaxTransactionsLimit: si.opts.MaxTransactionsLimit,
+	}
+
+	blk, err := si.fetchBlock(ctx.Request().Context(), roundNumber, options)
+	var maxErr idb.MaxTransactionsError
+	if errors.As(err, &maxErr) {
+		return badRequest(ctx, errTransactionsLimitReached)
+	}
 	if errors.Is(err, idb.ErrorBlockNotFound) {
 		return notFound(ctx, fmt.Sprintf("%s '%d': %v", errLookingUpBlockForRound, roundNumber, err))
 	}
@@ -1097,11 +1106,11 @@ func (si *ServerImplementation) fetchAssetHoldings(ctx context.Context, options 
 
 // fetchBlock looks up a block and converts it into a generated.Block object
 // the method also loads the transactions into the returned block object.
-func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (generated.Block, error) {
+func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (generated.Block, error) {
 	var ret generated.Block
 	err := callWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
 		blockHeader, transactions, err :=
-			si.db.GetBlock(ctx, round, idb.GetBlockOptions{Transactions: true})
+			si.db.GetBlock(ctx, round, options)
 		if err != nil {
 			return err
 		}
@@ -1129,6 +1138,19 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 			UpgradePropose: strPtr(string(blockHeader.UpgradePropose)),
 		}
 
+		var partUpdates *generated.ParticipationUpdates
+		if len(blockHeader.ExpiredParticipationAccounts) > 0 {
+			addrs := make([]string, len(blockHeader.ExpiredParticipationAccounts))
+			for i := 0; i < len(addrs); i++ {
+				addrs[i] = blockHeader.ExpiredParticipationAccounts[i].String()
+			}
+			partUpdates = &generated.ParticipationUpdates{
+				ExpiredParticipationAccounts: strArrayPtr(addrs),
+			}
+		} else {
+			partUpdates = nil
+		}
+
 		// order these so they're deterministic
 		orderedTrackingTypes := make([]protocol.StateProofType, len(blockHeader.StateProofTracking))
 		trackingArray := make([]generated.StateProofTracking, len(blockHeader.StateProofTracking))
@@ -1152,6 +1174,7 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 		ret = generated.Block{
 			GenesisHash:            blockHeader.GenesisHash[:],
 			GenesisId:              blockHeader.GenesisID,
+			ParticipationUpdates:   partUpdates,
 			PreviousBlockHash:      blockHeader.Branch[:],
 			Rewards:                &rewards,
 			Round:                  uint64(blockHeader.Round),

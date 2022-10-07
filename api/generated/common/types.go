@@ -318,6 +318,9 @@ type Block struct {
 	// \[gen\] ID to which this block belongs.
 	GenesisId string `json:"genesis-id"`
 
+	// Participation account data that needs to be checked/acted on by the network.
+	ParticipationUpdates *ParticipationUpdates `json:"participation-updates,omitempty"`
+
 	// \[prev\] Previous block hash.
 	PreviousBlockHash []byte `json:"previous-block-hash"`
 
@@ -503,6 +506,13 @@ type MiniAssetHolding struct {
 
 // OnCompletion defines model for OnCompletion.
 type OnCompletion string
+
+// ParticipationUpdates defines model for ParticipationUpdates.
+type ParticipationUpdates struct {
+
+	// \[partupdrmv\] a list of online accounts that needs to be converted to offline since their participation key expired.
+	ExpiredParticipationAccounts *[]string `json:"expired-participation-accounts,omitempty"`
+}
 
 // StateDelta defines model for StateDelta.
 type StateDelta []EvalDeltaKeyValue
@@ -1010,6 +1020,9 @@ type Exclude []string
 
 // ExcludeCloseTo defines model for exclude-close-to.
 type ExcludeCloseTo bool
+
+// HeaderOnly defines model for header-only.
+type HeaderOnly bool
 
 // IncludeAll defines model for include-all.
 type IncludeAll bool
