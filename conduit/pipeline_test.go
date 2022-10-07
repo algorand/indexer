@@ -274,11 +274,11 @@ func TestPipelineRun(t *testing.T) {
 		importer:     &pImporter,
 		processors:   []*processors.Processor{&pProcessor},
 		exporter:     &pExporter,
-		blockMetadata: BlockMetaData{
+		pipelineMetadata: PipelineMetaData{
 			NextRound:   0,
 			GenesisHash: "",
 		},
-		blockMetadataFilePath: filepath.Join(t.TempDir(), "metadata.json"),
+		pipelineMetadataFilePath: filepath.Join(t.TempDir(), "metadata.json"),
 	}
 
 	go func() {
@@ -331,7 +331,7 @@ func TestPipelineCpuPidFiles(t *testing.T) {
 		importer:     &pImporter,
 		processors:   []*processors.Processor{&pProcessor},
 		exporter:     &pExporter,
-		blockMetadata: BlockMetaData{
+		pipelineMetadata: PipelineMetaData{
 			GenesisHash: "",
 			Network:     "",
 			NextRound:   0,
@@ -383,15 +383,15 @@ func TestPipelineErrors(t *testing.T) {
 
 	ctx, cf := context.WithCancel(context.Background())
 	pImpl := pipelineImpl{
-		ctx:           ctx,
-		cf:            cf,
-		cfg:           &PipelineConfig{},
-		logger:        log.New(),
-		initProvider:  nil,
-		importer:      &pImporter,
-		processors:    []*processors.Processor{&pProcessor},
-		exporter:      &pExporter,
-		blockMetadata: BlockMetaData{},
+		ctx:              ctx,
+		cf:               cf,
+		cfg:              &PipelineConfig{},
+		logger:           log.New(),
+		initProvider:     nil,
+		importer:         &pImporter,
+		processors:       []*processors.Processor{&pProcessor},
+		exporter:         &pExporter,
+		pipelineMetadata: PipelineMetaData{},
 	}
 
 	mImporter.returnError = true
@@ -468,7 +468,7 @@ func TestBlockMetaDataFile(t *testing.T) {
 		importer:     &pImporter,
 		processors:   []*processors.Processor{&pProcessor},
 		exporter:     &pExporter,
-		blockMetadata: BlockMetaData{
+		pipelineMetadata: PipelineMetaData{
 			NextRound: 3,
 		},
 	}
@@ -482,21 +482,21 @@ func TestBlockMetaDataFile(t *testing.T) {
 	assert.Nil(t, err)
 
 	// Test that file loads correctly
-	metaData, err := pImpl.loadBlockMetadata()
+	metaData, err := pImpl.initializeOrLoadBlockMetadata()
 	assert.Nil(t, err)
-	assert.Equal(t, pImpl.blockMetadata.GenesisHash, metaData.GenesisHash)
-	assert.Equal(t, pImpl.blockMetadata.NextRound, metaData.NextRound)
-	assert.Equal(t, pImpl.blockMetadata.Network, metaData.Network)
+	assert.Equal(t, pImpl.pipelineMetadata.GenesisHash, metaData.GenesisHash)
+	assert.Equal(t, pImpl.pipelineMetadata.NextRound, metaData.NextRound)
+	assert.Equal(t, pImpl.pipelineMetadata.Network, metaData.Network)
 
 	// Test that file encodes correctly
-	pImpl.blockMetadata.GenesisHash = "HASH"
-	pImpl.blockMetadata.NextRound = 7
+	pImpl.pipelineMetadata.GenesisHash = "HASH"
+	pImpl.pipelineMetadata.NextRound = 7
 	pImpl.encodeMetadataToFile()
-	metaData, err = pImpl.loadBlockMetadata()
+	metaData, err = pImpl.initializeOrLoadBlockMetadata()
 	assert.Nil(t, err)
 	assert.Equal(t, "HASH", metaData.GenesisHash)
 	assert.Equal(t, uint64(7), metaData.NextRound)
-	assert.Equal(t, pImpl.blockMetadata.Network, metaData.Network)
+	assert.Equal(t, pImpl.pipelineMetadata.Network, metaData.Network)
 }
 
 func TestGenesisHash(t *testing.T) {
@@ -530,7 +530,7 @@ func TestGenesisHash(t *testing.T) {
 		importer:     &pImporter,
 		processors:   []*processors.Processor{&pProcessor},
 		exporter:     &pExporter,
-		blockMetadata: BlockMetaData{
+		pipelineMetadata: PipelineMetaData{
 			GenesisHash: "",
 			Network:     "",
 			NextRound:   3,
@@ -542,7 +542,7 @@ func TestGenesisHash(t *testing.T) {
 	assert.NoError(t, err)
 
 	// read genesis hash from metadata.json
-	blockmetaData, err := pImpl.loadBlockMetadata()
+	blockmetaData, err := pImpl.initializeOrLoadBlockMetadata()
 	assert.Nil(t, err)
 	assert.Equal(t, blockmetaData.GenesisHash, crypto.HashObj(&bookkeeping.Genesis{Network: "test"}).String())
 	assert.Equal(t, blockmetaData.Network, "test")

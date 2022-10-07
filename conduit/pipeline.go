@@ -148,12 +148,12 @@ type pipelineImpl struct {
 	processors []*processors.Processor
 	exporter   *exporters.Exporter
 
-	blockMetadata         BlockMetaData
-	blockMetadataFilePath string
+	pipelineMetadata         PipelineMetaData
+	pipelineMetadataFilePath string
 }
 
-// BlockMetaData contains the metadata for block file storage
-type BlockMetaData struct {
+// PipelineMetaData contains the metadata for the pipeline
+type PipelineMetaData struct {
 	GenesisHash string `json:"genesis-hash"`
 	Network     string `json:"network"`
 	NextRound   uint64 `json:"next-round"`
@@ -200,13 +200,6 @@ func (p *pipelineImpl) Init() error {
 
 	// TODO Need to change interfaces to accept config of map[string]interface{}
 
-	// load pipeline metadata
-	var err error
-	p.blockMetadata, err = p.loadBlockMetadata()
-	if err != nil {
-		return fmt.Errorf("Pipeline.Start(): could not read metadata: %w", err)
-	}
-
 	// Initialize Importer
 	importerLogger := log.New()
 	importerName := (*p.importer).Metadata().Name()
@@ -221,23 +214,22 @@ func (p *pipelineImpl) Init() error {
 		return fmt.Errorf("Pipeline.Start(): could not initialize importer (%s): %w", importerName, err)
 	}
 
+	// initialize or load pipeline metadata
 	gh := crypto.HashObj(genesis).String()
-	if p.blockMetadata.GenesisHash == "" {
-		p.blockMetadata.GenesisHash = gh
-		p.blockMetadata.Network = string(genesis.Network)
-		err = p.encodeMetadataToFile()
-		if err != nil {
-			return fmt.Errorf("HandleGenesis() metadata encoding err %w", err)
-		}
-	} else {
-		if p.blockMetadata.GenesisHash != gh {
-			return fmt.Errorf("HandleGenesis() genesis hash in metadata does not match expected value: actual %s, expected %s", gh, p.blockMetadata.GenesisHash)
-		}
+	p.pipelineMetadata.GenesisHash = gh
+	p.pipelineMetadata.Network = string(genesis.Network)
+	p.pipelineMetadata, err = p.initializeOrLoadBlockMetadata()
+	if err != nil {
+		return fmt.Errorf("Pipeline.Start(): could not read metadata: %w", err)
 	}
+	if p.pipelineMetadata.GenesisHash != gh {
+		return fmt.Errorf("Pipeline.Start(): genesis hash in metadata does not match expected value: actual %s, expected %s", gh, p.pipelineMetadata.GenesisHash)
+	}
+
 	p.logger.Infof("Initialized Importer: %s", importerName)
 
 	// InitProvider
-	round := basics.Round(p.blockMetadata.NextRound)
+	round := basics.Round(p.pipelineMetadata.NextRound)
 	var initProvider data.InitProvider = &PipelineInitProvider{
 		currentRound: &round,
 		genesis:      genesis,
@@ -339,9 +331,9 @@ func (p *pipelineImpl) Start() {
 				return
 			default:
 				{
-					p.logger.Infof("Pipeline round: %v", p.blockMetadata.NextRound)
+					p.logger.Infof("Pipeline round: %v", p.pipelineMetadata.NextRound)
 					// fetch block
-					blkData, err := (*p.importer).GetBlock(p.blockMetadata.NextRound)
+					blkData, err := (*p.importer).GetBlock(p.pipelineMetadata.NextRound)
 					if err != nil {
 						p.logger.Errorf("%v", err)
 						p.setError(err)
@@ -377,12 +369,12 @@ func (p *pipelineImpl) Start() {
 					}
 					importTime := time.Since(start)
 					// Ignore round 0 (which is empty).
-					if p.blockMetadata.NextRound > 0 {
+					if p.pipelineMetadata.NextRound > 0 {
 						p.addMetrics(blkData, importTime)
 					}
 					// Increment Round
 					p.setError(nil)
-					p.blockMetadata.NextRound++
+					p.pipelineMetadata.NextRound++
 					p.encodeMetadataToFile()
 				}
 			}
@@ -396,52 +388,52 @@ func (p *pipelineImpl) Wait() {
 }
 
 func (p *pipelineImpl) encodeMetadataToFile() error {
-	tempFilename := fmt.Sprintf("%s.temp", p.blockMetadataFilePath)
+	tempFilename := fmt.Sprintf("%s.temp", p.pipelineMetadataFilePath)
 	file, err := os.Create(tempFilename)
 	if err != nil {
 		return fmt.Errorf("encodeMetadataToFile(): failed to create temp metadata file: %w", err)
 	}
 	defer file.Close()
-	err = json.NewEncoder(file).Encode(p.blockMetadata)
+	err = json.NewEncoder(file).Encode(p.pipelineMetadata)
 	if err != nil {
 		return fmt.Errorf("encodeMetadataToFile(): failed to write temp metadata: %w", err)
 	}
 
-	err = os.Rename(tempFilename, p.blockMetadataFilePath)
+	err = os.Rename(tempFilename, p.pipelineMetadataFilePath)
 	if err != nil {
 		return fmt.Errorf("encodeMetadataToFile(): failed to replace metadata file: %w", err)
 	}
 	return nil
 }
 
-func (p *pipelineImpl) loadBlockMetadata() (BlockMetaData, error) {
-	p.blockMetadataFilePath = path.Join(p.cfg.ConduitConfig.ConduitDataDir, "metadata.json")
-	if stat, err := os.Stat(p.blockMetadataFilePath); errors.Is(err, os.ErrNotExist) || (stat != nil && stat.Size() == 0) {
+func (p *pipelineImpl) initializeOrLoadBlockMetadata() (PipelineMetaData, error) {
+	p.pipelineMetadataFilePath = path.Join(p.cfg.ConduitConfig.ConduitDataDir, "metadata.json")
+	if stat, err := os.Stat(p.pipelineMetadataFilePath); errors.Is(err, os.ErrNotExist) || (stat != nil && stat.Size() == 0) {
 		if stat != nil && stat.Size() == 0 {
-			err = os.Remove(p.blockMetadataFilePath)
+			err = os.Remove(p.pipelineMetadataFilePath)
 			if err != nil {
-				return p.blockMetadata, fmt.Errorf("Init(): error creating file: %w", err)
+				return p.pipelineMetadata, fmt.Errorf("Init(): error creating file: %w", err)
 			}
 		}
 		err = p.encodeMetadataToFile()
 		if err != nil {
-			return p.blockMetadata, fmt.Errorf("Init(): error creating file: %w", err)
+			return p.pipelineMetadata, fmt.Errorf("Init(): error creating file: %w", err)
 		}
 	} else {
 		if err != nil {
-			return p.blockMetadata, fmt.Errorf("error opening file: %w", err)
+			return p.pipelineMetadata, fmt.Errorf("error opening file: %w", err)
 		}
 		var data []byte
-		data, err = os.ReadFile(p.blockMetadataFilePath)
+		data, err = os.ReadFile(p.pipelineMetadataFilePath)
 		if err != nil {
-			return p.blockMetadata, fmt.Errorf("error reading metadata: %w", err)
+			return p.pipelineMetadata, fmt.Errorf("error reading metadata: %w", err)
 		}
-		err = json.Unmarshal(data, &p.blockMetadata)
+		err = json.Unmarshal(data, &p.pipelineMetadata)
 		if err != nil {
-			return p.blockMetadata, fmt.Errorf("error reading metadata: %w", err)
+			return p.pipelineMetadata, fmt.Errorf("error reading metadata: %w", err)
 		}
 	}
-	return p.blockMetadata, nil
+	return p.pipelineMetadata, nil
 }
 
 // MakePipeline creates a Pipeline
@@ -468,15 +460,15 @@ func MakePipeline(ctx context.Context, cfg *PipelineConfig, logger *log.Logger) 
 	cancelContext, cancelFunc := context.WithCancel(ctx)
 
 	pipeline := &pipelineImpl{
-		ctx:           cancelContext,
-		cf:            cancelFunc,
-		cfg:           cfg,
-		logger:        logger,
-		initProvider:  nil,
-		importer:      nil,
-		processors:    []*processors.Processor{},
-		exporter:      nil,
-		blockMetadata: BlockMetaData{},
+		ctx:              cancelContext,
+		cf:               cancelFunc,
+		cfg:              cfg,
+		logger:           logger,
+		initProvider:     nil,
+		importer:         nil,
+		processors:       []*processors.Processor{},
+		exporter:         nil,
+		pipelineMetadata: PipelineMetaData{},
 	}
 
 	importerName := cfg.Importer.Name

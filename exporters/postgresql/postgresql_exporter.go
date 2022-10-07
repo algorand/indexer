@@ -65,6 +65,13 @@ func (exp *postgresqlExporter) Init(initProvider data.InitProvider, cfg plugins.
 	exp.db = db
 	<-ready
 	importer.EnsureInitialImport(exp.db, *initProvider.GetGenesis())
+	dbRound, err := db.GetNextRoundToAccount()
+	if err != nil {
+		return fmt.Errorf("error getting next db round : %v", err)
+	}
+	if uint64(initProvider.NextDBRound()) != dbRound {
+		return fmt.Errorf("initializing block round %d but next round to account is %d", initProvider.NextDBRound(), dbRound)
+	}
 	exp.round = uint64(initProvider.NextDBRound())
 	return err
 }

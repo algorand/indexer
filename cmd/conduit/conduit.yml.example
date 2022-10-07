@@ -10,6 +10,11 @@ Importer:
 # One or more processors may be defined to manipulate what data
 # reaches the exporter.
 Processors:
+    Name: block_evaluator
+    Config:
+        - indexer-data-dir: "path/to/indexer-data-dir"
+          algod-addr: "importer algod address here"
+          algod-token: "importer algod token here"
 
 # An exporter is defined to do something with the data.
 # Here the filewriter is defined which writes the raw block

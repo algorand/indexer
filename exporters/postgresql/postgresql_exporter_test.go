@@ -93,3 +93,10 @@ func TestReceiveAddBlockSuccess(t *testing.T) {
 	}
 	assert.NoError(t, pgsqlExp.Receive(block))
 }
+
+func TestInitRoundCheck(t *testing.T) {
+	pgsqlExp := pgsqlConstructor.New()
+	cfg := plugins.PluginConfig("test: true")
+	err := pgsqlExp.Init(testutil.MockedInitProvider, cfg, logger)
+	assert.Contains(t, err.Error(), "initializing block round 2 but next round to account is 0")
+}
