@@ -201,7 +201,8 @@ func (p *pipelineImpl) Init() error {
 	// TODO Need to change interfaces to accept config of map[string]interface{}
 
 	// load pipeline metadata
-	blockMetadata, err := p.loadBlockMetadata()
+	var err error
+	p.blockMetadata, err = p.loadBlockMetadata()
 	if err != nil {
 		return fmt.Errorf("Pipeline.Start(): could not read metadata: %w", err)
 	}
@@ -221,19 +222,18 @@ func (p *pipelineImpl) Init() error {
 	}
 
 	gh := crypto.HashObj(genesis).String()
-	if blockMetadata.GenesisHash == "" {
-		blockMetadata.GenesisHash = gh
-		blockMetadata.Network = string(genesis.Network)
+	if p.blockMetadata.GenesisHash == "" {
+		p.blockMetadata.GenesisHash = gh
+		p.blockMetadata.Network = string(genesis.Network)
 		err = p.encodeMetadataToFile()
 		if err != nil {
 			return fmt.Errorf("HandleGenesis() metadata encoding err %w", err)
 		}
 	} else {
-		if blockMetadata.GenesisHash != gh {
-			return fmt.Errorf("HandleGenesis() genesis hash in metadata does not match expected value: actual %s, expected %s", gh, blockMetadata.GenesisHash)
+		if p.blockMetadata.GenesisHash != gh {
+			return fmt.Errorf("HandleGenesis() genesis hash in metadata does not match expected value: actual %s, expected %s", gh, p.blockMetadata.GenesisHash)
 		}
 	}
-
 	p.logger.Infof("Initialized Importer: %s", importerName)
 
 	// InitProvider
@@ -411,39 +411,37 @@ func (p *pipelineImpl) encodeMetadataToFile() error {
 	if err != nil {
 		return fmt.Errorf("encodeMetadataToFile(): failed to replace metadata file: %w", err)
 	}
-
 	return nil
 }
 
 func (p *pipelineImpl) loadBlockMetadata() (BlockMetaData, error) {
 	p.blockMetadataFilePath = path.Join(p.cfg.ConduitConfig.ConduitDataDir, "metadata.json")
-	var blockMetadata BlockMetaData
 	if stat, err := os.Stat(p.blockMetadataFilePath); errors.Is(err, os.ErrNotExist) || (stat != nil && stat.Size() == 0) {
 		if stat != nil && stat.Size() == 0 {
 			err = os.Remove(p.blockMetadataFilePath)
 			if err != nil {
-				return blockMetadata, fmt.Errorf("Init(): error creating file: %w", err)
+				return p.blockMetadata, fmt.Errorf("Init(): error creating file: %w", err)
 			}
 		}
 		err = p.encodeMetadataToFile()
 		if err != nil {
-			return blockMetadata, fmt.Errorf("Init(): error creating file: %w", err)
+			return p.blockMetadata, fmt.Errorf("Init(): error creating file: %w", err)
 		}
 	} else {
 		if err != nil {
-			return blockMetadata, fmt.Errorf("error opening file: %w", err)
+			return p.blockMetadata, fmt.Errorf("error opening file: %w", err)
 		}
 		var data []byte
 		data, err = os.ReadFile(p.blockMetadataFilePath)
 		if err != nil {
-			return blockMetadata, fmt.Errorf("error reading metadata: %w", err)
+			return p.blockMetadata, fmt.Errorf("error reading metadata: %w", err)
 		}
-		err = json.Unmarshal(data, &blockMetadata)
+		err = json.Unmarshal(data, &p.blockMetadata)
 		if err != nil {
-			return blockMetadata, fmt.Errorf("error reading metadata: %w", err)
+			return p.blockMetadata, fmt.Errorf("error reading metadata: %w", err)
 		}
 	}
-	return blockMetadata, nil
+	return p.blockMetadata, nil
 }
 
 // MakePipeline creates a Pipeline
