@@ -48,11 +48,11 @@ Indexer is part of the [sandbox](https://github.com/algorand/sandbox) private ne
 - Search and filter accounts, transactions, assets, and asset balances with many different parameters.
 - Pagination of results.
 - Enriched transaction and account data:
-    - Confirmation round (block containing the transaction)
-    - Confirmation time
-    - Signature type
-    - Close amounts
-    - Create/delete rounds.
+  - Confirmation round (block containing the transaction)
+  - Confirmation time
+  - Signature type
+  - Close amounts
+  - Create/delete rounds.
 - Human readable field names instead of the space optimized protocol level names.
 
 # Contributing
@@ -181,39 +181,36 @@ If the maximum number of connections/active queries is reached, subsequent conne
 
 Settings can be provided from the command line, a configuration file, or an environment variable
 
-| Command Line Flag (long)      | (short) | Config File                   | Environment Variable                   |
-|-------------------------------|---------|-------------------------------|----------------------------------------|
-| postgres                      | P       | postgres-connection-string    | INDEXER_POSTGRES_CONNECTION_STRING     |
-| data-dir                      | i       | data                          | INDEXER_DATA                           |
-| pidfile                       |         | pidfile                       | INDEXER_PIDFILE                        |
-| algod                         | d       | algod-data-dir                | INDEXER_ALGOD_DATA_DIR / ALGORAND_DATA |
-| algod-net                     |         | algod-address                 | INDEXER_ALGOD_ADDRESS                  |
-| algod-token                   |         | algod-token                   | INDEXER_ALGOD_TOKEN                    |
-| server                        | S       | server-address                | INDEXER_SERVER_ADDRESS                 |
-| no-algod                      |         | no-algod                      | INDEXER_NO_ALGOD                       |
-| token                         | t       | api-token                     | INDEXER_API_TOKEN                      |
-| metrics-mode                  |         | metrics-mode                  | INDEXER_METRICS_MODE                   |
-| logfile                       | f       | logfile                       | INDEXER_LOGFILE                        |
-| loglevel                      | l       | loglevel                      | INDEXER_LOGLEVEL                       |
-| max-conn                      |         | max-conn                      | INDEXER_MAX_CONN                       |
-| write-timeout                 |         | write-timeout                 | INDEXER_WRITE_TIMEOUT                  |
-| read-timeout                  |         | read-timeout                  | INDEXER_READ_TIMEOUT                   |
-| max-api-resources-per-account |         | max-api-resources-per-account | INDEXER_MAX_API_RESOURCES_PER_ACCOUNT  |
-| max-transactions-limit        |         | max-transactions-limit        | INDEXER_MAX_TRANSACTIONS_LIMIT         |
-| default-transactions-limit    |         | default-transactions-limit    | INDEXER_DEFAULT_TRANSACTIONS_LIMIT     |
-| max-accounts-limit            |         | max-accounts-limit            | INDEXER_MAX_ACCOUNTS_LIMIT             |
-| default-accounts-limit        |         | default-accounts-limit        | INDEXER_DEFAULT_ACCOUNTS_LIMIT         |
-| max-assets-limit              |         | max-assets-limit              | INDEXER_MAX_ASSETS_LIMIT               |
-| default-assets-limit          |         | default-assets-limit          | INDEXER_DEFAULT_ASSETS_LIMIT           |
-| max-balances-limit            |         | max-balances-limit            | INDEXER_MAX_BALANCES_LIMIT             |
-| default-balances-limit        |         | default-balances-limit        | INDEXER_DEFAULT_BALANCES_LIMIT         |
-| max-applications-limit        |         | max-applications-limit        | INDEXER_MAX_APPLICATIONS_LIMIT         |
-| default-applications-limit    |         | default-applications-limit    | INDEXER_DEFAULT_APPLICATIONS_LIMIT     |
-| enable-all-parameters         |         | enable-all-parameters         | INDEXER_ENABLE_ALL_PARAMETERS          |
-| catchpoint                    |         | catchpoint                    | INDEXER_CATCHPOINT                     |
-| interval                      |         | interval                      | INDEXER_INTERVAL                       |
-| rounds                        |         | rounds                        | INDEXER_ROUNDS                         |
-| prune-timeout                 |         | prune-timeout                 | INDEXER_PRUNE_TIMEOUT                  |
+| Command Line Flag (long)      | (short) | Config File                   | Environment Variable                  |
+|-------------------------------|---------|-------------------------------|---------------------------------------|
+| postgres                      | P       | postgres-connection-string    | INDEXER_POSTGRES_CONNECTION_STRING    |
+| data-dir                      | i       | data                          | INDEXER_DATA                          |
+| pidfile                       |         | pidfile                       | INDEXER_PIDFILE                       |
+| algod                         | d       | algod-data-dir                | INDEXER_ALGOD_DATA_DIR / ALGORAND_DATA|
+| algod-net                     |         | algod-address                 | INDEXER_ALGOD_ADDRESS                 |
+| algod-token                   |         | algod-token                   | INDEXER_ALGOD_TOKEN                   |
+| server                        | S       | server-address                | INDEXER_SERVER_ADDRESS                |
+| no-algod                      |         | no-algod                      | INDEXER_NO_ALGOD                      |
+| token                         | t       | api-token                     | INDEXER_API_TOKEN                     |
+| metrics-mode                  |         | metrics-mode                  | INDEXER_METRICS_MODE                  |
+| logfile                       | f       | logfile                       | INDEXER_LOGFILE                       |
+| loglevel                      | l       | loglevel                      | INDEXER_LOGLEVEL                      |
+| max-conn                      |         | max-conn                      | INDEXER_MAX_CONN                      |
+| write-timeout                 |         | write-timeout                 | INDEXER_WRITE_TIMEOUT                 |
+| read-timeout                  |         | read-timeout                  | INDEXER_READ_TIMEOUT                  |
+| max-api-resources-per-account |         | max-api-resources-per-account | INDEXER_MAX_API_RESOURCES_PER_ACCOUNT |
+| max-transactions-limit        |         | max-transactions-limit        | INDEXER_MAX_TRANSACTIONS_LIMIT        |
+| default-transactions-limit    |         | default-transactions-limit    | INDEXER_DEFAULT_TRANSACTIONS_LIMIT    |
+| max-accounts-limit            |         | max-accounts-limit            | INDEXER_MAX_ACCOUNTS_LIMIT            |
+| default-accounts-limit        |         | default-accounts-limit        | INDEXER_DEFAULT_ACCOUNTS_LIMIT        |
+| max-assets-limit              |         | max-assets-limit              | INDEXER_MAX_ASSETS_LIMIT              |
+| default-assets-limit          |         | default-assets-limit          | INDEXER_DEFAULT_ASSETS_LIMIT          |
+| max-balances-limit            |         | max-balances-limit            | INDEXER_MAX_BALANCES_LIMIT            |
+| default-balances-limit        |         | default-balances-limit        | INDEXER_DEFAULT_BALANCES_LIMIT        |
+| max-applications-limit        |         | max-applications-limit        | INDEXER_MAX_APPLICATIONS_LIMIT        |
+| default-applications-limit    |         | default-applications-limit    | INDEXER_DEFAULT_APPLICATIONS_LIMIT    |
+| enable-all-parameters         |         | enable-all-parameters         | INDEXER_ENABLE_ALL_PARAMETERS         |
+| catchpoint                    |         | catchpoint                    | INDEXER_CATCHPOINT                    |
 
 ## Command line
 

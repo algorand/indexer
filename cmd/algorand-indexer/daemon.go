@@ -90,9 +90,6 @@ type daemonConfig struct {
 	configFile                string
 	suppliedAPIConfigFile     string
 	genesisJSONPath           string
-	interval                  int
-	rounds                    uint64
-	pruneTimeout              string
 }
 
 // DaemonCmd creates the main cobra command, initializes flags, and viper aliases
@@ -145,11 +142,6 @@ func DaemonCmd() *cobra.Command {
 	cfg.flags.StringVarP(&cfg.cpuProfile, "cpuprofile", "", "", "file to record cpu profile to")
 	cfg.flags.StringVarP(&cfg.pidFilePath, "pidfile", "", "", "file to write daemon's process id to")
 	cfg.flags.StringVarP(&cfg.configFile, "configfile", "c", "", "file path to configuration file (indexer.yml)")
-
-	cfg.flags.IntVar(&cfg.interval, "interval", 0, "set the interval, -1 or value>=0, for removing old transaction data (default 0). 0 disables the pruning process")
-	cfg.flags.Uint64VarP(&cfg.rounds, "rounds", "r", 0, "rounds of transactions to keep in the database during data pruning (default 0). 0 disables the pruning process")
-	cfg.flags.StringVar(&cfg.pruneTimeout, "prune-timeout", "5s", "set the maximum duration for data pruning operation (default 5 seconds)")
-
 	viper.RegisterAlias("algod", "algod-data-dir")
 	viper.RegisterAlias("algod-net", "algod-address")
 	viper.RegisterAlias("server", "server-address")
@@ -392,11 +384,6 @@ func makeConduitConfig(dCfg *daemonConfig) conduit.PipelineConfig {
 				"connection-string": postgresAddr,
 				"max-conn":          dCfg.maxConn,
 				"test":              dummyIndexerDb,
-				"delete-task": map[string]interface{}{
-					"interval": dCfg.interval,
-					"rounds":   dCfg.rounds,
-					"timeout":  dCfg.pruneTimeout,
-				},
 			},
 		},
 	}
