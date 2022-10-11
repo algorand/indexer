@@ -210,7 +210,6 @@ func loadIndexerConfig(indexerDataDir string, configFile string) error {
 		logger.WithError(err).Errorf("invalid config file (%s): %v", viper.ConfigFileUsed(), err)
 		return err
 	}
-	logger.Infof("Using configuration file: %s\n", resolvedConfigPath)
 	return err
 }
 
@@ -270,11 +269,6 @@ func createIndexerPidFile(pidFilePath string) error {
 func runDaemon(daemonConfig *daemonConfig) error {
 	var err error
 	config.BindFlagSet(daemonConfig.flags)
-	err = configureLogger()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to configure logger: %v", err)
-		return err
-	}
 
 	// Create the data directory if necessary/possible
 	if err = configureIndexerDataDir(daemonConfig.indexerDataDir); err != nil {
@@ -292,6 +286,15 @@ func runDaemon(daemonConfig *daemonConfig) error {
 	if err = loadIndexerParamConfig(daemonConfig); err != nil {
 		return err
 	}
+
+	// Configure the logger after we load all indexer configs
+	err = configureLogger()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to configure logger: %v", err)
+		return err
+	}
+
+	logger.Infof("Using configuration file: %s", viper.ConfigFileUsed())
 
 	if daemonConfig.pidFilePath != "" {
 		err = createIndexerPidFile(daemonConfig.pidFilePath)
