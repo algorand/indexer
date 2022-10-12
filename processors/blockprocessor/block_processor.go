@@ -3,6 +3,7 @@ package blockprocessor
 import (
 	"context"
 	"fmt"
+	"github.com/algorand/indexer/loggers"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
@@ -69,9 +70,9 @@ func (proc *blockProcessor) Config() plugins.PluginConfig {
 	return proc.cfg
 }
 
-func (proc *blockProcessor) Init(ctx context.Context, initProvider data.InitProvider, cfg plugins.PluginConfig, logger *log.Logger) error {
+func (proc *blockProcessor) Init(ctx context.Context, initProvider data.InitProvider, cfg plugins.PluginConfig, logger *loggers.MT) error {
 	proc.ctx = ctx
-	proc.logger = logger
+	proc.logger = logger.Logger
 
 	// First get the configuration from the string
 	var pCfg Config

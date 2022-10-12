@@ -19,7 +19,8 @@ func (f PluginLogFormatter) Format(entry *log.Entry) ([]byte, error) {
 	return f.Formatter.Format(entry)
 }
 
-func makePluginLogFormatter(pluginType string, pluginName string) PluginLogFormatter {
+// MakePluginLogFormatter creates a json formatter with plugin name and type
+func MakePluginLogFormatter(pluginType string, pluginName string) PluginLogFormatter {
 	return PluginLogFormatter{
 		Formatter: &log.JSONFormatter{
 			DisableHTMLEscape: true,

@@ -1,6 +1,8 @@
 package conduit
 
 import (
+	"github.com/algorand/indexer/loggers"
+	"os"
 	"testing"
 	"time"
 
@@ -14,16 +16,17 @@ func TestPluginLogFormatter_Format(t *testing.T) {
 	pluginType := "A Question"
 	pluginName := "What's in a name?"
 
-	pluginFormatter := makePluginLogFormatter(pluginType, pluginName)
+	pluginFormatter := MakePluginLogFormatter(pluginType, pluginName)
 
-	l := log.New()
+	lMgr := loggers.MakeLoggerManager(os.Stdout)
+	l := lMgr.MakeLogger()
 
 	entry := &log.Entry{
 		Time:    time.Time{},
 		Level:   log.InfoLevel,
 		Message: "That which we call a rose by any other name would smell just as sweet.",
 		Data:    log.Fields{},
-		Logger:  l,
+		Logger:  l.Logger,
 	}
 
 	bytes, err := pluginFormatter.Format(entry)

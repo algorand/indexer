@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/algorand/indexer/loggers"
 	"os"
 	"path"
 
-	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
 	"github.com/algorand/go-algorand/crypto"
@@ -25,7 +25,7 @@ type fileExporter struct {
 	blockMetadataFile string
 	blockMetadata     BlockMetaData
 	cfg               ExporterConfig
-	logger            *logrus.Logger
+	logger            *loggers.MT
 }
 
 var fileExporterMetadata = exporters.ExporterMetadata{
@@ -55,7 +55,7 @@ func (exp *fileExporter) Metadata() exporters.ExporterMetadata {
 	return fileExporterMetadata
 }
 
-func (exp *fileExporter) Init(cfg plugins.PluginConfig, logger *logrus.Logger) error {
+func (exp *fileExporter) Init(cfg plugins.PluginConfig, logger *loggers.MT) error {
 	exp.logger = logger
 	if err := exp.unmarhshalConfig(string(cfg)); err != nil {
 		return fmt.Errorf("connect failure in unmarshalConfig: %w", err)

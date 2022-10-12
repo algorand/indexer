@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/algorand/indexer/loggers"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -340,7 +341,8 @@ func runDaemon(daemonConfig *daemonConfig) error {
 	defer db.Close()
 	var dataError func() error
 	if daemonConfig.noAlgod != true {
-		pipeline := runConduitPipeline(ctx, availableCh, daemonConfig)
+		loggerManager := loggers.AdaptLogger(logger)
+		pipeline := runConduitPipeline(ctx, availableCh, daemonConfig, loggerManager.MakeLogger())
 		if pipeline != nil {
 			dataError = pipeline.Error
 			defer pipeline.Stop()
@@ -393,7 +395,7 @@ func makeConduitConfig(dCfg *daemonConfig) conduit.PipelineConfig {
 
 }
 
-func runConduitPipeline(ctx context.Context, dbAvailable chan struct{}, dCfg *daemonConfig) conduit.Pipeline {
+func runConduitPipeline(ctx context.Context, dbAvailable chan struct{}, dCfg *daemonConfig, loggerMT *loggers.MT) conduit.Pipeline {
 	// Need to redefine exitHandler() for every go-routine
 	defer exitHandler()
 
@@ -403,7 +405,7 @@ func runConduitPipeline(ctx context.Context, dbAvailable chan struct{}, dCfg *da
 	var pipeline conduit.Pipeline
 	var err error
 	pcfg := makeConduitConfig(dCfg)
-	if pipeline, err = conduit.MakePipeline(ctx, &pcfg, logger); err != nil {
+	if pipeline, err = conduit.MakePipeline(ctx, &pcfg, loggerMT); err != nil {
 		logger.Errorf("%v", err)
 		panic(exit{1})
 	}

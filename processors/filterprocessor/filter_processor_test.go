@@ -2,9 +2,10 @@ package filterprocessor
 
 import (
 	"context"
+	"github.com/algorand/indexer/loggers"
+	"os"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/algorand/go-algorand/data/basics"
@@ -17,6 +18,7 @@ import (
 
 // TestFilterProcessor_Illegal tests that numerical operations won't occur on non-supported types
 func TestFilterProcessor_Illegal(t *testing.T) {
+	lMgr := loggers.MakeLoggerManager(os.Stdout)
 	tests := []struct {
 		name          string
 		cfg           string
@@ -84,7 +86,7 @@ filters:
 			assert.NoError(t, err)
 
 			fp := fpBuilder.New()
-			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(test.cfg), logrus.New())
+			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(test.cfg), lMgr.MakeLogger())
 			assert.ErrorContains(t, err, test.errorContains)
 		})
 	}
@@ -92,6 +94,7 @@ filters:
 
 // TestFilterProcessor_Alias tests the various numerical operations on integers that are aliased
 func TestFilterProcessor_Alias(t *testing.T) {
+	lMgr := loggers.MakeLoggerManager(os.Stdout)
 	tests := []struct {
 		name string
 		cfg  string
@@ -212,7 +215,7 @@ filters:
 			assert.NoError(t, err)
 
 			fp := fpBuilder.New()
-			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(test.cfg), logrus.New())
+			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(test.cfg), lMgr.MakeLogger())
 			assert.NoError(t, err)
 
 			bd := data.BlockData{}
@@ -252,6 +255,7 @@ filters:
 
 // TestFilterProcessor_Numerical tests the various numerical operations on integers
 func TestFilterProcessor_Numerical(t *testing.T) {
+	lMgr := loggers.MakeLoggerManager(os.Stdout)
 	tests := []struct {
 		name string
 		cfg  string
@@ -372,7 +376,7 @@ filters:
 			assert.NoError(t, err)
 
 			fp := fpBuilder.New()
-			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(test.cfg), logrus.New())
+			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(test.cfg), lMgr.MakeLogger())
 			assert.NoError(t, err)
 
 			bd := data.BlockData{}
@@ -412,6 +416,7 @@ filters:
 
 // TestFilterProcessor_MicroAlgos tests the various numerical operations on microalgos
 func TestFilterProcessor_MicroAlgos(t *testing.T) {
+	lMgr := loggers.MakeLoggerManager(os.Stdout)
 	tests := []struct {
 		name string
 		cfg  string
@@ -531,7 +536,7 @@ filters:
 			assert.NoError(t, err)
 
 			fp := fpBuilder.New()
-			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(test.cfg), logrus.New())
+			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(test.cfg), lMgr.MakeLogger())
 			assert.NoError(t, err)
 
 			bd := data.BlockData{}
@@ -581,6 +586,7 @@ filters:
 
 // TestFilterProcessor_VariousErrorPathsOnInit tests the various error paths in the filter processor init function
 func TestFilterProcessor_VariousErrorPathsOnInit(t *testing.T) {
+	lMgr := loggers.MakeLoggerManager(os.Stdout)
 	tests := []struct {
 		name             string
 		sampleCfgStr     string
@@ -633,7 +639,7 @@ filters:
 			assert.NoError(t, err)
 
 			fp := fpBuilder.New()
-			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(test.sampleCfgStr), logrus.New())
+			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(test.sampleCfgStr), lMgr.MakeLogger())
 			assert.ErrorContains(t, err, test.errorContainsStr)
 		})
 	}
@@ -642,6 +648,7 @@ filters:
 // TestFilterProcessor_Init_Multi tests initialization of the filter processor with the "all" and "any" filter types
 func TestFilterProcessor_Init_Multi(t *testing.T) {
 
+	lMgr := loggers.MakeLoggerManager(os.Stdout)
 	sampleAddr1 := basics.Address{1}
 	sampleAddr2 := basics.Address{2}
 	sampleAddr3 := basics.Address{3}
@@ -675,7 +682,7 @@ filters:
 	assert.NoError(t, err)
 
 	fp := fpBuilder.New()
-	err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(sampleCfgStr), logrus.New())
+	err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(sampleCfgStr), lMgr.MakeLogger())
 	assert.NoError(t, err)
 
 	bd := data.BlockData{}
@@ -755,6 +762,7 @@ filters:
 // TestFilterProcessor_Init_All tests initialization of the filter processor with the "all" filter type
 func TestFilterProcessor_Init_All(t *testing.T) {
 
+	lMgr := loggers.MakeLoggerManager(os.Stdout)
 	sampleAddr1 := basics.Address{1}
 	sampleAddr2 := basics.Address{2}
 	sampleAddr3 := basics.Address{3}
@@ -774,7 +782,7 @@ filters:
 	assert.NoError(t, err)
 
 	fp := fpBuilder.New()
-	err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(sampleCfgStr), logrus.New())
+	err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(sampleCfgStr), lMgr.MakeLogger())
 	assert.NoError(t, err)
 
 	bd := data.BlockData{}
@@ -828,6 +836,7 @@ filters:
 // TestFilterProcessor_Init_Some tests initialization of the filter processor with the "any" filter type
 func TestFilterProcessor_Init(t *testing.T) {
 
+	lMgr := loggers.MakeLoggerManager(os.Stdout)
 	sampleAddr1 := basics.Address{1}
 	sampleAddr2 := basics.Address{2}
 	sampleAddr3 := basics.Address{3}
@@ -847,7 +856,7 @@ filters:
 	assert.NoError(t, err)
 
 	fp := fpBuilder.New()
-	err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(sampleCfgStr), logrus.New())
+	err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(sampleCfgStr), lMgr.MakeLogger())
 	assert.NoError(t, err)
 
 	bd := data.BlockData{}

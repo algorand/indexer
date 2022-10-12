@@ -2,6 +2,7 @@ package algodimporter
 
 import (
 	"context"
+	"github.com/algorand/indexer/loggers"
 	"os"
 	"testing"
 
@@ -15,15 +16,16 @@ import (
 )
 
 var (
-	logger       *logrus.Logger
+	lMgr         *loggers.LoggerManager
+	logger       *loggers.MT
 	ctx          context.Context
 	cancel       context.CancelFunc
 	testImporter importers.Importer
 )
 
 func init() {
-	logger = logrus.New()
-	logger.SetOutput(os.Stdout)
+	lMgr = loggers.MakeLoggerManager(os.Stdout)
+	logger = lMgr.MakeLogger()
 	logger.SetLevel(logrus.InfoLevel)
 	ctx, cancel = context.WithCancel(context.Background())
 }

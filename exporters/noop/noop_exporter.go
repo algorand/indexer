@@ -5,8 +5,8 @@ import (
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
+	"github.com/algorand/indexer/loggers"
 	"github.com/algorand/indexer/plugins"
-	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 )
 
@@ -39,7 +39,7 @@ func (exp *noopExporter) Metadata() exporters.ExporterMetadata {
 	return noopExporterMetadata
 }
 
-func (exp *noopExporter) Init(cfg plugins.PluginConfig, _ *logrus.Logger) error {
+func (exp *noopExporter) Init(cfg plugins.PluginConfig, _ *loggers.MT) error {
 	if err := yaml.Unmarshal([]byte(cfg), &exp.cfg); err != nil {
 		return fmt.Errorf("init failure in unmarshalConfig: %v", err)
 	}

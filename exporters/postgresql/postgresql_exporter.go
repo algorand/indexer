@@ -2,8 +2,8 @@ package postgresql
 
 import (
 	"fmt"
+	"github.com/algorand/indexer/loggers"
 
-	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
 	"github.com/algorand/go-algorand/data/bookkeeping"
@@ -24,7 +24,7 @@ type postgresqlExporter struct {
 	round  uint64
 	cfg    ExporterConfig
 	db     idb.IndexerDb
-	logger *logrus.Logger
+	logger *loggers.MT
 }
 
 var postgresqlExporterMetadata = exporters.ExporterMetadata{
@@ -47,7 +47,7 @@ func (exp *postgresqlExporter) Metadata() exporters.ExporterMetadata {
 	return postgresqlExporterMetadata
 }
 
-func (exp *postgresqlExporter) Init(cfg plugins.PluginConfig, logger *logrus.Logger) error {
+func (exp *postgresqlExporter) Init(cfg plugins.PluginConfig, logger *loggers.MT) error {
 	dbName := "postgres"
 	exp.logger = logger
 	if err := exp.unmarhshalConfig(string(cfg)); err != nil {
@@ -60,7 +60,7 @@ func (exp *postgresqlExporter) Init(cfg plugins.PluginConfig, logger *logrus.Log
 	var opts idb.IndexerDbOptions
 	opts.MaxConn = exp.cfg.MaxConn
 	opts.ReadOnly = false
-	db, ready, err := idb.IndexerDbByName(dbName, exp.cfg.ConnectionString, opts, exp.logger)
+	db, ready, err := idb.IndexerDbByName(dbName, exp.cfg.ConnectionString, opts, exp.logger.Logger)
 	if err != nil {
 		return fmt.Errorf("connect failure constructing db, %s: %v", dbName, err)
 	}
