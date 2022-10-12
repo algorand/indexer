@@ -26,7 +26,7 @@ export GO_IMAGE = golang:$(shell go version | cut -d ' ' -f 3 | tail -c +3 )
 all: conduit cmd/algorand-indexer/algorand-indexer go-algorand idb/postgres/internal/schema/setup_postgres_sql.go idb/mocks/IndexerDb.go
 
 conduit: go-algorand
-	cd cmd/conduit && go build
+	go generate ./... && cd cmd/conduit && go build
 
 cmd/algorand-indexer/algorand-indexer: idb/postgres/internal/schema/setup_postgres_sql.go go-algorand
 	cd cmd/algorand-indexer && go build -ldflags="${GOLDFLAGS}"
@@ -60,7 +60,7 @@ fakepackage: go-algorand
 test: idb/mocks/IndexerDb.go cmd/algorand-indexer/algorand-indexer
 	go test -coverpkg=$(COVERPKG) ./... -coverprofile=coverage.txt -covermode=atomic ${TEST_FLAG}
 
-lint: go-algorand
+lint: conduit
 	golint -set_exit_status ./...
 	go vet ./...
 

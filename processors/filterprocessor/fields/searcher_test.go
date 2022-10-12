@@ -1,6 +1,7 @@
 package fields
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -25,12 +26,13 @@ func TestInternalSearch(t *testing.T) {
 	address2 := basics.Address{2}
 
 	var expressionType expression.FilterType = "exact"
-	tag := "SignedTxnWithAD.SignedTxn.AuthAddr"
-	exp, err := expression.MakeExpression(expressionType, address1.String())
+	tag := "sgnr"
+	exp, err := expression.MakeExpression(expressionType, address1.String(), reflect.String)
 	assert.NoError(t, err)
 	searcher, err := MakeFieldSearcher(exp, expressionType, tag)
+	assert.NoError(t, err)
 
-	result := searcher.search(
+	result, err := searcher.search(
 		transactions.SignedTxnInBlock{
 			SignedTxnWithAD: transactions.SignedTxnWithAD{
 				SignedTxn: transactions.SignedTxn{
@@ -40,9 +42,10 @@ func TestInternalSearch(t *testing.T) {
 		},
 	)
 
+	assert.NoError(t, err)
 	assert.True(t, result)
 
-	result = searcher.search(
+	result, err = searcher.search(
 		transactions.SignedTxnInBlock{
 			SignedTxnWithAD: transactions.SignedTxnWithAD{
 				SignedTxn: transactions.SignedTxn{
@@ -52,15 +55,16 @@ func TestInternalSearch(t *testing.T) {
 		},
 	)
 
+	assert.NoError(t, err)
 	assert.False(t, result)
 }
 
 // TestMakeFieldSearcher tests making a field searcher is valid
 func TestMakeFieldSearcher(t *testing.T) {
 	var expressionType expression.FilterType = "exact"
-	tag := "SignedTxnWithAD.SignedTxn.AuthAddr"
+	tag := "sgnr"
 	sampleExpressionStr := "sample"
-	exp, err := expression.MakeExpression(expressionType, sampleExpressionStr)
+	exp, err := expression.MakeExpression(expressionType, sampleExpressionStr, reflect.String)
 	assert.NoError(t, err)
 	searcher, err := MakeFieldSearcher(exp, expressionType, tag)
 	assert.NoError(t, err)
@@ -84,13 +88,13 @@ func TestCheckTagExistsAndHasCorrectFunction(t *testing.T) {
 	assert.ErrorContains(t, err, "does not exist in transactions")
 
 	// Fee does not have a "String" Function so we cant use exact with it.
-	err = checkTagExistsAndHasCorrectFunction("exact", "SignedTxnWithAD.SignedTxn.Txn.Header.Fee")
+	err = checkTagExistsAndHasCorrectFunction("exact", "txn.fee")
 	assert.ErrorContains(t, err, "does not contain the needed method")
 
 	// a made up expression type should throw an error
-	err = checkTagExistsAndHasCorrectFunction("made-up-expression-type", "SignedTxnWithAD.SignedTxn.AuthAddr")
+	err = checkTagExistsAndHasCorrectFunction("made-up-expression-type", "sgnr")
 	assert.ErrorContains(t, err, "is not supported")
 
-	err = checkTagExistsAndHasCorrectFunction("exact", "SignedTxnWithAD.SignedTxn.AuthAddr")
+	err = checkTagExistsAndHasCorrectFunction("exact", "sgnr")
 	assert.NoError(t, err)
 }
