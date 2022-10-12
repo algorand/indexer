@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/algorand/indexer/loggers"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -27,6 +26,7 @@ import (
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
 	_ "github.com/algorand/indexer/importers/algod"
+	"github.com/algorand/indexer/loggers"
 	_ "github.com/algorand/indexer/processors/blockprocessor"
 	iutil "github.com/algorand/indexer/util"
 )

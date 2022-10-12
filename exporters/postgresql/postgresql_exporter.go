@@ -2,7 +2,6 @@ package postgresql
 
 import (
 	"fmt"
-	"github.com/algorand/indexer/loggers"
 
 	"gopkg.in/yaml.v3"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
 	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/loggers"
 	// Necessary to ensure the postgres implementation has been registered in the idb factory
 	_ "github.com/algorand/indexer/idb/postgres"
 	"github.com/algorand/indexer/importer"

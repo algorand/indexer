@@ -2,20 +2,20 @@ package postgresql
 
 import (
 	"fmt"
+	"gopkg.in/yaml.v3"
+	"io/ioutil"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+
 	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/indexer/data"
-	"github.com/algorand/indexer/loggers"
-	"gopkg.in/yaml.v3"
-	"io/ioutil"
-	"testing"
-
 	_ "github.com/algorand/indexer/idb/dummy"
+	"github.com/algorand/indexer/loggers"
 	"github.com/algorand/indexer/plugins"
-
-	"github.com/stretchr/testify/assert"
 )
 
 var pgsqlConstructor = &Constructor{}

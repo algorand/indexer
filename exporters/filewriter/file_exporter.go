@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/algorand/indexer/loggers"
 	"os"
 	"path"
 
@@ -15,6 +14,7 @@ import (
 
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
+	"github.com/algorand/indexer/loggers"
 	"github.com/algorand/indexer/plugins"
 )
 

@@ -3,7 +3,6 @@ package conduit
 import (
 	"context"
 	"fmt"
-	"github.com/algorand/indexer/loggers"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -18,6 +17,7 @@ import (
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
 	"github.com/algorand/indexer/importers"
+	"github.com/algorand/indexer/loggers"
 	"github.com/algorand/indexer/plugins"
 	"github.com/algorand/indexer/processors"
 )
