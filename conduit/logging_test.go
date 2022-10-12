@@ -1,14 +1,13 @@
 package conduit
 
 import (
+	"github.com/algorand/indexer/loggers"
 	"os"
 	"testing"
 	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/algorand/indexer/loggers"
 )
 
 // TestPluginLogFormatter_Format tests the output of the formatter while pondering philosophy
