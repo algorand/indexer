@@ -3,13 +3,13 @@ package conduit
 import (
 	"context"
 	"fmt"
-	"github.com/algorand/indexer/loggers"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
@@ -21,8 +21,6 @@ import (
 	"github.com/algorand/indexer/plugins"
 	"github.com/algorand/indexer/processors"
 )
-
-var lMgr *loggers.LoggerManager = loggers.MakeLoggerManager(os.Stdout)
 
 // TestPipelineConfigValidity tests the Valid() function for the PipelineConfig
 func TestPipelineConfigValidity(t *testing.T) {
@@ -82,7 +80,7 @@ func TestPipelineConfigValidity(t *testing.T) {
 // TestMakePipelineConfig tests making the pipeline configuration
 func TestMakePipelineConfig(t *testing.T) {
 
-	l := lMgr.MakeLogger()
+	l := log.New()
 
 	_, err := MakePipelineConfig(l, nil)
 	assert.Equal(t, fmt.Errorf("MakePipelineConfig(): empty conduit config"), err)
@@ -150,7 +148,7 @@ type mockImporter struct {
 	returnError bool
 }
 
-func (m *mockImporter) Init(_ context.Context, _ plugins.PluginConfig, _ *loggers.MT) (*bookkeeping.Genesis, error) {
+func (m *mockImporter) Init(_ context.Context, _ plugins.PluginConfig, _ *log.Logger) (*bookkeeping.Genesis, error) {
 	return &bookkeeping.Genesis{}, nil
 }
 
@@ -180,7 +178,7 @@ type mockProcessor struct {
 	onCompleteError bool
 }
 
-func (m *mockProcessor) Init(_ context.Context, _ data.InitProvider, _ plugins.PluginConfig, _ *loggers.MT) error {
+func (m *mockProcessor) Init(_ context.Context, _ data.InitProvider, _ plugins.PluginConfig, _ *log.Logger) error {
 	return nil
 }
 
@@ -223,7 +221,7 @@ func (m *mockExporter) Metadata() exporters.ExporterMetadata {
 	}
 }
 
-func (m *mockExporter) Init(_ plugins.PluginConfig, _ *loggers.MT) error {
+func (m *mockExporter) Init(_ plugins.PluginConfig, _ *log.Logger) error {
 	return nil
 }
 
@@ -271,7 +269,7 @@ func TestPipelineRun(t *testing.T) {
 		ctx:          ctx,
 		cf:           cf,
 		cfg:          &PipelineConfig{},
-		logger:       lMgr.MakeLogger(),
+		logger:       log.New(),
 		initProvider: nil,
 		importer:     &pImporter,
 		processors:   []*processors.Processor{&pProcessor},
@@ -321,13 +319,12 @@ func TestPipelineCpuPidFiles(t *testing.T) {
 				Config: map[string]interface{}{},
 			},
 		},
-		loggerManager: lMgr,
-		logger:        lMgr.MakeLogger(),
-		initProvider:  nil,
-		importer:      &pImporter,
-		processors:    []*processors.Processor{&pProcessor},
-		exporter:      &pExporter,
-		round:         0,
+		logger:       log.New(),
+		initProvider: nil,
+		importer:     &pImporter,
+		processors:   []*processors.Processor{&pProcessor},
+		exporter:     &pExporter,
+		round:        0,
 	}
 
 	err := pImpl.Init()
@@ -378,7 +375,7 @@ func TestPipelineErrors(t *testing.T) {
 		ctx:          ctx,
 		cf:           cf,
 		cfg:          &PipelineConfig{},
-		logger:       lMgr.MakeLogger(),
+		logger:       log.New(),
 		initProvider: nil,
 		importer:     &pImporter,
 		processors:   []*processors.Processor{&pProcessor},

@@ -7,11 +7,11 @@ import (
 	"os"
 	"path/filepath"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
 	"github.com/algorand/indexer/conduit"
-	"github.com/algorand/indexer/loggers"
 )
 
 import (
@@ -22,8 +22,7 @@ import (
 )
 
 var (
-	loggerManager        *loggers.LoggerManager
-	logger               *loggers.MT
+	logger               *log.Logger
 	conduitCmd           = makeConduitCmd()
 	initCmd              = makeInitCmd()
 	defaultDataDirectory = "data"
@@ -32,12 +31,19 @@ var (
 // init() function for main package
 func init() {
 
-	loggerManager = loggers.MakeLoggerManager(os.Stdout)
 	// Setup logger
-	logger = loggerManager.MakeLogger()
+	logger = log.New()
 
-	formatter := conduit.MakePluginLogFormatter("Conduit", "main")
+	formatter := conduit.PluginLogFormatter{
+		Formatter: &log.JSONFormatter{
+			DisableHTMLEscape: true,
+		},
+		Type: "Conduit",
+		Name: "main",
+	}
+
 	logger.SetFormatter(&formatter)
+	logger.SetOutput(os.Stdout)
 
 	conduitCmd.AddCommand(initCmd)
 }

@@ -4,8 +4,8 @@ import (
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
-	"github.com/algorand/indexer/loggers"
 	"github.com/algorand/indexer/plugins"
+	"github.com/sirupsen/logrus"
 )
 
 // This is our exporter object. It should store all the in memory data required to run the Exporter.
@@ -33,7 +33,7 @@ func (exp *exampleExporter) Metadata() exporters.ExporterMetadata {
 }
 
 // Init provides the opportunity for your Exporter to initialize connections, store config variables, etc.
-func (exp *exampleExporter) Init(_ plugins.PluginConfig, _ *loggers.MT) error {
+func (exp *exampleExporter) Init(_ plugins.PluginConfig, _ *logrus.Logger) error {
 	panic("not implemented")
 }
 

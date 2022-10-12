@@ -3,7 +3,6 @@ package filewriter_test
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/algorand/indexer/loggers"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -14,17 +13,17 @@ import (
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters/filewriter"
 	"github.com/algorand/indexer/plugins"
+	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 )
 
-var lMgr *loggers.LoggerManager
-var logger *loggers.MT
+var logger *logrus.Logger
 var fileCons = &filewriter.Constructor{}
 var config = "block-dir: /tmp/blocks\n"
 
 func init() {
-	lMgr = loggers.MakeLoggerManager(ioutil.Discard)
-	logger = lMgr.MakeLogger()
+	logger, _ = test.NewNullLogger()
 	os.RemoveAll("/tmp/blocks")
 }
 

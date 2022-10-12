@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/indexer/loggers"
 	"reflect"
 
+	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
 	"github.com/algorand/indexer/data"
@@ -35,7 +35,7 @@ func (c *Constructor) New() processors.Processor {
 type FilterProcessor struct {
 	FieldFilters []fields.Filter
 
-	logger *loggers.MT
+	logger *log.Logger
 	cfg    plugins.PluginConfig
 	ctx    context.Context
 }
@@ -51,7 +51,7 @@ func (a *FilterProcessor) Config() plugins.PluginConfig {
 }
 
 // Init initializes the filter processor
-func (a *FilterProcessor) Init(ctx context.Context, _ data.InitProvider, cfg plugins.PluginConfig, logger *loggers.MT) error {
+func (a *FilterProcessor) Init(ctx context.Context, _ data.InitProvider, cfg plugins.PluginConfig, logger *log.Logger) error {
 	a.logger = logger
 	a.cfg = cfg
 	a.ctx = ctx

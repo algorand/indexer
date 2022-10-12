@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/indexer/loggers"
 	"github.com/algorand/indexer/util/metrics"
 	"net/url"
 	"time"
@@ -57,9 +56,9 @@ func init() {
 	importers.RegisterImporter(importerName, &Constructor{})
 }
 
-func (algodImp *algodImporter) Init(ctx context.Context, cfg plugins.PluginConfig, logger *loggers.MT) (*bookkeeping.Genesis, error) {
+func (algodImp *algodImporter) Init(ctx context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) (*bookkeeping.Genesis, error) {
 	algodImp.ctx, algodImp.cancel = context.WithCancel(ctx)
-	algodImp.logger = logger.Logger
+	algodImp.logger = logger
 	if err := algodImp.unmarhshalConfig(string(cfg)); err != nil {
 		return nil, fmt.Errorf("connect failure in unmarshalConfig: %v", err)
 	}

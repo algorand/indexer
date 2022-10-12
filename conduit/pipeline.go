@@ -3,7 +3,6 @@ package conduit
 import (
 	"context"
 	"fmt"
-	"github.com/algorand/indexer/loggers"
 	"github.com/algorand/indexer/util/metrics"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -70,7 +69,7 @@ func (cfg *PipelineConfig) Valid() error {
 }
 
 // MakePipelineConfig creates a pipeline configuration
-func MakePipelineConfig(logger *loggers.MT, cfg *Config) (*PipelineConfig, error) {
+func MakePipelineConfig(logger *log.Logger, cfg *Config) (*PipelineConfig, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("MakePipelineConfig(): empty conduit config")
 	}
@@ -134,18 +133,17 @@ type pipelineImpl struct {
 	cf       context.CancelFunc
 	wg       sync.WaitGroup
 	cfg      *PipelineConfig
-	logger   *loggers.MT
+	logger   *log.Logger
 	profFile *os.File
 	err      error
 	mu       sync.RWMutex
 
 	initProvider *data.InitProvider
 
-	importer      *importers.Importer
-	processors    []*processors.Processor
-	exporter      *exporters.Exporter
-	round         basics.Round
-	loggerManager *loggers.LoggerManager
+	importer   *importers.Importer
+	processors []*processors.Processor
+	exporter   *exporters.Exporter
+	round      basics.Round
 }
 
 func (p *pipelineImpl) Error() error {
@@ -181,7 +179,7 @@ func (p *pipelineImpl) Init() error {
 	}
 
 	if p.cfg.PIDFilePath != "" {
-		err := util.CreateIndexerPidFile(p.logger.Logger, p.cfg.PIDFilePath)
+		err := util.CreateIndexerPidFile(p.logger, p.cfg.PIDFilePath)
 		if err != nil {
 			return err
 		}
@@ -190,8 +188,8 @@ func (p *pipelineImpl) Init() error {
 	// TODO Need to change interfaces to accept config of map[string]interface{}
 
 	// Initialize Exporter first since the pipeline derives its round from the Exporter
-	exporterLogger := p.loggerManager.MakeLogger()
-	exporterLogger.SetFormatter(MakePluginLogFormatter(plugins.Exporter, (*p.exporter).Metadata().Name()))
+	exporterLogger := log.New()
+	exporterLogger.SetFormatter(makePluginLogFormatter(plugins.Exporter, (*p.exporter).Metadata().Name()))
 
 	jsonEncode := string(json.Encode(p.cfg.Exporter.Config))
 	err := (*p.exporter).Init(plugins.PluginConfig(jsonEncode), exporterLogger)
@@ -202,9 +200,9 @@ func (p *pipelineImpl) Init() error {
 	p.logger.Infof("Initialized Exporter: %s", exporterName)
 
 	// Initialize Importer
-	importerLogger := p.loggerManager.MakeLogger()
+	importerLogger := log.New()
 	importerName := (*p.importer).Metadata().Name()
-	importerLogger.SetFormatter(MakePluginLogFormatter(plugins.Importer, importerName))
+	importerLogger.SetFormatter(makePluginLogFormatter(plugins.Importer, importerName))
 
 	// TODO modify/fix ?
 	jsonEncode = string(json.Encode(p.cfg.Importer.Config))
@@ -228,8 +226,8 @@ func (p *pipelineImpl) Init() error {
 	p.initProvider = &initProvider
 
 	for idx, processor := range p.processors {
-		processorLogger := p.loggerManager.MakeLogger()
-		processorLogger.SetFormatter(MakePluginLogFormatter(plugins.Processor, (*processor).Metadata().Name()))
+		processorLogger := log.New()
+		processorLogger.SetFormatter(makePluginLogFormatter(plugins.Processor, (*processor).Metadata().Name()))
 		jsonEncode = string(json.Encode(p.cfg.Processors[idx].Config))
 		err := (*processor).Init(p.ctx, *p.initProvider, plugins.PluginConfig(jsonEncode), processorLogger)
 		processorName := (*processor).Metadata().Name()
@@ -359,7 +357,7 @@ func (p *pipelineImpl) Wait() {
 }
 
 // MakePipeline creates a Pipeline
-func MakePipeline(ctx context.Context, cfg *PipelineConfig, logger *loggers.MT) (Pipeline, error) {
+func MakePipeline(ctx context.Context, cfg *PipelineConfig, logger *log.Logger) (Pipeline, error) {
 
 	if cfg == nil {
 		return nil, fmt.Errorf("MakePipeline(): pipeline config was empty")

@@ -7,9 +7,9 @@ import (
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/indexer/data"
-	"github.com/algorand/indexer/loggers"
+	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 	"gopkg.in/yaml.v3"
-	"io/ioutil"
 	"testing"
 
 	_ "github.com/algorand/indexer/idb/dummy"
@@ -19,12 +19,10 @@ import (
 )
 
 var pgsqlConstructor = &Constructor{}
-var loggerManager *loggers.LoggerManager
-var logger *loggers.MT
+var logger *logrus.Logger
 
 func init() {
-	loggerManager = loggers.MakeLoggerManager(ioutil.Discard)
-	logger = loggerManager.MakeLogger()
+	logger, _ = test.NewNullLogger()
 }
 
 func TestExporterMetadata(t *testing.T) {
