@@ -20,6 +20,7 @@ import (
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
+	"github.com/mattn/go-sqlite3"
 
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
@@ -2498,8 +2499,8 @@ func (db *IndexerDb) SetNetworkState(genesis bookkeeping.Genesis) error {
 
 // DeleteTransactions removes old transactions
 // keep is the number of rounds to keep in db
-func (db *IndexerDb) DeleteTransactions(ctx context.Context, keep uint64, timeout time.Duration) (int64, error) {
-	ctx, cancel := context.WithTimeout(ctx, timeout)
+func (db *IndexerDb) DeleteTransactions(ctx context.Context, keep uint64) (int64, error) {
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	// delete old transactions and update metastate
 	deleteTxns := func() (int64, error) {
@@ -2510,7 +2511,7 @@ func (db *IndexerDb) DeleteTransactions(ctx context.Context, keep uint64, timeou
 		}
 		defer tx.Rollback(ctx)
 
-		db.log.Infof("deleteTxns(): keeping round %d and later", keep)
+		db.log.Infof("deleteTxns(): removing transactions before round %d", keep)
 		// delete query
 		query := "DELETE FROM txn WHERE round < $1"
 		cmd, err2 := tx.Exec(ctx, query, keep)
@@ -2541,12 +2542,18 @@ func (db *IndexerDb) DeleteTransactions(ctx context.Context, keep uint64, timeou
 	// retry
 	var rows int64
 	var err error
+	var sqliteErr sqlite3.Error
+
 	for i := 1; i <= 3; i++ {
 		rows, err = deleteTxns()
-		if err == nil {
+		if errors.As(err, &sqliteErr) {
+			if sqliteErr.Code == sqlite3.ErrLocked || sqliteErr.Code == sqlite3.ErrBusy {
+				db.log.Infof("data pruning retry %d", i)
+				continue
+			}
+		} else if err == nil {
 			return rows, nil
 		}
-		db.log.Infof("data pruning retry %d", i)
 	}
 	return 0, err
 }

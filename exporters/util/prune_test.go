@@ -3,8 +3,8 @@ package util
 import (
 	"context"
 	"fmt"
-	"os"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -20,27 +20,22 @@ import (
 
 var logger *logrus.Logger
 var hook *test.Hook
-var ch chan uint64
 
 func init() {
 	logger, hook = test.NewNullLogger()
-	ch = make(chan uint64)
 }
 
 var config = PruneConfigurations{
 	Interval: -1,
 	Rounds:   10,
-	Timeout:  5 * time.Second,
 }
 
-func delete(idb idb.IndexerDb, round uint64) DataManager {
+func delete(idb idb.IndexerDb, nextround uint64) DataManager {
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
-	dm := MakeDataManager(ctx, &config, idb, logger)
-
+	dm := MakeDataManager(ctx, nextround, &config, idb, logger)
 	wg.Add(1)
-	go dm.Delete(&wg, ch)
-	ch <- round
+	go dm.Delete(&wg, &nextround)
 	go func() {
 		time.Sleep(1 * time.Second)
 		cancel()
@@ -80,7 +75,6 @@ func TestDeleteTxns(t *testing.T) {
 	_, err = populateTxnTable(db, 1, ntxns)
 	assert.NoError(t, err)
 	assert.Equal(t, ntxns, rowsInTxnTable(db))
-
 	delete(idb, uint64(ntxns))
 	// 10 rounds removed
 	assert.Equal(t, 10, rowsInTxnTable(db))
@@ -118,17 +112,6 @@ func TestDeleteConfigs(t *testing.T) {
 	delete(idb, uint64(ntxns))
 	// delete didn't happen
 	assert.Equal(t, 3, rowsInTxnTable(db))
-
-	// unsupported interval
-	config = PruneConfigurations{
-		Rounds:   1,
-		Interval: -2,
-	}
-	delete(idb, uint64(ntxns))
-	// delete didn't happen
-	assert.Equal(t, 3, rowsInTxnTable(db))
-	// due to an error
-	assert.Contains(t, hook.LastEntry().Message, "Invalid Interval value")
 }
 
 func TestDeleteInterval(t *testing.T) {
@@ -149,43 +132,49 @@ func TestDeleteInterval(t *testing.T) {
 	config = PruneConfigurations{
 		Interval: 3,
 		Rounds:   3,
-		Timeout:  5 * time.Second,
 	}
 	var wg sync.WaitGroup
-	ctx, cancel := context.WithCancel(context.Background())
-	dm := MakeDataManager(ctx, &config, idb, logger)
+	ctx, cf := context.WithCancel(context.Background())
+	dm := postgresql{
+		config:   &config,
+		db:       idb,
+		logger:   logger,
+		ctx:      ctx,
+		cf:       cf,
+		duration: 500 * time.Millisecond,
+	}
+
 	wg.Add(1)
-	go dm.Delete(&wg, ch)
-	// send current round; data removed at startup
-	ch <- uint64(nextRound - 1)
+	round := uint64(nextRound - 1)
+	go dm.Delete(&wg, &round)
 	time.Sleep(1 * time.Second)
-	assert.Equal(t, 3, rowsInTxnTable(db))
+	assert.Equal(t, 5, rowsInTxnTable(db))
 
 	// remove data every 3 round
 	// add round 6. no data removed
 	nextRound, err = populateTxnTable(db, nextRound, 1)
 	assert.NoError(t, err)
-	ch <- uint64(nextRound - 1)
+	atomic.AddUint64(&round, 1)
 	time.Sleep(1 * time.Second)
-	assert.Equal(t, 4, rowsInTxnTable(db))
+	assert.Equal(t, 6, rowsInTxnTable(db))
 
 	// add round 7. no data removed
 	nextRound, err = populateTxnTable(db, nextRound, 1)
 	assert.NoError(t, err)
-	ch <- uint64(nextRound - 1)
+	atomic.AddUint64(&round, 1)
 	time.Sleep(1 * time.Second)
-	assert.Equal(t, 5, rowsInTxnTable(db))
+	assert.Equal(t, 7, rowsInTxnTable(db))
 
 	// add round 8. data removed
 	nextRound, err = populateTxnTable(db, nextRound, 1)
 	assert.NoError(t, err)
-	ch <- uint64(nextRound - 1)
+	atomic.AddUint64(&round, 1)
 	time.Sleep(1 * time.Second)
 	assert.Equal(t, 3, rowsInTxnTable(db))
 
 	go func() {
 		time.Sleep(1 * time.Second)
-		cancel()
+		cf()
 	}()
 	wg.Wait()
 
@@ -193,38 +182,9 @@ func TestDeleteInterval(t *testing.T) {
 	config = PruneConfigurations{
 		Interval: -1,
 		Rounds:   1,
-		Timeout:  5 * time.Second,
 	}
 	delete(idb, uint64(nextRound-1))
 	assert.Equal(t, 1, rowsInTxnTable(db))
-}
-
-func TestDeleteTimeout(t *testing.T) {
-	logger.SetOutput(os.Stdout)
-	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
-	defer shutdownFunc()
-
-	// init the tables
-	idb, _, err := postgres.OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
-	assert.NoError(t, err)
-	defer idb.Close()
-
-	config = PruneConfigurations{
-		Interval: 3,
-		Rounds:   3,
-		Timeout:  50 * time.Nanosecond,
-	}
-
-	var wg sync.WaitGroup
-	dm := MakeDataManager(context.Background(), &config, idb, logger)
-	assert.NoError(t, err)
-	wg.Add(1)
-	go dm.Delete(&wg, ch)
-	ch <- 5
-	wg.Wait()
-	assert.Contains(t, hook.LastEntry().Message, "context deadline exceeded")
-	// and process has closed
-	assert.True(t, dm.Closed())
 }
 
 // populate n records starting with round starting at r.

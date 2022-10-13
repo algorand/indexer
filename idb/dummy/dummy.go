@@ -2,7 +2,6 @@ package dummy
 
 import (
 	"context"
-	"time"
 
 	"github.com/algorand/go-algorand/crypto"
 
@@ -102,6 +101,6 @@ func (db *dummyIndexerDb) SetNetworkState(genesis bookkeeping.Genesis) error {
 }
 
 // SetNetworkState is part of idb.IndexerDB
-func (db *dummyIndexerDb) DeleteTransactions(ctx context.Context, keep uint64, timeout time.Duration) (int64, error) {
+func (db *dummyIndexerDb) DeleteTransactions(ctx context.Context, keep uint64) (int64, error) {
 	return 0, nil
 }

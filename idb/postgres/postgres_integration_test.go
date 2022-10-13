@@ -2328,13 +2328,8 @@ func TestDeleteTransactions(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	// context timeout
-	rowsDeleted, err := db.DeleteTransactions(context.Background(), 10, 0*time.Second)
-	assert.Contains(t, err.Error(), "context deadline exceeded")
-	assert.Equal(t, int64(0), rowsDeleted)
-
 	// keep rounds >= 2
-	rowsDeleted, err = db.DeleteTransactions(context.Background(), 2, 5*time.Second)
+	rowsDeleted, err := db.DeleteTransactions(context.Background(), 2)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(1), rowsDeleted)
 
@@ -2365,7 +2360,7 @@ func TestDeleteTransactions(t *testing.T) {
 	require.NoError(t, err)
 
 	// keep round 5
-	rowsDeleted, err = db.DeleteTransactions(context.Background(), 5, 5*time.Second)
+	rowsDeleted, err = db.DeleteTransactions(context.Background(), 5)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(3), rowsDeleted)
 

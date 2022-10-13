@@ -15,8 +15,6 @@ import (
 
 	testing "testing"
 
-	time "time"
-
 	transactions "github.com/algorand/go-algorand/data/transactions"
 )
 
@@ -136,20 +134,20 @@ func (_m *IndexerDb) Close() {
 	_m.Called()
 }
 
-// DeleteTransactions provides a mock function with given fields: ctx, keep, timeout
-func (_m *IndexerDb) DeleteTransactions(ctx context.Context, keep uint64, timeout time.Duration) (int64, error) {
-	ret := _m.Called(ctx, keep, timeout)
+// DeleteTransactions provides a mock function with given fields: ctx, keep
+func (_m *IndexerDb) DeleteTransactions(ctx context.Context, keep uint64) (int64, error) {
+	ret := _m.Called(ctx, keep)
 
 	var r0 int64
-	if rf, ok := ret.Get(0).(func(context.Context, uint64, time.Duration) int64); ok {
-		r0 = rf(ctx, keep, timeout)
+	if rf, ok := ret.Get(0).(func(context.Context, uint64) int64); ok {
+		r0 = rf(ctx, keep)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, uint64, time.Duration) error); ok {
-		r1 = rf(ctx, keep, timeout)
+	if rf, ok := ret.Get(1).(func(context.Context, uint64) error); ok {
+		r1 = rf(ctx, keep)
 	} else {
 		r1 = ret.Error(1)
 	}

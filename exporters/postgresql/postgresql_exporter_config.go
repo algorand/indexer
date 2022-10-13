@@ -16,6 +16,6 @@ type ExporterConfig struct {
 	// The test flag will replace an actual DB connection being created via the connection string,
 	// with a mock DB for unit testing.
 	Test bool `yaml:"test"`
-	// the configuration for data pruning
+	// Delete has the configuration for data pruning.
 	Delete util.PruneConfigurations `yaml:"delete-task"`
 }

@@ -185,7 +185,7 @@ type IndexerDb interface {
 
 	Health(ctx context.Context) (status Health, err error)
 
-	DeleteTransactions(ctx context.Context, keep uint64, timeout time.Duration) (int64, error)
+	DeleteTransactions(ctx context.Context, keep uint64) (int64, error)
 }
 
 // GetBlockOptions contains the options when requesting to load a block from the database.

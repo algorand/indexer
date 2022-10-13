@@ -2,10 +2,7 @@ package util
 
 import (
 	"context"
-	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/algorand/indexer/idb"
@@ -15,118 +12,81 @@ import (
 // Interval determines how often to delete data
 type Interval int
 
-var counter uint64
-
 const (
-	defaultTimeout          = 5 * time.Second
-	once           Interval = -1
-	disabled       Interval = 0
+	once     Interval = -1
+	disabled Interval = 0
+	d                 = 2 * time.Second
 )
 
 // PruneConfigurations contains the configurations for data pruning
 type PruneConfigurations struct {
 	// Rounds to keep
 	Rounds uint64 `yaml:"rounds"`
-	// A recurring interval to prune the data. The values can be -1, 0 or N
+	// Interval used to prune the data. The values can be -1 to run at startup,
+	// 0 to disable or N to run every N rounds.
 	Interval Interval `yaml:"interval"`
-	// Timeout sets a max duration for Delete()
-	Timeout time.Duration `yaml:"timeout"`
 }
 
 // DataManager is a data pruning interface
 type DataManager interface {
-	Delete(*sync.WaitGroup, chan uint64)
-	Closed() bool
+	Delete(*sync.WaitGroup, *uint64)
 }
 
 type postgresql struct {
-	config *PruneConfigurations
-	db     idb.IndexerDb
-	logger *logrus.Logger
-	ctx    context.Context
-	cf     context.CancelFunc
-	close  bool
+	config   *PruneConfigurations
+	db       idb.IndexerDb
+	logger   *logrus.Logger
+	ctx      context.Context
+	cf       context.CancelFunc
+	duration time.Duration
 }
 
 // MakeDataManager initializes resources need for removing data from data source
-func MakeDataManager(ctx context.Context, cfg *PruneConfigurations, db idb.IndexerDb, logger *logrus.Logger) DataManager {
+func MakeDataManager(ctx context.Context, round uint64, cfg *PruneConfigurations, db idb.IndexerDb, logger *logrus.Logger) DataManager {
 	c, cf := context.WithCancel(ctx)
+
 	dm := &postgresql{
-		config: cfg,
-		db:     db,
-		logger: logger,
-		ctx:    c,
-		cf:     cf,
-		close:  false,
+		config:   cfg,
+		db:       db,
+		logger:   logger,
+		ctx:      c,
+		cf:       cf,
+		duration: d,
 	}
-	counter = 0
+	// delete transaction at start up when data pruning is enabled
+	if round > cfg.Rounds {
+		keep := round - cfg.Rounds + 1
+		_, err := dm.db.DeleteTransactions(dm.ctx, keep)
+		if err != nil {
+			logger.Warnf("MakeDataManager(): data pruning err: %v", err)
+		}
+	}
 	return dm
 }
 
 // Delete removes data from the txn table in Postgres DB
-func (p *postgresql) Delete(wg *sync.WaitGroup, roundch chan uint64) {
-
-	{
-		cancelCh := make(chan os.Signal, 1)
-		signal.Notify(cancelCh, syscall.SIGTERM, syscall.SIGINT)
-		go func() {
-			<-cancelCh
-			p.logger.Info("Stopping data pruning.")
-			p.cf()
-		}()
-	}
+func (p *postgresql) Delete(wg *sync.WaitGroup, round *uint64) {
 
 	defer func() {
-		p.close = true
 		p.cf()
 		wg.Done()
 	}()
-
-	timeout := defaultTimeout
-	if p.config.Timeout > 0 {
-		timeout = p.config.Timeout
-	}
-	// exec pruning job base on configured interval
+	// oldest round to keep
+	keep := *round
 	for {
 		select {
 		case <-p.ctx.Done():
 			return
-		case currentRound := <-roundch:
-			p.logger.Debugf("Delete: received round %d", currentRound)
-			if currentRound > p.config.Rounds {
-				keep := currentRound - p.config.Rounds + 1
-				if (p.config.Interval == once || p.config.Interval > 0) && counter == 0 {
-					// always run a delete at startup
-					_, err := p.db.DeleteTransactions(p.ctx, keep, time.Duration(timeout))
-					if err != nil {
-						p.logger.Warnf("exec: data pruning err: %v", err)
-						return
-					}
-					if p.config.Interval == once {
-						return
-					}
-				} else if p.config.Interval > 0 && counter%uint64(p.config.Interval) == 0 {
-					// then run at an interval
-					_, err := p.db.DeleteTransactions(p.ctx, keep, time.Duration(timeout)*time.Second)
-					if err != nil {
-						p.logger.Warnf("exec: data pruning err: %v", err)
-						return
-					}
-				} else if p.config.Interval == disabled {
-					p.logger.Infof("Interval %d. Data pruning is disabled", p.config.Interval)
-					return
-				} else if p.config.Interval < once {
-					p.logger.Infof("Interval %d. Invalid Interval value", p.config.Interval)
+		case <-time.After(p.duration):
+			currentRound := *round
+			if currentRound > p.config.Rounds && currentRound-keep >= uint64(p.config.Interval) {
+				keep = currentRound - p.config.Rounds + 1
+				_, err := p.db.DeleteTransactions(p.ctx, keep)
+				if err != nil {
+					p.logger.Warnf("Delete(): data pruning err: %v", err)
 					return
 				}
 			}
-			counter++
 		}
 	}
-}
-
-// Closed - if true, the data pruning process has exited and
-// stopped reading round from <-roundch
-func (p *postgresql) Closed() bool {
-	return p.close
 }
