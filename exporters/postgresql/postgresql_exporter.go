@@ -89,8 +89,7 @@ func (exp *postgresqlExporter) Init(cfg plugins.PluginConfig, logger *logrus.Log
 			exp.dm = util.MakeDataManager(exp.ctx, 0, &exp.cfg.Delete, exp.db, logger)
 		} else if exp.cfg.Delete.Interval > 0 {
 			exp.wg.Add(1)
-			currentRound := exp.round - 1
-			go exp.dm.Delete(&exp.wg, &currentRound)
+			go exp.dm.Delete(&exp.wg, &exp.round)
 		}
 	}
 	return nil

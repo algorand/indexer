@@ -42,7 +42,7 @@ type postgresql struct {
 }
 
 // MakeDataManager initializes resources need for removing data from data source
-func MakeDataManager(ctx context.Context, round uint64, cfg *PruneConfigurations, db idb.IndexerDb, logger *logrus.Logger) DataManager {
+func MakeDataManager(ctx context.Context, nextRound uint64, cfg *PruneConfigurations, db idb.IndexerDb, logger *logrus.Logger) DataManager {
 	c, cf := context.WithCancel(ctx)
 
 	dm := &postgresql{
@@ -53,9 +53,11 @@ func MakeDataManager(ctx context.Context, round uint64, cfg *PruneConfigurations
 		cf:       cf,
 		duration: d,
 	}
+
 	// delete transaction at start up when data pruning is enabled
-	if round > cfg.Rounds {
-		keep := round - cfg.Rounds + 1
+	if nextRound > cfg.Rounds {
+		// keep, remove data older than keep
+		keep := nextRound - cfg.Rounds
 		_, err := dm.db.DeleteTransactions(dm.ctx, keep)
 		if err != nil {
 			logger.Warnf("MakeDataManager(): data pruning err: %v", err)
@@ -65,27 +67,30 @@ func MakeDataManager(ctx context.Context, round uint64, cfg *PruneConfigurations
 }
 
 // Delete removes data from the txn table in Postgres DB
-func (p *postgresql) Delete(wg *sync.WaitGroup, round *uint64) {
+func (p *postgresql) Delete(wg *sync.WaitGroup, nextRound *uint64) {
 
 	defer func() {
 		p.cf()
 		wg.Done()
 	}()
-	// oldest round to keep
-	keep := *round
+	// round value used for interval calculation
+	round := *nextRound
 	for {
 		select {
 		case <-p.ctx.Done():
 			return
 		case <-time.After(p.duration):
-			currentRound := *round
-			if currentRound > p.config.Rounds && currentRound-keep >= uint64(p.config.Interval) {
-				keep = currentRound - p.config.Rounds + 1
+			currentRound := *nextRound
+			// *nextRound should increment as exporter receives new block
+			if currentRound > p.config.Rounds && currentRound-round >= uint64(p.config.Interval) {
+				keep := currentRound - p.config.Rounds
 				_, err := p.db.DeleteTransactions(p.ctx, keep)
 				if err != nil {
 					p.logger.Warnf("Delete(): data pruning err: %v", err)
 					return
 				}
+				// update round value for next interval calculation
+				round = currentRound
 			}
 		}
 	}

@@ -72,10 +72,10 @@ func TestDeleteTxns(t *testing.T) {
 
 	// add 20 records to txn table
 	ntxns := 20
-	_, err = populateTxnTable(db, 1, ntxns)
+	nextRound, err := populateTxnTable(db, 1, ntxns)
 	assert.NoError(t, err)
 	assert.Equal(t, ntxns, rowsInTxnTable(db))
-	delete(idb, uint64(ntxns))
+	delete(idb, uint64(nextRound))
 	// 10 rounds removed
 	assert.Equal(t, 10, rowsInTxnTable(db))
 	// check remaining rounds are correct
@@ -93,7 +93,7 @@ func TestDeleteConfigs(t *testing.T) {
 
 	// add 3 records to txn table
 	ntxns := 3
-	_, err = populateTxnTable(db, 1, ntxns)
+	nextRound, err := populateTxnTable(db, 1, ntxns)
 	assert.NoError(t, err)
 	assert.Equal(t, ntxns, rowsInTxnTable(db))
 
@@ -103,13 +103,13 @@ func TestDeleteConfigs(t *testing.T) {
 		Rounds:   5,
 	}
 
-	delete(idb, uint64(ntxns))
+	delete(idb, uint64(nextRound))
 	// delete didn't happen
 	assert.Equal(t, 3, rowsInTxnTable(db))
 
 	// config.Rounds == rounds in DB
 	config.Rounds = 3
-	delete(idb, uint64(ntxns))
+	delete(idb, uint64(nextRound))
 	// delete didn't happen
 	assert.Equal(t, 3, rowsInTxnTable(db))
 }
@@ -145,7 +145,7 @@ func TestDeleteInterval(t *testing.T) {
 	}
 
 	wg.Add(1)
-	round := uint64(nextRound - 1)
+	round := uint64(nextRound)
 	go dm.Delete(&wg, &round)
 	time.Sleep(1 * time.Second)
 	assert.Equal(t, 5, rowsInTxnTable(db))
@@ -183,7 +183,7 @@ func TestDeleteInterval(t *testing.T) {
 		Interval: -1,
 		Rounds:   1,
 	}
-	delete(idb, uint64(nextRound-1))
+	delete(idb, uint64(nextRound))
 	assert.Equal(t, 1, rowsInTxnTable(db))
 }
 
