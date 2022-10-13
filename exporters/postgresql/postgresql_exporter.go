@@ -141,16 +141,7 @@ func (exp *postgresqlExporter) Receive(exportData data.BlockData) error {
 
 func (exp *postgresqlExporter) HandleGenesis(genesis bookkeeping.Genesis) error {
 	_, err := importer.EnsureInitialImport(exp.db, genesis)
-	if err != nil {
-		return err
-	}
-	// update round
-	if rnd, err := exp.db.GetNextRoundToAccount(); err == nil {
-		exp.round = rnd
-	} else {
-		return fmt.Errorf("Init() err getting next round: %v", err)
-	}
-	return nil
+	return err
 }
 
 func (exp *postgresqlExporter) Round() uint64 {
