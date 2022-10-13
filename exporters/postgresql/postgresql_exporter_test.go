@@ -82,7 +82,9 @@ func TestReceiveInvalidBlock(t *testing.T) {
 	assert.NoError(t, pgsqlExp.Init(context.Background(), cfg, logger))
 
 	invalidBlock := data.BlockData{
-		BlockHeader: bookkeeping.BlockHeader{},
+		BlockHeader: bookkeeping.BlockHeader{
+			Round: 1,
+		},
 		Payset:      transactions.Payset{},
 		Certificate: &agreement.Certificate{},
 		Delta:       nil,
