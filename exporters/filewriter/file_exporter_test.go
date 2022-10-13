@@ -203,6 +203,7 @@ func sendData(t *testing.T, fileExp exporters.Exporter, config string, numRounds
 
 func TestExporterReceive(t *testing.T) {
 	config, tempdir := getConfig(t)
+	ctx := context.Background()
 	fileExp := fileCons.New()
 	numRounds := 5
 	sendData(t, fileExp, config, numRounds)
