@@ -192,7 +192,7 @@ func (p *pipelineImpl) Init() error {
 	exporterLogger.SetFormatter(makePluginLogFormatter(plugins.Exporter, (*p.exporter).Metadata().Name()))
 
 	jsonEncode := string(json.Encode(p.cfg.Exporter.Config))
-	err := (*p.exporter).Init(plugins.PluginConfig(jsonEncode), exporterLogger)
+	err := (*p.exporter).Init(p.ctx, plugins.PluginConfig(jsonEncode), exporterLogger)
 	exporterName := (*p.exporter).Metadata().Name()
 	if err != nil {
 		return fmt.Errorf("Pipeline.Start(): could not initialize Exporter (%s): %w", exporterName, err)

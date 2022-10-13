@@ -1,21 +1,22 @@
 package postgresql
 
 import (
+	"context"
 	"fmt"
+	"testing"
+
+	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
+	"github.com/stretchr/testify/assert"
+	"gopkg.in/yaml.v3"
+
 	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/indexer/data"
-	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
-	"gopkg.in/yaml.v3"
-	"testing"
-
 	_ "github.com/algorand/indexer/idb/dummy"
 	"github.com/algorand/indexer/plugins"
-
-	"github.com/stretchr/testify/assert"
 )
 
 var pgsqlConstructor = &Constructor{}
@@ -37,20 +38,20 @@ func TestExporterMetadata(t *testing.T) {
 func TestConnectDisconnectSuccess(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
 	cfg := plugins.PluginConfig("test: true\nconnection-string: ''")
-	assert.NoError(t, pgsqlExp.Init(cfg, logger))
+	assert.NoError(t, pgsqlExp.Init(context.Background(), cfg, logger))
 	assert.NoError(t, pgsqlExp.Close())
 }
 
 func TestConnectUnmarshalFailure(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
 	cfg := plugins.PluginConfig("'")
-	assert.ErrorContains(t, pgsqlExp.Init(cfg, logger), "connect failure in unmarshalConfig")
+	assert.ErrorContains(t, pgsqlExp.Init(context.Background(), cfg, logger), "connect failure in unmarshalConfig")
 }
 
 func TestConnectDbFailure(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
 	cfg := plugins.PluginConfig("")
-	assert.ErrorContains(t, pgsqlExp.Init(cfg, logger), "connect failure constructing db, postgres:")
+	assert.ErrorContains(t, pgsqlExp.Init(context.Background(), cfg, logger), "connect failure constructing db, postgres:")
 }
 
 func TestConfigDefault(t *testing.T) {
@@ -71,14 +72,14 @@ func TestDefaultRoundZero(t *testing.T) {
 func TestHandleGenesis(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
 	cfg := plugins.PluginConfig("test: true")
-	assert.NoError(t, pgsqlExp.Init(cfg, logger))
+	assert.NoError(t, pgsqlExp.Init(context.Background(), cfg, logger))
 	assert.NoError(t, pgsqlExp.HandleGenesis(bookkeeping.Genesis{}))
 }
 
 func TestReceiveInvalidBlock(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
 	cfg := plugins.PluginConfig("test: true")
-	assert.NoError(t, pgsqlExp.Init(cfg, logger))
+	assert.NoError(t, pgsqlExp.Init(context.Background(), cfg, logger))
 
 	invalidBlock := data.BlockData{
 		BlockHeader: bookkeeping.BlockHeader{},
@@ -93,7 +94,7 @@ func TestReceiveInvalidBlock(t *testing.T) {
 func TestReceiveAddBlockSuccess(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
 	cfg := plugins.PluginConfig("test: true")
-	assert.NoError(t, pgsqlExp.Init(cfg, logger))
+	assert.NoError(t, pgsqlExp.Init(context.Background(), cfg, logger))
 
 	block := data.BlockData{
 		BlockHeader: bookkeeping.BlockHeader{},

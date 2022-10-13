@@ -1,6 +1,7 @@
 package exporters
 
 import (
+	"context"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/plugins"
@@ -16,7 +17,7 @@ type Exporter interface {
 	// Typically used for things like initializing network connections.
 	// The ExporterConfig passed to Connect will contain the Unmarhsalled config file specific to this plugin.
 	// Should return an error if it fails--this will result in the Indexer process terminating.
-	Init(cfg plugins.PluginConfig, logger *logrus.Logger) error
+	Init(ctx context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) error
 
 	// Config returns the configuration options used to create an Exporter.
 	// Initialized during Connect, it should return nil until the Exporter has been Connected.
