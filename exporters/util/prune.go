@@ -41,7 +41,7 @@ type postgresql struct {
 }
 
 // MakeDataManager initializes resources need for removing data from data source
-func MakeDataManager(ctx context.Context, nextRound uint64, cfg *PruneConfigurations, db idb.IndexerDb, logger *logrus.Logger) DataManager {
+func MakeDataManager(ctx context.Context, cfg *PruneConfigurations, db idb.IndexerDb, logger *logrus.Logger) DataManager {
 
 	dm := &postgresql{
 		config:   cfg,
@@ -51,15 +51,6 @@ func MakeDataManager(ctx context.Context, nextRound uint64, cfg *PruneConfigurat
 		duration: d,
 	}
 
-	// delete transaction at start up when data pruning is enabled
-	if nextRound > cfg.Rounds {
-		// keep, remove data older than keep
-		keep := nextRound - cfg.Rounds
-		_, err := dm.db.DeleteTransactions(dm.ctx, keep)
-		if err != nil {
-			logger.Warnf("MakeDataManager(): data pruning err: %v", err)
-		}
-	}
 	return dm
 }
 
@@ -75,16 +66,28 @@ func (p *postgresql) Delete(wg *sync.WaitGroup, nextRound *uint64) {
 			return
 		case <-time.After(p.duration):
 			currentRound := *nextRound
-			// *nextRound should increment as exporter receives new block
-			if currentRound > p.config.Rounds && currentRound-round >= uint64(p.config.Interval) {
-				keep := currentRound - p.config.Rounds
-				_, err := p.db.DeleteTransactions(p.ctx, keep)
-				if err != nil {
-					p.logger.Warnf("Delete(): data pruning err: %v", err)
-					return
+			keep := currentRound - p.config.Rounds
+			if p.config.Interval == -1 {
+				// delete transaction at start up when data pruning is enabled
+				if currentRound > p.config.Rounds {
+					// keep, remove data older than keep
+					_, err := p.db.DeleteTransactions(p.ctx, keep)
+					if err != nil {
+						p.logger.Warnf("MakeDataManager(): data pruning err: %v", err)
+					}
 				}
-				// update round value for next interval calculation
-				round = currentRound
+				return
+			} else {
+				// *nextRound should increment as exporter receives new block
+				if currentRound > p.config.Rounds && currentRound-round >= uint64(p.config.Interval) {
+					_, err := p.db.DeleteTransactions(p.ctx, keep)
+					if err != nil {
+						p.logger.Warnf("Delete(): data pruning err: %v", err)
+						return
+					}
+					// update round value for next interval calculation
+					round = currentRound
+				}
 			}
 		}
 	}

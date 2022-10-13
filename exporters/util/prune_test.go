@@ -33,7 +33,7 @@ var config = PruneConfigurations{
 func delete(idb idb.IndexerDb, nextround uint64) DataManager {
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
-	dm := MakeDataManager(ctx, nextround, &config, idb, logger)
+	dm := MakeDataManager(ctx, &config, idb, logger)
 	wg.Add(1)
 	go dm.Delete(&wg, &nextround)
 	go func() {
