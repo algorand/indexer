@@ -140,7 +140,6 @@ func TestDeleteInterval(t *testing.T) {
 		db:       idb,
 		logger:   logger,
 		ctx:      ctx,
-		cf:       cf,
 		duration: 500 * time.Millisecond,
 	}
 
