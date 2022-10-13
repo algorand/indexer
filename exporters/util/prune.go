@@ -37,20 +37,17 @@ type postgresql struct {
 	db       idb.IndexerDb
 	logger   *logrus.Logger
 	ctx      context.Context
-	cf       context.CancelFunc
 	duration time.Duration
 }
 
 // MakeDataManager initializes resources need for removing data from data source
 func MakeDataManager(ctx context.Context, nextRound uint64, cfg *PruneConfigurations, db idb.IndexerDb, logger *logrus.Logger) DataManager {
-	c, cf := context.WithCancel(ctx)
 
 	dm := &postgresql{
 		config:   cfg,
 		db:       db,
 		logger:   logger,
-		ctx:      c,
-		cf:       cf,
+		ctx:      ctx,
 		duration: d,
 	}
 
@@ -69,10 +66,7 @@ func MakeDataManager(ctx context.Context, nextRound uint64, cfg *PruneConfigurat
 // Delete removes data from the txn table in Postgres DB
 func (p *postgresql) Delete(wg *sync.WaitGroup, nextRound *uint64) {
 
-	defer func() {
-		p.cf()
-		wg.Done()
-	}()
+	defer wg.Done()
 	// round value used for interval calculation
 	round := *nextRound
 	for {

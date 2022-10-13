@@ -2500,8 +2500,6 @@ func (db *IndexerDb) SetNetworkState(genesis bookkeeping.Genesis) error {
 // DeleteTransactions removes old transactions
 // keep is the number of rounds to keep in db
 func (db *IndexerDb) DeleteTransactions(ctx context.Context, keep uint64) (int64, error) {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
 	// delete old transactions and update metastate
 	deleteTxns := func() (int64, error) {
 		// start a transaction
