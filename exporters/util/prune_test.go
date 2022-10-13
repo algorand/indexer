@@ -37,7 +37,7 @@ func delete(idb idb.IndexerDb, nextround uint64) DataManager {
 	wg.Add(1)
 	go dm.Delete(&wg, &nextround)
 	go func() {
-		time.Sleep(1 * time.Second)
+		time.Sleep(3 * time.Second)
 		cancel()
 	}()
 	wg.Wait()
@@ -103,6 +103,7 @@ func TestDeleteConfigs(t *testing.T) {
 		Rounds:   5,
 	}
 
+	// config.Rounds > rounds in DB
 	delete(idb, uint64(nextRound))
 	// delete didn't happen
 	assert.Equal(t, 3, rowsInTxnTable(db))
@@ -112,6 +113,34 @@ func TestDeleteConfigs(t *testing.T) {
 	delete(idb, uint64(nextRound))
 	// delete didn't happen
 	assert.Equal(t, 3, rowsInTxnTable(db))
+
+	// config.Rounds == rounds in DB
+	config.Interval = -2
+	delete(idb, uint64(nextRound))
+	// delete didn't happen
+	assert.Equal(t, 3, rowsInTxnTable(db))
+	assert.Contains(t, hook.LastEntry().Message, "Delete(): unsupported interval value -2")
+
+	// run delete once
+	config = PruneConfigurations{
+		Interval: -1,
+		Rounds:   2,
+	}
+	var wg sync.WaitGroup
+	ctx := context.Background()
+	dm := postgresql{
+		config:   &config,
+		db:       idb,
+		logger:   logger,
+		ctx:      ctx,
+		duration: 500 * time.Millisecond,
+	}
+
+	wg.Add(1)
+	round := uint64(nextRound)
+	go dm.Delete(&wg, &round)
+	wg.Wait()
+	assert.Equal(t, 2, rowsInTxnTable(db))
 }
 
 func TestDeleteInterval(t *testing.T) {

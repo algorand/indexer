@@ -66,18 +66,18 @@ func (p *postgresql) Delete(wg *sync.WaitGroup, nextRound *uint64) {
 			return
 		case <-time.After(p.duration):
 			currentRound := *nextRound
+			// keep, remove data older than keep
 			keep := currentRound - p.config.Rounds
 			if p.config.Interval == -1 {
 				// delete transaction at start up when data pruning is enabled
 				if currentRound > p.config.Rounds {
-					// keep, remove data older than keep
 					_, err := p.db.DeleteTransactions(p.ctx, keep)
 					if err != nil {
 						p.logger.Warnf("MakeDataManager(): data pruning err: %v", err)
 					}
 				}
 				return
-			} else {
+			} else if p.config.Interval > 0 {
 				// *nextRound should increment as exporter receives new block
 				if currentRound > p.config.Rounds && currentRound-round >= uint64(p.config.Interval) {
 					_, err := p.db.DeleteTransactions(p.ctx, keep)
@@ -88,6 +88,9 @@ func (p *postgresql) Delete(wg *sync.WaitGroup, nextRound *uint64) {
 					// update round value for next interval calculation
 					round = currentRound
 				}
+			} else {
+				p.logger.Warnf("Delete(): unsupported interval value %v", p.config.Interval)
+				return
 			}
 		}
 	}
