@@ -1,6 +1,7 @@
 package filewriter
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -59,7 +60,7 @@ func (exp *fileExporter) Metadata() exporters.ExporterMetadata {
 	return fileExporterMetadata
 }
 
-func (exp *fileExporter) Init(cfg plugins.PluginConfig, logger *logrus.Logger) error {
+func (exp *fileExporter) Init(_ context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) error {
 	exp.logger = logger
 	var err error
 	exp.cfg, err = unmarshalConfig(string(cfg))

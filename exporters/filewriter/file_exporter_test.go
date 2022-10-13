@@ -1,6 +1,7 @@
 package filewriter
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -50,10 +51,11 @@ func TestExporterMetadata(t *testing.T) {
 
 func TestExporterInit(t *testing.T) {
 	config, tempdir := getConfig(t)
+	ctx := context.Background()
 	fileExp := fileCons.New()
 	assert.Equal(t, uint64(0), fileExp.Round())
 	// creates a new output file
-	err := fileExp.Init(plugins.PluginConfig(config), logger)
+	err := fileExp.Init(ctx, plugins.PluginConfig(config), logger)
 	assert.NoError(t, err)
 	pluginConfig := fileExp.Config()
 	configWithDefault := config + "filename-pattern: '%[1]d_block.json'\n" + "drop-certificate: false\n"
@@ -61,7 +63,7 @@ func TestExporterInit(t *testing.T) {
 	assert.Equal(t, uint64(0), fileExp.Round())
 	fileExp.Close()
 	// can open existing file
-	err = fileExp.Init(plugins.PluginConfig(config), logger)
+	err = fileExp.Init(ctx, plugins.PluginConfig(config), logger)
 	assert.NoError(t, err)
 	fileExp.Close()
 	// re-initializes empty file
@@ -70,16 +72,16 @@ func TestExporterInit(t *testing.T) {
 	f, err := os.Create(path)
 	f.Close()
 	assert.NoError(t, err)
-	err = fileExp.Init(plugins.PluginConfig(config), logger)
+	err = fileExp.Init(ctx, plugins.PluginConfig(config), logger)
 	assert.NoError(t, err)
 	fileExp.Close()
 }
 
 func TestExporterHandleGenesis(t *testing.T) {
 	config, tempdir := getConfig(t)
-
+	ctx := context.Background()
 	fileExp := fileCons.New()
-	fileExp.Init(plugins.PluginConfig(config), logger)
+	fileExp.Init(ctx, plugins.PluginConfig(config), logger)
 	genesisA := bookkeeping.Genesis{
 		SchemaID:    "test",
 		Network:     "test",
@@ -120,7 +122,7 @@ func TestExporterHandleGenesis(t *testing.T) {
 	}
 
 	// genesis mismatch
-	fileExp.Init(plugins.PluginConfig(config), logger)
+	fileExp.Init(ctx, plugins.PluginConfig(config), logger)
 	genesisB := bookkeeping.Genesis{
 		SchemaID:    "test",
 		Network:     "test",
@@ -139,6 +141,7 @@ func TestExporterHandleGenesis(t *testing.T) {
 }
 
 func sendData(t *testing.T, fileExp exporters.Exporter, config string, numRounds int) {
+	ctx := context.Background()
 	block := data.BlockData{
 		BlockHeader: bookkeeping.BlockHeader{
 			Round: 3,
@@ -152,7 +155,7 @@ func sendData(t *testing.T, fileExp exporters.Exporter, config string, numRounds
 	assert.Contains(t, err.Error(), "exporter not initialized")
 
 	// initialize
-	err = fileExp.Init(plugins.PluginConfig(config), logger)
+	err = fileExp.Init(ctx, plugins.PluginConfig(config), logger)
 	require.NoError(t, err)
 
 	// incorrect round
@@ -217,15 +220,16 @@ func TestExporterReceive(t *testing.T) {
 	}
 
 	//	should continue from round 6 after restart
-	fileExp.Init(plugins.PluginConfig(config), logger)
+	fileExp.Init(ctx, plugins.PluginConfig(config), logger)
 	assert.Equal(t, uint64(5), fileExp.Round())
 	fileExp.Close()
 }
 
 func TestExporterClose(t *testing.T) {
 	config, tempdir := getConfig(t)
+	ctx := context.Background()
 	fileExp := fileCons.New()
-	fileExp.Init(plugins.PluginConfig(config), logger)
+	fileExp.Init(ctx, plugins.PluginConfig(config), logger)
 	block := data.BlockData{
 		BlockHeader: bookkeeping.BlockHeader{
 			Round: 0,

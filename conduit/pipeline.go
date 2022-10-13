@@ -189,10 +189,12 @@ func (p *pipelineImpl) Init() error {
 
 	// Initialize Exporter first since the pipeline derives its round from the Exporter
 	exporterLogger := log.New()
+	// Make sure we are thread-safe
+	exporterLogger.SetOutput(p.logger.Out)
 	exporterLogger.SetFormatter(makePluginLogFormatter(plugins.Exporter, (*p.exporter).Metadata().Name()))
 
 	jsonEncode := string(json.Encode(p.cfg.Exporter.Config))
-	err := (*p.exporter).Init(plugins.PluginConfig(jsonEncode), exporterLogger)
+	err := (*p.exporter).Init(p.ctx, plugins.PluginConfig(jsonEncode), exporterLogger)
 	exporterName := (*p.exporter).Metadata().Name()
 	if err != nil {
 		return fmt.Errorf("Pipeline.Start(): could not initialize Exporter (%s): %w", exporterName, err)
@@ -201,6 +203,8 @@ func (p *pipelineImpl) Init() error {
 
 	// Initialize Importer
 	importerLogger := log.New()
+	// Make sure we are thread-safe
+	importerLogger.SetOutput(p.logger.Out)
 	importerName := (*p.importer).Metadata().Name()
 	importerLogger.SetFormatter(makePluginLogFormatter(plugins.Importer, importerName))
 
@@ -227,6 +231,8 @@ func (p *pipelineImpl) Init() error {
 
 	for idx, processor := range p.processors {
 		processorLogger := log.New()
+		// Make sure we are thread-safe
+		processorLogger.SetOutput(p.logger.Out)
 		processorLogger.SetFormatter(makePluginLogFormatter(plugins.Processor, (*processor).Metadata().Name()))
 		jsonEncode = string(json.Encode(p.cfg.Processors[idx].Config))
 		err := (*processor).Init(p.ctx, *p.initProvider, plugins.PluginConfig(jsonEncode), processorLogger)

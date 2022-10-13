@@ -1,10 +1,11 @@
 package exporters
 
 import (
+	"testing"
+
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 var logger *logrus.Logger
