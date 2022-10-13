@@ -1,6 +1,7 @@
 package noop
 
 import (
+	"context"
 	"fmt"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/indexer/data"
@@ -39,7 +40,7 @@ func (exp *noopExporter) Metadata() exporters.ExporterMetadata {
 	return noopExporterMetadata
 }
 
-func (exp *noopExporter) Init(cfg plugins.PluginConfig, _ *logrus.Logger) error {
+func (exp *noopExporter) Init(_ context.Context, cfg plugins.PluginConfig, _ *logrus.Logger) error {
 	if err := yaml.Unmarshal([]byte(cfg), &exp.cfg); err != nil {
 		return fmt.Errorf("init failure in unmarshalConfig: %v", err)
 	}

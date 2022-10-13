@@ -1,11 +1,13 @@
 package example
 
 import (
+	"context"
+	"testing"
+
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/plugins"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 var exCons = &Constructor{}
@@ -21,7 +23,7 @@ func TestExporterMetadata(t *testing.T) {
 }
 
 func TestExporterInit(t *testing.T) {
-	assert.Panics(t, func() { exExp.Init("", nil) })
+	assert.Panics(t, func() { exExp.Init(context.Background(), "", nil) })
 }
 
 func TestExporterConfig(t *testing.T) {

@@ -1,6 +1,7 @@
 package filewriter_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -37,17 +38,18 @@ func TestExporterMetadata(t *testing.T) {
 }
 
 func TestExporterInit(t *testing.T) {
+	ctx := context.Background()
 	fileExp := fileCons.New()
 	assert.Equal(t, uint64(0), fileExp.Round())
 	// creates a new output file
-	err := fileExp.Init(plugins.PluginConfig(config), logger)
+	err := fileExp.Init(ctx, plugins.PluginConfig(config), logger)
 	assert.NoError(t, err)
 	pluginConfig := fileExp.Config()
 	assert.Equal(t, config, string(pluginConfig))
 	assert.Equal(t, uint64(0), fileExp.Round())
 	fileExp.Close()
 	// can open existing file
-	err = fileExp.Init(plugins.PluginConfig(config), logger)
+	err = fileExp.Init(ctx, plugins.PluginConfig(config), logger)
 	assert.NoError(t, err)
 	fileExp.Close()
 	// re-initializes empty file
@@ -56,14 +58,15 @@ func TestExporterInit(t *testing.T) {
 	f, err := os.Create(path)
 	f.Close()
 	assert.NoError(t, err)
-	err = fileExp.Init(plugins.PluginConfig(config), logger)
+	err = fileExp.Init(ctx, plugins.PluginConfig(config), logger)
 	assert.NoError(t, err)
 	fileExp.Close()
 }
 
 func TestExporterHandleGenesis(t *testing.T) {
+	ctx := context.Background()
 	fileExp := fileCons.New()
-	fileExp.Init(plugins.PluginConfig(config), logger)
+	fileExp.Init(ctx, plugins.PluginConfig(config), logger)
 	genesisA := bookkeeping.Genesis{
 		SchemaID:    "test",
 		Network:     "test",
@@ -87,7 +90,7 @@ func TestExporterHandleGenesis(t *testing.T) {
 	assert.Equal(t, crypto.HashObj(genesisA).String(), blockMetaData.GenesisHash)
 
 	// genesis mismatch
-	fileExp.Init(plugins.PluginConfig(config), logger)
+	fileExp.Init(ctx, plugins.PluginConfig(config), logger)
 	genesisB := bookkeeping.Genesis{
 		SchemaID:    "test",
 		Network:     "test",
@@ -107,6 +110,7 @@ func TestExporterHandleGenesis(t *testing.T) {
 }
 
 func TestExporterReceive(t *testing.T) {
+	ctx := context.Background()
 	fileExp := fileCons.New()
 	block := data.BlockData{
 		BlockHeader: bookkeeping.BlockHeader{
@@ -121,7 +125,7 @@ func TestExporterReceive(t *testing.T) {
 	assert.Contains(t, err.Error(), "exporter not initialized")
 
 	// initialize
-	fileExp.Init(plugins.PluginConfig(config), logger)
+	fileExp.Init(ctx, plugins.PluginConfig(config), logger)
 
 	// incorrect round
 	err = fileExp.Receive(block)
@@ -168,14 +172,15 @@ func TestExporterReceive(t *testing.T) {
 	}
 
 	//	should continue from round 6 after restart
-	fileExp.Init(plugins.PluginConfig(config), logger)
+	fileExp.Init(ctx, plugins.PluginConfig(config), logger)
 	assert.Equal(t, uint64(5), fileExp.Round())
 	fileExp.Close()
 }
 
 func TestExporterClose(t *testing.T) {
+	ctx := context.Background()
 	fileExp := fileCons.New()
-	fileExp.Init(plugins.PluginConfig(config), logger)
+	fileExp.Init(ctx, plugins.PluginConfig(config), logger)
 	block := data.BlockData{
 		BlockHeader: bookkeeping.BlockHeader{
 			Round: 5,

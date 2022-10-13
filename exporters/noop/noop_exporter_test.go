@@ -1,13 +1,15 @@
 package noop
 
 import (
+	"context"
+	"testing"
+
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
 	"github.com/algorand/indexer/plugins"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
-	"testing"
 )
 
 var nc = &Constructor{}
@@ -31,7 +33,7 @@ func TestExporterMetadata(t *testing.T) {
 }
 
 func TestExporterInit(t *testing.T) {
-	assert.NoError(t, ne.Init("", nil))
+	assert.NoError(t, ne.Init(context.Background(), "", nil))
 }
 
 func TestExporterConfig(t *testing.T) {
@@ -40,7 +42,7 @@ func TestExporterConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unable to Marshal default noop.ExporterConfig: %v", err)
 	}
-	assert.NoError(t, ne.Init("", nil))
+	assert.NoError(t, ne.Init(context.Background(), "", nil))
 	assert.Equal(t, plugins.PluginConfig(expected), ne.Config())
 }
 
@@ -53,9 +55,9 @@ func TestExporterHandleGenesis(t *testing.T) {
 }
 
 func TestExporterStartRound(t *testing.T) {
-	assert.NoError(t, ne.Init("", nil))
+	assert.NoError(t, ne.Init(context.Background(), "", nil))
 	assert.Equal(t, uint64(0), ne.Round())
-	assert.NoError(t, ne.Init("round: 55", nil))
+	assert.NoError(t, ne.Init(context.Background(), "round: 55", nil))
 	assert.Equal(t, uint64(55), ne.Round())
 
 }

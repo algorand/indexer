@@ -221,7 +221,7 @@ func (m *mockExporter) Metadata() exporters.ExporterMetadata {
 	}
 }
 
-func (m *mockExporter) Init(_ plugins.PluginConfig, _ *log.Logger) error {
+func (m *mockExporter) Init(_ context.Context, _ plugins.PluginConfig, _ *log.Logger) error {
 	return nil
 }
 
