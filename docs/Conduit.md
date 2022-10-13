@@ -15,7 +15,7 @@
 
 Conduit is a framework which provides reusable components necessary for ingesting blocks from the Algorand blockchain into external applications. It is designed around a modular plugin system that allows users to configure their own data pipelines for filtering, aggregation, and storage of transactions and accounts on any Algorand network.
 
-## Building from source ##
+## Building from source
 
 Development is done using the [Go Programming Language](https://golang.org/), the version is specified in the project's [go.mod](go.mod) file.
 
@@ -23,14 +23,21 @@ Run `make` to build Conduit, the binary is located at `cmd/algorand-indexer/cond
 
 # Quickstart
 
-All recommendations here should be be used as a starting point. Further benchmarking should be done to verify performance is acceptible for any application using your particular Conduit pipeline.
+See the [Getting Started](conduit/GettingStarted.md) page.
+
+# Configuration
+
+See the [Configuration](conduit/Configuration.md) page.
+
+# Develoment
+
+See the [Development](conduit/Development.md) page for building a plugin.
 
 # Features
 
 # Plugin System
 A Conduit pipeline is composed of 3 components, [Importers](../importers/README.md), [Processors](../processors/README.md), and [Exporters](../exporters/README.md).
 Every pipeline must define exactly 1 Importer, 1 Exporter, and can optionally define a series of 0 or more Processors.
-
 
 The original Algorand Indexer has been defined as a Conduit pipeline via the [algorand-indexer](../cmd/algorand-indexer/daemon.go) executable, see [Migrating from Indexer](#migrating-from-indexer)
 
@@ -59,9 +66,3 @@ Conduit works by fetching blocks one at a time via the configured Importer, send
 Indexer was built in a way that strongly coupled it to Postgresql, and the defined REST API. We've built Conduit in a way which is backwards compatible with the preexisting Indexer application. Running the `algorand-indexer` binary will use Conduit to construct a pipeline that replicates the Indexer functionality.
 
 Going forward we will continue to maintain the Indexer application, however our main focus will be enabling and optimizing a multitude of use cases through the Conduit pipeline design rather the singular Indexer pipeline.
-
-# Building
-
-Conduit is built using an in-house task framework called [`mule`](https://pypi.org/project/mulecli/) (it has since been open-sourced).
-
-Please refer to the [build docs](../mule/README.md) in the `mule/` directory.
