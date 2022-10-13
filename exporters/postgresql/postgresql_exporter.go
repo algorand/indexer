@@ -85,11 +85,9 @@ func (exp *postgresqlExporter) Init(cfg plugins.PluginConfig, logger *logrus.Log
 	exp.ctx, exp.cf = context.WithCancel(context.Background())
 	// if data pruning is enabled
 	if !exp.cfg.Test && exp.cfg.Delete.Rounds > 0 {
-		if exp.cfg.Delete.Interval != 0 {
-			exp.dm = util.MakeDataManager(exp.ctx, &exp.cfg.Delete, exp.db, logger)
-			exp.wg.Add(1)
-			go exp.dm.Delete(&exp.wg, &exp.round)
-		}
+		exp.dm = util.MakeDataManager(exp.ctx, &exp.cfg.Delete, exp.db, logger)
+		exp.wg.Add(1)
+		go exp.dm.Delete(&exp.wg, &exp.round)
 	}
 	return nil
 }
