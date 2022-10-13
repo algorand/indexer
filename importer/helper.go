@@ -142,7 +142,10 @@ func importTar(imp Importer, tarfile io.Reader, logger *log.Logger, genesisReade
 		maybeFail(err, logger, "error decoding genesis, %v", err)
 	}
 
-	ld, err := util.MakeLedger(logger, false, &genesis, "")
+	dir, err := os.MkdirTemp(os.TempDir(), "indexer_import_tempdir")
+	maybeFail(err, logger, "Failed to make temp dir")
+
+	ld, err := util.MakeLedger(logger, false, &genesis, dir)
 	maybeFail(err, logger, "Cannot open ledger")
 
 	proc, err := blockprocessor.MakeBlockProcessorWithLedger(logger, ld, imp.ImportBlock)
