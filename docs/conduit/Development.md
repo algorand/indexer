@@ -42,3 +42,22 @@ Each plugin package contains an `all.go` file. Add your plugin to the import sta
 # Implement the interface
 
 Generally speaking, you can follow the code in one of the existing plugins.
+
+# Lifecycle
+
+## Init
+
+Each plugin will have it's `Init` function called once as the pipline is constructed.
+
+The context provided to this function should be saved, and used to terminate any long-running operations if necessary.
+
+## Per-round function
+
+Each plugin type has a function which is called once per round:
+* Importer: `GetBlock` called when a particular round is required. Generally this will be increasing over time.
+* Processor: `Process` called to process a round.
+* Exporter: `Receive` for consuming a round.
+
+## Close
+
+Called during a graceful shutdown. We make every effort to call this function, but it is not guaranteed.
