@@ -93,12 +93,16 @@ def main():
         from botocore import UNSIGNED
 
         s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
+        prefix = "indexer/e2e4"
         if "/" in tarname:
-            tarname = tarname.split("/")[1]
+            cmhash_tarnme = tarname.split("/")
+            cmhash = cmhash_tarnme[0]
+            tarname =cmhash_tarnme[1]
+            prefix+="/"+cmhash
             tarpath = os.path.join(tempdir, tarname)
         else:
             tarpath = os.path.join(tempdir, tarname)
-        prefix = "indexer/e2e4"
+
         success = firstFromS3Prefix(s3, bucket, prefix, tarname, outpath=tarpath)
         if not success:
             raise Exception(
