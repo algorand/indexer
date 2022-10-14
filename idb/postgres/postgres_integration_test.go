@@ -2329,9 +2329,8 @@ func TestDeleteTransactions(t *testing.T) {
 	}
 
 	// keep rounds >= 2
-	rowsDeleted, err := db.DeleteTransactions(context.Background(), 2)
+	err := db.DeleteTransactions(context.Background(), 2)
 	assert.NoError(t, err)
-	assert.Equal(t, int64(1), rowsDeleted)
 
 	// query txns
 	rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
@@ -2360,9 +2359,8 @@ func TestDeleteTransactions(t *testing.T) {
 	require.NoError(t, err)
 
 	// keep round 5
-	rowsDeleted, err = db.DeleteTransactions(context.Background(), 5)
+	err = db.DeleteTransactions(context.Background(), 5)
 	assert.NoError(t, err)
-	assert.Equal(t, int64(3), rowsDeleted)
 
 	// 2 txns in round 5
 	rowsCh, _ = db.Transactions(context.Background(), idb.TransactionFilter{})

@@ -135,24 +135,17 @@ func (_m *IndexerDb) Close() {
 }
 
 // DeleteTransactions provides a mock function with given fields: ctx, keep
-func (_m *IndexerDb) DeleteTransactions(ctx context.Context, keep uint64) (int64, error) {
+func (_m *IndexerDb) DeleteTransactions(ctx context.Context, keep uint64) error {
 	ret := _m.Called(ctx, keep)
 
-	var r0 int64
-	if rf, ok := ret.Get(0).(func(context.Context, uint64) int64); ok {
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, uint64) error); ok {
 		r0 = rf(ctx, keep)
 	} else {
-		r0 = ret.Get(0).(int64)
+		r0 = ret.Error(0)
 	}
 
-	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, uint64) error); ok {
-		r1 = rf(ctx, keep)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
+	return r0
 }
 
 // GetAccounts provides a mock function with given fields: ctx, opts

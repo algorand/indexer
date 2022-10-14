@@ -20,8 +20,6 @@ import (
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
-	"github.com/mattn/go-sqlite3"
-
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v4"
@@ -2499,22 +2497,15 @@ func (db *IndexerDb) SetNetworkState(genesis bookkeeping.Genesis) error {
 
 // DeleteTransactions removes old transactions
 // keep is the number of rounds to keep in db
-func (db *IndexerDb) DeleteTransactions(ctx context.Context, keep uint64) (int64, error) {
+func (db *IndexerDb) DeleteTransactions(ctx context.Context, keep uint64) error {
 	// delete old transactions and update metastate
-	deleteTxns := func() (int64, error) {
-		// start a transaction
-		tx, err2 := db.db.BeginTx(ctx, pgx.TxOptions{})
-		if err2 != nil {
-			return 0, fmt.Errorf("deleteTxns(): %w", err2)
-		}
-		defer tx.Rollback(ctx)
-
+	deleteTxns := func(tx pgx.Tx) error {
 		db.log.Infof("deleteTxns(): removing transactions before round %d", keep)
 		// delete query
 		query := "DELETE FROM txn WHERE round < $1"
 		cmd, err2 := tx.Exec(ctx, query, keep)
 		if err2 != nil {
-			return 0, fmt.Errorf("deleteTxns(): transaction delete err %w", err2)
+			return fmt.Errorf("deleteTxns(): transaction delete err %w", err2)
 		}
 		t := time.Now().UTC()
 		// update metastate
@@ -2524,34 +2515,18 @@ func (db *IndexerDb) DeleteTransactions(ctx context.Context, keep uint64) (int64
 			OldestRound: keep,
 		}
 		if err2 != nil {
-			return 0, fmt.Errorf("deleteTxns(): transaction delete err %w", err2)
+			return fmt.Errorf("deleteTxns(): transaction delete err %w", err2)
 		}
 		err2 = db.setMetastate(tx, schema.DeleteStatusKey, string(encoding.EncodeDeleteStatus(&status)))
 		if err2 != nil {
-			return 0, fmt.Errorf("deleteTxns(): metastate update err %w", err2)
-		}
-		// commit the transaction.
-		if err2 = tx.Commit(ctx); err2 != nil {
-			return 0, fmt.Errorf("deleteTxns(): delete transactions: %w", err2)
+			return fmt.Errorf("deleteTxns(): metastate update err %w", err2)
 		}
 		db.log.Infof("%d transactions deleted, last pruned at %s", cmd.RowsAffected(), status.LastPruned)
-		return cmd.RowsAffected(), nil
+		return nil
 	}
-	// retry
-	var rows int64
-	var err error
-	var sqliteErr sqlite3.Error
-
-	for i := 1; i <= 3; i++ {
-		rows, err = deleteTxns()
-		if errors.As(err, &sqliteErr) {
-			if sqliteErr.Code == sqlite3.ErrLocked || sqliteErr.Code == sqlite3.ErrBusy {
-				db.log.Infof("data pruning retry %d", i)
-				continue
-			}
-		} else if err == nil {
-			return rows, nil
-		}
+	err := db.txWithRetry(serializable, deleteTxns)
+	if err != nil {
+		return fmt.Errorf("DeleteTransactions err: %w", err)
 	}
-	return 0, err
+	return nil
 }

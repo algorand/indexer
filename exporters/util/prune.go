@@ -71,7 +71,7 @@ func (p *postgresql) Delete(wg *sync.WaitGroup, nextRound *uint64) {
 			if p.config.Interval == -1 {
 				// delete transaction at start up when data pruning is enabled
 				if currentRound > p.config.Rounds {
-					_, err := p.db.DeleteTransactions(p.ctx, keep)
+					err := p.db.DeleteTransactions(p.ctx, keep)
 					if err != nil {
 						p.logger.Warnf("MakeDataManager(): data pruning err: %v", err)
 					}
@@ -80,7 +80,7 @@ func (p *postgresql) Delete(wg *sync.WaitGroup, nextRound *uint64) {
 			} else if p.config.Interval > 0 {
 				// *nextRound should increment as exporter receives new block
 				if currentRound > p.config.Rounds && currentRound-round >= uint64(p.config.Interval) {
-					_, err := p.db.DeleteTransactions(p.ctx, keep)
+					err := p.db.DeleteTransactions(p.ctx, keep)
 					if err != nil {
 						p.logger.Warnf("Delete(): data pruning err: %v", err)
 						return
