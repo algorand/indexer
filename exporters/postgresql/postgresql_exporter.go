@@ -55,7 +55,8 @@ func (exp *postgresqlExporter) Metadata() exporters.ExporterMetadata {
 	return postgresqlExporterMetadata
 }
 
-func (exp *postgresqlExporter) Init(_ context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) error {
+func (exp *postgresqlExporter) Init(ctx context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) error {
+	exp.ctx, exp.cf = context.WithCancel(ctx)
 	dbName := "postgres"
 	exp.logger = logger
 	if err := exp.unmarhshalConfig(string(cfg)); err != nil {
@@ -82,7 +83,6 @@ func (exp *postgresqlExporter) Init(_ context.Context, cfg plugins.PluginConfig,
 	} else {
 		return fmt.Errorf("Init() err getting next round: %v", err)
 	}
-	exp.ctx, exp.cf = context.WithCancel(context.Background())
 	// if data pruning is enabled
 	if !exp.cfg.Test && exp.cfg.Delete.Rounds > 0 {
 		exp.dm = util.MakeDataManager(exp.ctx, &exp.cfg.Delete, exp.db, logger)
