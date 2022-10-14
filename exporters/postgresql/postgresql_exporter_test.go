@@ -54,7 +54,7 @@ func TestConnectUnmarshalFailure(t *testing.T) {
 func TestConnectDbFailure(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
 	cfg := plugins.PluginConfig("")
-	assert.ErrorContains(t, pgsqlExp.Init(context.Background(), testutil.MockedInitProvider(&round), cfg, logger), "connect failure constructing db, postgres:")
+	assert.ErrorContains(t, pgsqlExp.Init(context.Background(), testutil.MockedInitProvider(&round), cfg, logger), "connection string is empty for postgres")
 }
 
 func TestConfigDefault(t *testing.T) {
