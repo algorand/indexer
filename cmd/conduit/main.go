@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/algorand/indexer/conduit"
+	"github.com/algorand/indexer/loggers"
 )
 
 import (
@@ -22,6 +23,7 @@ import (
 )
 
 var (
+	loggerManager        *loggers.LoggerManager
 	logger               *log.Logger
 	conduitCmd           = makeConduitCmd()
 	initCmd              = makeInitCmd()
@@ -31,8 +33,9 @@ var (
 // init() function for main package
 func init() {
 
+	loggerManager = loggers.MakeLoggerManager(os.Stdout)
 	// Setup logger
-	logger = log.New()
+	logger = loggerManager.MakeLogger()
 
 	formatter := conduit.PluginLogFormatter{
 		Formatter: &log.JSONFormatter{
@@ -43,7 +46,6 @@ func init() {
 	}
 
 	logger.SetFormatter(&formatter)
-	logger.SetOutput(os.Stdout)
 
 	conduitCmd.AddCommand(initCmd)
 }
@@ -117,6 +119,8 @@ func makeConduitCmd() *cobra.Command {
 			return runConduitCmdWithConfig(cfg)
 		},
 		SilenceUsage: true,
+		// Silence errors because our logger will catch and print any errors
+		SilenceErrors: true,
 	}
 
 	cfg.Flags = cmd.Flags()
@@ -183,7 +187,7 @@ func makeInitCmd() *cobra.Command {
 
 func main() {
 	if err := conduitCmd.Execute(); err != nil {
-		log.Errorf("%v", err)
+		logger.Errorf("%v", err)
 		os.Exit(1)
 	}
 

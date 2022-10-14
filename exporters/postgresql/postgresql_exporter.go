@@ -1,6 +1,7 @@
 package postgresql
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/algorand/indexer/importer"
@@ -45,7 +46,7 @@ func (exp *postgresqlExporter) Metadata() exporters.ExporterMetadata {
 	return postgresqlExporterMetadata
 }
 
-func (exp *postgresqlExporter) Init(initProvider data.InitProvider, cfg plugins.PluginConfig, logger *logrus.Logger) error {
+func (exp *postgresqlExporter) Init(_ context.Context, initProvider data.InitProvider, cfg plugins.PluginConfig, logger *logrus.Logger) error {
 	dbName := "postgres"
 	exp.logger = logger
 	if err := exp.unmarhshalConfig(string(cfg)); err != nil {

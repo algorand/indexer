@@ -260,7 +260,7 @@ func (p *pipelineImpl) Init() error {
 	if err != nil {
 		return fmt.Errorf("Pipeline.Start(): could not serialize Exporter.Config : %w", err)
 	}
-	err = (*p.exporter).Init(*p.initProvider, plugins.PluginConfig(configs), exporterLogger)
+	err = (*p.exporter).Init(p.ctx, *p.initProvider, plugins.PluginConfig(configs), exporterLogger)
 	exporterName := (*p.exporter).Metadata().Name()
 	if err != nil {
 		return fmt.Errorf("Pipeline.Start(): could not initialize Exporter (%s): %w", exporterName, err)
@@ -460,15 +460,14 @@ func MakePipeline(ctx context.Context, cfg *PipelineConfig, logger *log.Logger) 
 	cancelContext, cancelFunc := context.WithCancel(ctx)
 
 	pipeline := &pipelineImpl{
-		ctx:              cancelContext,
-		cf:               cancelFunc,
-		cfg:              cfg,
-		logger:           logger,
-		initProvider:     nil,
-		importer:         nil,
-		processors:       []*processors.Processor{},
-		exporter:         nil,
-		pipelineMetadata: PipelineMetaData{},
+		ctx:          cancelContext,
+		cf:           cancelFunc,
+		cfg:          cfg,
+		logger:       logger,
+		initProvider: nil,
+		importer:     nil,
+		processors:   []*processors.Processor{},
+		exporter:     nil,
 	}
 
 	importerName := cfg.Importer.Name

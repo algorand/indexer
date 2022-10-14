@@ -223,7 +223,7 @@ func (m *mockExporter) Metadata() exporters.ExporterMetadata {
 	}
 }
 
-func (m *mockExporter) Init(_ data.InitProvider, _ plugins.PluginConfig, _ *log.Logger) error {
+func (m *mockExporter) Init(_ context.Context, _ plugins.PluginConfig, _ *log.Logger) error {
 	return nil
 }
 
@@ -250,6 +250,7 @@ func (m *mockExporter) Receive(exportData data.BlockData) error {
 
 // TestPipelineRun tests that running the pipeline calls the correct functions with mocking
 func TestPipelineRun(t *testing.T) {
+
 	mImporter := mockImporter{}
 	mImporter.On("GetBlock", mock.Anything).Return(uniqueBlockData, nil)
 	mProcessor := mockProcessor{}
@@ -298,6 +299,7 @@ func TestPipelineRun(t *testing.T) {
 
 // TestPipelineCpuPidFiles tests that cpu and pid files are created when specified
 func TestPipelineCpuPidFiles(t *testing.T) {
+
 	var pImporter importers.Importer = &mockImporter{}
 	var pProcessor processors.Processor = &mockProcessor{}
 	var pExporter exporters.Exporter = &mockExporter{}

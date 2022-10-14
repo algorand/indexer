@@ -1,6 +1,7 @@
 package filewriter
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -41,7 +42,7 @@ func (exp *fileExporter) Metadata() exporters.ExporterMetadata {
 	return fileExporterMetadata
 }
 
-func (exp *fileExporter) Init(initProvider data.InitProvider, cfg plugins.PluginConfig, logger *logrus.Logger) error {
+func (exp *fileExporter) Init(_ context.Context, initProvider data.InitProvider, cfg plugins.PluginConfig, logger *logrus.Logger) error {
 	exp.logger = logger
 	if err := exp.unmarhshalConfig(string(cfg)); err != nil {
 		return fmt.Errorf("connect failure in unmarshalConfig: %w", err)

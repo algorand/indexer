@@ -1,6 +1,7 @@
 package filewriter
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -39,7 +40,7 @@ func TestExporterInit(t *testing.T) {
 	config := fmt.Sprintf("block-dir: %s/blocks\n", t.TempDir())
 	fileExp := fileExporter{}
 	defer fileExp.Close()
-	err := fileExp.Init(testutil.MockedInitProvider(&round), plugins.PluginConfig(config), logger)
+	err := fileExp.Init(context.Background(), testutil.MockedInitProvider(&round), plugins.PluginConfig(config), logger)
 	assert.NoError(t, err)
 	pluginConfig := fileExp.Config()
 	assert.Equal(t, config, string(pluginConfig))
@@ -62,7 +63,7 @@ func TestExporterReceive(t *testing.T) {
 	err := fileExp.Receive(block)
 	assert.Contains(t, err.Error(), "exporter not initialized")
 
-	err = fileExp.Init(testutil.MockedInitProvider(&round), plugins.PluginConfig(config), logger)
+	err = fileExp.Init(context.Background(), testutil.MockedInitProvider(&round), plugins.PluginConfig(config), logger)
 	assert.Nil(t, err)
 	err = fileExp.Receive(block)
 	assert.Contains(t, err.Error(), "received round 3, expected round 2")

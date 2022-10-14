@@ -2,9 +2,10 @@ package conduit
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/algorand/go-algorand/util"
 	"github.com/spf13/pflag"
-	"strings"
 )
 
 // DefaultConfigName is the default conduit configuration filename.
@@ -19,7 +20,15 @@ type Config struct {
 
 func (cfg *Config) String() string {
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "Data Directory: %s ", cfg.ConduitDataDir)
+
+	var dataDirToPrint string
+	if cfg.ConduitDataDir == "" {
+		dataDirToPrint = "[EMPTY]"
+	} else {
+		dataDirToPrint = cfg.ConduitDataDir
+	}
+
+	fmt.Fprintf(&sb, "Data Directory: %s ", dataDirToPrint)
 
 	return sb.String()
 }

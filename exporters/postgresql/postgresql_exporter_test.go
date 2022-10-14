@@ -1,8 +1,14 @@
 package postgresql
 
 import (
+	"context"
 	"fmt"
 	"testing"
+
+	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
+	"github.com/stretchr/testify/assert"
+	"gopkg.in/yaml.v3"
 
 	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/data/basics"
@@ -10,15 +16,9 @@ import (
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/indexer/data"
-	testutil "github.com/algorand/indexer/util/test"
-	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
-	"gopkg.in/yaml.v3"
-
 	_ "github.com/algorand/indexer/idb/dummy"
 	"github.com/algorand/indexer/plugins"
-
-	"github.com/stretchr/testify/assert"
+	testutil "github.com/algorand/indexer/util/test"
 )
 
 var pgsqlConstructor = &Constructor{}
@@ -41,20 +41,20 @@ func TestExporterMetadata(t *testing.T) {
 func TestConnectDisconnectSuccess(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
 	cfg := plugins.PluginConfig("test: true\nconnection-string: ''")
-	assert.NoError(t, pgsqlExp.Init(testutil.MockedInitProvider(&round), cfg, logger))
+	assert.NoError(t, pgsqlExp.Init(context.Background(), testutil.MockedInitProvider(&round), cfg, logger))
 	assert.NoError(t, pgsqlExp.Close())
 }
 
 func TestConnectUnmarshalFailure(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
 	cfg := plugins.PluginConfig("'")
-	assert.ErrorContains(t, pgsqlExp.Init(testutil.MockedInitProvider(&round), cfg, logger), "connect failure in unmarshalConfig")
+	assert.ErrorContains(t, pgsqlExp.Init(context.Background(), testutil.MockedInitProvider(&round), cfg, logger), "connect failure in unmarshalConfig")
 }
 
 func TestConnectDbFailure(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
 	cfg := plugins.PluginConfig("")
-	assert.ErrorContains(t, pgsqlExp.Init(testutil.MockedInitProvider(&round), cfg, logger), "connection string is empty for postgres")
+	assert.ErrorContains(t, pgsqlExp.Init(context.Background(), testutil.MockedInitProvider(&round), cfg, logger), "connect failure constructing db, postgres:")
 }
 
 func TestConfigDefault(t *testing.T) {
@@ -70,7 +70,7 @@ func TestConfigDefault(t *testing.T) {
 func TestReceiveInvalidBlock(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
 	cfg := plugins.PluginConfig("test: true")
-	assert.NoError(t, pgsqlExp.Init(testutil.MockedInitProvider(&round), cfg, logger))
+	assert.NoError(t, pgsqlExp.Init(context.Background(), testutil.MockedInitProvider(&round), cfg, logger))
 
 	invalidBlock := data.BlockData{
 		BlockHeader: bookkeeping.BlockHeader{},
@@ -85,7 +85,7 @@ func TestReceiveInvalidBlock(t *testing.T) {
 func TestReceiveAddBlockSuccess(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
 	cfg := plugins.PluginConfig("test: true")
-	assert.NoError(t, pgsqlExp.Init(testutil.MockedInitProvider(&round), cfg, logger))
+	assert.NoError(t, pgsqlExp.Init(context.Background(), testutil.MockedInitProvider(&round), cfg, logger))
 
 	block := data.BlockData{
 		BlockHeader: bookkeeping.BlockHeader{},
@@ -94,12 +94,4 @@ func TestReceiveAddBlockSuccess(t *testing.T) {
 		Delta:       &ledgercore.StateDelta{},
 	}
 	assert.NoError(t, pgsqlExp.Receive(block))
-}
-
-func TestInitRoundCheck(t *testing.T) {
-	pgsqlExp := pgsqlConstructor.New()
-	cfg := plugins.PluginConfig("test: true")
-	round = 2
-	err := pgsqlExp.Init(testutil.MockedInitProvider(&round), cfg, logger)
-	assert.Contains(t, err.Error(), "initializing block round 2 but next round to account is 0")
 }
