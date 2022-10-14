@@ -202,6 +202,8 @@ func (p *pipelineImpl) Init() error {
 
 	// Initialize Importer
 	importerLogger := log.New()
+	// Make sure we are thread-safe
+	importerLogger.SetOutput(p.logger.Out)
 	importerName := (*p.importer).Metadata().Name()
 	importerLogger.SetFormatter(makePluginLogFormatter(plugins.Importer, importerName))
 
@@ -239,6 +241,8 @@ func (p *pipelineImpl) Init() error {
 	// Initialize Processors
 	for idx, processor := range p.processors {
 		processorLogger := log.New()
+		// Make sure we are thread-safe
+		processorLogger.SetOutput(p.logger.Out)
 		processorLogger.SetFormatter(makePluginLogFormatter(plugins.Processor, (*processor).Metadata().Name()))
 		configs, err = yaml.Marshal(p.cfg.Processors[idx].Config)
 		if err != nil {
@@ -254,6 +258,8 @@ func (p *pipelineImpl) Init() error {
 
 	// Initialize Exporter
 	exporterLogger := log.New()
+	// Make sure we are thread-safe
+	exporterLogger.SetOutput(p.logger.Out)
 	exporterLogger.SetFormatter(makePluginLogFormatter(plugins.Exporter, (*p.exporter).Metadata().Name()))
 
 	configs, err = yaml.Marshal(p.cfg.Exporter.Config)
