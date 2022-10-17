@@ -95,3 +95,21 @@ func TestReceiveAddBlockSuccess(t *testing.T) {
 	}
 	assert.NoError(t, pgsqlExp.Receive(block))
 }
+
+func TestPostgresqlExporterInit(t *testing.T) {
+	pgsqlExp := pgsqlConstructor.New()
+	cfg := plugins.PluginConfig("test: true")
+
+	// genesis hash mismatch
+	initProvider := testutil.MockedInitProvider(&round)
+	initProvider.Genesis = &bookkeeping.Genesis{
+		Network: "test",
+	}
+	err := pgsqlExp.Init(context.Background(), initProvider, cfg, logger)
+	assert.Contains(t, err.Error(), "error importing genesis: genesis hash not matching")
+
+	// incorrect round
+	round = 1
+	err = pgsqlExp.Init(context.Background(), testutil.MockedInitProvider(&round), cfg, logger)
+	assert.Contains(t, err.Error(), "initializing block round 1 but next round to account is 0")
+}

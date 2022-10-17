@@ -231,14 +231,6 @@ func (m *mockExporter) Close() error {
 	return nil
 }
 
-func (m *mockExporter) HandleGenesis(_ bookkeeping.Genesis) error {
-	return nil
-}
-
-func (m *mockExporter) Round() uint64 {
-	return 0
-}
-
 func (m *mockExporter) Receive(exportData data.BlockData) error {
 	var err error
 	if m.returnError {
@@ -481,11 +473,11 @@ func TestBlockMetaDataFile(t *testing.T) {
 	// Test that file is created
 	blockMetaDataFile := filepath.Join(datadir, "metadata.json")
 	_, err = os.Stat(blockMetaDataFile)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	// Test that file loads correctly
 	metaData, err := pImpl.initializeOrLoadBlockMetadata()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, pImpl.pipelineMetadata.GenesisHash, metaData.GenesisHash)
 	assert.Equal(t, pImpl.pipelineMetadata.NextRound, metaData.NextRound)
 	assert.Equal(t, pImpl.pipelineMetadata.Network, metaData.Network)
@@ -493,12 +485,20 @@ func TestBlockMetaDataFile(t *testing.T) {
 	// Test that file encodes correctly
 	pImpl.pipelineMetadata.GenesisHash = "HASH"
 	pImpl.pipelineMetadata.NextRound = 7
-	pImpl.encodeMetadataToFile()
+	err = pImpl.encodeMetadataToFile()
+	assert.NoError(t, err)
 	metaData, err = pImpl.initializeOrLoadBlockMetadata()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, "HASH", metaData.GenesisHash)
 	assert.Equal(t, uint64(7), metaData.NextRound)
 	assert.Equal(t, pImpl.pipelineMetadata.Network, metaData.Network)
+
+	// invalid file directory
+	pImpl.cfg.ConduitConfig.ConduitDataDir = "datadir"
+	metaData, err = pImpl.initializeOrLoadBlockMetadata()
+	assert.Contains(t, err.Error(), "Init(): error creating file")
+	err = pImpl.encodeMetadataToFile()
+	assert.Contains(t, err.Error(), "encodeMetadataToFile(): failed to create temp metadata file")
 }
 
 func TestGenesisHash(t *testing.T) {
@@ -545,7 +545,7 @@ func TestGenesisHash(t *testing.T) {
 
 	// read genesis hash from metadata.json
 	blockmetaData, err := pImpl.initializeOrLoadBlockMetadata()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, blockmetaData.GenesisHash, crypto.HashObj(&bookkeeping.Genesis{Network: "test"}).String())
 	assert.Equal(t, blockmetaData.Network, "test")
 
@@ -560,7 +560,7 @@ func TestInitError(t *testing.T) {
 	var pImporter importers.Importer = &mockImporter{genesis: bookkeeping.Genesis{Network: "test"}}
 	var pProcessor processors.Processor = &mockProcessor{}
 	var pExporter exporters.Exporter = &mockExporter{}
-	datadir := "fakedir"
+	datadir := "data"
 	pImpl := pipelineImpl{
 		cfg: &PipelineConfig{
 			ConduitConfig: &Config{
