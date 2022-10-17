@@ -555,3 +555,46 @@ func TestGenesisHash(t *testing.T) {
 	err = pImpl.Init()
 	assert.Contains(t, err.Error(), "genesis hash in metadata does not match")
 }
+
+func TestInitError(t *testing.T) {
+	var pImporter importers.Importer = &mockImporter{genesis: bookkeeping.Genesis{Network: "test"}}
+	var pProcessor processors.Processor = &mockProcessor{}
+	var pExporter exporters.Exporter = &mockExporter{}
+	datadir := "fakedir"
+	pImpl := pipelineImpl{
+		cfg: &PipelineConfig{
+			ConduitConfig: &Config{
+				Flags:          nil,
+				ConduitDataDir: datadir,
+			},
+			Importer: NameConfigPair{
+				Name:   "",
+				Config: map[string]interface{}{},
+			},
+			Processors: []NameConfigPair{
+				{
+					Name:   "",
+					Config: map[string]interface{}{},
+				},
+			},
+			Exporter: NameConfigPair{
+				Name:   "unknown",
+				Config: map[string]interface{}{},
+			},
+		},
+		logger:       log.New(),
+		initProvider: nil,
+		importer:     &pImporter,
+		processors:   []*processors.Processor{&pProcessor},
+		exporter:     &pExporter,
+		pipelineMetadata: PipelineMetaData{
+			GenesisHash: "",
+			Network:     "",
+			NextRound:   3,
+		},
+	}
+
+	// could not read metadata
+	err := pImpl.Init()
+	assert.Contains(t, err.Error(), "could not read metadata")
+}
