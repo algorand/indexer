@@ -114,13 +114,6 @@ func TestDeleteConfigs(t *testing.T) {
 	// delete didn't happen
 	assert.Equal(t, 3, rowsInTxnTable(db))
 
-	// config.Rounds == rounds in DB
-	config.Interval = -2
-	delete(idb, uint64(nextRound))
-	// delete didn't happen
-	assert.Equal(t, 3, rowsInTxnTable(db))
-	assert.Contains(t, hook.LastEntry().Message, "Delete(): unsupported interval value -2")
-
 	// run delete once
 	config = PruneConfigurations{
 		Interval: -1,
@@ -141,6 +134,7 @@ func TestDeleteConfigs(t *testing.T) {
 	go dm.DeleteLoop(&wg, &round)
 	wg.Wait()
 	assert.Equal(t, 2, rowsInTxnTable(db))
+
 }
 
 func TestDeleteInterval(t *testing.T) {
