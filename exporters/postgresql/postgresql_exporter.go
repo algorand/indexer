@@ -87,7 +87,7 @@ func (exp *postgresqlExporter) Init(ctx context.Context, cfg plugins.PluginConfi
 	if !exp.cfg.Test && exp.cfg.Delete.Rounds > 0 {
 		exp.dm = util.MakeDataManager(exp.ctx, &exp.cfg.Delete, exp.db, logger)
 		exp.wg.Add(1)
-		go exp.dm.Delete(&exp.wg, &exp.round)
+		go exp.dm.DeleteLoop(&exp.wg, &exp.round)
 	}
 	return nil
 }

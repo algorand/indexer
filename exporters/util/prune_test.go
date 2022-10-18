@@ -35,7 +35,7 @@ func delete(idb idb.IndexerDb, nextround uint64) DataManager {
 	ctx, cancel := context.WithCancel(context.Background())
 	dm := MakeDataManager(ctx, &config, idb, logger)
 	wg.Add(1)
-	go dm.Delete(&wg, &nextround)
+	go dm.DeleteLoop(&wg, &nextround)
 	go func() {
 		time.Sleep(3 * time.Second)
 		cancel()
@@ -138,7 +138,7 @@ func TestDeleteConfigs(t *testing.T) {
 
 	wg.Add(1)
 	round := uint64(nextRound)
-	go dm.Delete(&wg, &round)
+	go dm.DeleteLoop(&wg, &round)
 	wg.Wait()
 	assert.Equal(t, 2, rowsInTxnTable(db))
 }
@@ -174,7 +174,7 @@ func TestDeleteInterval(t *testing.T) {
 
 	wg.Add(1)
 	round := uint64(nextRound)
-	go dm.Delete(&wg, &round)
+	go dm.DeleteLoop(&wg, &round)
 	time.Sleep(1 * time.Second)
 	assert.Equal(t, 5, rowsInTxnTable(db))
 
