@@ -2514,9 +2514,6 @@ func (db *IndexerDb) DeleteTransactions(ctx context.Context, keep uint64) error 
 			LastPruned:  t.Format(time.RFC3339),
 			OldestRound: keep,
 		}
-		if err2 != nil {
-			return fmt.Errorf("deleteTxns(): transaction delete err %w", err2)
-		}
 		err2 = db.setMetastate(tx, schema.DeleteStatusKey, string(encoding.EncodeDeleteStatus(&status)))
 		if err2 != nil {
 			return fmt.Errorf("deleteTxns(): metastate update err %w", err2)

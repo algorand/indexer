@@ -29,7 +29,7 @@ type PruneConfigurations struct {
 
 // DataManager is a data pruning interface
 type DataManager interface {
-	Delete(*sync.WaitGroup, *uint64)
+	DeleteLoop(*sync.WaitGroup, *uint64)
 }
 
 type postgresql struct {
@@ -54,8 +54,8 @@ func MakeDataManager(ctx context.Context, cfg *PruneConfigurations, db idb.Index
 	return dm
 }
 
-// Delete removes data from the txn table in Postgres DB
-func (p *postgresql) Delete(wg *sync.WaitGroup, nextRound *uint64) {
+// DeleteLoop removes data from the txn table in Postgres DB
+func (p *postgresql) DeleteLoop(wg *sync.WaitGroup, nextRound *uint64) {
 
 	defer wg.Done()
 	// round value used for interval calculation
@@ -68,8 +68,7 @@ func (p *postgresql) Delete(wg *sync.WaitGroup, nextRound *uint64) {
 			currentRound := *nextRound
 			// keep, remove data older than keep
 			keep := currentRound - p.config.Rounds
-			if p.config.Interval == -1 {
-				// delete transaction at start up when data pruning is enabled
+			if p.config.Interval == once {
 				if currentRound > p.config.Rounds {
 					err := p.db.DeleteTransactions(p.ctx, keep)
 					if err != nil {
@@ -77,19 +76,19 @@ func (p *postgresql) Delete(wg *sync.WaitGroup, nextRound *uint64) {
 					}
 				}
 				return
-			} else if p.config.Interval > 0 {
+			} else if p.config.Interval > disabled {
 				// *nextRound should increment as exporter receives new block
 				if currentRound > p.config.Rounds && currentRound-round >= uint64(p.config.Interval) {
 					err := p.db.DeleteTransactions(p.ctx, keep)
 					if err != nil {
-						p.logger.Warnf("Delete(): data pruning err: %v", err)
+						p.logger.Warnf("DeleteLoop(): data pruning err: %v", err)
 						return
 					}
 					// update round value for next interval calculation
 					round = currentRound
 				}
 			} else {
-				p.logger.Warnf("Delete(): unsupported interval value %v", p.config.Interval)
+				p.logger.Fatalf("DeleteLoop(): unsupported interval value %v", p.config.Interval)
 				return
 			}
 		}
