@@ -1,6 +1,6 @@
 # Plugin Configuration
 
-Each plugin is identified by a `Name`, and provided the `Config` during initialization.
+Each plugin is identified by a `name`, and provided the `config` during initialization.
 
 ## Importers
 

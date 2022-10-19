@@ -7,9 +7,9 @@ Block data from the Algod REST API contains the block header, transactions, and 
 
 # Config
 ```yaml
-Importer:
-    Name: algod
-    Config:
+importer:
+    name: algod
+    config:
       - netaddr: "algod URL"
         token: "algod REST API token"
 ```

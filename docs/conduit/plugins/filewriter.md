@@ -6,9 +6,9 @@ Data is written to one file per block in JSON format.
 
 # Config
 ```yaml
-Exporter:
-  - Name: filewriter
-    Config:
+exporter:
+  - name: filewriter
+    config:
       - block-dir: "path to write block data"
 ```
 

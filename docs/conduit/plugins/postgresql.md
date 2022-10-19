@@ -13,9 +13,9 @@ For additional details, refer to the [parsing documentation here](https://pkg.go
 
 # Config
 ```yaml
-Exporter:
-  - Name: postgresql
-    Config:
+exporter:
+  - name: postgresql
+    config:
       - connection-string: "postgres connection string"
         max-conn: "connection pool setting, maximum active queries"
         test: "a boolean, when true a mock database is used"

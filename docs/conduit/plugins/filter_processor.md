@@ -44,9 +44,9 @@ The input to the expression. A number or string depending on the expression type
 
 # Config
 ```yaml
-Processors:
-  - Name: filter_processor
-    Config:
+processors:
+  - name: filter_processor
+    config:
       - filters:
           - any
               - tag:

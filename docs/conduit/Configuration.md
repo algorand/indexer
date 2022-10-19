@@ -10,33 +10,33 @@ There are several top level configurations for configuring behavior of the condu
 Here is an example configuration which shows the general format:
 ```yaml
 # optional: if present perform runtime profiling and put results in this file.
-CPUProfile: "path to cpu profile file."
+cpu-profile: "path to cpu profile file."
 
 # optional: maintain a pidfile for the life of the conduit process.
-PIDFilePath: "path to pid file."
+pid-filepath: "path to pid file."
 
 # optional: level to use for logging.
-LogLevel: "INFO, WARN, ERROR"
+log-level: "INFO, WARN, ERROR"
 
 # Define one importer.
-Importer:
-    Name:
-    Config:
+importer:
+    name:
+    config:
 
 # Define one or more processors.
-Processors:
-  - Name:
-    Config:
-  - Name:
-    Config:
+processors:
+  - name:
+    config:
+  - name:
+    config:
 
 # Define one exporter.
-Exporter:
-    Name:
-    Config
+exporter:
+    name:
+    config
 ```
 
 ## Plugin configuration
 
 See [plugins/home.md](plugins/home.md) for details.
-Each plugin is identified by a `Name`, and provided the `Config` during initialization.
+Each plugin is identified by a `name`, and provided the `config` during initialization.
