@@ -2,6 +2,7 @@ package dummy
 
 import (
 	"context"
+
 	"github.com/algorand/go-algorand/crypto"
 
 	"github.com/algorand/go-algorand/data/bookkeeping"
@@ -96,5 +97,10 @@ func (db *dummyIndexerDb) GetNetworkState() (state idb.NetworkState, err error) 
 
 // SetNetworkState is part of idb.IndexerDB
 func (db *dummyIndexerDb) SetNetworkState(genesis bookkeeping.Genesis) error {
+	return nil
+}
+
+// SetNetworkState is part of idb.IndexerDB
+func (db *dummyIndexerDb) DeleteTransactions(ctx context.Context, keep uint64) error {
 	return nil
 }
