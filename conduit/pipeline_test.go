@@ -457,13 +457,27 @@ func TestPipelineMetricsConfigs(t *testing.T) {
 		ctx:          ctx,
 	}
 	defer pImpl.cf()
+
+	getMetrics := func() (*http.Response, error) {
+		resp0, err0 := http.Get(fmt.Sprintf("http://localhost%s/metrics", pImpl.cfg.Metrics.Addr))
+		return resp0, err0
+	}
+	// metrics should be OFF by default
 	err := pImpl.Init()
 	assert.NoError(t, err)
-
-	// metrics should be OFF by default
-	_, err = http.Get("https://localhost:8081")
-	assert.Error(t, err)
 	time.Sleep(1 * time.Second)
+	_, err = getMetrics()
+	assert.Error(t, err)
+
+	// metrics mode OFF
+	pImpl.cfg.Metrics = Metrics{
+		Mode: "OFF",
+		Addr: ":8081",
+	}
+	pImpl.Init()
+	time.Sleep(1 * time.Second)
+	_, err = getMetrics()
+	assert.Error(t, err)
 
 	// metrics mode ON
 	pImpl.cfg.Metrics = Metrics{
@@ -472,7 +486,7 @@ func TestPipelineMetricsConfigs(t *testing.T) {
 	}
 	pImpl.Init()
 	time.Sleep(1 * time.Second)
-	resp, err := http.Get(fmt.Sprintf("http://localhost%s/metrics", pImpl.cfg.Metrics.Addr))
+	resp, err := getMetrics()
 	assert.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
 }
