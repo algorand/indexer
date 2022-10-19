@@ -3,14 +3,20 @@ package conduit
 import (
 	"context"
 	"fmt"
-	"github.com/algorand/indexer/util/metrics"
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
+	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime/pprof"
 	"sync"
 	"time"
+
+	"github.com/algorand/indexer/api/middlewares"
+	"github.com/algorand/indexer/util/metrics"
+	echo_contrib "github.com/labstack/echo-contrib/prometheus"
+	"github.com/labstack/echo/v4"
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand/data/basics"
@@ -33,6 +39,11 @@ type NameConfigPair struct {
 	Config map[string]interface{} `yaml:"Config"`
 }
 
+type Metrics struct {
+	Mode string `yaml:"Mode"`
+	Addr string `yaml:"Addr"`
+}
+
 // PipelineConfig stores configuration specific to the conduit pipeline
 type PipelineConfig struct {
 	ConduitConfig *Config
@@ -45,6 +56,7 @@ type PipelineConfig struct {
 	Importer   NameConfigPair   `yaml:"Importer"`
 	Processors []NameConfigPair `yaml:"Processors"`
 	Exporter   NameConfigPair   `yaml:"Exporter"`
+	Metrics    Metrics          `yaml:"Metrics"`
 }
 
 // Valid validates pipeline config
@@ -78,7 +90,6 @@ func MakePipelineConfig(logger *log.Logger, cfg *Config) (*PipelineConfig, error
 	if err := cfg.Valid(); err != nil {
 		return nil, fmt.Errorf("MakePipelineConfig(): %w", err)
 	}
-
 	pCfg := PipelineConfig{PipelineLogLevel: logger.Level.String(), ConduitConfig: cfg}
 
 	// Search for pipeline configuration in data directory
@@ -197,7 +208,7 @@ func (p *pipelineImpl) Init() error {
 	err := (*p.exporter).Init(p.ctx, plugins.PluginConfig(jsonEncode), exporterLogger)
 	exporterName := (*p.exporter).Metadata().Name()
 	if err != nil {
-		return fmt.Errorf("Pipeline.Start(): could not initialize Exporter (%s): %w", exporterName, err)
+		return fmt.Errorf("Pipeline.Init(): could not initialize Exporter (%s): %w", exporterName, err)
 	}
 	p.logger.Infof("Initialized Exporter: %s", exporterName)
 
@@ -218,7 +229,7 @@ func (p *pipelineImpl) Init() error {
 	p.round = basics.Round((*p.exporter).Round())
 	err = (*p.exporter).HandleGenesis(*genesis)
 	if err != nil {
-		return fmt.Errorf("Pipeline.Start(): exporter could not handle genesis (%s): %w", exporterName, err)
+		return fmt.Errorf("Pipeline.Init(): exporter could not handle genesis (%s): %w", exporterName, err)
 	}
 	p.logger.Infof("Initialized Importer: %s", importerName)
 
@@ -238,9 +249,14 @@ func (p *pipelineImpl) Init() error {
 		err := (*processor).Init(p.ctx, *p.initProvider, plugins.PluginConfig(jsonEncode), processorLogger)
 		processorName := (*processor).Metadata().Name()
 		if err != nil {
-			return fmt.Errorf("Pipeline.Start(): could not initialize processor (%s): %w", processorName, err)
+			return fmt.Errorf("Pipeline.Init(): could not initialize processor (%s): %w", processorName, err)
 		}
 		p.logger.Infof("Initialized Processor: %s", processorName)
+	}
+
+	// start metrics server
+	if p.cfg.Metrics.Mode == "ON" || p.cfg.Metrics.Mode == "VERBOSE" {
+		go p.startMetricsServer()
 	}
 
 	return err
@@ -360,6 +376,35 @@ func (p *pipelineImpl) Start() {
 
 func (p *pipelineImpl) Wait() {
 	p.wg.Wait()
+}
+
+// start a http server serving /metrics
+func (p *pipelineImpl) startMetricsServer() {
+	e := echo.New()
+	e.HideBanner = true
+	pth := echo_contrib.NewPrometheus("indexer", nil, nil)
+	if p.cfg.Metrics.Mode == "VERBOSE" {
+		pth.RequestCounterURLLabelMappingFunc = middlewares.PrometheusPathMapperVerbose
+	} else {
+		pth.RequestCounterURLLabelMappingFunc = middlewares.PrometheusPathMapper404Sink
+	}
+	// This call installs the prometheus metrics collection middleware and
+	// the "/metrics" handler.
+	pth.Use(e)
+	getctx := func(l net.Listener) context.Context {
+		return p.ctx
+	}
+	s := &http.Server{
+		Addr:        p.cfg.Metrics.Addr,
+		BaseContext: getctx,
+	}
+	go func() {
+		if err := e.StartServer(s); err != nil {
+			p.logger.Fatalf("Serve() err: %s", err)
+		}
+	}()
+	p.logger.Infof("conduit metrics serving on %s", s.Addr)
+	<-p.ctx.Done()
 }
 
 // MakePipeline creates a Pipeline

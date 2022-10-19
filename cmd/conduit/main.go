@@ -7,18 +7,15 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/algorand/indexer/util/metrics"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
 	"github.com/algorand/indexer/conduit"
-	"github.com/algorand/indexer/loggers"
-)
-
-import (
-	// We need to import these so that the package wide init() function gets called
 	_ "github.com/algorand/indexer/exporters/all"
 	_ "github.com/algorand/indexer/importers/all"
+	"github.com/algorand/indexer/loggers"
 	_ "github.com/algorand/indexer/processors/all"
 )
 
@@ -48,6 +45,7 @@ func init() {
 	logger.SetFormatter(&formatter)
 
 	conduitCmd.AddCommand(initCmd)
+	metrics.RegisterPrometheusMetrics()
 }
 
 // runConduitCmdWithConfig run the main logic with a supplied conduit config
