@@ -10,7 +10,7 @@ func TestConfigDeserialize(t *testing.T) {
 
 	configStr := `---
                   catchpoint: "acatch"
-                  indexer-data-dir: "idx_data_dir"
+                  data-dir: "idx_data_dir"
                   algod-data-dir: "algod_data_dir"
                   algod-token: "algod_token"
                   algod-addr: "algod_addr"

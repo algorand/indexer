@@ -35,28 +35,29 @@ func init() {
 
 // NameConfigPair is a generic structure used across plugin configuration ser/de
 type NameConfigPair struct {
-	Name   string                 `yaml:"Name"`
-	Config map[string]interface{} `yaml:"Config"`
+	Name   string                 `yaml:"name"`
+	Config map[string]interface{} `yaml:"config"`
 }
 
+// Metrics configs for turning on the /metrics endpoint for prometheus metrics
 type Metrics struct {
-	Mode string `yaml:"Mode"`
-	Addr string `yaml:"Addr"`
+	Mode string `yaml:"mode"`
+	Addr string `yaml:"addr"`
 }
 
 // PipelineConfig stores configuration specific to the conduit pipeline
 type PipelineConfig struct {
 	ConduitConfig *Config
 
-	CPUProfile  string `yaml:"CPUProfile"`
-	PIDFilePath string `yaml:"PIDFilePath"`
+	CPUProfile  string `yaml:"cpu-profile"`
+	PIDFilePath string `yaml:"pid-filepath"`
 
-	PipelineLogLevel string `yaml:"LogLevel"`
+	PipelineLogLevel string `yaml:"log-level"`
 	// Store a local copy to access parent variables
-	Importer   NameConfigPair   `yaml:"Importer"`
-	Processors []NameConfigPair `yaml:"Processors"`
-	Exporter   NameConfigPair   `yaml:"Exporter"`
-	Metrics    Metrics          `yaml:"Metrics"`
+	Importer   NameConfigPair   `yaml:"importer"`
+	Processors []NameConfigPair `yaml:"processors"`
+	Exporter   NameConfigPair   `yaml:"exporter"`
+	Metrics    Metrics          `yaml:"metrics"`
 }
 
 // Valid validates pipeline config
