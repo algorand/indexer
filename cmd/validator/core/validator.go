@@ -147,7 +147,7 @@ func CallProcessor(processor Processor, addrInput string, config Params, results
 	for i := 0; true; i++ {
 		indexerData, err := getData(indexerDataURL, config.IndexerToken)
 		if err != nil {
-			err = fmt.Errorf("error getting indexer data (%d): %w", indexerData, err)
+			err = fmt.Errorf("error getting indexer data (%s): %w", indexerData, err)
 			switch {
 			case strings.Contains(string(indexerData), api.ErrResultLimitReached):
 				results <- resultSkip(err, addr, SkipLimitReached)
