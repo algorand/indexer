@@ -262,19 +262,21 @@ func TestPipelineRun(t *testing.T) {
 	var pImporter importers.Importer = &mImporter
 	var pProcessor processors.Processor = &mProcessor
 	var pExporter exporters.Exporter = &mExporter
+	var cbComplete Completed = &mProcessor
 
 	ctx, cf := context.WithCancel(context.Background())
 
 	pImpl := pipelineImpl{
-		ctx:          ctx,
-		cf:           cf,
-		cfg:          &PipelineConfig{},
-		logger:       log.New(),
-		initProvider: nil,
-		importer:     &pImporter,
-		processors:   []*processors.Processor{&pProcessor},
-		exporter:     &pExporter,
-		round:        0,
+		ctx:              ctx,
+		cf:               cf,
+		cfg:              &PipelineConfig{},
+		logger:           log.New(),
+		initProvider:     nil,
+		importer:         &pImporter,
+		processors:       []*processors.Processor{&pProcessor},
+		completeCallback: []Completed{cbComplete},
+		exporter:         &pExporter,
+		round:            0,
 	}
 
 	go func() {
