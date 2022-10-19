@@ -4,7 +4,7 @@ Each plugin is identified by a `name`, and provided the `config` during initiali
 
 ## Importers
 
-* [algod.md](algod.md)
+* [algod](algod.md)
 
 ## Processors
 * [block_evaluator](block_evaluator.md)
