@@ -738,3 +738,19 @@ func DecodeTrimmedLcAccountData(data []byte) (ledgercore.AccountData, error) {
 
 	return unconvertTrimmedLcAccountData(ba), nil
 }
+
+// EncodeDeleteStatus encodes network metastate into json.
+func EncodeDeleteStatus(p *types.DeleteStatus) []byte {
+	return encodeJSON(p)
+}
+
+// DecodeDeleteStatus decodes network metastate from json.
+func DecodeDeleteStatus(data []byte) (types.DeleteStatus, error) {
+	var status types.DeleteStatus
+	err := DecodeJSON(data, &status)
+	if err != nil {
+		return types.DeleteStatus{}, fmt.Errorf("DecodeDeleteStatus() err: %w", err)
+	}
+
+	return status, nil
+}
