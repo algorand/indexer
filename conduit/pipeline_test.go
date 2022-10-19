@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
@@ -421,4 +422,57 @@ func TestPipelineErrors(t *testing.T) {
 	pImpl.Wait()
 	assert.Error(t, pImpl.Error(), fmt.Errorf("exporter"))
 
+}
+
+func TestPipelineMetricsConfigs(t *testing.T) {
+	var pImporter importers.Importer = &mockImporter{}
+	var pProcessor processors.Processor = &mockProcessor{}
+	var pExporter exporters.Exporter = &mockExporter{}
+	ctx, cf := context.WithCancel(context.Background())
+	pImpl := pipelineImpl{
+		cfg: &PipelineConfig{
+			Importer: NameConfigPair{
+				Name:   "",
+				Config: map[string]interface{}{},
+			},
+			Processors: []NameConfigPair{
+				{
+					Name:   "",
+					Config: map[string]interface{}{},
+				},
+			},
+			Exporter: NameConfigPair{
+				Name:   "",
+				Config: map[string]interface{}{},
+			},
+			Metrics: Metrics{},
+		},
+		logger:       log.New(),
+		initProvider: nil,
+		importer:     &pImporter,
+		processors:   []*processors.Processor{&pProcessor},
+		exporter:     &pExporter,
+		round:        0,
+		cf:           cf,
+		ctx:          ctx,
+	}
+	defer pImpl.cf()
+	err := pImpl.Init()
+	assert.NoError(t, err)
+
+	// metrics should be OFF by default
+	_, err = http.Get("https://localhost:8081")
+	assert.Error(t, err)
+	time.Sleep(1 * time.Second)
+
+	// metrics mode ON
+	pImpl.cfg.Metrics = Metrics{
+		Mode: "ON",
+		Addr: ":8081",
+	}
+	pImpl.Init()
+	time.Sleep(1 * time.Second)
+	resp, err := http.Get(fmt.Sprintf("http://localhost%s/metrics", pImpl.cfg.Metrics.Addr))
+	assert.NoError(t, err)
+	assert.Equal(t, 200, resp.StatusCode)
 }
