@@ -122,7 +122,7 @@ func Start(work <-chan string, processorID ProcessorID, threads int, config Para
 func CallProcessor(processor Processor, addrInput string, config Params, results chan<- Result) {
 	addr, err := normalizeAddress(addrInput)
 	if err != nil {
-		results <- resultError(err, addrInput)
+		results <- resultError(err, addr)
 		return
 	}
 
@@ -133,8 +133,13 @@ func CallProcessor(processor Processor, addrInput string, config Params, results
 	// catches up with the first algod account query.
 	algodData, err := getData(algodDataURL, config.AlgodToken)
 	if err != nil {
-		err = fmt.Errorf("error getting algod data (%d): %w", algodData, err)
-		results <- resultError(err, addrInput)
+		err = fmt.Errorf("error getting algod data (%s): %w", algodData, err)
+		switch {
+		case strings.Contains(string(algodData), api.ErrResultLimitReached):
+			results <- resultSkip(err, addr, SkipLimitReached)
+		default:
+			results <- resultError(err, addr)
+		}
 		return
 	}
 
@@ -145,11 +150,11 @@ func CallProcessor(processor Processor, addrInput string, config Params, results
 			err = fmt.Errorf("error getting indexer data (%d): %w", indexerData, err)
 			switch {
 			case strings.Contains(string(indexerData), api.ErrResultLimitReached):
-				results <- resultSkip(err, addrInput, SkipLimitReached)
+				results <- resultSkip(err, addr, SkipLimitReached)
 			case strings.Contains(string(indexerData), api.ErrNoAccountsFound):
-				results <- resultSkip(err, addrInput, SkipAccountNotFound)
+				results <- resultSkip(err, addr, SkipAccountNotFound)
 			default:
-				results <- resultError(err, addrInput)
+				results <- resultError(err, addr)
 			}
 			return
 		}
