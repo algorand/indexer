@@ -36,6 +36,7 @@ type NameConfigPair struct {
 	Config map[string]interface{} `yaml:"config"`
 }
 
+// Metrics configs for turning on Prometheus endpoint /metrics
 type Metrics struct {
 	Mode string `yaml:"mode"`
 	Addr string `yaml:"addr"`
