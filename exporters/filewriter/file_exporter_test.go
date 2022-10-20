@@ -44,7 +44,7 @@ func TestExporterMetadata(t *testing.T) {
 	fileExp := fileCons.New()
 	meta := fileExp.Metadata()
 	assert.Equal(t, plugins.PluginType(plugins.Exporter), meta.Type())
-	assert.Equal(t, "filewriter", meta.Name())
+	assert.Equal(t, "file_writer", meta.Name())
 	assert.Equal(t, "Exporter for writing data to a file.", meta.Description())
 	assert.Equal(t, false, meta.Deprecated())
 }

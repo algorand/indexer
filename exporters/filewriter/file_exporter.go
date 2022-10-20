@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	exporterName = "filewriter"
+	exporterName = "file_writer"
 	// FilePattern is used to name the output files.
 	FilePattern = "%[1]d_block.json"
 )

@@ -3,7 +3,10 @@ package postgresql
 import (
 	"context"
 	"fmt"
+	"sync"
+	"sync/atomic"
 
+	"github.com/algorand/indexer/exporters/util"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
@@ -26,6 +29,10 @@ type postgresqlExporter struct {
 	cfg    ExporterConfig
 	db     idb.IndexerDb
 	logger *logrus.Logger
+	wg     sync.WaitGroup
+	ctx    context.Context
+	cf     context.CancelFunc
+	dm     util.DataManager
 }
 
 var postgresqlExporterMetadata = exporters.ExporterMetadata{
@@ -48,7 +55,8 @@ func (exp *postgresqlExporter) Metadata() exporters.ExporterMetadata {
 	return postgresqlExporterMetadata
 }
 
-func (exp *postgresqlExporter) Init(_ context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) error {
+func (exp *postgresqlExporter) Init(ctx context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) error {
+	exp.ctx, exp.cf = context.WithCancel(ctx)
 	dbName := "postgres"
 	exp.logger = logger
 	if err := exp.unmarhshalConfig(string(cfg)); err != nil {
@@ -67,10 +75,21 @@ func (exp *postgresqlExporter) Init(_ context.Context, cfg plugins.PluginConfig,
 	}
 	exp.db = db
 	<-ready
-	if rnd, err := exp.db.GetNextRoundToAccount(); err == nil {
+	rnd, err := exp.db.GetNextRoundToAccount()
+	if err == nil {
 		exp.round = rnd
+	} else if err == idb.ErrorNotInitialized {
+		exp.round = 0
+	} else {
+		return fmt.Errorf("Init() err getting next round: %v", err)
 	}
-	return err
+	// if data pruning is enabled
+	if !exp.cfg.Test && exp.cfg.Delete.Rounds > 0 {
+		exp.dm = util.MakeDataManager(exp.ctx, &exp.cfg.Delete, exp.db, logger)
+		exp.wg.Add(1)
+		go exp.dm.DeleteLoop(&exp.wg, &exp.round)
+	}
+	return nil
 }
 
 func (exp *postgresqlExporter) Config() plugins.PluginConfig {
@@ -82,6 +101,9 @@ func (exp *postgresqlExporter) Close() error {
 	if exp.db != nil {
 		exp.db.Close()
 	}
+
+	exp.cf()
+	exp.wg.Wait()
 	return nil
 }
 
@@ -113,7 +135,7 @@ func (exp *postgresqlExporter) Receive(exportData data.BlockData) error {
 	if err := exp.db.AddBlock(&vb); err != nil {
 		return err
 	}
-	exp.round = exportData.Round() + 1
+	atomic.StoreUint64(&exp.round, exportData.Round()+1)
 	return nil
 }
 

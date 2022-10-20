@@ -15,6 +15,7 @@ import (
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/indexer/data"
+	"github.com/algorand/indexer/exporters/util"
 	_ "github.com/algorand/indexer/idb/dummy"
 	"github.com/algorand/indexer/plugins"
 )
@@ -105,4 +106,58 @@ func TestReceiveAddBlockSuccess(t *testing.T) {
 		Delta:       &ledgercore.StateDelta{},
 	}
 	assert.NoError(t, pgsqlExp.Receive(block))
+}
+
+func TestUnmarshalConfigsContainingDeleteTask(t *testing.T) {
+	// configured delete task
+	pgsqlExp := postgresqlExporter{}
+	cfg := ExporterConfig{
+		ConnectionString: "",
+		MaxConn:          0,
+		Test:             true,
+		Delete: util.PruneConfigurations{
+			Rounds:   3000,
+			Interval: 3,
+		},
+	}
+	data, err := yaml.Marshal(cfg)
+	assert.NoError(t, err)
+	assert.NoError(t, pgsqlExp.unmarhshalConfig(string(data)))
+	assert.Equal(t, 3, int(pgsqlExp.cfg.Delete.Interval))
+	assert.Equal(t, uint64(3000), pgsqlExp.cfg.Delete.Rounds)
+
+	// delete task with fields default to 0
+	pgsqlExp = postgresqlExporter{}
+	cfg = ExporterConfig{
+		ConnectionString: "",
+		MaxConn:          0,
+		Test:             true,
+		Delete:           util.PruneConfigurations{},
+	}
+	data, err = yaml.Marshal(cfg)
+	assert.NoError(t, err)
+	assert.NoError(t, pgsqlExp.unmarhshalConfig(string(data)))
+	assert.Equal(t, 0, int(pgsqlExp.cfg.Delete.Interval))
+	assert.Equal(t, uint64(0), pgsqlExp.cfg.Delete.Rounds)
+
+	// delete task with negative interval
+	pgsqlExp = postgresqlExporter{}
+	cfg = ExporterConfig{
+		ConnectionString: "",
+		MaxConn:          0,
+		Test:             true,
+		Delete: util.PruneConfigurations{
+			Rounds:   1,
+			Interval: -1,
+		},
+	}
+	data, err = yaml.Marshal(cfg)
+	assert.NoError(t, pgsqlExp.unmarhshalConfig(string(data)))
+	assert.Equal(t, -1, int(pgsqlExp.cfg.Delete.Interval))
+
+	// delete task with negative round
+	pgsqlExp = postgresqlExporter{}
+	cfgstr := "test: true\ndelete-task:\n  rounds: -1\n  interval: 2"
+	assert.ErrorContains(t, pgsqlExp.unmarhshalConfig(cfgstr), "unmarshal errors")
+
 }

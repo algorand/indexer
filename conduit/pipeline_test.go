@@ -91,19 +91,19 @@ func TestMakePipelineConfig(t *testing.T) {
 	defer os.RemoveAll(dataDir)
 
 	validConfigFile := `---
-LogLevel: info
-Importer:
-  Name: "algod"
-  Config:
+log-level: info
+importer:
+  name: "algod"
+  config:
     netaddr: "http://127.0.0.1:8080"
     token: "e36c01fc77e490f23e61899c0c22c6390d0fff1443af2c95d056dc5ce4e61302"
-Processors:
-  - Name: "noop"
-    Config:
+processors:
+  - name: "noop"
+    config:
       catchpoint: "7560000#3OUX3TLXZNOK6YJXGETKRRV2MHMILF5CCIVZUOJCT6SLY5H2WWTQ"
-Exporter:
-  Name: "noop"
-  Config:
+exporter:
+  name: "noop"
+  config:
     connectionstring: ""`
 
 	err = os.WriteFile(filepath.Join(dataDir, DefaultConfigName), []byte(validConfigFile), 0777)
