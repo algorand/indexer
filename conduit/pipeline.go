@@ -3,7 +3,6 @@ package conduit
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -11,10 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/algorand/indexer/api/middlewares"
 	"github.com/algorand/indexer/util/metrics"
-	echo_contrib "github.com/labstack/echo-contrib/prometheus"
-	"github.com/labstack/echo/v4"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
@@ -39,7 +36,6 @@ type NameConfigPair struct {
 	Config map[string]interface{} `yaml:"config"`
 }
 
-// Metrics configs for turning on the /metrics endpoint for prometheus metrics
 type Metrics struct {
 	Mode string `yaml:"mode"`
 	Addr string `yaml:"addr"`
@@ -256,7 +252,7 @@ func (p *pipelineImpl) Init() error {
 	}
 
 	// start metrics server
-	if p.cfg.Metrics.Mode == "ON" || p.cfg.Metrics.Mode == "VERBOSE" {
+	if p.cfg.Metrics.Mode == "ON" {
 		go p.startMetricsServer()
 	}
 
@@ -313,12 +309,14 @@ func (p *pipelineImpl) addMetrics(block data.BlockData, importTime time.Duration
 // Start pushes block data through the pipeline
 func (p *pipelineImpl) Start() {
 	p.wg.Add(1)
+	retry := 0
 	go func() {
 		defer p.wg.Done()
 		// We need to add a separate recover function here since it launches its own go-routine
 		defer HandlePanic(p.logger)
 		for {
 		pipelineRun:
+			metrics.PipelineRetryGauge.Set(float64(retry))
 			select {
 			case <-p.ctx.Done():
 				return
@@ -326,29 +324,37 @@ func (p *pipelineImpl) Start() {
 				{
 					p.logger.Infof("Pipeline round: %v", p.round)
 					// fetch block
+					importStart := time.Now()
 					blkData, err := (*p.importer).GetBlock(uint64(p.round))
 					if err != nil {
 						p.logger.Errorf("%v", err)
 						p.setError(err)
+						retry++
 						goto pipelineRun
 					}
+					metrics.ImporterTimeSeconds.Observe(time.Since(importStart).Seconds())
 					// Start time currently measures operations after block fetching is complete.
 					// This is for backwards compatibility w/ Indexer's metrics
-					start := time.Now()
 					// run through processors
+					start := time.Now()
 					for _, proc := range p.processors {
+						processorStart := time.Now()
 						blkData, err = (*proc).Process(blkData)
 						if err != nil {
 							p.logger.Errorf("%v", err)
 							p.setError(err)
+							retry++
 							goto pipelineRun
 						}
+						metrics.ProcessorTimeSeconds.WithLabelValues((*proc).Metadata().Name()).Observe(time.Since(processorStart).Seconds())
 					}
 					// run through exporter
+					exporterStart := time.Now()
 					err = (*p.exporter).Receive(blkData)
 					if err != nil {
 						p.logger.Errorf("%v", err)
 						p.setError(err)
+						retry++
 						goto pipelineRun
 					}
 					// Callback Processors
@@ -357,16 +363,18 @@ func (p *pipelineImpl) Start() {
 						if err != nil {
 							p.logger.Errorf("%v", err)
 							p.setError(err)
+							retry++
 							goto pipelineRun
 						}
 					}
-					importTime := time.Since(start)
+					metrics.ExporterTimeSeconds.Observe(time.Since(exporterStart).Seconds())
 					// Ignore round 0 (which is empty).
 					if p.round > 0 {
-						p.addMetrics(blkData, importTime)
+						p.addMetrics(blkData, time.Since(start))
 					}
 					// Increment Round
 					p.setError(nil)
+					retry = 0
 					p.round++
 				}
 			}
@@ -381,31 +389,9 @@ func (p *pipelineImpl) Wait() {
 
 // start a http server serving /metrics
 func (p *pipelineImpl) startMetricsServer() {
-	e := echo.New()
-	e.HideBanner = true
-	pth := echo_contrib.NewPrometheus("indexer", nil, nil)
-	if p.cfg.Metrics.Mode == "VERBOSE" {
-		pth.RequestCounterURLLabelMappingFunc = middlewares.PrometheusPathMapperVerbose
-	} else {
-		pth.RequestCounterURLLabelMappingFunc = middlewares.PrometheusPathMapper404Sink
-	}
-	// This call installs the prometheus metrics collection middleware and
-	// the "/metrics" handler.
-	pth.Use(e)
-	getctx := func(l net.Listener) context.Context {
-		return p.ctx
-	}
-	s := &http.Server{
-		Addr:        p.cfg.Metrics.Addr,
-		BaseContext: getctx,
-	}
-	go func() {
-		if err := e.StartServer(s); err != nil {
-			p.logger.Fatalf("Serve() err: %s", err)
-		}
-	}()
-	p.logger.Infof("conduit metrics serving on %s", s.Addr)
-	<-p.ctx.Done()
+	http.Handle("/metrics", promhttp.Handler())
+	http.ListenAndServe(p.cfg.Metrics.Addr, nil)
+	p.logger.Infof("conduit metrics serving on %s", p.cfg.Metrics.Addr)
 }
 
 // MakePipeline creates a Pipeline
