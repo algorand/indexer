@@ -160,6 +160,20 @@ func (p *pipelineImpl) setError(err error) {
 	p.err = err
 }
 
+func (p *pipelineImpl) registerLifecycleCallbacks() {
+	if v, ok := (*p.importer).(Completed); ok {
+		p.completeCallback = append(p.completeCallback, v)
+	}
+	for _, processor := range p.processors {
+		if v, ok := (*processor).(Completed); ok {
+			p.completeCallback = append(p.completeCallback, v)
+		}
+	}
+	if v, ok := (*p.exporter).(Completed); ok {
+		p.completeCallback = append(p.completeCallback, v)
+	}
+}
+
 // Init prepares the pipeline for processing block data
 func (p *pipelineImpl) Init() error {
 	p.logger.Infof("Starting Pipeline Initialization")
@@ -245,18 +259,8 @@ func (p *pipelineImpl) Init() error {
 		p.logger.Infof("Initialized Processor: %s", processorName)
 	}
 
-	// Register OnComplete callbacks.
-	if v, ok := (*p.importer).(Completed); ok {
-		p.completeCallback = append(p.completeCallback, v)
-	}
-	for _, processor := range p.processors {
-		if v, ok := (*processor).(Completed); ok {
-			p.completeCallback = append(p.completeCallback, v)
-		}
-	}
-	if v, ok := (*p.exporter).(Completed); ok {
-		p.completeCallback = append(p.completeCallback, v)
-	}
+	// Register callbacks.
+	p.registerLifecycleCallbacks()
 	return err
 }
 
