@@ -8,6 +8,7 @@ require (
 	github.com/algorand/go-algorand v0.0.0-20220211161928-53b157beb10f
 	github.com/algorand/go-algorand-sdk v1.9.1
 	github.com/algorand/go-codec/codec v1.1.8
+	github.com/algorand/go-deadlock v0.2.2
 	github.com/algorand/oapi-codegen v1.3.7
 	github.com/davecgh/go-spew v1.1.1
 	github.com/getkin/kin-openapi v0.22.0
@@ -29,10 +30,10 @@ require (
 )
 
 require (
+	github.com/DataDog/zstd v1.5.2 // indirect
 	github.com/Microsoft/go-winio v0.4.14 // indirect
 	github.com/algorand/avm-abi v0.1.0 // indirect
 	github.com/algorand/falcon v0.0.0-20220727072124-02a2a64c4414 // indirect
-	github.com/algorand/go-deadlock v0.2.2 // indirect
 	github.com/algorand/go-sumhash v0.1.0 // indirect
 	github.com/algorand/msgp v1.1.52 // indirect
 	github.com/algorand/websocket v1.4.5 // indirect
