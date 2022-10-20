@@ -143,7 +143,7 @@ type pipelineImpl struct {
 	importer         *importers.Importer
 	processors       []*processors.Processor
 	exporter         *exporters.Exporter
-	completeCallback []Completed
+	completeCallback []OnCompleteFunc
 
 	round basics.Round
 }
@@ -162,15 +162,15 @@ func (p *pipelineImpl) setError(err error) {
 
 func (p *pipelineImpl) registerLifecycleCallbacks() {
 	if v, ok := (*p.importer).(Completed); ok {
-		p.completeCallback = append(p.completeCallback, v)
+		p.completeCallback = append(p.completeCallback, v.OnComplete)
 	}
 	for _, processor := range p.processors {
 		if v, ok := (*processor).(Completed); ok {
-			p.completeCallback = append(p.completeCallback, v)
+			p.completeCallback = append(p.completeCallback, v.OnComplete)
 		}
 	}
 	if v, ok := (*p.exporter).(Completed); ok {
-		p.completeCallback = append(p.completeCallback, v)
+		p.completeCallback = append(p.completeCallback, v.OnComplete)
 	}
 }
 
@@ -354,7 +354,7 @@ func (p *pipelineImpl) Start() {
 					}
 					// Callback Processors
 					for _, cb := range p.completeCallback {
-						err = cb.OnComplete(blkData)
+						err = cb(blkData)
 						if err != nil {
 							p.logger.Errorf("%v", err)
 							p.setError(err)
