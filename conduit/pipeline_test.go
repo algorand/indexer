@@ -299,7 +299,7 @@ func TestPipelineRun(t *testing.T) {
 		initProvider:     nil,
 		importer:         &pImporter,
 		processors:       []*processors.Processor{&pProcessor},
-		completeCallback: []Completed{cbComplete},
+		completeCallback: []OnCompleteFunc{cbComplete.OnComplete},
 		exporter:         &pExporter,
 		round:            0,
 	}
