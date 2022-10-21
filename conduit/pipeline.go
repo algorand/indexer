@@ -254,6 +254,7 @@ func (p *pipelineImpl) Init() error {
 
 	// start metrics server
 	if p.cfg.Metrics.Mode == "ON" {
+		metrics.RegisterPrometheusMetrics()
 		go p.startMetricsServer()
 	}
 

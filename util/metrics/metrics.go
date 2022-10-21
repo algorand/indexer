@@ -5,17 +5,9 @@ import "github.com/prometheus/client_golang/prometheus"
 // RegisterPrometheusMetrics register all prometheus metrics with the global
 // metrics handler.
 func RegisterPrometheusMetrics() {
-	prometheus.Register(BlockImportTimeSeconds)
-	prometheus.Register(ImportedTxnsPerBlock)
-	prometheus.Register(ImportedRoundGauge)
-	prometheus.Register(BlockUploadTimeSeconds)
-	prometheus.Register(PostgresEvalTimeSeconds)
-	prometheus.Register(GetAlgodRawBlockTimeSeconds)
-	prometheus.Register(ImportedTxns)
-	prometheus.Register(ImporterTimeSeconds)
-	prometheus.Register(ProcessorTimeSeconds)
-	prometheus.Register(ExporterTimeSeconds)
-	prometheus.Register(PipelineRetryGauge)
+	for _, c := range collectors {
+		prometheus.Register(c)
+	}
 }
 
 // Prometheus metric names broken out for reuse.
@@ -31,6 +23,8 @@ const (
 	ProcessorTimeName        = "processor_time_sec"
 	ExporterTimeName         = "exporter_time_sec"
 	PipelineRetryGaugeName   = "pipeline_retry_count"
+	SearchAndFilterTimeName  = "search_and_filter_sec"
+	EvalTimeName             = "search_and_filter_sec"
 )
 
 // AllMetricNames is a reference for all the custom metric names.
@@ -45,6 +39,8 @@ var AllMetricNames = []string{
 	ProcessorTimeName,
 	ExporterTimeName,
 	PipelineRetryGaugeName,
+	SearchAndFilterTimeName,
+	EvalTimeName,
 }
 
 // Initialize the prometheus objects.
@@ -130,4 +126,36 @@ var (
 			Name:      PipelineRetryGaugeName,
 			Help:      "Total pipeline retries since last successful run",
 		})
+
+	SearchAndFilterTimeSeconds = prometheus.NewSummaryVec(
+		prometheus.SummaryOpts{
+			Subsystem: "indexer_daemon",
+			Name:      SearchAndFilterTimeName,
+			Help:      "Time spent on search and filter",
+		}, []string{"operation"},
+	)
+
+	EvalTimeSeconds = prometheus.NewSummary(
+		prometheus.SummaryOpts{
+			Subsystem: "indexer_daemon",
+			Name:      EvalTimeName,
+			Help:      "Time spent at EvalForIndexer",
+		})
 )
+
+var collectors = []prometheus.Collector{
+	BlockImportTimeSeconds,
+	BlockImportTimeSeconds,
+	ImportedTxnsPerBlock,
+	ImportedRoundGauge,
+	BlockUploadTimeSeconds,
+	PostgresEvalTimeSeconds,
+	GetAlgodRawBlockTimeSeconds,
+	ImportedTxns,
+	ImporterTimeSeconds,
+	ProcessorTimeSeconds,
+	ExporterTimeSeconds,
+	PipelineRetryGauge,
+	SearchAndFilterTimeSeconds,
+	EvalTimeSeconds,
+}
