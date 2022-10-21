@@ -13,10 +13,9 @@ func RegisterPrometheusMetrics() {
 // Prometheus metric names broken out for reuse.
 const (
 	BlockImportTimeName      = "import_time_sec"
-	BlockUploadTimeName      = "block_upload_time_sec"
 	ImportedTxnsPerBlockName = "imported_tx_per_block"
 	ImportedRoundGaugeName   = "imported_round"
-	PostgresEvalName         = "postgres_eval_time_sec"
+	EvalTimeName             = "eval_time_sec"
 	GetAlgodRawBlockTimeName = "get_algod_raw_block_time_sec"
 	ImportedTxnsName         = "imported_txns"
 	ImporterTimeName         = "importer_time_sec"
@@ -24,23 +23,20 @@ const (
 	ExporterTimeName         = "exporter_time_sec"
 	PipelineRetryGaugeName   = "pipeline_retry_count"
 	SearchAndFilterTimeName  = "search_and_filter_sec"
-	EvalTimeName             = "search_and_filter_sec"
 )
 
 // AllMetricNames is a reference for all the custom metric names.
 var AllMetricNames = []string{
 	BlockImportTimeName,
-	BlockUploadTimeName,
 	ImportedTxnsPerBlockName,
 	ImportedRoundGaugeName,
-	PostgresEvalName,
+	EvalTimeName,
 	GetAlgodRawBlockTimeName,
 	ImporterTimeName,
 	ProcessorTimeName,
 	ExporterTimeName,
 	PipelineRetryGaugeName,
 	SearchAndFilterTimeName,
-	EvalTimeName,
 }
 
 // Initialize the prometheus objects.
@@ -50,13 +46,6 @@ var (
 			Subsystem: "indexer_daemon",
 			Name:      BlockImportTimeName,
 			Help:      "Total block upload and processing time in seconds.",
-		})
-
-	BlockUploadTimeSeconds = prometheus.NewSummary(
-		prometheus.SummaryOpts{
-			Subsystem: "indexer_daemon",
-			Name:      BlockUploadTimeName,
-			Help:      "Block upload time in seconds.",
 		})
 
 	ImportedTxnsPerBlock = prometheus.NewSummary(
@@ -83,10 +72,10 @@ var (
 			Help:      "The most recent round indexer has imported.",
 		})
 
-	PostgresEvalTimeSeconds = prometheus.NewSummary(
+	EvalTimeSeconds = prometheus.NewSummary(
 		prometheus.SummaryOpts{
 			Subsystem: "indexer_daemon",
-			Name:      PostgresEvalName,
+			Name:      EvalTimeName,
 			Help:      "Time spent calling Eval function in seconds.",
 		})
 
@@ -134,13 +123,6 @@ var (
 			Help:      "Time spent on search and filter",
 		}, []string{"operation"},
 	)
-
-	EvalTimeSeconds = prometheus.NewSummary(
-		prometheus.SummaryOpts{
-			Subsystem: "indexer_daemon",
-			Name:      EvalTimeName,
-			Help:      "Time spent at EvalForIndexer",
-		})
 )
 
 var collectors = []prometheus.Collector{
@@ -148,8 +130,7 @@ var collectors = []prometheus.Collector{
 	BlockImportTimeSeconds,
 	ImportedTxnsPerBlock,
 	ImportedRoundGauge,
-	BlockUploadTimeSeconds,
-	PostgresEvalTimeSeconds,
+	EvalTimeSeconds,
 	GetAlgodRawBlockTimeSeconds,
 	ImportedTxns,
 	ImporterTimeSeconds,
