@@ -15,7 +15,7 @@ func RegisterPrometheusMetrics() {
 	prometheus.Register(ImporterTimeSeconds)
 	prometheus.Register(ProcessorTimeSeconds)
 	prometheus.Register(ExporterTimeSeconds)
-	prometheus.Register(PipelineRetryGauge)
+	prometheus.Register(PipelineRetryCount)
 }
 
 // Prometheus metric names broken out for reuse.
@@ -30,7 +30,7 @@ const (
 	ImporterTimeName         = "importer_time_sec"
 	ProcessorTimeName        = "processor_time_sec"
 	ExporterTimeName         = "exporter_time_sec"
-	PipelineRetryGaugeName   = "pipeline_retry_count"
+	PipelineRetryCountName   = "pipeline_retry_count"
 )
 
 // AllMetricNames is a reference for all the custom metric names.
@@ -44,7 +44,7 @@ var AllMetricNames = []string{
 	ImporterTimeName,
 	ProcessorTimeName,
 	ExporterTimeName,
-	PipelineRetryGaugeName,
+	PipelineRetryCountName,
 }
 
 // Initialize the prometheus objects.
@@ -124,10 +124,10 @@ var (
 			Help:      "Time spent at exporter step",
 		})
 
-	PipelineRetryGauge = prometheus.NewGauge(
-		prometheus.GaugeOpts{
+	PipelineRetryCount = prometheus.NewHistogram(
+		prometheus.HistogramOpts{
 			Subsystem: "indexer_daemon",
-			Name:      PipelineRetryGaugeName,
+			Name:      PipelineRetryCountName,
 			Help:      "Total pipeline retries since last successful run",
 		})
 )

@@ -317,7 +317,7 @@ func (p *pipelineImpl) Start() {
 		defer HandlePanic(p.logger)
 		for {
 		pipelineRun:
-			metrics.PipelineRetryGauge.Set(float64(retry))
+			metrics.PipelineRetryCount.Observe(float64(retry))
 			select {
 			case <-p.ctx.Done():
 				return
