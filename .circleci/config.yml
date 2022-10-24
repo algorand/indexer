@@ -112,7 +112,7 @@ commands:
           name: Install python and other python dependencies
           command: |
             sudo apt update
-            sudo apt -y install python3 python3-pip python3-setuptools python3-wheel libboost-math-dev libffi-dev
+            sudo apt -y install python3.9 python3-pip python3-setuptools python3-wheel libboost-math-dev libffi-dev
             pip3 install -r misc/requirements.txt
             pip3 install e2e_tests/
 
