@@ -6,8 +6,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/exporters/util"
+	"github.com/algorand/indexer/importer"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
