@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"github.com/algorand/go-algorand/ledger"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -97,7 +98,7 @@ func CatchupServiceCatchup(ctx context.Context, logger *log.Logger, catchpoint, 
 		node,
 		wrappedLogger,
 		net,
-		l,
+		ledger.MakeCatchpointCatchupAccessor(l, wrappedLogger),
 		cfg,
 	)
 	if err != nil {
