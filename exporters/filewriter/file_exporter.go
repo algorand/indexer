@@ -16,7 +16,7 @@ import (
 	"github.com/algorand/indexer/plugins"
 )
 
-const exporterName = "filewriter"
+const exporterName = "file_writer"
 
 type fileExporter struct {
 	round  uint64
