@@ -360,7 +360,9 @@ func runDaemon(daemonConfig *daemonConfig) error {
 
 func makeConduitConfig(dCfg *daemonConfig) conduit.PipelineConfig {
 	return conduit.PipelineConfig{
-		ConduitConfig:    &conduit.Config{},
+		ConduitConfig: &conduit.Config{
+			ConduitDataDir: dCfg.indexerDataDir,
+		},
 		PipelineLogLevel: logger.GetLevel().String(),
 		Importer: conduit.NameConfigPair{
 			Name: "algod",

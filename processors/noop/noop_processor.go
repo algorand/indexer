@@ -52,8 +52,3 @@ func (p *Processor) Close() error {
 func (p *Processor) Process(input data.BlockData) (data.BlockData, error) {
 	return input, nil
 }
-
-// OnComplete noop
-func (p *Processor) OnComplete(_ data.BlockData) error {
-	return nil
-}

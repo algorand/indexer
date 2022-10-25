@@ -28,8 +28,4 @@ type Processor interface {
 
 	// Process will be called with provided optional inputs.  It is up to the plugin to check that required inputs are provided.
 	Process(input data.BlockData) (data.BlockData, error)
-
-	// OnComplete will be called by the Conduit framework when the exporter has successfully written the block
-	// The input will be the finalized information written to disk
-	OnComplete(input data.BlockData) error
 }

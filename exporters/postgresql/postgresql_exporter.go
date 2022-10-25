@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 
 	"github.com/algorand/indexer/exporters/util"
+	"github.com/algorand/indexer/importer"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
@@ -18,7 +19,6 @@ import (
 	"github.com/algorand/indexer/idb"
 	// Necessary to ensure the postgres implementation has been registered in the idb factory
 	_ "github.com/algorand/indexer/idb/postgres"
-	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/plugins"
 )
 
@@ -46,16 +46,14 @@ type Constructor struct{}
 
 // New initializes a postgresqlExporter
 func (c *Constructor) New() exporters.Exporter {
-	return &postgresqlExporter{
-		round: 0,
-	}
+	return &postgresqlExporter{}
 }
 
 func (exp *postgresqlExporter) Metadata() exporters.ExporterMetadata {
 	return postgresqlExporterMetadata
 }
 
-func (exp *postgresqlExporter) Init(ctx context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) error {
+func (exp *postgresqlExporter) Init(ctx context.Context, initProvider data.InitProvider, cfg plugins.PluginConfig, logger *logrus.Logger) error {
 	exp.ctx, exp.cf = context.WithCancel(ctx)
 	dbName := "postgres"
 	exp.logger = logger
@@ -69,20 +67,32 @@ func (exp *postgresqlExporter) Init(ctx context.Context, cfg plugins.PluginConfi
 	var opts idb.IndexerDbOptions
 	opts.MaxConn = exp.cfg.MaxConn
 	opts.ReadOnly = false
+
+	// for some reason when ConnectionString is empty, it's automatically
+	// connecting to a local instance that's running.
+	// this behavior can be reproduced in TestConnectDbFailure.
+	if !exp.cfg.Test && exp.cfg.ConnectionString == "" {
+		return fmt.Errorf("connection string is empty for %s", dbName)
+	}
 	db, ready, err := idb.IndexerDbByName(dbName, exp.cfg.ConnectionString, opts, exp.logger)
 	if err != nil {
 		return fmt.Errorf("connect failure constructing db, %s: %v", dbName, err)
 	}
 	exp.db = db
 	<-ready
-	rnd, err := exp.db.GetNextRoundToAccount()
-	if err == nil {
-		exp.round = rnd
-	} else if err == idb.ErrorNotInitialized {
-		exp.round = 0
-	} else {
-		return fmt.Errorf("Init() err getting next round: %v", err)
+	_, err = importer.EnsureInitialImport(exp.db, *initProvider.GetGenesis())
+	if err != nil {
+		return fmt.Errorf("error importing genesis: %v", err)
 	}
+	dbRound, err := db.GetNextRoundToAccount()
+	if err != nil {
+		return fmt.Errorf("error getting next db round : %v", err)
+	}
+	if uint64(initProvider.NextDBRound()) != dbRound {
+		return fmt.Errorf("initializing block round %d but next round to account is %d", initProvider.NextDBRound(), dbRound)
+	}
+	exp.round = uint64(initProvider.NextDBRound())
+
 	// if data pruning is enabled
 	if !exp.cfg.Test && exp.cfg.Delete.Rounds > 0 {
 		exp.dm = util.MakeDataManager(exp.ctx, &exp.cfg.Delete, exp.db, logger)
@@ -137,17 +147,6 @@ func (exp *postgresqlExporter) Receive(exportData data.BlockData) error {
 	}
 	atomic.StoreUint64(&exp.round, exportData.Round()+1)
 	return nil
-}
-
-func (exp *postgresqlExporter) HandleGenesis(genesis bookkeeping.Genesis) error {
-	_, err := importer.EnsureInitialImport(exp.db, genesis)
-	return err
-}
-
-func (exp *postgresqlExporter) Round() uint64 {
-	// should we try to retrieve this from the db? That could fail.
-	// return exp.db.GetNextRoundToAccount()
-	return exp.round
 }
 
 func (exp *postgresqlExporter) unmarhshalConfig(cfg string) error {

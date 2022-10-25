@@ -137,8 +137,3 @@ func (a *FilterProcessor) Process(input data.BlockData) (data.BlockData, error) 
 
 	return input, err
 }
-
-// OnComplete a no-op for this processor
-func (a *FilterProcessor) OnComplete(input data.BlockData) error {
-	return nil
-}
