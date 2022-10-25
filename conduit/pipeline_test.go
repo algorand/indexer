@@ -146,8 +146,10 @@ var uniqueBlockData = data.BlockData{
 type mockImporter struct {
 	mock.Mock
 	importers.Importer
-	genesis     bookkeeping.Genesis
-	returnError bool
+	genesis         bookkeeping.Genesis
+	finalRound      basics.Round
+	returnError     bool
+	onCompleteError bool
 }
 
 func (m *mockImporter) Init(_ context.Context, _ plugins.PluginConfig, _ *log.Logger) (*bookkeeping.Genesis, error) {
@@ -170,6 +172,16 @@ func (m *mockImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 	m.Called(rnd)
 	// Return an error to make sure we
 	return uniqueBlockData, err
+}
+
+func (m *mockImporter) OnComplete(input data.BlockData) error {
+	var err error
+	if m.onCompleteError {
+		err = fmt.Errorf("on complete")
+	}
+	m.finalRound = input.BlockHeader.Round
+	m.Called(input)
+	return err
 }
 
 type mockProcessor struct {
@@ -201,6 +213,7 @@ func (m *mockProcessor) Process(input data.BlockData) (data.BlockData, error) {
 	input.BlockHeader.Round++
 	return input, err
 }
+
 func (m *mockProcessor) OnComplete(input data.BlockData) error {
 	var err error
 	if m.onCompleteError {
@@ -214,7 +227,9 @@ func (m *mockProcessor) OnComplete(input data.BlockData) error {
 type mockExporter struct {
 	mock.Mock
 	exporters.Exporter
-	returnError bool
+	finalRound      basics.Round
+	returnError     bool
+	onCompleteError bool
 }
 
 func (m *mockExporter) Metadata() exporters.ExporterMetadata {
@@ -240,6 +255,16 @@ func (m *mockExporter) Receive(exportData data.BlockData) error {
 	return err
 }
 
+func (m *mockExporter) OnComplete(input data.BlockData) error {
+	var err error
+	if m.onCompleteError {
+		err = fmt.Errorf("on complete")
+	}
+	m.finalRound = input.BlockHeader.Round
+	m.Called(input)
+	return err
+}
+
 // TestPipelineRun tests that running the pipeline calls the correct functions with mocking
 func TestPipelineRun(t *testing.T) {
 
@@ -256,17 +281,19 @@ func TestPipelineRun(t *testing.T) {
 	var pImporter importers.Importer = &mImporter
 	var pProcessor processors.Processor = &mProcessor
 	var pExporter exporters.Exporter = &mExporter
+	var cbComplete Completed = &mProcessor
 
 	ctx, cf := context.WithCancel(context.Background())
 
 	pImpl := pipelineImpl{
-		ctx:          ctx,
-		cf:           cf,
-		logger:       log.New(),
-		initProvider: nil,
-		importer:     &pImporter,
-		processors:   []*processors.Processor{&pProcessor},
-		exporter:     &pExporter,
+		ctx:              ctx,
+		cf:               cf,
+		logger:           log.New(),
+		initProvider:     nil,
+		importer:         &pImporter,
+		processors:       []*processors.Processor{&pProcessor},
+		exporter:         &pExporter,
+		completeCallback: []OnCompleteFunc{cbComplete.OnComplete},
 		pipelineMetadata: PipelineMetaData{
 			NextRound:   0,
 			GenesisHash: "",
@@ -374,6 +401,7 @@ func TestPipelineErrors(t *testing.T) {
 	var pImporter importers.Importer = &mImporter
 	var pProcessor processors.Processor = &mProcessor
 	var pExporter exporters.Exporter = &mExporter
+	var cbComplete Completed = &mProcessor
 
 	ctx, cf := context.WithCancel(context.Background())
 	pImpl := pipelineImpl{
@@ -385,6 +413,7 @@ func TestPipelineErrors(t *testing.T) {
 		importer:         &pImporter,
 		processors:       []*processors.Processor{&pProcessor},
 		exporter:         &pExporter,
+		completeCallback: []OnCompleteFunc{cbComplete.OnComplete},
 		pipelineMetadata: PipelineMetaData{},
 	}
 
@@ -425,7 +454,39 @@ func TestPipelineErrors(t *testing.T) {
 	pImpl.cf()
 	pImpl.Wait()
 	assert.Error(t, pImpl.Error(), fmt.Errorf("exporter"))
+}
 
+func Test_pipelineImpl_registerLifecycleCallbacks(t *testing.T) {
+	mImporter := mockImporter{}
+	mImporter.On("GetBlock", mock.Anything).Return(uniqueBlockData, nil)
+	mProcessor := mockProcessor{}
+	processorData := uniqueBlockData
+	processorData.BlockHeader.Round++
+	mProcessor.On("Process", mock.Anything).Return(processorData)
+	mProcessor.On("OnComplete", mock.Anything).Return(nil)
+	mExporter := mockExporter{}
+	mExporter.On("Receive", mock.Anything).Return(nil)
+
+	var pImporter importers.Importer = &mImporter
+	var pProcessor processors.Processor = &mProcessor
+	var pExporter exporters.Exporter = &mExporter
+
+	ctx, cf := context.WithCancel(context.Background())
+	pImpl := pipelineImpl{
+		ctx:          ctx,
+		cf:           cf,
+		cfg:          &PipelineConfig{},
+		logger:       log.New(),
+		initProvider: nil,
+		importer:     &pImporter,
+		processors:   []*processors.Processor{&pProcessor, &pProcessor},
+		exporter:     &pExporter,
+	}
+
+	// Each plugin implements the Completed interface, so there should be 4
+	// plugins registered (one of them is registered twice)
+	pImpl.registerLifecycleCallbacks()
+	assert.Len(t, pImpl.completeCallback, 4)
 }
 
 // TestBlockMetaDataFile tests that metadata.json file is created as expected
