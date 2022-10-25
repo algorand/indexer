@@ -52,10 +52,6 @@ type Processor interface {
 
 	// Process will be called with provided optional inputs.  It is up to the plugin to check that required inputs are provided.
 	Process(input data.BlockData) (data.BlockData, error)
-
-	// OnComplete will be called by the Conduit framework when the exporter has successfully written the block
-	// The input will be the finalized information written to disk
-	OnComplete(input data.BlockData) error
 }
 ```
 
@@ -144,3 +140,12 @@ a stateful Processor plugin might want to commit block information to a private 
 
 The `OnComplete()` function will be called by the Conduit framework when the exporter plugin has finished executing **and** did not return any errors.  The data supplied to this function
 will be the final block data written to disk.  Note that this block data may have been processed by other Processor plugins since it was last "seen" by any specific Processor plugin.
+
+It is implemented as a dynamic interface and can be added to any plugin.
+```go
+type Completed interface {
+	// OnComplete will be called by the Conduit framework when the exporter has successfully written the block
+	// The input will be the finalized information written to disk
+	OnComplete(input data.BlockData) error
+}
+```

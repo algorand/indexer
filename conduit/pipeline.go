@@ -140,10 +140,12 @@ type pipelineImpl struct {
 
 	initProvider *data.InitProvider
 
-	importer   *importers.Importer
-	processors []*processors.Processor
-	exporter   *exporters.Exporter
-	round      basics.Round
+	importer         *importers.Importer
+	processors       []*processors.Processor
+	exporter         *exporters.Exporter
+	completeCallback []OnCompleteFunc
+
+	round basics.Round
 }
 
 func (p *pipelineImpl) Error() error {
@@ -156,6 +158,20 @@ func (p *pipelineImpl) setError(err error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.err = err
+}
+
+func (p *pipelineImpl) registerLifecycleCallbacks() {
+	if v, ok := (*p.importer).(Completed); ok {
+		p.completeCallback = append(p.completeCallback, v.OnComplete)
+	}
+	for _, processor := range p.processors {
+		if v, ok := (*processor).(Completed); ok {
+			p.completeCallback = append(p.completeCallback, v.OnComplete)
+		}
+	}
+	if v, ok := (*p.exporter).(Completed); ok {
+		p.completeCallback = append(p.completeCallback, v.OnComplete)
+	}
 }
 
 // Init prepares the pipeline for processing block data
@@ -243,6 +259,8 @@ func (p *pipelineImpl) Init() error {
 		p.logger.Infof("Initialized Processor: %s", processorName)
 	}
 
+	// Register callbacks.
+	p.registerLifecycleCallbacks()
 	return err
 }
 
@@ -335,8 +353,8 @@ func (p *pipelineImpl) Start() {
 						goto pipelineRun
 					}
 					// Callback Processors
-					for _, proc := range p.processors {
-						err = (*proc).OnComplete(blkData)
+					for _, cb := range p.completeCallback {
+						err = cb(blkData)
 						if err != nil {
 							p.logger.Errorf("%v", err)
 							p.setError(err)
