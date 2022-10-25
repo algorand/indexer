@@ -44,3 +44,6 @@ coverage.txt
 
 # asdf
 .tool-versions
+
+# conduit example
+cmd/conduit/data

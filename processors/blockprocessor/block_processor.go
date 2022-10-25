@@ -83,7 +83,7 @@ func (proc *blockProcessor) Init(ctx context.Context, initProvider data.InitProv
 	}
 	proc.cfg = cfg
 
-	genesis := initProvider.Genesis()
+	genesis := initProvider.GetGenesis()
 	round := uint64(initProvider.NextDBRound())
 
 	err = InitializeLedger(ctx, proc.logger, round, *genesis, &pCfg)

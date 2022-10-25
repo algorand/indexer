@@ -2,6 +2,7 @@ package example
 
 import (
 	"context"
+
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
@@ -34,7 +35,7 @@ func (exp *exampleExporter) Metadata() exporters.ExporterMetadata {
 }
 
 // Init provides the opportunity for your Exporter to initialize connections, store config variables, etc.
-func (exp *exampleExporter) Init(_ context.Context, _ plugins.PluginConfig, _ *logrus.Logger) error {
+func (exp *exampleExporter) Init(_ context.Context, _ data.InitProvider, _ plugins.PluginConfig, _ *logrus.Logger) error {
 	panic("not implemented")
 }
 

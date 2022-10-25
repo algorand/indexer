@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/plugins"
 	"github.com/stretchr/testify/assert"
@@ -23,7 +22,7 @@ func TestExporterMetadata(t *testing.T) {
 }
 
 func TestExporterInit(t *testing.T) {
-	assert.Panics(t, func() { exExp.Init(context.Background(), "", nil) })
+	assert.Panics(t, func() { exExp.Init(context.Background(), nil, "", nil) })
 }
 
 func TestExporterConfig(t *testing.T) {
@@ -36,12 +35,4 @@ func TestExporterClose(t *testing.T) {
 
 func TestExporterReceive(t *testing.T) {
 	assert.Panics(t, func() { exExp.Receive(data.BlockData{}) })
-}
-
-func TestExporterHandleGenesis(t *testing.T) {
-	assert.Panics(t, func() { exExp.HandleGenesis(bookkeeping.Genesis{}) })
-}
-
-func TestExporterRound(t *testing.T) {
-	assert.Panics(t, func() { exExp.Round() })
 }
