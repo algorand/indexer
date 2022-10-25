@@ -7,14 +7,15 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/algorand/indexer/util"
+
 	"github.com/algorand/go-algorand/catchup"
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/network"
-
-	"github.com/algorand/indexer/util"
 )
 
 // Delay is the time to wait for catchup service startup
@@ -97,7 +98,7 @@ func CatchupServiceCatchup(ctx context.Context, logger *log.Logger, catchpoint, 
 		node,
 		wrappedLogger,
 		net,
-		l,
+		ledger.MakeCatchpointCatchupAccessor(l, wrappedLogger),
 		cfg,
 	)
 	if err != nil {
