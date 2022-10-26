@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
@@ -658,4 +659,71 @@ func TestInitError(t *testing.T) {
 	// could not read metadata
 	err := pImpl.Init()
 	assert.Contains(t, err.Error(), "could not read metadata")
+}
+
+func TestPipelineMetricsConfigs(t *testing.T) {
+	var pImporter importers.Importer = &mockImporter{}
+	var pProcessor processors.Processor = &mockProcessor{}
+	var pExporter exporters.Exporter = &mockExporter{}
+	ctx, cf := context.WithCancel(context.Background())
+	pImpl := pipelineImpl{
+		cfg: &PipelineConfig{
+			Importer: NameConfigPair{
+				Name:   "",
+				Config: map[string]interface{}{},
+			},
+			Processors: []NameConfigPair{
+				{
+					Name:   "",
+					Config: map[string]interface{}{},
+				},
+			},
+			Exporter: NameConfigPair{
+				Name:   "",
+				Config: map[string]interface{}{},
+			},
+			Metrics: Metrics{},
+		},
+		logger:       log.New(),
+		initProvider: nil,
+		importer:     &pImporter,
+		processors:   []*processors.Processor{&pProcessor},
+		exporter:     &pExporter,
+		round:        0,
+		cf:           cf,
+		ctx:          ctx,
+	}
+	defer pImpl.cf()
+
+	getMetrics := func() (*http.Response, error) {
+		resp0, err0 := http.Get(fmt.Sprintf("http://localhost%s/metrics", pImpl.cfg.Metrics.Addr))
+		return resp0, err0
+	}
+	// metrics should be OFF by default
+	err := pImpl.Init()
+	assert.NoError(t, err)
+	time.Sleep(1 * time.Second)
+	_, err = getMetrics()
+	assert.Error(t, err)
+
+	// metrics mode OFF
+	pImpl.cfg.Metrics = Metrics{
+		Mode: "OFF",
+		Addr: ":8081",
+	}
+	pImpl.Init()
+	time.Sleep(1 * time.Second)
+	_, err = getMetrics()
+	assert.Error(t, err)
+
+	// metrics mode ON
+	pImpl.cfg.Metrics = Metrics{
+		Mode: "ON",
+		Addr: ":8081",
+	}
+	pImpl.Init()
+	time.Sleep(1 * time.Second)
+	resp, err := getMetrics()
+	assert.NoError(t, err)
+	assert.Equal(t, 200, resp.StatusCode)
 }

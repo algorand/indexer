@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -12,11 +13,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/algorand/go-algorand/crypto"
-	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/indexer/util/metrics"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+
+	"github.com/algorand/go-algorand/crypto"
+	"github.com/algorand/go-algorand/data/basics"
 	"gopkg.in/yaml.v3"
 
 	"github.com/algorand/indexer/data"
@@ -37,6 +40,12 @@ type NameConfigPair struct {
 	Config map[string]interface{} `yaml:"config"`
 }
 
+// Metrics configs for turning on Prometheus endpoint /metrics
+type Metrics struct {
+	Mode string `yaml:"mode"`
+	Addr string `yaml:"addr"`
+}
+
 // PipelineConfig stores configuration specific to the conduit pipeline
 type PipelineConfig struct {
 	ConduitConfig *Config
@@ -49,6 +58,7 @@ type PipelineConfig struct {
 	Importer   NameConfigPair   `yaml:"importer"`
 	Processors []NameConfigPair `yaml:"processors"`
 	Exporter   NameConfigPair   `yaml:"exporter"`
+	Metrics    Metrics          `yaml:"metrics"`
 }
 
 // Valid validates pipeline config
@@ -82,7 +92,6 @@ func MakePipelineConfig(logger *log.Logger, cfg *Config) (*PipelineConfig, error
 	if err := cfg.Valid(); err != nil {
 		return nil, fmt.Errorf("MakePipelineConfig(): %w", err)
 	}
-
 	pCfg := PipelineConfig{PipelineLogLevel: logger.Level.String(), ConduitConfig: cfg}
 
 	// Search for pipeline configuration in data directory
@@ -266,7 +275,7 @@ func (p *pipelineImpl) Init() error {
 		err := (*processor).Init(p.ctx, *p.initProvider, plugins.PluginConfig(configs), processorLogger)
 		processorName := (*processor).Metadata().Name()
 		if err != nil {
-			return fmt.Errorf("Pipeline.Start(): could not initialize processor (%s): %w", processorName, err)
+			return fmt.Errorf("Pipeline.Init(): could not initialize processor (%s): %w", processorName, err)
 		}
 		p.logger.Infof("Initialized Processor: %s", processorName)
 	}
@@ -290,6 +299,12 @@ func (p *pipelineImpl) Init() error {
 
 	// Register callbacks.
 	p.registerLifecycleCallbacks()
+
+	// start metrics server
+	if p.cfg.Metrics.Mode == "ON" {
+		go p.startMetricsServer()
+	}
+
 	return err
 }
 
@@ -343,12 +358,14 @@ func (p *pipelineImpl) addMetrics(block data.BlockData, importTime time.Duration
 // Start pushes block data through the pipeline
 func (p *pipelineImpl) Start() {
 	p.wg.Add(1)
+	retry := 0
 	go func() {
 		defer p.wg.Done()
 		// We need to add a separate recover function here since it launches its own go-routine
 		defer HandlePanic(p.logger)
 		for {
 		pipelineRun:
+			metrics.PipelineRetryCount.Observe(float64(retry))
 			select {
 			case <-p.ctx.Done():
 				return
@@ -356,29 +373,37 @@ func (p *pipelineImpl) Start() {
 				{
 					p.logger.Infof("Pipeline round: %v", p.pipelineMetadata.NextRound)
 					// fetch block
+					importStart := time.Now()
 					blkData, err := (*p.importer).GetBlock(p.pipelineMetadata.NextRound)
 					if err != nil {
 						p.logger.Errorf("%v", err)
 						p.setError(err)
+						retry++
 						goto pipelineRun
 					}
+					metrics.ImporterTimeSeconds.Observe(time.Since(importStart).Seconds())
 					// Start time currently measures operations after block fetching is complete.
 					// This is for backwards compatibility w/ Indexer's metrics
-					start := time.Now()
 					// run through processors
+					start := time.Now()
 					for _, proc := range p.processors {
+						processorStart := time.Now()
 						blkData, err = (*proc).Process(blkData)
 						if err != nil {
 							p.logger.Errorf("%v", err)
 							p.setError(err)
+							retry++
 							goto pipelineRun
 						}
+						metrics.ProcessorTimeSeconds.WithLabelValues((*proc).Metadata().Name()).Observe(time.Since(processorStart).Seconds())
 					}
 					// run through exporter
+					exporterStart := time.Now()
 					err = (*p.exporter).Receive(blkData)
 					if err != nil {
 						p.logger.Errorf("%v", err)
 						p.setError(err)
+						retry++
 						goto pipelineRun
 					}
 					// Callback Processors
@@ -387,18 +412,21 @@ func (p *pipelineImpl) Start() {
 						if err != nil {
 							p.logger.Errorf("%v", err)
 							p.setError(err)
+							retry++
 							goto pipelineRun
 						}
 					}
-					importTime := time.Since(start)
+					metrics.ExporterTimeSeconds.Observe(time.Since(exporterStart).Seconds())
 					// Ignore round 0 (which is empty).
 					if p.pipelineMetadata.NextRound > 0 {
-						p.addMetrics(blkData, importTime)
+						p.addMetrics(blkData, time.Since(start))
 					}
 					// Increment Round
 					p.setError(nil)
 					p.pipelineMetadata.NextRound++
 					p.encodeMetadataToFile()
+					retry = 0
+					p.pipelineMetadata.NextRound++
 				}
 			}
 
@@ -457,6 +485,13 @@ func (p *pipelineImpl) initializeOrLoadBlockMetadata() (PipelineMetaData, error)
 		}
 	}
 	return p.pipelineMetadata, nil
+}
+
+// start a http server serving /metrics
+func (p *pipelineImpl) startMetricsServer() {
+	http.Handle("/metrics", promhttp.Handler())
+	http.ListenAndServe(p.cfg.Metrics.Addr, nil)
+	p.logger.Infof("conduit metrics serving on %s", p.cfg.Metrics.Addr)
 }
 
 // MakePipeline creates a Pipeline
