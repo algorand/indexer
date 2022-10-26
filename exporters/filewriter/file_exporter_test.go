@@ -3,14 +3,13 @@ package filewriter
 import (
 	"context"
 	"fmt"
-	"github.com/algorand/indexer/util"
-	"gopkg.in/yaml.v3"
 	"testing"
 
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 
 	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/data/basics"
@@ -20,6 +19,7 @@ import (
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
 	"github.com/algorand/indexer/plugins"
+	"github.com/algorand/indexer/util"
 	testutil "github.com/algorand/indexer/util/test"
 )
 

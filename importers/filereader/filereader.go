@@ -19,7 +19,7 @@ import (
 	"github.com/algorand/indexer/util"
 )
 
-const importerName = "filereader"
+const importerName = "file_reader"
 
 type fileReader struct {
 	logger *logrus.Logger

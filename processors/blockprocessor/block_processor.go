@@ -241,7 +241,7 @@ func (proc *blockProcessor) Process(input data.BlockData) (data.BlockData, error
 	input.Payset = modifiedTxns
 	input.Delta = &delta
 
-	proc.logger.Infof("Block processor: processed block %d (%s)", input.Round(), time.Since(start))
+	proc.logger.Debugf("Block processor: processed block %d (%s)", input.Round(), time.Since(start))
 
 	return input, nil
 }
