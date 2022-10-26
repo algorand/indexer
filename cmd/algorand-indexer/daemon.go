@@ -375,11 +375,11 @@ func makeConduitConfig(dCfg *daemonConfig) conduit.PipelineConfig {
 			{
 				Name: "block_evaluator",
 				Config: map[string]interface{}{
-					"catchpoint":       dCfg.catchpoint,
-					"indexer-data-dir": dCfg.indexerDataDir,
-					"algod-data-dir":   dCfg.algodDataDir,
-					"algod-token":      dCfg.algodToken,
-					"algod-addr":       dCfg.algodAddr,
+					"catchpoint":     dCfg.catchpoint,
+					"data-dir":       dCfg.indexerDataDir,
+					"algod-data-dir": dCfg.algodDataDir,
+					"algod-token":    dCfg.algodToken,
+					"algod-addr":     dCfg.algodAddr,
 				},
 			},
 		},
