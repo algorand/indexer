@@ -18,12 +18,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
-	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/indexer/util/metrics"
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 
 	"github.com/algorand/indexer/data"
@@ -377,6 +373,7 @@ func (p *pipelineImpl) Start() {
 				{
 					p.logger.Infof("Pipeline round: %v", p.pipelineMetadata.NextRound)
 					// fetch block
+					importStart := time.Now()
 					blkData, err := (*p.importer).GetBlock(p.pipelineMetadata.NextRound)
 					if err != nil {
 						p.logger.Errorf("%v", err)
@@ -422,8 +419,6 @@ func (p *pipelineImpl) Start() {
 					metrics.ExporterTimeSeconds.Observe(time.Since(exporterStart).Seconds())
 					// Ignore round 0 (which is empty).
 					if p.pipelineMetadata.NextRound > 0 {
-						p.addMetrics(blkData, importTime)
-					if p.round > 0 {
 						p.addMetrics(blkData, time.Since(start))
 					}
 					// Increment Round
@@ -431,7 +426,7 @@ func (p *pipelineImpl) Start() {
 					p.pipelineMetadata.NextRound++
 					p.encodeMetadataToFile()
 					retry = 0
-					p.round++
+					p.pipelineMetadata.NextRound++
 				}
 			}
 
