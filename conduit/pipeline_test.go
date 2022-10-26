@@ -689,7 +689,6 @@ func TestPipelineMetricsConfigs(t *testing.T) {
 		importer:     &pImporter,
 		processors:   []*processors.Processor{&pProcessor},
 		exporter:     &pExporter,
-		round:        0,
 		cf:           cf,
 		ctx:          ctx,
 	}
