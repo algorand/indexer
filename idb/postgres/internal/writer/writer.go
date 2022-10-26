@@ -303,7 +303,7 @@ func writeAccountDeltas(round basics.Round, accountDeltas *ledgercore.AccountDel
 
 }
 
-func writeBoxMods(kvMods map[string]ledgercore.ValueDelta, batch *pgx.Batch) error {
+func writeBoxMods(kvMods map[string]ledgercore.KvValueDelta, batch *pgx.Batch) error {
 	// INSERT INTO / UPDATE / DELETE FROM `app_box`
 	// WARNING: kvMods can in theory support more general storage types than app boxes.
 	// However, here we assume that all the provided kvMods represent app boxes.
@@ -315,7 +315,7 @@ func writeBoxMods(kvMods map[string]ledgercore.ValueDelta, batch *pgx.Batch) err
 			return fmt.Errorf("writeBoxMods() err: %w", err)
 		}
 		if valueDelta.Data != nil {
-			batch.Queue(upsertAppBoxStmtName, app, []byte(name), []byte(*valueDelta.Data))
+			batch.Queue(upsertAppBoxStmtName, app, []byte(name), []byte(valueDelta.Data))
 		} else {
 			batch.Queue(deleteAppBoxStmtName, app, []byte(name))
 		}

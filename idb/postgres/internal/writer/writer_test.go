@@ -1565,7 +1565,7 @@ func TestWriterAddBlock0(t *testing.T) {
 		assert.Equal(t, expected, accounts)
 	}
 }
-func getNameAndAccountPointer(t *testing.T, value ledgercore.ValueDelta, fullKey string, accts map[basics.Address]*ledgercore.AccountData) (basics.Address, string, *ledgercore.AccountData) {
+func getNameAndAccountPointer(t *testing.T, value ledgercore.KvValueDelta, fullKey string, accts map[basics.Address]*ledgercore.AccountData) (basics.Address, string, *ledgercore.AccountData) {
 	require.NotNil(t, value, "cannot handle a nil value for box stats modification")
 	appIdx, name, err := logic.SplitBoxKey(fullKey)
 	account := appIdx.Address()
@@ -1580,12 +1580,12 @@ func getNameAndAccountPointer(t *testing.T, value ledgercore.ValueDelta, fullKey
 	return account, name, acctData
 }
 
-func addBoxInfoToStats(t *testing.T, fullKey string, value ledgercore.ValueDelta,
+func addBoxInfoToStats(t *testing.T, fullKey string, value ledgercore.KvValueDelta,
 	accts map[basics.Address]*ledgercore.AccountData, boxTotals map[basics.Address]basics.AccountData) {
 	addr, name, acctData := getNameAndAccountPointer(t, value, fullKey, accts)
 
 	acctData.TotalBoxes++
-	acctData.TotalBoxBytes += uint64(len(name) + len(*value.Data))
+	acctData.TotalBoxBytes += uint64(len(name) + len(value.Data))
 
 	boxTotals[addr] = basics.AccountData{
 		TotalBoxes:    acctData.TotalBoxes,
@@ -1593,11 +1593,11 @@ func addBoxInfoToStats(t *testing.T, fullKey string, value ledgercore.ValueDelta
 	}
 }
 
-func subtractBoxInfoToStats(t *testing.T, fullKey string, value ledgercore.ValueDelta,
+func subtractBoxInfoToStats(t *testing.T, fullKey string, value ledgercore.KvValueDelta,
 	accts map[basics.Address]*ledgercore.AccountData, boxTotals map[basics.Address]basics.AccountData) {
 	addr, name, acctData := getNameAndAccountPointer(t, value, fullKey, accts)
 
-	prevBoxBytes := uint64(len(name) + len(*value.Data))
+	prevBoxBytes := uint64(len(name) + len(value.Data))
 	require.GreaterOrEqual(t, acctData.TotalBoxes, uint64(0))
 	require.GreaterOrEqual(t, acctData.TotalBoxBytes, prevBoxBytes)
 
@@ -1611,9 +1611,9 @@ func subtractBoxInfoToStats(t *testing.T, fullKey string, value ledgercore.Value
 }
 
 // buildAccountDeltasFromKvsAndMods simulates keeping track of the evolution of the box statistics
-func buildAccountDeltasFromKvsAndMods(t *testing.T, kvOriginals, kvMods map[string]ledgercore.ValueDelta) (
-	ledgercore.StateDelta, map[string]ledgercore.ValueDelta, map[basics.Address]basics.AccountData) {
-	kvUpdated := map[string]ledgercore.ValueDelta{}
+func buildAccountDeltasFromKvsAndMods(t *testing.T, kvOriginals, kvMods map[string]ledgercore.KvValueDelta) (
+	ledgercore.StateDelta, map[string]ledgercore.KvValueDelta, map[basics.Address]basics.AccountData) {
+	kvUpdated := map[string]ledgercore.KvValueDelta{}
 	boxTotals := map[basics.Address]basics.AccountData{}
 	accts := map[basics.Address]*ledgercore.AccountData{}
 	/*
@@ -1650,7 +1650,7 @@ func buildAccountDeltasFromKvsAndMods(t *testing.T, kvOriginals, kvMods map[stri
 			continue
 		}
 		/* 2Bii. */
-		require.Equal(t, len(*prevValue.Data), len(*value.Data))
+		require.Equal(t, len(prevValue.Data), len(value.Data))
 		require.Contains(t, kvUpdated, fullKey)
 		kvUpdated[fullKey] = value
 	}
@@ -1707,14 +1707,14 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	k4 := logic.MakeBoxKey(appID, n4)
 	k5 := logic.MakeBoxKey(appID, n5)
 
-	delta.KvMods = map[string]ledgercore.ValueDelta{}
-	delta.KvMods[k1] = ledgercore.ValueDelta{Data: &v1}
-	delta.KvMods[k2] = ledgercore.ValueDelta{Data: &v2}
-	delta.KvMods[k3] = ledgercore.ValueDelta{Data: &v3}
-	delta.KvMods[k4] = ledgercore.ValueDelta{Data: &v4}
-	delta.KvMods[k5] = ledgercore.ValueDelta{Data: &v5}
+	delta.KvMods = map[string]ledgercore.KvValueDelta{}
+	delta.KvMods[k1] = ledgercore.KvValueDelta{Data: []byte(v1)}
+	delta.KvMods[k2] = ledgercore.KvValueDelta{Data: []byte(v2)}
+	delta.KvMods[k3] = ledgercore.KvValueDelta{Data: []byte(v3)}
+	delta.KvMods[k4] = ledgercore.KvValueDelta{Data: []byte(v4)}
+	delta.KvMods[k5] = ledgercore.KvValueDelta{Data: []byte(v5)}
 
-	delta2, newKvMods, accts := buildAccountDeltasFromKvsAndMods(t, map[string]ledgercore.ValueDelta{}, delta.KvMods)
+	delta2, newKvMods, accts := buildAccountDeltasFromKvsAndMods(t, map[string]ledgercore.KvValueDelta{}, delta.KvMods)
 	delta.Accts = delta2.Accts
 
 	err := pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
@@ -1772,12 +1772,12 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 
 	k6 := logic.MakeBoxKey(appID, n6)
 
-	delta.KvMods = map[string]ledgercore.ValueDelta{}
-	delta.KvMods[k2] = ledgercore.ValueDelta{Data: &v2}
-	delta.KvMods[k3] = ledgercore.ValueDelta{Data: nil}
-	delta.KvMods[k4] = ledgercore.ValueDelta{Data: &v4}
-	delta.KvMods[k5] = ledgercore.ValueDelta{Data: nil}
-	delta.KvMods[k6] = ledgercore.ValueDelta{Data: &v6}
+	delta.KvMods = map[string]ledgercore.KvValueDelta{}
+	delta.KvMods[k2] = ledgercore.KvValueDelta{Data: []byte(v2)}
+	delta.KvMods[k3] = ledgercore.KvValueDelta{Data: nil}
+	delta.KvMods[k4] = ledgercore.KvValueDelta{Data: []byte(v4)}
+	delta.KvMods[k5] = ledgercore.KvValueDelta{Data: nil}
+	delta.KvMods[k6] = ledgercore.KvValueDelta{Data: []byte(v6)}
 
 	delta2, newKvMods, accts = buildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
 	delta.Accts = delta2.Accts
@@ -1799,9 +1799,9 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	// v4 is "deleted"
 	v5 = "re-inserted"
 
-	delta.KvMods = map[string]ledgercore.ValueDelta{}
-	delta.KvMods[k4] = ledgercore.ValueDelta{Data: nil}
-	delta.KvMods[k5] = ledgercore.ValueDelta{Data: &v5}
+	delta.KvMods = map[string]ledgercore.KvValueDelta{}
+	delta.KvMods[k4] = ledgercore.KvValueDelta{Data: nil}
+	delta.KvMods[k5] = ledgercore.KvValueDelta{Data: []byte(v5)}
 
 	delta2, newKvMods, accts = buildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
 	delta.Accts = delta2.Accts
@@ -1819,7 +1819,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	validateTotals()
 
 	/*** FOURTH ROUND  - NOOP ***/
-	delta.KvMods = map[string]ledgercore.ValueDelta{}
+	delta.KvMods = map[string]ledgercore.KvValueDelta{}
 	delta2, _, accts = buildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
 	delta.Accts = delta2.Accts
 
