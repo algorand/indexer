@@ -119,8 +119,6 @@ func TestConfigDefault(t *testing.T) {
 	assert.Equal(t, plugins.PluginConfig(expected), testImporter.Config())
 }
 
-// TODO: remaining tests
-
 func TestGetBlockSuccess(t *testing.T) {
 	numRounds := 10
 	importer, tempdir, genesis, err := initializeImporter(t, 10)
