@@ -13,9 +13,11 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/algorand/indexer/conduit"
+	"github.com/algorand/indexer/loggers"
+
+	// We need to import these so that the package wide init() function gets called
 	_ "github.com/algorand/indexer/exporters/all"
 	_ "github.com/algorand/indexer/importers/all"
-	"github.com/algorand/indexer/loggers"
 	_ "github.com/algorand/indexer/processors/all"
 )
 
