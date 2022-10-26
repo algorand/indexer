@@ -65,6 +65,7 @@ func createInitState(genesis *bookkeeping.Genesis) (ledgercore.InitState, error)
 // MakeLedger opens a ledger, initializing if necessary.
 func MakeLedger(logger *log.Logger, inMemory bool, genesis *bookkeeping.Genesis, dataDir string) (*ledger.Ledger, error) {
 	const prefix = "ledger"
+	fmt.Printf("MakeLedger(%s)\n", dataDir)
 	err := os.MkdirAll(dataDir, 0755)
 	if err != nil {
 		return nil, fmt.Errorf("MakeProcessor() failed to create '%s': %w", dataDir, err)

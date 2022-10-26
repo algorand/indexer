@@ -263,6 +263,8 @@ func (p *pipelineImpl) Init() error {
 		if err != nil {
 			return fmt.Errorf("Pipeline.Start(): could not serialize Processors[%d].Config : %w", idx, err)
 		}
+		fmt.Println("CONFIG")
+		fmt.Println(string(configs))
 		err := (*processor).Init(p.ctx, *p.initProvider, plugins.PluginConfig(configs), processorLogger)
 		processorName := (*processor).Metadata().Name()
 		if err != nil {
