@@ -668,6 +668,10 @@ func TestPipelineMetricsConfigs(t *testing.T) {
 	ctx, cf := context.WithCancel(context.Background())
 	pImpl := pipelineImpl{
 		cfg: &PipelineConfig{
+			ConduitConfig: &Config{
+				Flags:          nil,
+				ConduitDataDir: t.TempDir(),
+			},
 			Importer: NameConfigPair{
 				Name:   "",
 				Config: map[string]interface{}{},
@@ -691,6 +695,11 @@ func TestPipelineMetricsConfigs(t *testing.T) {
 		exporter:     &pExporter,
 		cf:           cf,
 		ctx:          ctx,
+		pipelineMetadata: PipelineMetaData{
+			GenesisHash: "",
+			Network:     "",
+			NextRound:   0,
+		},
 	}
 	defer pImpl.cf()
 
