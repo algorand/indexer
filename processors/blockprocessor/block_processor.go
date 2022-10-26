@@ -84,10 +84,6 @@ func (proc *blockProcessor) Init(ctx context.Context, initProvider data.InitProv
 		return fmt.Errorf("blockprocessor init error: %w", err)
 	}
 	proc.cfg = cfg
-	fmt.Println("BLOCKPROCESSOR CONFIG")
-	fmt.Println(cfg)
-	fmt.Println(pCfg)
-	fmt.Printf("DATA DIR: %s\n", pCfg.IndexerDatadir)
 
 	genesis := initProvider.GetGenesis()
 	round := uint64(initProvider.NextDBRound())
@@ -97,10 +93,6 @@ func (proc *blockProcessor) Init(ctx context.Context, initProvider data.InitProv
 		return fmt.Errorf("could not initialize ledger: %w", err)
 	}
 
-	fmt.Println("BLOCKPROCESSOR CONFIG-------------")
-	fmt.Println(cfg)
-	fmt.Println(pCfg)
-	fmt.Printf("DATA DIR: %s\n", pCfg.IndexerDatadir)
 	l, err := util.MakeLedger(proc.logger, false, genesis, pCfg.IndexerDatadir)
 	if err != nil {
 		return fmt.Errorf("could not make ledger: %w", err)
