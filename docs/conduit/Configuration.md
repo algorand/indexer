@@ -38,5 +38,5 @@ exporter:
 
 ## Plugin configuration
 
-See [plugins/home.md](plugins/home.md) for details.
+See [plugin list](plugins/home.md) for details.
 Each plugin is identified by a `name`, and provided the `config` during initialization.

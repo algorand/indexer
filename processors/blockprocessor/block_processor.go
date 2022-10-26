@@ -3,6 +3,8 @@ package blockprocessor
 import (
 	"context"
 	"fmt"
+	"time"
+
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
@@ -222,6 +224,7 @@ func addGenesisBlock(l *ledger.Ledger, handler func(block *ledgercore.ValidatedB
 }
 
 func (proc *blockProcessor) Process(input data.BlockData) (data.BlockData, error) {
+	start := time.Now()
 
 	blockCert := input.EncodedBlockCertificate()
 
@@ -237,6 +240,8 @@ func (proc *blockProcessor) Process(input data.BlockData) (data.BlockData, error
 	delta := vb.Delta()
 	input.Payset = modifiedTxns
 	input.Delta = &delta
+
+	proc.logger.Debugf("Block processor: processed block %d (%s)", input.Round(), time.Since(start))
 
 	return input, nil
 }

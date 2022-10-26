@@ -29,7 +29,7 @@ For example, if you want to get **Mainnet** round `22212765`, you would refer to
 processors:
   - name: block_evaluator
     config:
-      - indexer-data-dir: "location where the local ledger will be stored."
+      - data-dir: "location where the local ledger will be stored."
         algod-data-dir: "local algod data directory"
         algod-addr: "algod URL"
         algod-token: "algod token"

@@ -2,29 +2,40 @@ package filewriter
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"testing"
 
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/indexer/data"
-	"github.com/algorand/indexer/plugins"
-	testutil "github.com/algorand/indexer/util/test"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
+
+	"github.com/algorand/go-algorand/agreement"
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
+
+	"github.com/algorand/indexer/data"
+	"github.com/algorand/indexer/exporters"
+	"github.com/algorand/indexer/plugins"
+	"github.com/algorand/indexer/util"
+	testutil "github.com/algorand/indexer/util/test"
 )
 
 var logger *logrus.Logger
 var fileCons = &Constructor{}
+var configTemplate = "block-dir: %s/blocks\n"
 var round = basics.Round(2)
 
 func init() {
 	logger, _ = test.NewNullLogger()
-	os.RemoveAll("/tmp/blocks")
+}
+
+func getConfig(t *testing.T) (config, tempdir string) {
+	tempdir = t.TempDir()
+	config = fmt.Sprintf(configTemplate, tempdir)
+	return
 }
 
 func TestExporterMetadata(t *testing.T) {
@@ -37,20 +48,25 @@ func TestExporterMetadata(t *testing.T) {
 }
 
 func TestExporterInit(t *testing.T) {
-	config := fmt.Sprintf("block-dir: %s/blocks\n", t.TempDir())
-	fileExp := fileExporter{}
+	config, _ := getConfig(t)
+	fileExp := fileCons.New()
 	defer fileExp.Close()
+
+	// creates a new output file
 	err := fileExp.Init(context.Background(), testutil.MockedInitProvider(&round), plugins.PluginConfig(config), logger)
-	assert.NoError(t, err)
 	pluginConfig := fileExp.Config()
-	assert.Equal(t, config, string(pluginConfig))
-	assert.Equal(t, uint64(round), fileExp.round)
+	configWithDefault := config + "filename-pattern: '%[1]d_block.json'\n" + "drop-certificate: false\n"
+	assert.Equal(t, configWithDefault, string(pluginConfig))
+	fileExp.Close()
+
+	// can open existing file
+	err = fileExp.Init(context.Background(), testutil.MockedInitProvider(&round), plugins.PluginConfig(config), logger)
+	assert.NoError(t, err)
+	fileExp.Close()
 }
 
-func TestExporterReceive(t *testing.T) {
-	config := fmt.Sprintf("block-dir: %s/blocks\n", t.TempDir())
-	fileExp := fileExporter{}
-	defer fileExp.Close()
+func sendData(t *testing.T, fileExp exporters.Exporter, config string, numRounds int) {
+	// Test invalid block receive
 	block := data.BlockData{
 		BlockHeader: bookkeeping.BlockHeader{
 			Round: 3,
@@ -61,34 +77,113 @@ func TestExporterReceive(t *testing.T) {
 	}
 
 	err := fileExp.Receive(block)
-	assert.Contains(t, err.Error(), "exporter not initialized")
+	require.Contains(t, err.Error(), "exporter not initialized")
 
-	err = fileExp.Init(context.Background(), testutil.MockedInitProvider(&round), plugins.PluginConfig(config), logger)
-	assert.Nil(t, err)
+	// initialize
+	rnd := basics.Round(0)
+	err = fileExp.Init(context.Background(), testutil.MockedInitProvider(&rnd), plugins.PluginConfig(config), logger)
+	require.NoError(t, err)
+
+	// incorrect round
 	err = fileExp.Receive(block)
-	assert.Contains(t, err.Error(), "received round 3, expected round 2")
+	require.Contains(t, err.Error(), "received round 3, expected round 0")
 
-	// write block to file; pipeline starts at round 2, set in MockedInitProvider
-	for i := 2; i < 7; i++ {
+	// write block to file
+	for i := 0; i < numRounds; i++ {
 		block = data.BlockData{
 			BlockHeader: bookkeeping.BlockHeader{
 				Round: basics.Round(i),
 			},
-			Payset:      nil,
-			Delta:       nil,
-			Certificate: nil,
+			Payset: nil,
+			Delta: &ledgercore.StateDelta{
+				PrevTimestamp: 1234,
+			},
+			Certificate: &agreement.Certificate{
+				Round:  basics.Round(i),
+				Period: 2,
+				Step:   2,
+			},
 		}
 		err = fileExp.Receive(block)
-		assert.NoError(t, err)
-		assert.Equal(t, uint64(i+1), fileExp.round)
-
+		require.NoError(t, err)
 	}
 
-	// written data are valid
-	for i := 2; i < 7; i++ {
-		b, _ := os.ReadFile(filepath.Join(fileExp.cfg.BlocksDir, fmt.Sprintf("block_%d.json", i)))
+	require.NoError(t, fileExp.Close())
+}
+
+func TestExporterReceive(t *testing.T) {
+	config, tempdir := getConfig(t)
+	fileExp := fileCons.New()
+	numRounds := 5
+	sendData(t, fileExp, config, numRounds)
+
+	// block data is valid
+	for i := 0; i < 5; i++ {
+		filename := fmt.Sprintf(FilePattern, i)
+		path := fmt.Sprintf("%s/blocks/%s", tempdir, filename)
+		assert.FileExists(t, path)
+
 		var blockData data.BlockData
-		err = json.Unmarshal(b, &blockData)
+		err := util.DecodeFromFile(path, &blockData)
+		require.Equal(t, basics.Round(i), blockData.BlockHeader.Round)
+		require.NoError(t, err)
+		require.NotNil(t, blockData.Certificate)
+	}
+}
+
+func TestExporterClose(t *testing.T) {
+	config, _ := getConfig(t)
+	fileExp := fileCons.New()
+	rnd := basics.Round(0)
+	fileExp.Init(context.Background(), testutil.MockedInitProvider(&rnd), plugins.PluginConfig(config), logger)
+	require.NoError(t, fileExp.Close())
+}
+
+func TestPatternOverride(t *testing.T) {
+	config, tempdir := getConfig(t)
+	fileExp := fileCons.New()
+
+	patternOverride := "PREFIX_%[1]d_block.json"
+	config = fmt.Sprintf("%sfilename-pattern: '%s'\n", config, patternOverride)
+
+	numRounds := 5
+	sendData(t, fileExp, config, numRounds)
+
+	// block data is valid
+	for i := 0; i < 5; i++ {
+		filename := fmt.Sprintf(patternOverride, i)
+		path := fmt.Sprintf("%s/blocks/%s", tempdir, filename)
+		assert.FileExists(t, path)
+
+		var blockData data.BlockData
+		err := util.DecodeFromFile(path, &blockData)
+		require.Equal(t, basics.Round(i), blockData.BlockHeader.Round)
+		require.NoError(t, err)
+		require.NotNil(t, blockData.Certificate)
+	}
+}
+
+func TestDropCertificate(t *testing.T) {
+	tempdir := t.TempDir()
+	cfg := Config{
+		BlocksDir:       tempdir,
+		DropCertificate: true,
+	}
+	config, err := yaml.Marshal(cfg)
+	require.NoError(t, err)
+
+	numRounds := 10
+	exporter := fileCons.New()
+	sendData(t, exporter, string(config), numRounds)
+
+	// block data is valid
+	for i := 0; i < numRounds; i++ {
+		filename := fmt.Sprintf(FilePattern, i)
+		path := fmt.Sprintf("%s/%s", tempdir, filename)
+		assert.FileExists(t, path)
+		var blockData data.BlockData
+		err := util.DecodeFromFile(path, &blockData)
 		assert.NoError(t, err)
+		assert.Nil(t, blockData.Certificate)
 	}
 }

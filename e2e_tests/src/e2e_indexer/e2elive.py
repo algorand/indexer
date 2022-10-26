@@ -138,11 +138,12 @@ def main():
     psqlstring = ensure_test_db(args.connection_string, args.keep_temps)
     algoddir = os.path.join(tempnet, "Primary")
     aiport = args.indexer_port or random.randint(4000, 30000)
+    indexerdir = os.path.join(tempdir, "indexer_data_dir")
     cmd = [
         indexer_bin,
         "daemon",
         "--data-dir",
-        tempdir,
+        indexerdir,
         "-P",
         psqlstring,
         "--dev-mode",

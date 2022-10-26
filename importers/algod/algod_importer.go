@@ -23,14 +23,14 @@ const importerName = "algod"
 type algodImporter struct {
 	aclient *algod.Client
 	logger  *logrus.Logger
-	cfg     ImporterConfig
+	cfg     Config
 	ctx     context.Context
 	cancel  context.CancelFunc
 }
 
 var algodImporterMetadata = importers.ImporterMetadata{
 	ImpName:        importerName,
-	ImpDescription: "Importer for fetching block from algod rest endpoint.",
+	ImpDescription: "Importer for fetching blocks from an algod REST API.",
 	ImpDeprecated:  false,
 }
 
@@ -59,7 +59,9 @@ func init() {
 func (algodImp *algodImporter) Init(ctx context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) (*bookkeeping.Genesis, error) {
 	algodImp.ctx, algodImp.cancel = context.WithCancel(ctx)
 	algodImp.logger = logger
-	if err := algodImp.unmarhshalConfig(string(cfg)); err != nil {
+	var err error
+	algodImp.cfg, err = unmarshalConfig(string(cfg))
+	if err != nil {
 		return nil, fmt.Errorf("connect failure in unmarshalConfig: %v", err)
 	}
 	var client *algod.Client
@@ -143,6 +145,7 @@ func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 	return blk, fmt.Errorf("finished retries without fetching a block")
 }
 
-func (algodImp *algodImporter) unmarhshalConfig(cfg string) error {
-	return yaml.Unmarshal([]byte(cfg), &algodImp.cfg)
+func unmarshalConfig(cfg string) (config Config, err error) {
+	err = yaml.Unmarshal([]byte(cfg), &config)
+	return
 }
