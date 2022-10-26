@@ -33,7 +33,7 @@ class BlockEvaluator(PluginFixture):
     def resolve_config_input(self):
         self.config_input = {
             "catchpoint": self.catchpoint,
-            "indexer-data-dir": self.indexer_data_dir,
+            "data-dir": self.indexer_data_dir,
             "algod-data-dir": self.algod_data_dir,
             "algod-token": self.algod_token,
             "algod-addr": self.algod_net,
