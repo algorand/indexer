@@ -2,9 +2,11 @@ package fields
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/indexer/data"
+	"github.com/algorand/indexer/util/metrics"
 )
 
 // Operation an operation like "any" or "all" for boolean logic
@@ -30,7 +32,7 @@ type Filter struct {
 
 // SearchAndFilter searches through the block data and applies the operation to the results
 func (f Filter) SearchAndFilter(input data.BlockData) (data.BlockData, error) {
-
+	start := time.Now()
 	var newPayset []transactions.SignedTxnInBlock
 	switch f.Op {
 	case anyFieldOperation:
@@ -74,7 +76,7 @@ func (f Filter) SearchAndFilter(input data.BlockData) (data.BlockData, error) {
 	}
 
 	input.Payset = newPayset
-
+	metrics.SearchAndFilterTimeSeconds.WithLabelValues(string(f.Op)).Observe(time.Since(start).Seconds())
 	return input, nil
 
 }
