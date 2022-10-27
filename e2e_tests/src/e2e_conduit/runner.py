@@ -46,21 +46,21 @@ class ConduitE2ETestRunner:
         ) as conduit_cfg:
             yaml.dump(
                 {
-                    "LogLevel": "info",
-                    "Importer": {
-                        "Name": scenario.importer.name,
-                        "Config": scenario.importer.config_input,
+                    "log-level": "info",
+                    "importer": {
+                        "name": scenario.importer.name,
+                        "config": scenario.importer.config_input,
                     },
-                    "Processors": [
+                    "processors": [
                         {
-                            "Name": processor.name,
-                            "Config": processor.config_input,
+                            "name": processor.name,
+                            "config": processor.config_input,
                         }
                         for processor in scenario.processors
                     ],
-                    "Exporter": {
-                        "Name": scenario.exporter.name,
-                        "Config": scenario.exporter.config_input,
+                    "exporter": {
+                        "name": scenario.exporter.name,
+                        "config": scenario.exporter.config_input,
                     },
                 },
                 conduit_cfg,
