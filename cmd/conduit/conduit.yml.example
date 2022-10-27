@@ -1,20 +1,20 @@
 # Generated conduit configuration file.
 
 # The importer is typically an algod archival instance.
-Importer:
-    Name: algod
-    Config:
-      - netaddr: "your algod address here"
+importer:
+    name: algod
+    config:
+        netaddr: "your algod address here"
         token: "your algod token here"
 
 # One or more processors may be defined to manipulate what data
 # reaches the exporter.
-Processors:
+processors:
 
 # An exporter is defined to do something with the data.
 # Here the filewriter is defined which writes the raw block
 # data to files.
-Exporter:
-    Name: filewriter
-    Config:
-      - block-dir: "path where data should be written"
+exporter:
+    name: filewriter
+    config:
+        block-dir: "path where data should be written"

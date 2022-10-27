@@ -18,6 +18,14 @@ pid-filepath: "path to pid file."
 # optional: level to use for logging.
 log-level: "INFO, WARN, ERROR"
 
+# optional: path to log file
+log-file: "<path>"
+
+# optional: setting to turn on Prometheus metrics server
+metrics: 
+  mode: "ON, OFF"
+  addr: ":<server-port>"
+
 # Define one importer.
 importer:
     name:
@@ -33,7 +41,7 @@ processors:
 # Define one exporter.
 exporter:
     name:
-    config
+    config:
 ```
 
 ## Plugin configuration

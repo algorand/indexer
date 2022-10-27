@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -98,18 +99,11 @@ func MakePipelineConfig(logger *log.Logger, cfg *Config) (*PipelineConfig, error
 
 	logger.Infof("Auto-loading Conduit Configuration: %s", autoloadParamConfigPath)
 
-	file, err := os.Open(autoloadParamConfigPath)
-	if err != nil {
-		return nil, fmt.Errorf("MakePipelineConfig(): error opening file: %w", err)
-	}
-	defer file.Close()
-
-	err = viper.ReadConfig(file)
+	file, err := ioutil.ReadFile(autoloadParamConfigPath)
 	if err != nil {
 		return nil, fmt.Errorf("MakePipelineConfig(): reading config error: %w", err)
 	}
-
-	err = viper.Unmarshal(&pCfg)
+	err = yaml.Unmarshal(file, &pCfg)
 	if err != nil {
 		return nil, fmt.Errorf("MakePipelineConfig(): config file (%s) was mal-formed yaml: %w", autoloadParamConfigPath, err)
 	}
