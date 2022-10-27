@@ -13,9 +13,7 @@ import (
 
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/loggers"
-)
 
-import (
 	// We need to import these so that the package wide init() function gets called
 	_ "github.com/algorand/indexer/exporters/all"
 	_ "github.com/algorand/indexer/importers/all"
@@ -89,6 +87,10 @@ func runConduitCmdWithConfig(cfg *conduit.Config) error {
 	}
 
 	logger.Info("Conduit configuration is valid")
+
+	if pCfg.LogFile != "" {
+		logger.Infof("Conduit log file at %s", pCfg.LogFile)
+	}
 
 	ctx := context.Background()
 

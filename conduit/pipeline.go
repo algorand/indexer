@@ -44,6 +44,7 @@ type PipelineConfig struct {
 	CPUProfile  string `yaml:"cpu-profile"`
 	PIDFilePath string `yaml:"pid-filepath"`
 
+	LogFile          string `yaml:"log-file"`
 	PipelineLogLevel string `yaml:"log-level"`
 	// Store a local copy to access parent variables
 	Importer   NameConfigPair   `yaml:"importer"`
@@ -473,6 +474,15 @@ func MakePipeline(ctx context.Context, cfg *PipelineConfig, logger *log.Logger) 
 	if logger == nil {
 		return nil, fmt.Errorf("MakePipeline(): logger was empty")
 	}
+
+	if cfg.LogFile != "" {
+		f, err := os.OpenFile(cfg.LogFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+		if err != nil {
+			return nil, fmt.Errorf("MakePipeline(): %w", err)
+		}
+		logger.SetOutput(f)
+	}
+
 	logLevel, err := log.ParseLevel(cfg.PipelineLogLevel)
 	if err != nil {
 		// Belt and suspenders.  Valid() should have caught this
