@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/algorand/indexer/util/metrics"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -46,6 +47,7 @@ func init() {
 	logger.SetFormatter(&formatter)
 
 	conduitCmd.AddCommand(initCmd)
+	metrics.RegisterPrometheusMetrics()
 }
 
 // runConduitCmdWithConfig run the main logic with a supplied conduit config
