@@ -571,7 +571,7 @@ func compareAppBoxesAgainstLedger(t *testing.T, ld indxLedger.LedgerForEvaluator
 			value, err := ld.LookupKv(round, key)
 			require.NoError(t, err, msg)
 			if !boxDeleted {
-				require.Equal(t, expectedValue, value, msg)
+				require.Equal(t, []byte(expectedValue), value, msg)
 			} else {
 				require.Nil(t, value, msg)
 			}

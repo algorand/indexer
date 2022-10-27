@@ -45,8 +45,8 @@ jobs:
     parameters:
       go_version:
         type: string
-    environment:
-      CI_E2E_FILENAME: "fac60bda/feature-avm-box"
+    environment: 
+      CI_E2E_FILENAME: "fab23faf/feature-avm-box"
     steps:
       - go/install:
           version: << parameters.go_version >>

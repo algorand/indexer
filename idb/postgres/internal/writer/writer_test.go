@@ -1650,7 +1650,6 @@ func buildAccountDeltasFromKvsAndMods(t *testing.T, kvOriginals, kvMods map[stri
 			continue
 		}
 		/* 2Bii. */
-		require.Equal(t, len(prevValue.Data), len(value.Data))
 		require.Contains(t, kvUpdated, fullKey)
 		kvUpdated[fullKey] = value
 	}
@@ -1764,8 +1763,10 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	validateTotals()
 
 	// ---- ROUND 2: mutate 2, delete 3, mutate 4, delete 5, create 6  ---- //
+	oldV2 := v2
 	v2 = "mutated"
 	// v3 is "deleted"
+	oldV4 := v4
 	v4 = "mutated"
 	// v5 is "deleted"
 	n6, v6 := "box6", "inserted"
@@ -1773,9 +1774,9 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	k6 := logic.MakeBoxKey(appID, n6)
 
 	delta.KvMods = map[string]ledgercore.KvValueDelta{}
-	delta.KvMods[k2] = ledgercore.KvValueDelta{Data: []byte(v2)}
+	delta.KvMods[k2] = ledgercore.KvValueDelta{Data: []byte(v2), OldData: []byte(oldV2)}
 	delta.KvMods[k3] = ledgercore.KvValueDelta{Data: nil}
-	delta.KvMods[k4] = ledgercore.KvValueDelta{Data: []byte(v4)}
+	delta.KvMods[k4] = ledgercore.KvValueDelta{Data: []byte(v4), OldData: []byte(oldV4)}
 	delta.KvMods[k5] = ledgercore.KvValueDelta{Data: nil}
 	delta.KvMods[k6] = ledgercore.KvValueDelta{Data: []byte(v6)}
 
