@@ -426,7 +426,6 @@ func (p *pipelineImpl) Start() {
 					p.pipelineMetadata.NextRound++
 					p.encodeMetadataToFile()
 					retry = 0
-					p.pipelineMetadata.NextRound++
 				}
 			}
 
