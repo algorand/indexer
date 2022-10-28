@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/algorand/indexer/util/metrics"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -160,6 +161,8 @@ type pipelineImpl struct {
 
 	pipelineMetadata         PipelineMetaData
 	pipelineMetadataFilePath string
+
+	metricsCallback []ProvideMetricsFunc
 }
 
 // PipelineMetaData contains the metadata for the pipeline
@@ -192,6 +195,20 @@ func (p *pipelineImpl) registerLifecycleCallbacks() {
 	}
 	if v, ok := (*p.exporter).(Completed); ok {
 		p.completeCallback = append(p.completeCallback, v.OnComplete)
+	}
+}
+
+func (p *pipelineImpl) registerPluginMetricsCallbacks() {
+	if v, ok := (*p.importer).(PluginMetrics); ok {
+		p.metricsCallback = append(p.metricsCallback, v.ProvideMetrics)
+	}
+	for _, processor := range p.processors {
+		if v, ok := (*processor).(PluginMetrics); ok {
+			p.metricsCallback = append(p.metricsCallback, v.ProvideMetrics)
+		}
+	}
+	if v, ok := (*p.exporter).(PluginMetrics); ok {
+		p.metricsCallback = append(p.metricsCallback, v.ProvideMetrics)
 	}
 }
 
@@ -302,6 +319,13 @@ func (p *pipelineImpl) Init() error {
 
 	// start metrics server
 	if p.cfg.Metrics.Mode == "ON" {
+		p.registerPluginMetricsCallbacks()
+		for _, cb := range p.metricsCallback {
+			collectors := cb()
+			for _, c := range collectors {
+				prometheus.Register(c)
+			}
+		}
 		go p.startMetricsServer()
 	}
 

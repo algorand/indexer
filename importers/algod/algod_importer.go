@@ -3,17 +3,17 @@ package algodimporter
 import (
 	"context"
 	"fmt"
-	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/indexer/util/metrics"
 	"net/url"
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
+	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/importers"
 	"github.com/algorand/indexer/plugins"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 )
@@ -127,7 +127,7 @@ func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 		start := time.Now()
 		blockbytes, err = algodImp.aclient.BlockRaw(rnd).Do(algodImp.ctx)
 		dt := time.Since(start)
-		metrics.GetAlgodRawBlockTimeSeconds.Observe(dt.Seconds())
+		GetAlgodRawBlockTimeSeconds.Observe(dt.Seconds())
 		if err != nil {
 			return blk, err
 		}
@@ -143,6 +143,12 @@ func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 	}
 	algodImp.logger.Error("GetBlock finished retries without fetching a block.")
 	return blk, fmt.Errorf("finished retries without fetching a block")
+}
+
+func (algodImp *algodImporter) ProvideMetrics() []prometheus.Collector {
+	return []prometheus.Collector{
+		GetAlgodRawBlockTimeSeconds,
+	}
 }
 
 func unmarshalConfig(cfg string) (config Config, err error) {

@@ -15,7 +15,6 @@ const (
 	BlockImportTimeName      = "import_time_sec"
 	ImportedTxnsPerBlockName = "imported_tx_per_block"
 	ImportedRoundGaugeName   = "imported_round"
-	EvalTimeName             = "eval_time_sec"
 	GetAlgodRawBlockTimeName = "get_algod_raw_block_time_sec"
 	ImportedTxnsName         = "imported_txns"
 	ImporterTimeName         = "importer_time_sec"
@@ -30,7 +29,6 @@ var AllMetricNames = []string{
 	BlockImportTimeName,
 	ImportedTxnsPerBlockName,
 	ImportedRoundGaugeName,
-	EvalTimeName,
 	GetAlgodRawBlockTimeName,
 	ImporterTimeName,
 	ProcessorTimeName,
@@ -72,13 +70,6 @@ var (
 			Help:      "The most recent round indexer has imported.",
 		})
 
-	EvalTimeSeconds = prometheus.NewSummary(
-		prometheus.SummaryOpts{
-			Subsystem: "indexer_daemon",
-			Name:      EvalTimeName,
-			Help:      "Time spent calling Eval function in seconds.",
-		})
-
 	GetAlgodRawBlockTimeSeconds = prometheus.NewSummary(
 		prometheus.SummaryOpts{
 			Subsystem: "indexer_daemon",
@@ -115,14 +106,6 @@ var (
 			Name:      PipelineRetryCountName,
 			Help:      "Total pipeline retries since last successful run",
 		})
-
-	SearchAndFilterTimeSeconds = prometheus.NewSummaryVec(
-		prometheus.SummaryOpts{
-			Subsystem: "indexer_daemon",
-			Name:      SearchAndFilterTimeName,
-			Help:      "Time spent on search and filter",
-		}, []string{"operation"},
-	)
 )
 
 var collectors = []prometheus.Collector{
@@ -130,13 +113,10 @@ var collectors = []prometheus.Collector{
 	BlockImportTimeSeconds,
 	ImportedTxnsPerBlock,
 	ImportedRoundGauge,
-	EvalTimeSeconds,
 	GetAlgodRawBlockTimeSeconds,
 	ImportedTxns,
 	ImporterTimeSeconds,
 	ProcessorTimeSeconds,
 	ExporterTimeSeconds,
 	PipelineRetryCount,
-	SearchAndFilterTimeSeconds,
-	EvalTimeSeconds,
 }
