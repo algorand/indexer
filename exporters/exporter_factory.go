@@ -2,6 +2,7 @@ package exporters
 
 import (
 	"fmt"
+	"sort"
 )
 
 // ExporterConstructor must be implemented by each Exporter.
@@ -39,4 +40,14 @@ func ExporterBuilderByName(name string) (ExporterConstructor, error) {
 	}
 
 	return constructor, nil
+}
+
+// ExporterNames returns the names of all exporters registered
+func ExporterNames() []string {
+	var returnValue []string
+	for k := range exporterImpls {
+		returnValue = append(returnValue, k)
+	}
+	sort.Strings(returnValue)
+	return returnValue
 }

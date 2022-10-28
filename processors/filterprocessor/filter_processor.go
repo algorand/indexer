@@ -2,6 +2,8 @@ package filterprocessor
 
 import (
 	"context"
+	// use for getting sample config
+	_ "embed"
 	"fmt"
 	"reflect"
 
@@ -35,9 +37,12 @@ type FilterProcessor struct {
 	ctx    context.Context
 }
 
+//go:embed sample.yaml
+var sampleConfig string
+
 // Metadata returns metadata
 func (a *FilterProcessor) Metadata() processors.ProcessorMetadata {
-	return processors.MakeProcessorMetadata(implementationName, "FilterProcessor Filter Processor", false)
+	return processors.MakeProcessorMetadata(implementationName, "FilterProcessor Filter Processor", false, sampleConfig)
 }
 
 // Config returns the config

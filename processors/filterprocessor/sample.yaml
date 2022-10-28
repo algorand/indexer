@@ -1,0 +1,7 @@
+Name: filter_processor
+Config:
+  filters:
+    - any:
+        - tag: txn.rcv
+          expression-type: exact
+          expression: "ADDRESS"

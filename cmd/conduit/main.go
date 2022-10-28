@@ -126,6 +126,8 @@ func makeConduitCmd() *cobra.Command {
 	cfg.Flags = cmd.Flags()
 	cfg.Flags.StringVarP(&cfg.ConduitDataDir, "data-dir", "d", "", "set the data directory for the conduit binary")
 
+	cmd.AddCommand(makeListCmd())
+
 	return cmd
 }
 

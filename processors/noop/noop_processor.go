@@ -2,6 +2,8 @@ package noop
 
 import (
 	"context"
+	// use for getting sample config
+	_ "embed"
 
 	"github.com/sirupsen/logrus"
 
@@ -22,9 +24,12 @@ func init() {
 // Processor noop
 type Processor struct{}
 
+//go:embed sample.yaml
+var sampleConfig string
+
 // Metadata noop
 func (p *Processor) Metadata() processors.ProcessorMetadata {
-	return processors.MakeProcessorMetadata(implementationName, "noop processor", false)
+	return processors.MakeProcessorMetadata(implementationName, "noop processor", false, sampleConfig)
 }
 
 // Config noop
