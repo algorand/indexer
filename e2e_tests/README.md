@@ -42,7 +42,7 @@ e2elive --connection-string "host=127.0.0.1 port=5555 user=pguser password=pgpas
 
 ### e2econduit
 
-This runs a pipeline with conduit. The database is mocked so a real DB is not required.
+This runs a series of pipeline scenarios with conduit. Each module manages its own resources and may have dependencies. For example the PostgreSQL exporter starts a docker container to initialize a database server.
 ```sh
 e2econduit --s3-source-net rel-nightly --conduit-bin ../cmd/conduit/conduit
 ```
