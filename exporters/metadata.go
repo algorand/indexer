@@ -6,9 +6,10 @@ import (
 
 // ExporterMetadata returns fields relevant to identification and description of plugins.
 type ExporterMetadata struct {
-	ExpName        string
-	ExpDescription string
-	ExpDeprecated  bool
+	ExpName         string
+	ExpDescription  string
+	ExpDeprecated   bool
+	ExpSampleConfig string
 }
 
 // Type implements the Plugin.Type interface
@@ -29,4 +30,9 @@ func (meta *ExporterMetadata) Description() string {
 // Deprecated is used to warn users against deprecated plugins
 func (meta *ExporterMetadata) Deprecated() bool {
 	return meta.ExpDeprecated
+}
+
+// SampleConfig returns the sample config of the plugin
+func (meta *ExporterMetadata) SampleConfig() string {
+	return meta.ExpSampleConfig
 }

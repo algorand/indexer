@@ -2,6 +2,8 @@ package blockprocessor
 
 import (
 	"context"
+	// use for getting sample config
+	_ "embed"
 	"fmt"
 	"time"
 
@@ -60,8 +62,11 @@ type blockProcessor struct {
 	lastValidatedBlockCertificate agreement.Certificate
 }
 
+//go:embed sample.yaml
+var sampleConfig string
+
 func (proc *blockProcessor) Metadata() processors.ProcessorMetadata {
-	return processors.MakeProcessorMetadata(implementationName, "Local Ledger Block Processor", false)
+	return processors.MakeProcessorMetadata(implementationName, "Local Ledger Block Processor", false, sampleConfig)
 }
 
 func (proc *blockProcessor) Config() plugins.PluginConfig {

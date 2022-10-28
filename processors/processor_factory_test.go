@@ -19,7 +19,7 @@ type mockProcessor struct {
 }
 
 func (m *mockProcessor) Metadata() ProcessorMetadata {
-	return MakeProcessorMetadata("foobar", "", false)
+	return MakeProcessorMetadata("foobar", "", false, "")
 }
 
 type mockProcessorConstructor struct {

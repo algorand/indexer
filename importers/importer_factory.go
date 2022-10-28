@@ -1,6 +1,9 @@
 package importers
 
-import "fmt"
+import (
+	"fmt"
+	"sort"
+)
 
 // Constructor must be implemented by each Importer.
 // It provides a basic no-arg constructor for instances of an ImporterImpl.
@@ -41,4 +44,14 @@ func ImporterBuilderByName(name string) (Constructor, error) {
 	}
 
 	return constructor, nil
+}
+
+// ImporterNames returns the names of all importers registered
+func ImporterNames() []string {
+	var returnValue []string
+	for k := range importerImpls {
+		returnValue = append(returnValue, k)
+	}
+	sort.Strings(returnValue)
+	return returnValue
 }

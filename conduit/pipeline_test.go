@@ -204,7 +204,7 @@ func (m *mockProcessor) Close() error {
 }
 
 func (m *mockProcessor) Metadata() processors.ProcessorMetadata {
-	return processors.MakeProcessorMetadata("mockProcessor", "", false)
+	return processors.MakeProcessorMetadata("mockProcessor", "", false, "")
 }
 
 func (m *mockProcessor) Process(input data.BlockData) (data.BlockData, error) {

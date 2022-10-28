@@ -2,6 +2,7 @@ package processors
 
 import (
 	"fmt"
+	"sort"
 )
 
 // ProcessorConstructor must be implemented by each Processor.
@@ -43,4 +44,14 @@ func ProcessorBuilderByName(name string) (ProcessorConstructor, error) {
 	}
 
 	return constructor, nil
+}
+
+// ProcessorNames returns the names of all processors registered
+func ProcessorNames() []string {
+	var returnValue []string
+	for k := range processorImpls {
+		returnValue = append(returnValue, k)
+	}
+	sort.Strings(returnValue)
+	return returnValue
 }

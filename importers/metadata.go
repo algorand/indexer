@@ -4,9 +4,10 @@ import "github.com/algorand/indexer/plugins"
 
 // ImporterMetadata returns fields relevant to identification and description of plugins.
 type ImporterMetadata struct {
-	ImpName        string
-	ImpDescription string
-	ImpDeprecated  bool
+	ImpName         string
+	ImpDescription  string
+	ImpDeprecated   bool
+	ImpSampleConfig string
 }
 
 // Type implements the Plugin.Type interface
@@ -27,4 +28,9 @@ func (meta *ImporterMetadata) Description() string {
 // Deprecated is used to warn users against deprecated plugins
 func (meta *ImporterMetadata) Deprecated() bool {
 	return meta.ImpDeprecated
+}
+
+// SampleConfig returns the sample config of the plugin
+func (meta *ImporterMetadata) SampleConfig() string {
+	return meta.ImpSampleConfig
 }

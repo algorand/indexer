@@ -126,6 +126,8 @@ func makeConduitCmd() *cobra.Command {
 	cfg.Flags.StringVarP(&cfg.ConduitDataDir, "data-dir", "d", "", "set the data directory for the conduit binary")
 	cfg.Flags.Uint64VarP(&cfg.NextRoundOverride, "next-round-override", "r", 0, "set the starting round. Overrides next-round in metadata.json")
 
+	cmd.AddCommand(makeListCmd())
+
 	return cmd
 }
 
