@@ -38,7 +38,9 @@ type BlockProcessor interface {
 
 // package-wide init function
 func init() {
-	processors.RegisterProcessor(implementationName, &Constructor{})
+	processors.RegisterProcessor(implementationName, processors.ProcessorConstructorFunc(func() processors.Processor {
+		return &blockProcessor{}
+	}))
 }
 
 type blockProcessor struct {
@@ -55,14 +57,6 @@ type blockProcessor struct {
 	// lastValidatedBlockRound is the round at which to add the last validated block
 	lastValidatedBlockRound       basics.Round
 	lastValidatedBlockCertificate agreement.Certificate
-}
-
-// Constructor is the ProcessorConstructor implementation for the "block processor" processor
-type Constructor struct{}
-
-// New initializes a blockProcessorConstructor
-func (c *Constructor) New() processors.Processor {
-	return &blockProcessor{}
 }
 
 func (proc *blockProcessor) Metadata() processors.ProcessorMetadata {

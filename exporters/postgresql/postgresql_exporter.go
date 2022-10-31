@@ -41,14 +41,6 @@ var postgresqlExporterMetadata = exporters.ExporterMetadata{
 	ExpDeprecated:  false,
 }
 
-// Constructor is the ExporterConstructor implementation for the "postgresql" exporter
-type Constructor struct{}
-
-// New initializes a postgresqlExporter
-func (c *Constructor) New() exporters.Exporter {
-	return &postgresqlExporter{}
-}
-
 func (exp *postgresqlExporter) Metadata() exporters.ExporterMetadata {
 	return postgresqlExporterMetadata
 }
@@ -154,5 +146,7 @@ func (exp *postgresqlExporter) unmarhshalConfig(cfg string) error {
 }
 
 func init() {
-	exporters.RegisterExporter(exporterName, &Constructor{})
+	exporters.RegisterExporter(exporterName, exporters.ExporterConstructorFunc(func() exporters.Exporter {
+		return &postgresqlExporter{}
+	}))
 }

@@ -34,14 +34,6 @@ var fileExporterMetadata = exporters.ExporterMetadata{
 	ExpDeprecated:  false,
 }
 
-// Constructor is the ExporterConstructor implementation for the filewriter exporter
-type Constructor struct{}
-
-// New initializes a fileExporter
-func (c *Constructor) New() exporters.Exporter {
-	return &fileExporter{}
-}
-
 func (exp *fileExporter) Metadata() exporters.ExporterMetadata {
 	return fileExporterMetadata
 }
@@ -111,5 +103,7 @@ func unmarshalConfig(cfg string) (Config, error) {
 }
 
 func init() {
-	exporters.RegisterExporter(exporterName, &Constructor{})
+	exporters.RegisterExporter(fileExporterMetadata.ExpName, exporters.ExporterConstructorFunc(func() exporters.Exporter {
+		return &fileExporter{}
+	}))
 }

@@ -13,9 +13,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var nc = &Constructor{}
-
-var ne = nc.New()
+var nc = exporters.ExporterConstructorFunc(func() exporters.Exporter {
+	return &noopExporter{}
+})
+var ne = &noopExporter{}
 
 func TestExporterBuilderByName(t *testing.T) {
 	exporters.RegisterExporter(noopExporterMetadata.ExpName, nc)

@@ -2,8 +2,8 @@ package importers
 
 import (
 	"context"
-	"github.com/algorand/go-algorand/data/bookkeeping"
 
+	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/plugins"
 	"github.com/sirupsen/logrus"
@@ -28,4 +28,12 @@ type Importer interface {
 	// GetBlock given any round number-rnd fetches the block at that round
 	// It returns an object of type BlockData defined in data
 	GetBlock(rnd uint64) (data.BlockData, error)
+}
+
+// ImporterConstructorFunc is Constructor implementation for importers
+type ImporterConstructorFunc func() Importer
+
+// New initializes an importer constructor
+func (f ImporterConstructorFunc) New() Importer {
+	return f()
 }

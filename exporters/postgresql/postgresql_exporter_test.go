@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/algorand/indexer/exporters"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
@@ -22,7 +23,9 @@ import (
 	testutil "github.com/algorand/indexer/util/test"
 )
 
-var pgsqlConstructor = &Constructor{}
+var pgsqlConstructor = exporters.ExporterConstructorFunc(func() exporters.Exporter {
+	return &postgresqlExporter{}
+})
 var logger *logrus.Logger
 var round = basics.Round(0)
 

@@ -5,11 +5,12 @@ import (
 	"testing"
 
 	"github.com/algorand/indexer/data"
+	"github.com/algorand/indexer/exporters"
 	"github.com/algorand/indexer/plugins"
 	"github.com/stretchr/testify/assert"
 )
 
-var exCons = &Constructor{}
+var exCons exporters.ExporterConstructorFunc
 
 var exExp = exCons.New()
 
