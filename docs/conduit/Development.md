@@ -61,3 +61,33 @@ Each plugin type has a function which is called once per round:
 ## Close
 
 Called during a graceful shutdown. We make every effort to call this function, but it is not guaranteed.
+
+## Hooks
+
+There are special lifecycle hooks that can be registered on any plugin by implementing additional interfaces.
+
+### Completed
+
+When all processing has completed for a round, the `OnComplete` function is called on any plugin that implements it.
+
+```go
+// Completed is called by the conduit pipeline after every exporter has
+// finished. It can be used for things like finalizing state.
+type Completed interface {
+	// OnComplete will be called by the Conduit framework when the pipeline
+	// finishes processing a round.
+	OnComplete(input data.BlockData) error
+}
+```
+
+### PluginMetrics
+
+After the pipeline has been initialized, and before it has been started, plugins may provide prometheus metric handlers.
+The ProvideMetrics function will only be called once.
+
+```go
+// PluginMetrics is for defining plugin specific metrics
+type PluginMetrics interface {
+	ProvideMetrics() []prometheus.Collector
+}
+```
