@@ -161,8 +161,6 @@ func recordDataToFile(start time.Time, entry Entry, prefix string, out *os.File)
 	record("_cumulative", metrics.BlockImportTimeName, floatTotal)
 	record("_average", metrics.ImportedTxnsPerBlockName, rate)
 	record("_cumulative", metrics.ImportedTxnsPerBlockName, intTotal)
-	record("_average", metrics.EvalTimeName, rate)
-	record("_cumulative", metrics.EvalTimeName, floatTotal)
 	record("", metrics.ImportedRoundGaugeName, intTotal)
 
 	if len(writeErrors) > 0 {

@@ -21,7 +21,6 @@ const (
 	ProcessorTimeName        = "processor_time_sec"
 	ExporterTimeName         = "exporter_time_sec"
 	PipelineRetryCountName   = "pipeline_retry_count"
-	SearchAndFilterTimeName  = "search_and_filter_sec"
 )
 
 // AllMetricNames is a reference for all the custom metric names.
@@ -34,7 +33,6 @@ var AllMetricNames = []string{
 	ProcessorTimeName,
 	ExporterTimeName,
 	PipelineRetryCountName,
-	SearchAndFilterTimeName,
 }
 
 // Initialize the prometheus objects.
