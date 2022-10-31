@@ -10,7 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var exCons exporters.ExporterConstructorFunc
+var exCons = exporters.ExporterConstructorFunc(func() exporters.Exporter {
+	return &exampleExporter{}
+})
 
 var exExp = exCons.New()
 
