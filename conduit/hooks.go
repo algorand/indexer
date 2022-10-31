@@ -1,6 +1,9 @@
 package conduit
 
-import "github.com/algorand/indexer/data"
+import (
+	"github.com/algorand/indexer/data"
+	"github.com/prometheus/client_golang/prometheus"
+)
 
 // OnCompleteFunc is the signature for the Completed functional interface.
 type OnCompleteFunc func(input data.BlockData) error
@@ -11,4 +14,12 @@ type Completed interface {
 	// OnComplete will be called by the Conduit framework when the pipeline
 	// finishes processing a round.
 	OnComplete(input data.BlockData) error
+}
+
+// ProvideMetricsFunc is the signature for the PluginMetrics interface.
+type ProvideMetricsFunc func() []prometheus.Collector
+
+// PluginMetrics is for defining plugin specific metrics
+type PluginMetrics interface {
+	ProvideMetrics() []prometheus.Collector
 }

@@ -30,7 +30,6 @@ type Filter struct {
 
 // SearchAndFilter searches through the block data and applies the operation to the results
 func (f Filter) SearchAndFilter(input data.BlockData) (data.BlockData, error) {
-
 	var newPayset []transactions.SignedTxnInBlock
 	switch f.Op {
 	case anyFieldOperation:
@@ -74,7 +73,5 @@ func (f Filter) SearchAndFilter(input data.BlockData) (data.BlockData, error) {
 	}
 
 	input.Payset = newPayset
-
 	return input, nil
-
 }

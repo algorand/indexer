@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
@@ -141,10 +142,12 @@ func (proc *blockProcessor) extractValidatedBlockAndPayset(blockCert *rpcs.Encod
 		proc.logger.Panicf("ProcessBlockCert() resources err: %v", err)
 	}
 
+	start := time.Now()
 	delta, payset, err := ledger.EvalForIndexer(ledgerForEval, &blockCert.Block, proto, resources)
 	if err != nil {
 		return vb, transactions.Payset{}, fmt.Errorf("eval err: %w", err)
 	}
+	EvalTimeSeconds.Observe(time.Since(start).Seconds())
 
 	// validated block
 	if protoChanged {
@@ -225,7 +228,6 @@ func addGenesisBlock(l *ledger.Ledger, handler func(block *ledgercore.ValidatedB
 
 func (proc *blockProcessor) Process(input data.BlockData) (data.BlockData, error) {
 	start := time.Now()
-
 	blockCert := input.EncodedBlockCertificate()
 
 	vb, modifiedTxns, err := proc.extractValidatedBlockAndPayset(&blockCert)
@@ -265,6 +267,12 @@ func (proc *blockProcessor) OnComplete(_ data.BlockData) error {
 
 func (proc *blockProcessor) NextRoundToProcess() uint64 {
 	return uint64(proc.ledger.Latest()) + 1
+}
+
+func (proc *blockProcessor) ProvideMetrics() []prometheus.Collector {
+	return []prometheus.Collector{
+		EvalTimeSeconds,
+	}
 }
 
 // Preload all resources (account data, account resources, asset/app creators) for the
