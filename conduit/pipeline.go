@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
@@ -108,7 +107,7 @@ func MakePipelineConfig(logger *log.Logger, cfg *Config) (*PipelineConfig, error
 
 	logger.Infof("Auto-loading Conduit Configuration: %s", autoloadParamConfigPath)
 
-	file, err := ioutil.ReadFile(autoloadParamConfigPath)
+	file, err := os.ReadFile(autoloadParamConfigPath)
 	if err != nil {
 		return nil, fmt.Errorf("MakePipelineConfig(): reading config error: %w", err)
 	}
