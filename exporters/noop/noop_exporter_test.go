@@ -16,7 +16,7 @@ import (
 var nc = exporters.ExporterConstructorFunc(func() exporters.Exporter {
 	return &noopExporter{}
 })
-var ne = &noopExporter{}
+var ne = nc.New()
 
 func TestExporterBuilderByName(t *testing.T) {
 	exporters.RegisterExporter(noopExporterMetadata.ExpName, nc)
