@@ -29,11 +29,3 @@ type Processor interface {
 	// Process will be called with provided optional inputs.  It is up to the plugin to check that required inputs are provided.
 	Process(input data.BlockData) (data.BlockData, error)
 }
-
-// ProcessorConstructorFunc is Constructor implementation for processors
-type ProcessorConstructorFunc func() Processor
-
-// New initializes a processor constructor
-func (f ProcessorConstructorFunc) New() Processor {
-	return f()
-}

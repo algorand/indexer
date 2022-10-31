@@ -32,11 +32,3 @@ type Exporter interface {
 	// Should return an error on failure--retries are configurable.
 	Receive(exportData data.BlockData) error
 }
-
-// ExporterConstructorFunc is Constructor implementation for exporters
-type ExporterConstructorFunc func() Exporter
-
-// New initializes an exporter constructor
-func (f ExporterConstructorFunc) New() Exporter {
-	return f()
-}

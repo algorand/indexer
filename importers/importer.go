@@ -29,11 +29,3 @@ type Importer interface {
 	// It returns an object of type BlockData defined in data
 	GetBlock(rnd uint64) (data.BlockData, error)
 }
-
-// ImporterConstructorFunc is Constructor implementation for importers
-type ImporterConstructorFunc func() Importer
-
-// New initializes an importer constructor
-func (f ImporterConstructorFunc) New() Importer {
-	return f()
-}
