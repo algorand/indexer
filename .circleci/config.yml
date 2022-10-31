@@ -45,7 +45,7 @@ jobs:
     parameters:
       go_version:
         type: string
-    environment: 
+    environment:
       CI_E2E_FILENAME: "fab0c6c2/feature-avm-box"
     steps:
       - go/install:
