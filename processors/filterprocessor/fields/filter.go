@@ -12,10 +12,11 @@ type Operation string
 
 const anyFieldOperation Operation = "any"
 const allFieldOperation Operation = "all"
+const noneFieldOperation Operation = "none"
 
 // ValidFieldOperation returns true if the input is a valid operation
 func ValidFieldOperation(input string) bool {
-	if input != string(anyFieldOperation) && input != string(allFieldOperation) {
+	if input != string(anyFieldOperation) && input != string(allFieldOperation) && input != string(noneFieldOperation) {
 		return false
 	}
 
@@ -33,6 +34,28 @@ func (f Filter) SearchAndFilter(input data.BlockData) (data.BlockData, error) {
 
 	var newPayset []transactions.SignedTxnInBlock
 	switch f.Op {
+	case noneFieldOperation:
+		for _, txn := range input.Payset {
+
+			allFalse := true
+			for _, fs := range f.Searchers {
+				b, err := fs.search(txn)
+				if err != nil {
+					return data.BlockData{}, err
+				}
+				if b {
+					allFalse = false
+					break
+				}
+			}
+
+			if allFalse {
+				newPayset = append(newPayset, txn)
+			}
+
+		}
+		break
+
 	case anyFieldOperation:
 		for _, txn := range input.Payset {
 			for _, fs := range f.Searchers {
