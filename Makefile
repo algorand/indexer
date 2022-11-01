@@ -77,7 +77,7 @@ e2e: cmd/algorand-indexer/algorand-indexer
 
 e2e-conduit: conduit
 	cd third_party/go-algorand && make install
-	export PATH=$(PATH):$(shell go env GOPATH)/bin; pip3 install e2e_tests/ && e2econduit --s3-source-net rel-nightly --conduit-bin cmd/conduit/conduit
+	export PATH=$(PATH):$(shell go env GOPATH)/bin; pip3 install e2e_tests/ && e2econduit --s3-source-net ${CI_E2E_FILENAME} --conduit-bin cmd/conduit/conduit
 
 deploy:
 	mule/deploy.sh
