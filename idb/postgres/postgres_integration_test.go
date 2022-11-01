@@ -375,8 +375,7 @@ func TestBlockWithTransactions(t *testing.T) {
 	//////////
 	// When // We call GetBlock and Transactions
 	//////////
-	_, txnRows0, err := db.GetBlock(
-		context.Background(), round, idb.GetBlockOptions{Transactions: true})
+	_, txnRows0, err := db.GetBlock(context.Background(), round, idb.GetBlockOptions{Transactions: true, MaxTransactionsLimit: 100})
 	require.NoError(t, err)
 
 	rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{Round: &round})
@@ -2271,7 +2270,7 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &txnA, &txnB, &txnC)
 	require.NoError(t, err)
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	// query
@@ -2291,7 +2290,7 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 
 	block, err = test.MakeBlockForTxns(block.BlockHeader, &txnD, &txnE, &txnF)
 	require.NoError(t, err)
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	// query

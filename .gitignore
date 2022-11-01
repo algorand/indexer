@@ -2,6 +2,7 @@
 cmd/algorand-indexer/algorand-indexer
 cmd/conduit/conduit
 api/.3tmp.json
+api/generate
 tmp/
 
 # Binaries for programs and plugins
@@ -17,6 +18,9 @@ tmp/
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
+# Output of fixtures_test.go
+_*.json
+
 # Dependency directories (remove the comment below to include it)
 # vendor/
 
@@ -31,6 +35,9 @@ e2e_tests/*egg-info*
 
 # jetbrains IDE
 .idea
+
+# VS Code
+.vscode
 
 .deb_tmp
 .tar_tmp

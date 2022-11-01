@@ -182,6 +182,7 @@ type IndexerDb interface {
 	AssetBalances(ctx context.Context, abq AssetBalanceQuery) (<-chan AssetBalanceRow, uint64)
 	Applications(ctx context.Context, filter ApplicationQuery) (<-chan ApplicationRow, uint64)
 	AppLocalState(ctx context.Context, filter ApplicationQuery) (<-chan AppLocalStateRow, uint64)
+	ApplicationBoxes(ctx context.Context, filter ApplicationBoxQuery) (<-chan ApplicationBoxRow, uint64)
 
 	Health(ctx context.Context) (status Health, err error)
 
@@ -190,8 +191,11 @@ type IndexerDb interface {
 
 // GetBlockOptions contains the options when requesting to load a block from the database.
 type GetBlockOptions struct {
-	// setting Transactions to true suggests requesting to receive the trasnactions themselves from the GetBlock query
+	// setting Transactions to true suggests requesting to receive the transactions themselves from the GetBlock query
 	Transactions bool
+	// if len of the results from buildTransactionQuery is greater than MaxTransactionsLimit, return an error
+	// indicating that the header-only flag should be enabled
+	MaxTransactionsLimit uint64
 }
 
 // TransactionFilter is a parameter object with all the transaction filter options.
@@ -237,6 +241,10 @@ type TransactionFilter struct {
 	// If this flag is set to true, then the query returns the inner txn
 	// instead of the root txn.
 	ReturnInnerTxnOnly bool
+
+	// If this flag is set to true, then the query returns the block excluding
+	// the transactions
+	HeaderOnly bool
 }
 
 // AccountQueryOptions is a parameter object with all of the account filter options.
@@ -376,6 +384,23 @@ type AppLocalStateRow struct {
 	Error         error
 }
 
+// ApplicationBoxQuery is a parameter object used to query application boxes.
+type ApplicationBoxQuery struct {
+	ApplicationID uint64
+	BoxName       []byte
+	OmitValues    bool
+	Limit         uint64
+	PrevFinalBox  []byte
+	// Ascending  *bool - Currently, ORDER BY is hard coded to ASC
+}
+
+// ApplicationBoxRow provides a response wrapping box information.
+type ApplicationBoxRow struct {
+	App   uint64
+	Box   models.Box
+	Error error
+}
+
 // IndexerDbOptions are the options common to all indexer backends.
 type IndexerDbOptions struct {
 	ReadOnly bool
@@ -402,4 +427,12 @@ type Health struct {
 // NetworkState encodes network metastate.
 type NetworkState struct {
 	GenesisHash crypto.Digest `codec:"genesis-hash"`
+}
+
+// MaxTransactionsError records the error when transaction counts exceeds MaxTransactionsLimit.
+type MaxTransactionsError struct {
+}
+
+func (e MaxTransactionsError) Error() string {
+	return "number of transactions exceeds MaxTransactionsLimit"
 }

@@ -81,6 +81,15 @@
         },
         "x-algorand-format": "RFC3339 String"
       },
+      "box-name": {
+        "description": "A box name in goal-arg form 'encoding:value'. For ints, use the form 'int:1234'. For raw bytes, use the form 'b64:A=='. For printable strings, use the form 'str:hello'. For addresses, use the form 'addr:XYZ...'.",
+        "in": "query",
+        "name": "name",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
       "currency-greater-than": {
         "description": "Results should have an amount greater than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.",
         "in": "query",
@@ -122,6 +131,14 @@
         "description": "Combine with address and address-role parameters to define what type of address to search for. The close to fields are normally treated as a receiver, if you would like to exclude them set this parameter to true.",
         "in": "query",
         "name": "exclude-close-to",
+        "schema": {
+          "type": "boolean"
+        }
+      },
+      "header-only": {
+        "description": "Header only flag. When this is set to true, returned block does not contain the transactions",
+        "in": "query",
+        "name": "header-only",
         "schema": {
           "type": "boolean"
         }
@@ -542,6 +559,46 @@
         },
         "description": "(empty)"
       },
+      "BoxResponse": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Box"
+            }
+          }
+        },
+        "description": "Box information"
+      },
+      "BoxesResponse": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "application-id": {
+                  "description": "\\[appidx\\] application index.",
+                  "type": "integer"
+                },
+                "boxes": {
+                  "items": {
+                    "$ref": "#/components/schemas/BoxDescriptor"
+                  },
+                  "type": "array"
+                },
+                "next-token": {
+                  "description": "Used for pagination, when making another request provide this token with the next parameter.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "application-id",
+                "boxes"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "description": "Box names of an application"
+      },
       "ErrorResponse": {
         "content": {
           "application/json": {
@@ -738,6 +795,14 @@
             "description": "The count of all assets that have been opted in, equivalent to the count of AssetHolding objects held by this account.",
             "type": "integer"
           },
+          "total-box-bytes": {
+            "description": "For app-accounts only. The total number of bytes allocated for the keys and values of boxes which belong to the associated application.",
+            "type": "integer"
+          },
+          "total-boxes": {
+            "description": "For app-accounts only. The total number of boxes which belong to the associated application.",
+            "type": "integer"
+          },
           "total-created-apps": {
             "description": "The count of all apps (AppParams objects) created by this account.",
             "type": "integer"
@@ -757,6 +822,8 @@
           "status",
           "total-apps-opted-in",
           "total-assets-opted-in",
+          "total-box-bytes",
+          "total-boxes",
           "total-created-apps",
           "total-created-assets"
         ],
@@ -1133,6 +1200,9 @@
             "description": "\\[gen\\] ID to which this block belongs.",
             "type": "string"
           },
+          "participation-updates": {
+            "$ref": "#/components/schemas/ParticipationUpdates"
+          },
           "previous-block-hash": {
             "description": "\\[prev\\] Previous block hash.",
             "format": "byte",
@@ -1288,6 +1358,43 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "Box": {
+        "description": "Box name and its content.",
+        "properties": {
+          "name": {
+            "description": "\\[name\\] box name, base64 encoded",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          },
+          "value": {
+            "description": "\\[value\\] box value, base64 encoded.",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "value"
+        ],
+        "type": "object"
+      },
+      "BoxDescriptor": {
+        "description": "Box descriptor describes an app box without a value.",
+        "properties": {
+          "name": {
+            "description": "Base64 encoded box name",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
         "type": "object"
       },
       "EvalDelta": {
@@ -1485,6 +1592,19 @@
           "delete"
         ],
         "type": "string"
+      },
+      "ParticipationUpdates": {
+        "description": "Participation account data that needs to be checked/acted on by the network.",
+        "properties": {
+          "expired-participation-accounts": {
+            "description": "\\[partupdrmv\\] a list of online accounts that needs to be converted to offline since their participation key expired.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
       },
       "StateDelta": {
         "description": "Application state delta.",
@@ -3596,6 +3716,247 @@
         ]
       }
     },
+    "/v2/applications/{application-id}/box": {
+      "get": {
+        "description": "Given an application ID and box name, returns base64 encoded box name and value. Box names must be in the goal app call arg form 'encoding:value'. For ints, use the form 'int:1234'. For raw bytes, encode base 64 and use 'b64' prefix as in 'b64:A=='. For printable strings, use the form 'str:hello'. For addresses, use the form 'addr:XYZ...'.",
+        "operationId": "lookupApplicationBoxByIDAndName",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application-id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "A box name in goal-arg form 'encoding:value'. For ints, use the form 'int:1234'. For raw bytes, use the form 'b64:A=='. For printable strings, use the form 'str:hello'. For addresses, use the form 'addr:XYZ...'.",
+            "in": "query",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Box"
+                }
+              }
+            },
+            "description": "Box information"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          }
+        },
+        "summary": "Get box information for a given application.",
+        "tags": [
+          "lookup"
+        ]
+      }
+    },
+    "/v2/applications/{application-id}/boxes": {
+      "get": {
+        "description": "Given an application ID, returns the box names of that application sorted lexicographically.",
+        "operationId": "searchForApplicationBoxes",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application-id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page of results. Use the next token provided by the previous results.",
+            "in": "query",
+            "name": "next",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "application-id": {
+                      "description": "\\[appidx\\] application index.",
+                      "type": "integer"
+                    },
+                    "boxes": {
+                      "items": {
+                        "$ref": "#/components/schemas/BoxDescriptor"
+                      },
+                      "type": "array"
+                    },
+                    "next-token": {
+                      "description": "Used for pagination, when making another request provide this token with the next parameter.",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "application-id",
+                    "boxes"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Box names of an application"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          }
+        },
+        "summary": "Get box names for a given application.",
+        "tags": [
+          "search"
+        ]
+      }
+    },
     "/v2/applications/{application-id}/logs": {
       "get": {
         "description": "Lookup application logs.",
@@ -4368,6 +4729,14 @@
             "required": true,
             "schema": {
               "type": "integer"
+            }
+          },
+          {
+            "description": "Header only flag. When this is set to true, returned block does not contain the transactions",
+            "in": "query",
+            "name": "header-only",
+            "schema": {
+              "type": "boolean"
             }
           }
         ],

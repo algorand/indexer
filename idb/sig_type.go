@@ -59,5 +59,5 @@ func SignatureType(stxn *transactions.SignedTxn) (SigType, error) {
 		return Lsig, nil
 	}
 
-	return "", fmt.Errorf("unable to determine the signature type")
+	return "", fmt.Errorf("unable to determine the signature type for stxn=%+v", stxn)
 }

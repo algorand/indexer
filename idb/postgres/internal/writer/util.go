@@ -8,7 +8,6 @@ import (
 type copyFromChannelStruct struct {
 	ch   chan []interface{}
 	next []interface{}
-	err  error
 }
 
 func (c *copyFromChannelStruct) Next() bool {
