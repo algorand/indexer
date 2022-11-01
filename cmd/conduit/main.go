@@ -78,10 +78,6 @@ func runConduitCmdWithConfig(cfg *conduit.Config) error {
 
 	logger.Info(cfg)
 
-	if err := cfg.Valid(); err != nil {
-		return err
-	}
-
 	pCfg, err := conduit.MakePipelineConfig(logger, cfg)
 
 	if err != nil {
@@ -89,6 +85,10 @@ func runConduitCmdWithConfig(cfg *conduit.Config) error {
 	}
 
 	logger.Info("Conduit configuration is valid")
+
+	if pCfg.LogFile != "" {
+		logger.Infof("Conduit log file: %s", pCfg.LogFile)
+	}
 
 	ctx := context.Background()
 

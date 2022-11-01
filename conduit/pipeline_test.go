@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"testing"
 	"time"
@@ -14,6 +15,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
@@ -265,6 +267,14 @@ func (m *mockExporter) OnComplete(input data.BlockData) error {
 	m.Called(input)
 	return err
 }
+
+type mockedImporterNew struct{}
+
+func (c mockedImporterNew) New() importers.Importer { return nil }
+
+type mockedExporterNew struct{}
+
+func (c mockedExporterNew) New() exporters.Exporter { return nil }
 
 // TestPipelineRun tests that running the pipeline calls the correct functions with mocking
 func TestPipelineRun(t *testing.T) {
@@ -734,4 +744,45 @@ func TestPipelineMetricsConfigs(t *testing.T) {
 	resp, err := getMetrics()
 	assert.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
+}
+
+// TestPipelineLogFile tests that log file is created when specified
+func TestPipelineLogFile(t *testing.T) {
+
+	var mockedImpNew mockedImporterNew
+	var mockedExpNew mockedExporterNew
+	importers.RegisterImporter("mockedImporter", mockedImpNew)
+	exporters.RegisterExporter("mockedExporter", mockedExpNew)
+
+	logfilePath := path.Join(t.TempDir(), "conduit.log")
+	configs := &PipelineConfig{
+		ConduitConfig: &Config{
+			Flags:          nil,
+			ConduitDataDir: t.TempDir(),
+		},
+		Importer: NameConfigPair{
+			Name:   "mockedImporter",
+			Config: map[string]interface{}{"key": "value"},
+		},
+		Exporter: NameConfigPair{
+			Name:   "mockedExporter",
+			Config: map[string]interface{}{"key": "value"},
+		},
+		PipelineLogLevel: "INFO",
+	}
+
+	_, err := MakePipeline(context.Background(), configs, log.New())
+	require.NoError(t, err)
+
+	// Test that file is not created
+	_, err = os.Stat(logfilePath)
+	assert.ErrorIs(t, err, os.ErrNotExist)
+
+	// Test that it is created
+	configs.LogFile = logfilePath
+	_, err = MakePipeline(context.Background(), configs, log.New())
+	require.NoError(t, err)
+
+	_, err = os.Stat(logfilePath)
+	assert.Nil(t, err)
 }

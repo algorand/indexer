@@ -54,6 +54,7 @@ type PipelineConfig struct {
 	CPUProfile  string `yaml:"cpu-profile"`
 	PIDFilePath string `yaml:"pid-filepath"`
 
+	LogFile          string `yaml:"log-file"`
 	PipelineLogLevel string `yaml:"log-level"`
 	// Store a local copy to access parent variables
 	Importer   NameConfigPair   `yaml:"importer"`
@@ -107,18 +108,11 @@ func MakePipelineConfig(logger *log.Logger, cfg *Config) (*PipelineConfig, error
 
 	logger.Infof("Auto-loading Conduit Configuration: %s", autoloadParamConfigPath)
 
-	file, err := os.Open(autoloadParamConfigPath)
-	if err != nil {
-		return nil, fmt.Errorf("MakePipelineConfig(): error opening file: %w", err)
-	}
-	defer file.Close()
-
-	err = viper.ReadConfig(file)
+	file, err := os.ReadFile(autoloadParamConfigPath)
 	if err != nil {
 		return nil, fmt.Errorf("MakePipelineConfig(): reading config error: %w", err)
 	}
-
-	err = viper.Unmarshal(&pCfg)
+	err = yaml.Unmarshal(file, &pCfg)
 	if err != nil {
 		return nil, fmt.Errorf("MakePipelineConfig(): config file (%s) was mal-formed yaml: %w", autoloadParamConfigPath, err)
 	}
@@ -531,6 +525,15 @@ func MakePipeline(ctx context.Context, cfg *PipelineConfig, logger *log.Logger) 
 	if logger == nil {
 		return nil, fmt.Errorf("MakePipeline(): logger was empty")
 	}
+
+	if cfg.LogFile != "" {
+		f, err := os.OpenFile(cfg.LogFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+		if err != nil {
+			return nil, fmt.Errorf("MakePipeline(): %w", err)
+		}
+		logger.SetOutput(f)
+	}
+
 	logLevel, err := log.ParseLevel(cfg.PipelineLogLevel)
 	if err != nil {
 		// Belt and suspenders.  Valid() should have caught this
