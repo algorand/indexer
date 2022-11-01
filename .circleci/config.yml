@@ -45,7 +45,7 @@ jobs:
     parameters:
       go_version:
         type: string
-    environment: 
+    environment:
       CI_E2E_FILENAME: "faab6dcf/rel-nightly"
     steps:
       - go/install:
