@@ -19,7 +19,7 @@ func makeListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "lists all plugins available to conduit",
 		Long:  "lists all plugins available to conduit",
-		Args:  cobra.MaximumNArgs(1),
+		Args:  cobra.MaximumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runListCmd(os.Stdout, args)
 		},
@@ -31,99 +31,63 @@ func makeListCmd() *cobra.Command {
 	return cmd
 }
 
-func runListCmd(out io.Writer, pluginNames []string) error {
-	if len(pluginNames) == 0 {
+func runListCmd(out io.Writer, listArgs []string) error {
+	if len(listArgs) == 0 {
 		output, err := outputAll()
 		if err != nil {
 			return err
 		}
 
 		fmt.Fprint(out, output)
+		return nil
 	}
 
-	var potentialNames []string
+	if len(listArgs) == 1 {
+		return fmt.Errorf("invalid argument, specify [importers, processors, exporters] before plugin name")
+	}
+
+	pluginTypeSpecifier := listArgs[0]
+	pluginName := listArgs[1]
+
 	var sampleConfig string
 
-	for _, pluginName := range pluginNames {
-
-		if strings.HasPrefix(pluginName, "importer.") {
-			// search importers...
-			strippedName := strings.Replace(pluginName, "importer.", "", 1)
-			ctor, err := importers.ImporterBuilderByName(strippedName)
+	switch pluginTypeSpecifier {
+	case "importers":
+		{
+			importerCtor, err := importers.ImporterBuilderByName(pluginName)
 			if err != nil {
-				return err
+				return fmt.Errorf("no importer by name: %s", pluginName)
 			}
-
-			meta := ctor.New().Metadata()
-			fmt.Fprint(out, meta.SampleConfig())
-			return nil
-		}
-
-		if strings.HasPrefix(pluginName, "processor.") {
-			strippedName := strings.Replace(pluginName, "processor.", "", 1)
-			// search processors
-			ctor, err := processors.ProcessorBuilderByName(strippedName)
-			if err != nil {
-				return err
-			}
-
-			meta := ctor.New().Metadata()
-			fmt.Fprint(out, meta.SampleConfig())
-			return nil
-		}
-
-		if strings.HasPrefix(pluginName, "exporter.") {
-			strippedName := strings.Replace(pluginName, "exporter.", "", 1)
-			// search exporters
-			ctor, err := exporters.ExporterBuilderByName(strippedName)
-			if err != nil {
-				return err
-			}
-
-			meta := ctor.New().Metadata()
-			fmt.Fprint(out, meta.SampleConfig())
-			return nil
-		}
-
-		// search through importers first
-		importerCtor, err := importers.ImporterBuilderByName(pluginName)
-		if err == nil {
 			// if we found an importer...
-			potentialNames = append(potentialNames, "importer."+pluginName)
 			meta := importerCtor.New().Metadata()
 			sampleConfig = meta.SampleConfig()
 		}
-
-		// search through processors next
-		processorCtor, err := processors.ProcessorBuilderByName(pluginName)
-		if err == nil {
-			// if we found an exporter...
-			potentialNames = append(potentialNames, "processor."+pluginName)
+		break
+	case "processors":
+		{
+			processorCtor, err := processors.ProcessorBuilderByName(pluginName)
+			if err != nil {
+				return fmt.Errorf("no processor by name: %s", pluginName)
+			}
 			meta := processorCtor.New().Metadata()
 			sampleConfig = meta.SampleConfig()
 		}
-
-		// search through exporters last
-		exporterCtor, err := exporters.ExporterBuilderByName(pluginName)
-		if err == nil {
-			// if we found an exporter....
-			potentialNames = append(potentialNames, "exporter."+pluginName)
+		break
+	case "exporters":
+		{
+			exporterCtor, err := exporters.ExporterBuilderByName(pluginName)
+			if err != nil {
+				return fmt.Errorf("no exporter by name: %s", pluginName)
+			}
 			meta := exporterCtor.New().Metadata()
 			sampleConfig = meta.SampleConfig()
 		}
-
-		if len(potentialNames) == 0 {
-			return fmt.Errorf("no plugins were found with the name: %s", pluginName)
-		}
-
-		if len(potentialNames) > 1 {
-			return fmt.Errorf("multiple plugins were defined with the same name.  run command again with one of the following: %v", potentialNames)
-		}
-
-		fmt.Fprint(out, sampleConfig)
-
+		break
+	default:
+		return fmt.Errorf("invalid argument type (%s), specify [importers, processors, exporters] before plugin name", pluginTypeSpecifier)
 	}
 
+	fmt.Fprint(out, sampleConfig)
 	return nil
 }
 
@@ -131,7 +95,7 @@ func outputAll() (string, error) {
 
 	var sb strings.Builder
 
-	_, err := fmt.Fprint(&sb, "Importers:\n")
+	_, err := fmt.Fprint(&sb, "importers:\n")
 	if err != nil {
 		return "", err
 	}
@@ -157,7 +121,7 @@ func outputAll() (string, error) {
 
 	}
 
-	_, err = fmt.Fprint(&sb, "\nProcessors:\n")
+	_, err = fmt.Fprint(&sb, "\nprocessors:\n")
 	if err != nil {
 		return "", err
 	}
@@ -183,7 +147,7 @@ func outputAll() (string, error) {
 
 	}
 
-	_, err = fmt.Fprint(&sb, "\nExporters:\n")
+	_, err = fmt.Fprint(&sb, "\nexporters:\n")
 	if err != nil {
 		return "", err
 	}
