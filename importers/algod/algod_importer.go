@@ -6,6 +6,9 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/indexer/util/metrics"
+
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/protocol"
@@ -39,21 +42,15 @@ func New() importers.Importer {
 	return &algodImporter{}
 }
 
-// Constructor is the Constructor implementation for the "algod" importer
-type Constructor struct{}
-
-// New initializes a blockProcessorConstructor
-func (c *Constructor) New() importers.Importer {
-	return &algodImporter{}
-}
-
 func (algodImp *algodImporter) Metadata() importers.ImporterMetadata {
 	return algodImporterMetadata
 }
 
 // package-wide init function
 func init() {
-	importers.RegisterImporter(importerName, &Constructor{})
+	importers.RegisterImporter(importerName, importers.ImporterConstructorFunc(func() importers.Importer {
+		return &algodImporter{}
+	}))
 }
 
 func (algodImp *algodImporter) Init(ctx context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) (*bookkeeping.Genesis, error) {

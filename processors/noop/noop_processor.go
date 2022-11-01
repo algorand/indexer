@@ -14,15 +14,9 @@ const implementationName = "noop"
 
 // package-wide init function
 func init() {
-	processors.RegisterProcessor(implementationName, &Constructor{})
-}
-
-// Constructor is the ProcessorConstructor implementation for the "noop" processor
-type Constructor struct{}
-
-// New initializes a noop constructor
-func (c *Constructor) New() processors.Processor {
-	return &Processor{}
+	processors.RegisterProcessor(implementationName, processors.ProcessorConstructorFunc(func() processors.Processor {
+		return &Processor{}
+	}))
 }
 
 // Processor noop

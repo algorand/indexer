@@ -21,14 +21,6 @@ var exampleExporterMetadata exporters.ExporterMetadata = exporters.ExporterMetad
 	ExpDeprecated:  false,
 }
 
-// Constructor is the ExporterConstructor implementation for an Exporter
-type Constructor struct{}
-
-// New initializes an Exporter
-func (c *Constructor) New() exporters.Exporter {
-	return &exampleExporter{}
-}
-
 // Metadata returns the Exporter's Metadata object
 func (exp *exampleExporter) Metadata() exporters.ExporterMetadata {
 	return exampleExporterMetadata
@@ -67,5 +59,7 @@ func (exp *exampleExporter) Round() uint64 {
 func init() {
 	// In order to provide a Constructor to the exporter_factory, we register our Exporter in the init block.
 	// To load this Exporter into the factory, simply import the package.
-	exporters.RegisterExporter(exampleExporterMetadata.ExpName, &Constructor{})
+	exporters.RegisterExporter(exampleExporterMetadata.ExpName, exporters.ExporterConstructorFunc(func() exporters.Exporter {
+		return &exampleExporter{}
+	}))
 }

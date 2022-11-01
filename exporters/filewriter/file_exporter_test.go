@@ -24,7 +24,9 @@ import (
 )
 
 var logger *logrus.Logger
-var fileCons = &Constructor{}
+var fileCons = exporters.ExporterConstructorFunc(func() exporters.Exporter {
+	return &fileExporter{}
+})
 var configTemplate = "block-dir: %s/blocks\n"
 var round = basics.Round(2)
 
