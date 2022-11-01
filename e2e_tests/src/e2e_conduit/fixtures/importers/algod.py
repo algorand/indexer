@@ -61,8 +61,15 @@ class AlgodImporter(ImporterPlugin):
             bucket = "algorand-testdata"
 
             s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
-            tarpath = os.path.join(conduit_dir, tarname)
             prefix = "indexer/e2e4"
+            if "/" in tarname:
+                cmhash_tarnme = tarname.split("/")
+                cmhash = cmhash_tarnme[0]
+                tarname =cmhash_tarnme[1]
+                prefix+="/"+cmhash
+                tarpath = os.path.join(conduit_dir, tarname)
+            else:
+                tarpath = os.path.join(conduit_dir, tarname)
             success = firstFromS3Prefix(s3, bucket, prefix, tarname, outpath=tarpath)
             if not success:
                 raise Exception(
