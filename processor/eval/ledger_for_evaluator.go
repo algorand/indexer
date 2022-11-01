@@ -1,7 +1,6 @@
 // Package eval implements the 'ledger.indexerLedgerForEval' interface for
 // generating StateDelta's and updating ApplyData with a custom protocol.
 //
-//
 // TODO: Expose private functions in go-algorand to allow code reuse.
 // This interface is designed to allow sourcing initial state data from
 // postgres. Since we are not sourcing initial states from the ledger there
@@ -141,6 +140,12 @@ func (l LedgerForEvaluator) GetAppCreator(indices map[basics.AppIndex]struct{}) 
 	}
 
 	return res, nil
+}
+
+// LookupKv is part of go-algorand's indexerLedgerForEval interface.
+func (l LedgerForEvaluator) LookupKv(round basics.Round, key string) ([]byte, error) {
+	// a simple pass-thru to the go-algorand ledger
+	return l.Ledger.LookupKv(round, key)
 }
 
 // LatestTotals is part of go-algorand's indexerLedgerForEval interface.
