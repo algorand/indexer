@@ -162,7 +162,7 @@ def test_parity(reports: List[str] = ASSERTIONS, save_new: bool = True):
             old_diff = yaml.safe_load(f)
         new_diff = generate_diff(algod_swgr, indexer_swgr, excludes, diff_type)
 
-        diff_of_diffs = deep_diff(old_diff, new_diff)
+        diff_of_diffs = deep_diff(old_diff, new_diff, arraysets=True)
         assert (
             diff_of_diffs is None
         ), f"""UNEXPECTED CHANGE IN {ypath}. Differences are:
