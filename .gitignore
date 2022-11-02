@@ -32,6 +32,7 @@ __pycache__
 e2e_tests/dist
 e2e_tests/build
 e2e_tests/*egg-info*
+.venv
 
 # jetbrains IDE
 .idea
