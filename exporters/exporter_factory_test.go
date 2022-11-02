@@ -18,6 +18,10 @@ type mockExporter struct {
 	Exporter
 }
 
+func (m *mockExporter) Metadata() ExporterMetadata {
+	return ExporterMetadata{}
+}
+
 type mockExporterConstructor struct {
 	me *mockExporter
 }
