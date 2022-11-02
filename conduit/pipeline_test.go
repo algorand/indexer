@@ -270,11 +270,11 @@ func (m *mockExporter) OnComplete(input data.BlockData) error {
 
 type mockedImporterNew struct{}
 
-func (c mockedImporterNew) New() importers.Importer { return nil }
+func (c mockedImporterNew) New() importers.Importer { return &mockImporter{} }
 
 type mockedExporterNew struct{}
 
-func (c mockedExporterNew) New() exporters.Exporter { return nil }
+func (c mockedExporterNew) New() exporters.Exporter { return &mockExporter{} }
 
 // TestPipelineRun tests that running the pipeline calls the correct functions with mocking
 func TestPipelineRun(t *testing.T) {
