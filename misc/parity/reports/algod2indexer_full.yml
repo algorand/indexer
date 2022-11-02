@@ -18,15 +18,17 @@ definitions:
         - INDEXER: '"Indicates what type of signature is used by this account, must be one of:\n* sig\n* msig\n* lsig\n* or null if unknown"'
         - ALGOD: '"Indicates what type of signature is used by this account, must be one of:\n* sig\n* msig\n* lsig"'
       total-box-bytes:
-      - INDEXER: '{"description":"For app-accounts only. The total n...'
-      - ALGOD: null
+        description:
+        - INDEXER: '"For app-accounts only. The total number of bytes allocated for the keys and values of boxes which belong to the associated application."'
+        - ALGOD: '"\\[tbxb\\] The total number of bytes used by this account''s app''s box keys and values."'
       total-boxes:
-      - INDEXER: '{"description":"For app-accounts only. The total n...'
-      - ALGOD: null
+        description:
+        - INDEXER: '"For app-accounts only. The total number of boxes which belong to the associated application."'
+        - ALGOD: '"\\[tbx\\] The number of existing boxes created by this account''s app."'
     required:
-    - - INDEXER: '"total-boxes"'
-      - ALGOD: null
     - - INDEXER: '"total-box-bytes"'
+      - ALGOD: null
+    - - INDEXER: '"total-boxes"'
       - ALGOD: null
     - - INDEXER: null
       - ALGOD: '"min-balance"'
