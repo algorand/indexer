@@ -122,9 +122,10 @@ func makeConduitCmd() *cobra.Command {
 		// Silence errors because our logger will catch and print any errors
 		SilenceErrors: true,
 	}
-
+	var round uint64
 	cfg.Flags = cmd.Flags()
 	cfg.Flags.StringVarP(&cfg.ConduitDataDir, "data-dir", "d", "", "set the data directory for the conduit binary")
+	cfg.Flags.Uint64VarP(&round, "next-round", "r", 0, "set the starting round. Overwrites next-round in metadata.json")
 
 	return cmd
 }
