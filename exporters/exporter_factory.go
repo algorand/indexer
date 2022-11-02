@@ -25,11 +25,15 @@ func (f ExporterConstructorFunc) New() Exporter {
 // This layer of indirection allows for different exporter integrations to be compiled in or compiled out by `go build --tags ...`
 var exporterImpls = make(map[string]ExporterConstructor)
 
+// exporterMetaData is a k/v store from exporter names to their sample metadata
+var exporterMetaData = make(map[string]ExporterMetadata)
+
 // RegisterExporter is used to register ExporterConstructor implementations. This mechanism allows
 // for loose coupling between the configuration and the implementation. It is extremely similar to the way sql.DB
 // driver's are configured and used.
 func RegisterExporter(name string, constructor ExporterConstructor) {
 	exporterImpls[name] = constructor
+	exporterMetaData[name] = constructor.New().Metadata()
 }
 
 // ExporterBuilderByName returns a Processor constructor for the name provided
@@ -40,6 +44,16 @@ func ExporterBuilderByName(name string) (ExporterConstructor, error) {
 	}
 
 	return constructor, nil
+}
+
+// ExporterMetaDataByName returns a sample meta data associated with the name provided
+func ExporterMetaDataByName(name string) (ExporterMetadata, error) {
+	data, ok := exporterMetaData[name]
+	if !ok {
+		return ExporterMetadata{}, fmt.Errorf("no exporter metadata for %s", name)
+	}
+
+	return data, nil
 }
 
 // ExporterNames returns the names of all exporters registered

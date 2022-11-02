@@ -25,6 +25,9 @@ func (f ProcessorConstructorFunc) New() Processor {
 // This layer of indirection allows for different processor integrations to be compiled in or compiled out by `go build --tags ...`
 var processorImpls = make(map[string]ProcessorConstructor)
 
+// processorMetaData is a k/v store from processor names to their sample metadata
+var processorMetaData = make(map[string]ProcessorMetadata)
+
 // RegisterProcessor is used to register ProcessorConstructor implementations. This mechanism allows
 // for loose coupling between the configuration and the implementation. It is extremely similar to the way sql.DB
 // driver's are configured and used.
@@ -32,7 +35,13 @@ func RegisterProcessor(name string, constructor ProcessorConstructor) error {
 	if _, ok := processorImpls[name]; ok {
 		return fmt.Errorf("processor already exists")
 	}
+
+	if _, ok := processorMetaData[name]; ok {
+		return fmt.Errorf("processor sample meta data already exists")
+	}
+
 	processorImpls[name] = constructor
+	processorMetaData[name] = constructor.New().Metadata()
 	return nil
 }
 
@@ -44,6 +53,16 @@ func ProcessorBuilderByName(name string) (ProcessorConstructor, error) {
 	}
 
 	return constructor, nil
+}
+
+// ProcessorMetaDataByName returns a sample meta data associated with the name provided
+func ProcessorMetaDataByName(name string) (ProcessorMetadata, error) {
+	data, ok := processorMetaData[name]
+	if !ok {
+		return ProcessorMetadata{}, fmt.Errorf("no Processor metadata for %s", name)
+	}
+
+	return data, nil
 }
 
 // ProcessorNames returns the names of all processors registered

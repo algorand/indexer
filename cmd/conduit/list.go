@@ -54,32 +54,31 @@ func runListCmd(out io.Writer, listArgs []string) error {
 	switch pluginTypeSpecifier {
 	case "importers":
 		{
-			importerCtor, err := importers.ImporterBuilderByName(pluginName)
+			meta, err := importers.ImporterMetaDataByName(pluginName)
 			if err != nil {
 				return fmt.Errorf("no importer by name: %s", pluginName)
 			}
 			// if we found an importer...
-			meta := importerCtor.New().Metadata()
 			sampleConfig = meta.SampleConfig()
 		}
 		break
 	case "processors":
 		{
-			processorCtor, err := processors.ProcessorBuilderByName(pluginName)
+			meta, err := processors.ProcessorMetaDataByName(pluginName)
 			if err != nil {
 				return fmt.Errorf("no processor by name: %s", pluginName)
 			}
-			meta := processorCtor.New().Metadata()
+
 			sampleConfig = meta.SampleConfig()
+
 		}
 		break
 	case "exporters":
 		{
-			exporterCtor, err := exporters.ExporterBuilderByName(pluginName)
+			meta, err := exporters.ExporterMetaDataByName(pluginName)
 			if err != nil {
 				return fmt.Errorf("no exporter by name: %s", pluginName)
 			}
-			meta := exporterCtor.New().Metadata()
 			sampleConfig = meta.SampleConfig()
 		}
 		break
@@ -95,26 +94,36 @@ func outputAll() (string, error) {
 
 	var sb strings.Builder
 
+	// function to generate the proper format
+	genFunc := func(w io.Writer, deprecated bool, name string, description string) error {
+
+		var err error
+		fmtString := "%s - %s\n"
+
+		if deprecated {
+			fmtString = "[DEPRECATED] " + fmtString
+		}
+
+		_, err = fmt.Fprintf(&sb, "  "+fmtString, name, description)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
 	_, err := fmt.Fprint(&sb, "importers:\n")
 	if err != nil {
 		return "", err
 	}
 	importerNames := importers.ImporterNames()
 	for _, importerName := range importerNames {
-		ctor, err := importers.ImporterBuilderByName(importerName)
+
+		meta, err := importers.ImporterMetaDataByName(importerName)
 		// belt and suspenders
 		if err != nil {
 			return "", err
 		}
-		meta := ctor.New().Metadata()
-
-		fmtString := "%s - %s\n"
-
-		if meta.Deprecated() {
-			fmtString = "[DEPRECATED] " + fmtString
-		}
-
-		_, err = fmt.Fprintf(&sb, "  "+fmtString, importerName, meta.Description())
+		err = genFunc(&sb, meta.Deprecated(), importerName, meta.Description())
 		if err != nil {
 			return "", err
 		}
@@ -127,20 +136,13 @@ func outputAll() (string, error) {
 	}
 	processorNames := processors.ProcessorNames()
 	for _, processorName := range processorNames {
-		ctor, err := processors.ProcessorBuilderByName(processorName)
+
+		meta, err := processors.ProcessorMetaDataByName(processorName)
 		// belt and suspenders
 		if err != nil {
 			return "", err
 		}
-		meta := ctor.New().Metadata()
-
-		fmtString := "%s - %s\n"
-
-		if meta.Deprecated() {
-			fmtString = "[DEPRECATED] " + fmtString
-		}
-
-		_, err = fmt.Fprintf(&sb, "  "+fmtString, processorName, meta.Description())
+		err = genFunc(&sb, meta.Deprecated(), processorName, meta.Description())
 		if err != nil {
 			return "", err
 		}
@@ -153,20 +155,13 @@ func outputAll() (string, error) {
 	}
 	exporterNames := exporters.ExporterNames()
 	for _, exporterName := range exporterNames {
-		ctor, err := exporters.ExporterBuilderByName(exporterName)
+
+		meta, err := exporters.ExporterMetaDataByName(exporterName)
 		// belt and suspenders
 		if err != nil {
 			return "", err
 		}
-		meta := ctor.New().Metadata()
-
-		fmtString := "%s - %s\n"
-
-		if meta.Deprecated() {
-			fmtString = "[DEPRECATED] " + fmtString
-		}
-
-		_, err = fmt.Fprintf(&sb, "  "+fmtString, exporterName, meta.Description())
+		err = genFunc(&sb, meta.Deprecated(), exporterName, meta.Description())
 		if err != nil {
 			return "", err
 		}
