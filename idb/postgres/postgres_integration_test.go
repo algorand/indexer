@@ -2270,7 +2270,7 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &txnA, &txnB, &txnC)
 	require.NoError(t, err)
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	// query
@@ -2290,7 +2290,7 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 
 	block, err = test.MakeBlockForTxns(block.BlockHeader, &txnD, &txnE, &txnF)
 	require.NoError(t, err)
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	// query

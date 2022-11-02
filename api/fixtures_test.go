@@ -15,10 +15,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand/ledger"
+	"github.com/algorand/go-algorand/rpcs"
 
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb/postgres"
-	"github.com/algorand/indexer/processor"
 	"github.com/algorand/indexer/util/test"
 )
 
@@ -268,7 +268,7 @@ func getProof(path string) (route string, proof prover, err error) {
 }
 
 // WARNING: receiver should not call l.Close()
-func setupIdbAndReturnShutdownFunc(t *testing.T) (db *postgres.IndexerDb, proc processor.Processor, l *ledger.Ledger, shutdown func()) {
+func setupIdbAndReturnShutdownFunc(t *testing.T) (db *postgres.IndexerDb, proc func(cert *rpcs.EncodedBlockCert) error, l *ledger.Ledger, shutdown func()) {
 	db, dbShutdown, proc, l := setupIdb(t, test.MakeGenesis())
 
 	shutdown = func() {
