@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"math/rand"
 
-	"math/rand"
-
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
