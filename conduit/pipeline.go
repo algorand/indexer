@@ -262,8 +262,8 @@ func (p *pipelineImpl) Init() error {
 	if p.pipelineMetadata.GenesisHash != gh {
 		return fmt.Errorf("Pipeline.Start(): genesis hash in metadata does not match expected value: actual %s, expected %s", gh, p.pipelineMetadata.GenesisHash)
 	}
-	// overwriting next-round if next-round arg is set
-	if p.cfg.ConduitConfig.Flags.Changed("next-round") {
+	// overwriting NextRound if next-round arg is set
+	if p.cfg.ConduitConfig.Flags != nil && p.cfg.ConduitConfig.Flags.Changed("next-round") {
 		if round, _ := p.cfg.ConduitConfig.Flags.GetUint64("next-round"); err == nil && round > p.pipelineMetadata.NextRound {
 			p.pipelineMetadata.NextRound = round
 		} else if round < p.pipelineMetadata.NextRound {
