@@ -39,21 +39,15 @@ func New() importers.Importer {
 	return &algodImporter{}
 }
 
-// Constructor is the Constructor implementation for the "algod" importer
-type Constructor struct{}
-
-// New initializes a blockProcessorConstructor
-func (c *Constructor) New() importers.Importer {
-	return &algodImporter{}
-}
-
 func (algodImp *algodImporter) Metadata() importers.ImporterMetadata {
 	return algodImporterMetadata
 }
 
 // package-wide init function
 func init() {
-	importers.RegisterImporter(importerName, &Constructor{})
+	importers.RegisterImporter(importerName, importers.ImporterConstructorFunc(func() importers.Importer {
+		return &algodImporter{}
+	}))
 }
 
 func (algodImp *algodImporter) Init(ctx context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) (*bookkeeping.Genesis, error) {

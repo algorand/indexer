@@ -2,8 +2,8 @@ package importers
 
 import (
 	"context"
-	"github.com/algorand/go-algorand/data/bookkeeping"
 
+	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/plugins"
 	"github.com/sirupsen/logrus"

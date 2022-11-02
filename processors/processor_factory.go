@@ -12,6 +12,14 @@ type ProcessorConstructor interface {
 	New() Processor
 }
 
+// ProcessorConstructorFunc is Constructor implementation for processors
+type ProcessorConstructorFunc func() Processor
+
+// New initializes a processor constructor
+func (f ProcessorConstructorFunc) New() Processor {
+	return f()
+}
+
 // processorImpls is a k/v store from processor names to their constructor implementations.
 // This layer of indirection allows for different processor integrations to be compiled in or compiled out by `go build --tags ...`
 var processorImpls = make(map[string]ProcessorConstructor)

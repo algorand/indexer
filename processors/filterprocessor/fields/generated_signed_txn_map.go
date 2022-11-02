@@ -113,6 +113,8 @@ func SignedTxnFunc(tag string, input *transactions.SignedTxnInBlock) (interface{
 		return &input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.ForeignAssets, nil
 	case "txn.apat":
 		return &input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.Accounts, nil
+	case "txn.apbx":
+		return &input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.Boxes, nil
 	case "txn.apep":
 		return &input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.ExtraProgramPages, nil
 	case "txn.apfa":

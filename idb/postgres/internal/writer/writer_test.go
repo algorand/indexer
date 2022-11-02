@@ -11,6 +11,7 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/jackc/pgx/v4"
@@ -1563,4 +1564,275 @@ func TestWriterAddBlock0(t *testing.T) {
 		}
 		assert.Equal(t, expected, accounts)
 	}
+}
+func getNameAndAccountPointer(t *testing.T, value ledgercore.KvValueDelta, fullKey string, accts map[basics.Address]*ledgercore.AccountData) (basics.Address, string, *ledgercore.AccountData) {
+	require.NotNil(t, value, "cannot handle a nil value for box stats modification")
+	appIdx, name, err := logic.SplitBoxKey(fullKey)
+	account := appIdx.Address()
+	require.NoError(t, err)
+	acctData, ok := accts[account]
+	if !ok {
+		acctData = &ledgercore.AccountData{
+			AccountBaseData: ledgercore.AccountBaseData{},
+		}
+		accts[account] = acctData
+	}
+	return account, name, acctData
+}
+
+func addBoxInfoToStats(t *testing.T, fullKey string, value ledgercore.KvValueDelta,
+	accts map[basics.Address]*ledgercore.AccountData, boxTotals map[basics.Address]basics.AccountData) {
+	addr, name, acctData := getNameAndAccountPointer(t, value, fullKey, accts)
+
+	acctData.TotalBoxes++
+	acctData.TotalBoxBytes += uint64(len(name) + len(value.Data))
+
+	boxTotals[addr] = basics.AccountData{
+		TotalBoxes:    acctData.TotalBoxes,
+		TotalBoxBytes: acctData.TotalBoxBytes,
+	}
+}
+
+func subtractBoxInfoToStats(t *testing.T, fullKey string, value ledgercore.KvValueDelta,
+	accts map[basics.Address]*ledgercore.AccountData, boxTotals map[basics.Address]basics.AccountData) {
+	addr, name, acctData := getNameAndAccountPointer(t, value, fullKey, accts)
+
+	prevBoxBytes := uint64(len(name) + len(value.Data))
+	require.GreaterOrEqual(t, acctData.TotalBoxes, uint64(0))
+	require.GreaterOrEqual(t, acctData.TotalBoxBytes, prevBoxBytes)
+
+	acctData.TotalBoxes--
+	acctData.TotalBoxBytes -= prevBoxBytes
+
+	boxTotals[addr] = basics.AccountData{
+		TotalBoxes:    acctData.TotalBoxes,
+		TotalBoxBytes: acctData.TotalBoxBytes,
+	}
+}
+
+// buildAccountDeltasFromKvsAndMods simulates keeping track of the evolution of the box statistics
+func buildAccountDeltasFromKvsAndMods(t *testing.T, kvOriginals, kvMods map[string]ledgercore.KvValueDelta) (
+	ledgercore.StateDelta, map[string]ledgercore.KvValueDelta, map[basics.Address]basics.AccountData) {
+	kvUpdated := map[string]ledgercore.KvValueDelta{}
+	boxTotals := map[basics.Address]basics.AccountData{}
+	accts := map[basics.Address]*ledgercore.AccountData{}
+	/*
+		1. fill the accts and kvUpdated using kvOriginals
+		2. for each (fullKey, value) in kvMod:
+			* (A) if the key is not present in kvOriginals just add the info as in #1
+			* (B) else (fullKey present):
+			    * (i)  if the value is nil
+					==> remove the box info from the stats and kvUpdated with assertions
+				* (ii) else (value is NOT nil):
+					==> reset kvUpdated and assert that the box hasn't changed shapes
+	*/
+
+	/* 1. */
+	for fullKey, value := range kvOriginals {
+		addBoxInfoToStats(t, fullKey, value, accts, boxTotals)
+		kvUpdated[fullKey] = value
+	}
+
+	/* 2. */
+	for fullKey, value := range kvMods {
+		prevValue, ok := kvOriginals[fullKey]
+		if !ok {
+			/* 2A. */
+			addBoxInfoToStats(t, fullKey, value, accts, boxTotals)
+			kvUpdated[fullKey] = value
+			continue
+		}
+		/* 2B. */
+		if value.Data == nil {
+			/* 2Bi. */
+			subtractBoxInfoToStats(t, fullKey, prevValue, accts, boxTotals)
+			delete(kvUpdated, fullKey)
+			continue
+		}
+		/* 2Bii. */
+		require.Contains(t, kvUpdated, fullKey)
+		kvUpdated[fullKey] = value
+	}
+
+	var delta ledgercore.StateDelta
+	for acct, acctData := range accts {
+		delta.Accts.Upsert(acct, *acctData)
+	}
+	return delta, kvUpdated, boxTotals
+}
+
+// Simulate a scenario where app boxes are created, mutated and deleted in consecutive rounds.
+func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
+	/* Simulation details:
+	Box 1: inserted and then untouched
+	Box 2: inserted and mutated
+	Box 3: inserted and deleted
+	Box 4: inserted, mutated and deleted
+	Box 5: inserted, deleted and re-inserted
+	Box 6: inserted after Box 2 is set
+	*/
+
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
+	defer shutdownFunc()
+
+	var block bookkeeping.Block
+	block.BlockHeader.Round = basics.Round(1)
+	delta := ledgercore.StateDelta{}
+
+	addNewBlock := func(tx pgx.Tx) error {
+		w, err := writer.MakeWriter(tx)
+		require.NoError(t, err)
+
+		err = w.AddBlock(&block, block.Payset, delta)
+		require.NoError(t, err)
+
+		w.Close()
+		return nil
+	}
+
+	appID := basics.AppIndex(3)
+	notPresent := "NOT PRESENT"
+
+	// ---- ROUND 1: create 5 boxes  ---- //
+	n1, v1 := "box1", "inserted"
+	n2, v2 := "box2", "inserted"
+	n3, v3 := "box3", "inserted"
+	n4, v4 := "box4", "inserted"
+	n5, v5 := "box5", "inserted"
+
+	k1 := logic.MakeBoxKey(appID, n1)
+	k2 := logic.MakeBoxKey(appID, n2)
+	k3 := logic.MakeBoxKey(appID, n3)
+	k4 := logic.MakeBoxKey(appID, n4)
+	k5 := logic.MakeBoxKey(appID, n5)
+
+	delta.KvMods = map[string]ledgercore.KvValueDelta{}
+	delta.KvMods[k1] = ledgercore.KvValueDelta{Data: []byte(v1)}
+	delta.KvMods[k2] = ledgercore.KvValueDelta{Data: []byte(v2)}
+	delta.KvMods[k3] = ledgercore.KvValueDelta{Data: []byte(v3)}
+	delta.KvMods[k4] = ledgercore.KvValueDelta{Data: []byte(v4)}
+	delta.KvMods[k5] = ledgercore.KvValueDelta{Data: []byte(v5)}
+
+	delta2, newKvMods, accts := buildAccountDeltasFromKvsAndMods(t, map[string]ledgercore.KvValueDelta{}, delta.KvMods)
+	delta.Accts = delta2.Accts
+
+	err := pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
+	require.NoError(t, err)
+
+	validateRow := func(expectedName string, expectedValue string) {
+		appBoxSQL := `SELECT app, name, value FROM app_box WHERE app = $1 AND name = $2`
+		var app basics.AppIndex
+		var name, value []byte
+
+		row := db.QueryRow(context.Background(), appBoxSQL, appID, []byte(expectedName))
+		err := row.Scan(&app, &name, &value)
+
+		if expectedValue == notPresent {
+			require.ErrorContains(t, err, "no rows in result set")
+			return
+		}
+
+		require.NoError(t, err)
+		require.Equal(t, appID, app)
+		require.Equal(t, expectedName, string(name))
+		require.Equal(t, expectedValue, string(value))
+	}
+
+	validateTotals := func() {
+		acctDataSQL := "SELECT account_data FROM account WHERE addr = $1"
+		for addr, acctInfo := range accts {
+			row := db.QueryRow(context.Background(), acctDataSQL, addr[:])
+
+			var buf []byte
+			err := row.Scan(&buf)
+			require.NoError(t, err)
+
+			ret, err := encoding.DecodeTrimmedLcAccountData(buf)
+			require.NoError(t, err)
+			require.Equal(t, acctInfo.TotalBoxes, ret.TotalBoxes)
+			require.Equal(t, acctInfo.TotalBoxBytes, ret.TotalBoxBytes)
+		}
+	}
+
+	validateRow(n1, v1)
+	validateRow(n2, v2)
+	validateRow(n3, v3)
+	validateRow(n4, v4)
+	validateRow(n5, v5)
+
+	validateTotals()
+
+	// ---- ROUND 2: mutate 2, delete 3, mutate 4, delete 5, create 6  ---- //
+	oldV2 := v2
+	v2 = "mutated"
+	// v3 is "deleted"
+	oldV4 := v4
+	v4 = "mutated"
+	// v5 is "deleted"
+	n6, v6 := "box6", "inserted"
+
+	k6 := logic.MakeBoxKey(appID, n6)
+
+	delta.KvMods = map[string]ledgercore.KvValueDelta{}
+	delta.KvMods[k2] = ledgercore.KvValueDelta{Data: []byte(v2), OldData: []byte(oldV2)}
+	delta.KvMods[k3] = ledgercore.KvValueDelta{Data: nil}
+	delta.KvMods[k4] = ledgercore.KvValueDelta{Data: []byte(v4), OldData: []byte(oldV4)}
+	delta.KvMods[k5] = ledgercore.KvValueDelta{Data: nil}
+	delta.KvMods[k6] = ledgercore.KvValueDelta{Data: []byte(v6)}
+
+	delta2, newKvMods, accts = buildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
+	delta.Accts = delta2.Accts
+
+	err = pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
+	require.NoError(t, err)
+
+	validateRow(n1, v1) // untouched
+	validateRow(n2, v2) // new v2
+	validateRow(n3, notPresent)
+	validateRow(n4, v4) // new v4
+	validateRow(n5, notPresent)
+	validateRow(n6, v6)
+
+	validateTotals()
+
+	// ---- ROUND 3: delete 4, insert 5  ---- //
+
+	// v4 is "deleted"
+	v5 = "re-inserted"
+
+	delta.KvMods = map[string]ledgercore.KvValueDelta{}
+	delta.KvMods[k4] = ledgercore.KvValueDelta{Data: nil}
+	delta.KvMods[k5] = ledgercore.KvValueDelta{Data: []byte(v5)}
+
+	delta2, newKvMods, accts = buildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
+	delta.Accts = delta2.Accts
+
+	err = pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
+	require.NoError(t, err)
+
+	validateRow(n1, v1)         // untouched
+	validateRow(n2, v2)         // untouched
+	validateRow(n3, notPresent) // still deleted
+	validateRow(n4, notPresent) // deleted
+	validateRow(n5, v5)         // re-inserted
+	validateRow(n6, v6)         // untouched
+
+	validateTotals()
+
+	/*** FOURTH ROUND  - NOOP ***/
+	delta.KvMods = map[string]ledgercore.KvValueDelta{}
+	delta2, _, accts = buildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
+	delta.Accts = delta2.Accts
+
+	err = pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
+	require.NoError(t, err)
+
+	validateRow(n1, v1)         // untouched
+	validateRow(n2, v2)         // untouched
+	validateRow(n3, notPresent) // still deleted
+	validateRow(n4, notPresent) // still deleted
+	validateRow(n5, v5)         // untouched
+	validateRow(n6, v6)         // untouched
+
+	validateTotals()
 }

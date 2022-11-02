@@ -9,27 +9,14 @@ All plugins should be implemented in the respective `importers`, `processors`, o
 
 # Registering a plugin
 
-## Constructor
-
-Each plugin must implement a constructor which can instantiate itself.
-```
-// Constructor is the ExporterConstructor implementation for the "noop" exporter
-type Constructor struct{}
-
-// New initializes a noopExporter
-func (c *Constructor) New() exporters.Exporter {
-	return &noopExporter{
-		round: 0,
-	}
-}
-```
-
 ## Register the Constructor
 
 The constructor is registered to the system by name in the init this is how the configuration is able to dynamically create pipelines:
 ```
 func init() {
-	exporters.RegisterExporter(noopExporterMetadata.ExpName, &Constructor{})
+	exporters.RegisterExporter(noopExporterMetadata.ExpName, exporters.ExporterConstructorFunc(func() exporters.Exporter {
+		return &noopExporter{}
+	}))
 }
 ```
 

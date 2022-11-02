@@ -2,13 +2,15 @@ package test
 
 import (
 	"fmt"
+	"math/rand"
+
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/protocol"
-	"math/rand"
 )
 
 var (
@@ -59,7 +61,7 @@ func MakeAssetConfigTxn(configid, total, decimals uint64, defaultFrozen bool, un
 					Sender:      addr,
 					Fee:         basics.MicroAlgos{Raw: 1000},
 					GenesisHash: GenesisHash,
-					Note:        arbitraryString(),
+					Note:        ArbitraryString(),
 				},
 				AssetConfigTxnFields: transactions.AssetConfigTxnFields{
 					ConfigAsset: basics.AssetIndex(configid),
@@ -93,7 +95,7 @@ func MakeAssetFreezeTxn(assetid uint64, frozen bool, sender, freezeAccount basic
 					Sender:      sender,
 					Fee:         basics.MicroAlgos{Raw: 1000},
 					GenesisHash: GenesisHash,
-					Note:        arbitraryString(),
+					Note:        ArbitraryString(),
 				},
 				AssetFreezeTxnFields: transactions.AssetFreezeTxnFields{
 					FreezeAccount: freezeAccount,
@@ -116,7 +118,7 @@ func MakeAssetTransferTxn(assetid, amt uint64, sender, receiver, close basics.Ad
 					Sender:      sender,
 					Fee:         basics.MicroAlgos{Raw: 1000},
 					GenesisHash: GenesisHash,
-					Note:        arbitraryString(),
+					Note:        ArbitraryString(),
 				},
 				AssetTransferTxnFields: transactions.AssetTransferTxnFields{
 					XferAsset:   basics.AssetIndex(assetid),
@@ -146,7 +148,7 @@ func MakeAssetDestroyTxn(assetID uint64, sender basics.Address) transactions.Sig
 				Header: transactions.Header{
 					Sender:      sender,
 					GenesisHash: GenesisHash,
-					Note:        arbitraryString(),
+					Note:        ArbitraryString(),
 				},
 				AssetConfigTxnFields: transactions.AssetConfigTxnFields{
 					ConfigAsset: basics.AssetIndex(assetID),
@@ -170,7 +172,7 @@ func MakePaymentTxn(fee, amt, closeAmt, sendRewards, receiveRewards,
 					GenesisHash: GenesisHash,
 					RekeyTo:     rekeyTo,
 					LastValid:   10,
-					Note:        arbitraryString(),
+					Note:        ArbitraryString(),
 				},
 				PaymentTxnFields: transactions.PaymentTxnFields{
 					Receiver:         receiver,
@@ -199,7 +201,7 @@ func MakeCreateAppTxn(sender basics.Address) transactions.SignedTxnWithAD {
 				Header: transactions.Header{
 					Sender:      sender,
 					GenesisHash: GenesisHash,
-					Note:        arbitraryString(),
+					Note:        ArbitraryString(),
 				},
 				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
 					ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
@@ -211,6 +213,36 @@ func MakeCreateAppTxn(sender basics.Address) transactions.SignedTxnWithAD {
 	}
 }
 
+// MakeComplexCreateAppTxn makes a transaction that creates an arbitrary app. When assemblerVersion is set to 0, use the AssemblerDefaultVersion.
+func MakeComplexCreateAppTxn(sender basics.Address, approval, clear string, assemblerVersion uint64) (transactions.SignedTxnWithAD, error) {
+	// Create a transaction with ExtraProgramPages field set to 1
+	approvalOps, err := logic.AssembleStringWithVersion(approval, assemblerVersion)
+	if err != nil {
+		return transactions.SignedTxnWithAD{}, err
+	}
+	clearOps, err := logic.AssembleString(clear)
+	if err != nil {
+		return transactions.SignedTxnWithAD{}, err
+	}
+
+	return transactions.SignedTxnWithAD{
+		SignedTxn: transactions.SignedTxn{
+			Txn: transactions.Transaction{
+				Type: "appl",
+				Header: transactions.Header{
+					Sender:      sender,
+					GenesisHash: GenesisHash,
+				},
+				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
+					ApprovalProgram:   approvalOps.Program,
+					ClearStateProgram: clearOps.Program,
+				},
+			},
+			Sig: Signature,
+		},
+	}, nil
+}
+
 // MakeAppDestroyTxn makes a transaction that destroys an app.
 func MakeAppDestroyTxn(appid uint64, sender basics.Address) transactions.SignedTxnWithAD {
 	return transactions.SignedTxnWithAD{
@@ -220,7 +252,7 @@ func MakeAppDestroyTxn(appid uint64, sender basics.Address) transactions.SignedT
 				Header: transactions.Header{
 					Sender:      sender,
 					GenesisHash: GenesisHash,
-					Note:        arbitraryString(),
+					Note:        ArbitraryString(),
 				},
 				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
 					ApplicationID:     basics.AppIndex(appid),
@@ -243,7 +275,7 @@ func MakeAppOptInTxn(appid uint64, sender basics.Address) transactions.SignedTxn
 				Header: transactions.Header{
 					Sender:      sender,
 					GenesisHash: GenesisHash,
-					Note:        arbitraryString(),
+					Note:        ArbitraryString(),
 				},
 				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
 					ApplicationID: basics.AppIndex(appid),
@@ -264,7 +296,7 @@ func MakeAppOptOutTxn(appid uint64, sender basics.Address) transactions.SignedTx
 				Header: transactions.Header{
 					Sender:      sender,
 					GenesisHash: GenesisHash,
-					Note:        arbitraryString(),
+					Note:        ArbitraryString(),
 				},
 				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
 					ApplicationID: basics.AppIndex(appid),
@@ -276,8 +308,8 @@ func MakeAppOptOutTxn(appid uint64, sender basics.Address) transactions.SignedTx
 	}
 }
 
-// MakeAppCallTxn makes an appl transaction with a NoOp upon completion.
-func MakeAppCallTxn(appid uint64, sender basics.Address) transactions.SignedTxnWithAD {
+// MakeSimpleAppCallTxn makes an appl transaction with a NoOp upon completion.
+func MakeSimpleAppCallTxn(appid uint64, sender basics.Address) transactions.SignedTxnWithAD {
 	return transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
 			Txn: transactions.Transaction{
@@ -285,7 +317,7 @@ func MakeAppCallTxn(appid uint64, sender basics.Address) transactions.SignedTxnW
 				Header: transactions.Header{
 					Sender:      sender,
 					GenesisHash: GenesisHash,
-					Note:        arbitraryString(),
+					Note:        ArbitraryString(),
 				},
 				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
 					ApplicationID:     basics.AppIndex(appid),
@@ -299,9 +331,40 @@ func MakeAppCallTxn(appid uint64, sender basics.Address) transactions.SignedTxnW
 	}
 }
 
+// MakeAppCallTxnWithBoxes makes an appl transaction with a NoOp upon completion.
+func MakeAppCallTxnWithBoxes(appid uint64, sender basics.Address, appArgs []string, boxNames []string) transactions.SignedTxnWithAD {
+	appArgBytes := [][]byte{}
+	for _, appArg := range appArgs {
+		appArgBytes = append(appArgBytes, []byte(appArg))
+	}
+	appBoxes := []transactions.BoxRef{}
+	for _, boxName := range boxNames {
+		// hard-coding box reference to current app
+		appBoxes = append(appBoxes, transactions.BoxRef{Index: uint64(0), Name: []byte(boxName)})
+	}
+	return transactions.SignedTxnWithAD{
+		SignedTxn: transactions.SignedTxn{
+			Txn: transactions.Transaction{
+				Type: "appl",
+				Header: transactions.Header{
+					Sender:      sender,
+					GenesisHash: GenesisHash,
+				},
+				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
+					ApplicationID:   basics.AppIndex(appid),
+					OnCompletion:    transactions.NoOpOC,
+					ApplicationArgs: appArgBytes,
+					Boxes:           appBoxes,
+				},
+			},
+			Sig: Signature,
+		},
+	}
+}
+
 // MakeAppCallTxnWithLogs makes an appl NoOp transaction with initialized logs.
 func MakeAppCallTxnWithLogs(appid uint64, sender basics.Address, logs []string) (txn transactions.SignedTxnWithAD) {
-	txn = MakeAppCallTxn(appid, sender)
+	txn = MakeSimpleAppCallTxn(appid, sender)
 	txn.ApplyData.EvalDelta.Logs = logs
 	return
 }
@@ -326,7 +389,7 @@ func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSen
 					Type: protocol.PaymentTx,
 					Header: transactions.Header{
 						Sender: paymentSender,
-						Note:   arbitraryString(),
+						Note:   ArbitraryString(),
 					},
 					PaymentTxnFields: transactions.PaymentTxnFields{
 						Receiver: paymentReceiver,
@@ -341,7 +404,7 @@ func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSen
 					Type: protocol.ApplicationCallTx,
 					Header: transactions.Header{
 						Sender: assetSender,
-						Note:   arbitraryString(),
+						Note:   ArbitraryString(),
 					},
 					ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
 						ApplicationID:     789,
@@ -362,7 +425,7 @@ func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSen
 									Type: protocol.AssetTransferTx,
 									Header: transactions.Header{
 										Sender: assetSender,
-										Note:   arbitraryString(),
+										Note:   ArbitraryString(),
 									},
 									AssetTransferTxnFields: transactions.AssetTransferTxnFields{
 										AssetReceiver: assetReceiver,
@@ -372,7 +435,7 @@ func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSen
 							},
 						},
 						// Inner application call
-						MakeAppCallTxn(789, assetSender),
+						MakeSimpleAppCallTxn(789, assetSender),
 					},
 				},
 			},
@@ -407,7 +470,7 @@ func MakeAppCallWithMultiLogs(appSender basics.Address) transactions.SignedTxnWi
 					Type: protocol.ApplicationCallTx,
 					Header: transactions.Header{
 						Sender: appSender,
-						Note:   arbitraryString(),
+						Note:   ArbitraryString(),
 					},
 					ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
 						ApplicationID: 789,
@@ -420,7 +483,7 @@ func MakeAppCallWithMultiLogs(appSender basics.Address) transactions.SignedTxnWi
 				EvalDelta: transactions.EvalDelta{
 					InnerTxns: []transactions.SignedTxnWithAD{
 						// Inner application call
-						MakeAppCallTxn(789, appSender),
+						MakeSimpleAppCallTxn(789, appSender),
 					},
 					Logs: []string{
 						"testing inner log",
@@ -472,7 +535,7 @@ func MakeAppCallWithInnerAppCall(appSender basics.Address) transactions.SignedTx
 					Type: protocol.ApplicationCallTx,
 					Header: transactions.Header{
 						Sender: appSender,
-						Note:   arbitraryString(),
+						Note:   ArbitraryString(),
 					},
 					ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
 						ApplicationID: 789,
@@ -494,7 +557,7 @@ func MakeAppCallWithInnerAppCall(appSender basics.Address) transactions.SignedTx
 									Type: protocol.ApplicationCallTx,
 									Header: transactions.Header{
 										Sender: appSender,
-										Note:   arbitraryString(),
+										Note:   ArbitraryString(),
 									},
 									ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
 										ApplicationID: 789,
@@ -511,7 +574,7 @@ func MakeAppCallWithInnerAppCall(appSender basics.Address) transactions.SignedTx
 									Header: transactions.Header{
 										Sender:      appSender,
 										GenesisHash: GenesisHash,
-										Note:        arbitraryString(),
+										Note:        ArbitraryString(),
 									},
 									ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
 										ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
@@ -621,9 +684,9 @@ func MakeGenesisBlock() bookkeeping.Block {
 	return genesisBlock
 }
 
-// arbitraryString should be used to generate a pseudo-random string to put in the Note field of a Txn Header.
+// ArbitraryString should be used to generate a pseudo-random string to put in the Note field of a Txn Header.
 // This is necessary to ensure the hash of any two txns used in tests are never the same.
-func arbitraryString() []byte {
+func ArbitraryString() []byte {
 	arb := make([]byte, config.MaxTxnNoteBytes)
 	rand.Read(arb)
 	return arb

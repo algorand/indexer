@@ -3,8 +3,9 @@ package filterprocessor
 import (
 	"context"
 	"fmt"
-	"github.com/algorand/go-algorand/data/transactions"
 	"reflect"
+
+	"github.com/algorand/go-algorand/data/transactions"
 
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
@@ -20,15 +21,9 @@ const implementationName = "filter_processor"
 
 // package-wide init function
 func init() {
-	processors.RegisterProcessor(implementationName, &Constructor{})
-}
-
-// Constructor is the ProcessorConstructor implementation for the "filter_processor" processor
-type Constructor struct{}
-
-// New initializes a FilterProcessor
-func (c *Constructor) New() processors.Processor {
-	return &FilterProcessor{}
+	processors.RegisterProcessor(implementationName, processors.ProcessorConstructorFunc(func() processors.Processor {
+		return &FilterProcessor{}
+	}))
 }
 
 // FilterProcessor filters transactions by a variety of means

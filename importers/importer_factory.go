@@ -10,6 +10,14 @@ type Constructor interface {
 	New() Importer
 }
 
+// ImporterConstructorFunc is Constructor implementation for importers
+type ImporterConstructorFunc func() Importer
+
+// New initializes an importer constructor
+func (f ImporterConstructorFunc) New() Importer {
+	return f()
+}
+
 // importerImpls is a k/v store from importer names to their constructor implementations.
 // This layer of indirection allows for different importer integrations to be compiled in or compiled out by `go build --tags ...`
 var importerImpls = make(map[string]Constructor)

@@ -12,6 +12,14 @@ type ExporterConstructor interface {
 	New() Exporter
 }
 
+// ExporterConstructorFunc is Constructor implementation for exporters
+type ExporterConstructorFunc func() Exporter
+
+// New initializes an exporter constructor
+func (f ExporterConstructorFunc) New() Exporter {
+	return f()
+}
+
 // exporterImpls is a k/v store from exporter names to their constructor implementations.
 // This layer of indirection allows for different exporter integrations to be compiled in or compiled out by `go build --tags ...`
 var exporterImpls = make(map[string]ExporterConstructor)

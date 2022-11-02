@@ -21,8 +21,12 @@ const (
 	errFailedSearchingAsset            = "failed while searching for asset"
 	errFailedSearchingAssetBalances    = "failed while searching for asset balances"
 	errFailedSearchingApplication      = "failed while searching for application"
+	errFailedSearchingBoxes            = "failed while searching for application boxes"
 	errFailedLookingUpHealth           = "failed while getting indexer health"
 	errNoApplicationsFound             = "no application found for application-id"
+	errNoBoxesFound                    = "no application boxes found"
+	errWrongAppidFound                 = "the wrong application-id was found, please contact us, this shouldn't happen"
+	errWrongBoxFound                   = "a box with an unexpected name was found, please contact us, this shouldn't happen"
 	ErrNoAccountsFound                 = "no accounts found for address"
 	errNoAssetsFound                   = "no assets found for asset-id"
 	errNoTransactionFound              = "no transaction found for transaction id"
@@ -30,6 +34,8 @@ const (
 	errMultipleAccounts                = "multiple accounts found for this address, please contact us, this shouldn't happen"
 	errMultipleAssets                  = "multiple assets found for this id, please contact us, this shouldn't happen"
 	errMultipleApplications            = "multiple applications found for this id, please contact us, this shouldn't happen"
+	errMultipleBoxes                   = "multiple application boxes found for this app id and box name, please contact us, this shouldn't happen"
+	errFailedLookingUpBoxes            = "failed while looking up application boxes"
 	errMultiAcctRewind                 = "multiple accounts rewind is not supported by this server"
 	errRewindingAccount                = "error while rewinding account"
 	errLookingUpBlockForRound          = "error while looking up block for round"
@@ -39,6 +45,7 @@ const (
 	errZeroAddressAssetCloseToRole     = "searching transactions by zero address with asset close address role is not supported"
 	ErrResultLimitReached              = "Result limit exceeded"
 	errValueExceedingInt64             = "searching by round or application-id or asset-id or filter by value greater than 9223372036854775807 is not supported"
+	errTransactionsLimitReached        = "Max transactions limit exceeded. header-only flag should be enabled"
 )
 
 var errUnknownAddressRole string

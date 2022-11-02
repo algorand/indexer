@@ -689,6 +689,8 @@ func convertTrimmedLcAccountData(ad ledgercore.AccountData) baseAccountData {
 		TotalAssets:         ad.TotalAssets,
 		TotalAppParams:      ad.TotalAppParams,
 		TotalAppLocalStates: ad.TotalAppLocalStates,
+		TotalBoxes:          ad.TotalBoxes,
+		TotalBoxBytes:       ad.TotalBoxBytes,
 		baseOnlineAccountData: baseOnlineAccountData{
 			VoteID:          ad.VoteID,
 			SelectionID:     ad.SelectionID,
@@ -711,6 +713,8 @@ func unconvertTrimmedLcAccountData(ba baseAccountData) ledgercore.AccountData {
 			TotalAppLocalStates: ba.TotalAppLocalStates,
 			TotalAssetParams:    ba.TotalAssetParams,
 			TotalAssets:         ba.TotalAssets,
+			TotalBoxes:          ba.TotalBoxes,
+			TotalBoxBytes:       ba.TotalBoxBytes,
 		},
 		VotingData: ledgercore.VotingData{
 			VoteID:          ba.VoteID,

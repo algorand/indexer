@@ -15,6 +15,141 @@ import (
 	"github.com/algorand/indexer/processors"
 )
 
+// TestFilterProcessor_Init_None
+func TestFilterProcessor_Init_None(t *testing.T) {
+
+	sampleAddr1 := basics.Address{1}
+	sampleAddr2 := basics.Address{2}
+	sampleAddr3 := basics.Address{3}
+
+	sampleCfgStr := `---
+filters:
+  - none: 
+    - tag: sgnr
+      expression-type: exact
+      expression: "` + sampleAddr1.String() + `"
+    - tag: txn.asnd
+      expression-type: regex
+      expression: "` + sampleAddr3.String() + `"
+  - all:
+    - tag: txn.rcv
+      expression-type: regex 
+      expression: "` + sampleAddr2.String() + `"
+    - tag: txn.snd
+      expression-type: exact
+      expression: "` + sampleAddr2.String() + `"
+  - any: 
+    - tag: txn.aclose
+      expression-type: exact
+      expression: "` + sampleAddr2.String() + `"
+    - tag: txn.arcv
+      expression-type: regex
+      expression: "` + sampleAddr2.String() + `"
+`
+
+	fpBuilder, err := processors.ProcessorBuilderByName(implementationName)
+	assert.NoError(t, err)
+
+	fp := fpBuilder.New()
+	err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(sampleCfgStr), logrus.New())
+	assert.NoError(t, err)
+
+	bd := data.BlockData{}
+	bd.Payset = append(bd.Payset,
+
+		transactions.SignedTxnInBlock{
+			SignedTxnWithAD: transactions.SignedTxnWithAD{
+				SignedTxn: transactions.SignedTxn{
+					AuthAddr: sampleAddr1,
+				},
+			},
+		},
+		transactions.SignedTxnInBlock{
+			SignedTxnWithAD: transactions.SignedTxnWithAD{
+				SignedTxn: transactions.SignedTxn{
+					AuthAddr: sampleAddr1,
+					Txn: transactions.Transaction{
+						PaymentTxnFields: transactions.PaymentTxnFields{
+							Receiver: sampleAddr2,
+						},
+						Header: transactions.Header{
+							Sender: sampleAddr2,
+						},
+						AssetTransferTxnFields: transactions.AssetTransferTxnFields{
+							AssetCloseTo: sampleAddr2,
+						},
+					},
+				},
+			},
+		},
+		transactions.SignedTxnInBlock{
+			SignedTxnWithAD: transactions.SignedTxnWithAD{
+				SignedTxn: transactions.SignedTxn{
+					AuthAddr: sampleAddr1,
+					Txn: transactions.Transaction{
+						AssetTransferTxnFields: transactions.AssetTransferTxnFields{
+							AssetSender: sampleAddr3,
+						},
+						PaymentTxnFields: transactions.PaymentTxnFields{
+							Receiver: sampleAddr3,
+						},
+					},
+				},
+			},
+		},
+		transactions.SignedTxnInBlock{
+			SignedTxnWithAD: transactions.SignedTxnWithAD{
+				SignedTxn: transactions.SignedTxn{
+					AuthAddr: sampleAddr1,
+					Txn: transactions.Transaction{
+						PaymentTxnFields: transactions.PaymentTxnFields{
+							Receiver: sampleAddr2,
+						},
+						Header: transactions.Header{
+							Sender: sampleAddr2,
+						},
+						AssetTransferTxnFields: transactions.AssetTransferTxnFields{
+							AssetSender:   sampleAddr3,
+							AssetCloseTo:  sampleAddr2,
+							AssetReceiver: sampleAddr2,
+						},
+					},
+				},
+			},
+		},
+		// The one transaction that will be allowed through
+		transactions.SignedTxnInBlock{
+			SignedTxnWithAD: transactions.SignedTxnWithAD{
+				SignedTxn: transactions.SignedTxn{
+					AuthAddr: sampleAddr2,
+					Txn: transactions.Transaction{
+						PaymentTxnFields: transactions.PaymentTxnFields{
+							Receiver: sampleAddr2,
+						},
+						Header: transactions.Header{
+							Sender: sampleAddr2,
+						},
+						AssetTransferTxnFields: transactions.AssetTransferTxnFields{
+							AssetSender:   sampleAddr1,
+							AssetCloseTo:  sampleAddr2,
+							AssetReceiver: sampleAddr2,
+						},
+					},
+				},
+			},
+		},
+	)
+
+	output, err := fp.Process(bd)
+	assert.NoError(t, err)
+	assert.Equal(t, len(output.Payset), 1)
+	assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Receiver, sampleAddr2)
+	assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.Header.Sender, sampleAddr2)
+	assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.AssetSender, sampleAddr1)
+	assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.AssetCloseTo, sampleAddr2)
+	assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.AssetReceiver, sampleAddr2)
+}
+
 // TestFilterProcessor_Illegal tests that numerical operations won't occur on non-supported types
 func TestFilterProcessor_Illegal(t *testing.T) {
 	tests := []struct {
