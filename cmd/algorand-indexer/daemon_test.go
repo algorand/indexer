@@ -9,16 +9,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/algorand/indexer/util"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/algorand/indexer/config"
-	"github.com/spf13/pflag"
-	"github.com/stretchr/testify/assert"
-
-	"github.com/algorand/indexer/config"
+	"github.com/algorand/indexer/util"
 )
 
 func createTempDir(t *testing.T) string {
