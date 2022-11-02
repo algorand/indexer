@@ -418,16 +418,17 @@ func TestPipelineErrors(t *testing.T) {
 
 	ctx, cf := context.WithCancel(context.Background())
 	pImpl := pipelineImpl{
-		ctx:              ctx,
-		cf:               cf,
-		cfg:              &PipelineConfig{},
-		logger:           log.New(),
-		initProvider:     nil,
-		importer:         &pImporter,
-		processors:       []*processors.Processor{&pProcessor},
-		exporter:         &pExporter,
-		completeCallback: []OnCompleteFunc{cbComplete.OnComplete},
-		pipelineMetadata: PipelineMetaData{},
+		ctx:                      ctx,
+		cf:                       cf,
+		cfg:                      &PipelineConfig{},
+		logger:                   log.New(),
+		initProvider:             nil,
+		importer:                 &pImporter,
+		processors:               []*processors.Processor{&pProcessor},
+		exporter:                 &pExporter,
+		completeCallback:         []OnCompleteFunc{cbComplete.OnComplete},
+		pipelineMetadata:         PipelineMetaData{},
+		pipelineMetadataFilePath: path.Join(t.TempDir(), "metadata.json"),
 	}
 
 	mImporter.returnError = true
