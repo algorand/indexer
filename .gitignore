@@ -28,6 +28,7 @@ _*.json
 
 # Python
 __pycache__
+.venv
 
 # jetbrains IDE
 .idea
