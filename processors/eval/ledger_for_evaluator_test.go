@@ -17,8 +17,8 @@ import (
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/rpcs"
 
-	indxLedger "github.com/algorand/indexer/processor/eval"
 	block_processor "github.com/algorand/indexer/processors/blockprocessor"
+	indxLedger "github.com/algorand/indexer/processors/eval"
 	"github.com/algorand/indexer/util/test"
 )
 
@@ -596,7 +596,8 @@ func compareAppBoxesAgainstLedger(t *testing.T, ld indxLedger.LedgerForEvaluator
 func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 	logger, _ := test2.NewNullLogger()
 	l := makeTestLedger(t)
-	pr, _ := block_processor.MakeProcessorWithLedger(logger, l, nil)
+	pr, _ := block_processor.MakeBlockProcessorWithLedger(logger, l, nil)
+	proc := block_processor.MakeBlockProcessorHandlerAdapter(&pr, nil)
 	ld := indxLedger.MakeLedgerForEvaluator(l)
 	defer l.Close()
 	defer ld.Close()
@@ -616,7 +617,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 	require.NoError(t, err)
 
 	rawBlock := rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
-	err = pr.Process(&rawBlock)
+	err = proc(&rawBlock)
 	require.NoError(t, err)
 
 	ret, err := ld.LookupKv(currentRound, "sanity check")
@@ -658,7 +659,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 	require.NoError(t, err)
 
 	rawBlock = rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
-	err = pr.Process(&rawBlock)
+	err = proc(&rawBlock)
 	require.NoError(t, err)
 
 	compareAppBoxesAgainstLedger(t, ld, currentRound, expectedAppBoxes)
@@ -695,7 +696,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 	require.NoError(t, err)
 
 	rawBlock = rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
-	err = pr.Process(&rawBlock)
+	err = proc(&rawBlock)
 	require.NoError(t, err)
 
 	compareAppBoxesAgainstLedger(t, ld, currentRound, expectedAppBoxes)
@@ -726,7 +727,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 	require.NoError(t, err)
 
 	rawBlock = rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
-	err = pr.Process(&rawBlock)
+	err = proc(&rawBlock)
 	require.NoError(t, err)
 
 	deletedBoxes := make(map[basics.AppIndex]map[string]bool)
@@ -762,7 +763,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 	require.NoError(t, err)
 
 	rawBlock = rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
-	err = pr.Process(&rawBlock)
+	err = proc(&rawBlock)
 	require.NoError(t, err)
 
 	compareAppBoxesAgainstLedger(t, ld, currentRound, expectedAppBoxes)
@@ -792,7 +793,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 	require.NoError(t, err)
 
 	rawBlock = rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
-	err = pr.Process(&rawBlock)
+	err = proc(&rawBlock)
 	require.NoError(t, err)
 
 	compareAppBoxesAgainstLedger(t, ld, currentRound, expectedAppBoxes, deletedBoxes)
