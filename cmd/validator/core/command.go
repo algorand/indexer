@@ -22,6 +22,7 @@ func init() {
 		processorNum int
 		printCurl    bool
 		errorLogFile string
+		printSkipped bool
 	)
 
 	ValidatorCmd = &cobra.Command{
@@ -29,7 +30,7 @@ func init() {
 		Short: "validator",
 		Long:  "Compare algod and indexer to each other and report any discrepencies.",
 		Run: func(cmd *cobra.Command, _ []string) {
-			run(config, errorLogFile, addr, threads, processorNum, printCurl)
+			run(config, errorLogFile, addr, threads, processorNum, printCurl, printSkipped)
 		},
 	}
 
@@ -46,9 +47,10 @@ func init() {
 	ValidatorCmd.Flags().IntVar(&processorNum, "processor", 0, "Choose compare algorithm [0 = Struct, 1 = Reflection]")
 	ValidatorCmd.Flags().BoolVar(&printCurl, "print-commands", false, "Print curl commands, including tokens, to query algod and indexer.")
 	ValidatorCmd.Flags().StringVarP(&errorLogFile, "error-log-file", "e", "", "When specified, error messages are written to this file instead of to stderr.")
+	ValidatorCmd.Flags().BoolVar(&printSkipped, "print-skipped", false, "Include accounts which were skipped in the error log.")
 }
 
-func run(config Params, errorLogFile, addr string, threads int, processorNum int, printCurl bool) {
+func run(config Params, errorLogFile, addr string, threads int, processorNum int, printCurl, printSkipped bool) {
 	if len(config.AlgodURL) == 0 {
 		ErrorLog.Fatalf("algod-url parameter is required.")
 	}
@@ -91,7 +93,7 @@ func run(config Params, errorLogFile, addr string, threads int, processorNum int
 	}()
 
 	// This will keep going until the results channel is closed.
-	numErrors := resultsPrinter(config, printCurl, results)
+	numErrors := resultsPrinter(config, printCurl, printSkipped, results)
 	if numErrors > 0 {
 		os.Exit(1)
 	}
@@ -134,7 +136,7 @@ func resultChar(success bool, retries int, skipReason Skip) string {
 }
 
 // resultsPrinter reads the results channel and prints it to the error log. Returns the number of errors.
-func resultsPrinter(config Params, printCurl bool, results <-chan Result) int {
+func resultsPrinter(config Params, printCurl, printSkipped bool, results <-chan Result) int {
 	numResults := 0
 	numErrors := 0
 	skipCounts := make(map[Skip]uint64)
@@ -176,6 +178,9 @@ func resultsPrinter(config Params, printCurl bool, results <-chan Result) int {
 		if r.Error != nil || !r.Equal {
 			if r.SkipReason != NotSkipped {
 				skipCounts[r.SkipReason]++
+				if !printSkipped {
+					continue
+				}
 			} else {
 				numErrors++
 			}

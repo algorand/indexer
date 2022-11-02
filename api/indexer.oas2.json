@@ -485,6 +485,94 @@
         }
       }
     },
+    "/v2/applications/{application-id}/boxes": {
+      "get": {
+        "description": "Given an application ID, returns the box names of that application sorted lexicographically.",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "search"
+        ],
+        "operationId": "searchForApplicationBoxes",
+        "summary": "Get box names for a given application.",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "application-id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/next"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/BoxesResponse"
+          },
+          "400": {
+            "$ref": "#/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/v2/applications/{application-id}/box": {
+      "get": {
+        "description": "Given an application ID and box name, returns base64 encoded box name and value. Box names must be in the goal app call arg form 'encoding:value'. For ints, use the form 'int:1234'. For raw bytes, encode base 64 and use 'b64' prefix as in 'b64:A=='. For printable strings, use the form 'str:hello'. For addresses, use the form 'addr:XYZ...'.",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "lookup"
+        ],
+        "operationId": "lookupApplicationBoxByIDAndName",
+        "schemes": [
+          "http"
+        ],
+        "summary": "Get box information for a given application.",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "application-id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "$ref": "#/parameters/box-name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/BoxResponse"
+          },
+          "400": {
+            "$ref": "#/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/responses/ErrorResponse"
+          }
+        }
+      }
+    },
     "/v2/applications/{application-id}/logs": {
       "get": {
         "description": "Lookup application logs.",
@@ -779,6 +867,9 @@
         "parameters": [
           {
             "$ref": "#/parameters/round-number"
+          },
+          {
+            "$ref": "#/parameters/header-only"
           }
         ],
         "responses": {
@@ -939,6 +1030,8 @@
         "status",
         "total-apps-opted-in",
         "total-assets-opted-in",
+        "total-box-bytes",
+        "total-boxes",
         "total-created-apps",
         "total-created-assets"
       ],
@@ -1029,6 +1122,14 @@
         },
         "total-assets-opted-in": {
           "description": "The count of all assets that have been opted in, equivalent to the count of AssetHolding objects held by this account.",
+          "type": "integer"
+        },
+        "total-box-bytes": {
+          "description": "For app-accounts only. The total number of bytes allocated for the keys and values of boxes which belong to the associated application.",
+          "type": "integer"
+        },
+        "total-boxes": {
+          "description": "For app-accounts only. The total number of boxes which belong to the associated application.",
           "type": "integer"
         },
         "total-created-apps": {
@@ -1522,6 +1623,9 @@
         },
         "upgrade-vote": {
           "$ref": "#/definitions/BlockUpgradeVote"
+        },
+        "participation-updates": {
+          "$ref": "#/definitions/ParticipationUpdates"
         }
       }
     },
@@ -1610,6 +1714,41 @@
         }
       }
     },
+    "Box": {
+      "description": "Box name and its content.",
+      "required": [
+        "name", 
+        "value"
+      ],
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "\\[name\\] box name, base64 encoded",
+          "format": "byte",
+          "type": "string"
+        },
+        "value": {
+          "description": "\\[value\\] box value, base64 encoded.",
+          "format": "byte",
+          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+          "type": "string"
+        }
+      }
+    },
+    "BoxDescriptor": {
+      "description": "Box descriptor describes an app box without a value.",
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "description": "Base64 encoded box name",
+          "format": "byte",
+          "type": "string"
+        }
+      }
+    },
     "HealthCheck": {
       "description": "A health check response.",
       "type": "object",
@@ -1694,6 +1833,19 @@
         "update",
         "delete"
       ]
+    },
+    "ParticipationUpdates": {
+      "description": "Participation account data that needs to be checked/acted on by the network.",
+      "type": "object",
+      "properties": {
+        "expired-participation-accounts": {
+          "description": "\\[partupdrmv\\] a list of online accounts that needs to be converted to offline since their participation key expired.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
     },
     "StateDelta": {
       "description": "Application state delta.",
@@ -2530,6 +2682,13 @@
       "name": "before-time",
       "in": "query"
     },
+    "box-name": {
+      "description": "A box name in goal-arg form 'encoding:value'. For ints, use the form 'int:1234'. For raw bytes, use the form 'b64:A=='. For printable strings, use the form 'str:hello'. For addresses, use the form 'addr:XYZ...'.",
+      "type": "string",
+      "name": "name",
+      "in": "query",
+      "required": true
+    },
     "currency-greater-than": {
       "type": "integer",
       "description": "Results should have an amount greater than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.",
@@ -2546,6 +2705,12 @@
       "type": "boolean",
       "description": "Combine with address and address-role parameters to define what type of address to search for. The close to fields are normally treated as a receiver, if you would like to exclude them set this parameter to true.",
       "name": "exclude-close-to",
+      "in": "query"
+    },
+    "header-only": {
+      "type": "boolean",
+      "description": "Header only flag. When this is set to true, returned block does not contain the transactions",
+      "name": "header-only",
       "in": "query"
     },
     "include-all": {
@@ -2883,6 +3048,38 @@
             "type": "integer"
           }
         }
+      }
+    },
+    "BoxesResponse": {
+      "description": "Box names of an application",
+      "schema": {
+        "type": "object",
+        "required": [
+          "application-id", 
+          "boxes"
+        ],
+        "properties": {
+          "application-id": {
+            "description": "\\[appidx\\] application index.",
+            "type": "integer"
+          },
+          "boxes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/BoxDescriptor"
+            }
+          },
+          "next-token": {
+            "description": "Used for pagination, when making another request provide this token with the next parameter.",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "BoxResponse": {
+      "description": "Box information",
+      "schema": {
+        "$ref": "#/definitions/Box"
       }
     },
     "ErrorResponse": {

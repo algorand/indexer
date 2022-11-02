@@ -50,6 +50,9 @@ func init() {
 		{upgradeNotSupported, true, "notify the user that upgrade is not supported"},
 		{dropTxnBytesColumn, true, "drop txnbytes column"},
 		{convertAccountData, true, "convert account.account_data column"},
+
+		// Migration for app box support
+		{createAppBoxTable, true, "add new table app_box for application boxes"},
 	}
 }
 
@@ -248,4 +251,14 @@ func convertAccountData(db *IndexerDb, migrationState *types.MigrationState, opt
 
 	*migrationState = newMigrationState
 	return nil
+}
+
+func createAppBoxTable(db *IndexerDb, migrationState *types.MigrationState, opts *idb.IndexerDbOptions) error {
+	return sqlMigration(
+		db, migrationState, []string{`CREATE TABLE IF NOT EXISTS app_box (
+			app bigint NOT NULL,
+			name bytea NOT NULL,
+			value bytea NOT NULL, -- upon creation 'value' is 0x000...000 with length being the box'es size
+			PRIMARY KEY (app, name)
+		)`})
 }

@@ -69,6 +69,10 @@ type ExtraOptions struct {
 	// Applications
 	MaxApplicationsLimit     uint64
 	DefaultApplicationsLimit uint64
+
+	// Boxes
+	MaxBoxesLimit     uint64
+	DefaultBoxesLimit uint64
 }
 
 func (e ExtraOptions) handlerTimeout() time.Duration {
