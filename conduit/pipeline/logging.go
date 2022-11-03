@@ -1,4 +1,4 @@
-package conduit
+package pipeline
 
 import (
 	log "github.com/sirupsen/logrus"

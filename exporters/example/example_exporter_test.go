@@ -6,7 +6,6 @@ import (
 
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
-	"github.com/algorand/indexer/plugins"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -18,10 +17,9 @@ var exExp = exCons.New()
 
 func TestExporterMetadata(t *testing.T) {
 	meta := exExp.Metadata()
-	assert.Equal(t, plugins.PluginType(plugins.Exporter), meta.Type())
-	assert.Equal(t, exampleExporterMetadata.ExpName, meta.Name())
-	assert.Equal(t, exampleExporterMetadata.ExpDescription, meta.Description())
-	assert.Equal(t, exampleExporterMetadata.ExpDeprecated, meta.Deprecated())
+	assert.Equal(t, metadata.Name, meta.Name)
+	assert.Equal(t, metadata.Description, meta.Description)
+	assert.Equal(t, metadata.Deprecated, meta.Deprecated)
 }
 
 func TestExporterInit(t *testing.T) {

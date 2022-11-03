@@ -6,6 +6,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/algorand/indexer/conduit"
 )
 
 var logger *logrus.Logger
@@ -18,8 +20,13 @@ type mockProcessor struct {
 	Processor
 }
 
-func (m *mockProcessor) Metadata() ProcessorMetadata {
-	return MakeProcessorMetadata("foobar", "", false, "")
+func (m *mockProcessor) Metadata() conduit.Metadata {
+	return conduit.Metadata{
+		Name:         "foobar",
+		Description:  "",
+		Deprecated:   false,
+		SampleConfig: "",
+	}
 }
 
 type mockProcessorConstructor struct {
@@ -32,7 +39,7 @@ func (c *mockProcessorConstructor) New() Processor {
 
 func TestProcessorBuilderByNameSuccess(t *testing.T) {
 	me := mockProcessor{}
-	RegisterProcessor("foobar", &mockProcessorConstructor{&me})
+	Register("foobar", &mockProcessorConstructor{&me})
 
 	expBuilder, err := ProcessorBuilderByName("foobar")
 	assert.NoError(t, err)

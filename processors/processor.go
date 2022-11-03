@@ -5,14 +5,15 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/plugins"
 )
 
 // Processor an interface that defines an object that can filter and process transactions
 type Processor interface {
-	// Metadata associated with each Processor.
-	Metadata() ProcessorMetadata
+	// PluginMetadata implement this interface.
+	conduit.PluginMetadata
 
 	// Config returns the configuration options used to create an Processor.
 	Config() plugins.PluginConfig

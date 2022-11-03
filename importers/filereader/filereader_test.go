@@ -41,10 +41,9 @@ func init() {
 func TestImporterorterMetadata(t *testing.T) {
 	testImporter = New()
 	m := testImporter.Metadata()
-	assert.Equal(t, metadata.Type(), m.Type())
-	assert.Equal(t, metadata.Name(), m.Name())
-	assert.Equal(t, metadata.Description(), m.Description())
-	assert.Equal(t, metadata.Deprecated(), m.Deprecated())
+	assert.Equal(t, metadata.Name, m.Name)
+	assert.Equal(t, metadata.Description, m.Description)
+	assert.Equal(t, metadata.Deprecated, m.Deprecated)
 }
 
 // initializeTestData fills a data directory with some dummy data for the importer to read.

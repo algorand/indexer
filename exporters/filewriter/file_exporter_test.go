@@ -43,10 +43,9 @@ func getConfig(t *testing.T) (config, tempdir string) {
 func TestExporterMetadata(t *testing.T) {
 	fileExp := fileCons.New()
 	meta := fileExp.Metadata()
-	assert.Equal(t, plugins.PluginType(plugins.Exporter), meta.Type())
-	assert.Equal(t, "file_writer", meta.Name())
-	assert.Equal(t, "Exporter for writing data to a file.", meta.Description())
-	assert.Equal(t, false, meta.Deprecated())
+	assert.Equal(t, metadata.Name, meta.Name)
+	assert.Equal(t, metadata.Description, meta.Description)
+	assert.Equal(t, metadata.Deprecated, meta.Deprecated)
 }
 
 func TestExporterInit(t *testing.T) {
