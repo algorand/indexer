@@ -8,6 +8,7 @@ type Metadata struct {
 	SampleConfig string
 }
 
+// PluginMetadata is the common interface for providing plugin metadata.
 type PluginMetadata interface {
 	// Metadata associated with the plugin.
 	Metadata() Metadata

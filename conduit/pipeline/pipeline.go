@@ -48,9 +48,9 @@ type Metrics struct {
 	Addr string `yaml:"addr"`
 }
 
-// PipelineConfig stores configuration specific to the conduit pipeline
-type PipelineConfig struct {
-	ConduitConfig *Config
+// Config stores configuration specific to the conduit pipeline
+type Config struct {
+	ConduitConfig *conduit.Config
 
 	CPUProfile  string `yaml:"cpu-profile"`
 	PIDFilePath string `yaml:"pid-filepath"`
@@ -65,28 +65,28 @@ type PipelineConfig struct {
 }
 
 // Valid validates pipeline config
-func (cfg *PipelineConfig) Valid() error {
+func (cfg *Config) Valid() error {
 	if cfg.ConduitConfig == nil {
-		return fmt.Errorf("PipelineConfig.Valid(): conduit configuration was nil")
+		return fmt.Errorf("Config.Valid(): conduit configuration was nil")
 	}
 
 	if _, err := log.ParseLevel(cfg.PipelineLogLevel); err != nil {
-		return fmt.Errorf("PipelineConfig.Valid(): pipeline log level (%s) was invalid: %w", cfg.PipelineLogLevel, err)
+		return fmt.Errorf("Config.Valid(): pipeline log level (%s) was invalid: %w", cfg.PipelineLogLevel, err)
 	}
 
 	if len(cfg.Importer.Config) == 0 {
-		return fmt.Errorf("PipelineConfig.Valid(): importer configuration was empty")
+		return fmt.Errorf("Config.Valid(): importer configuration was empty")
 	}
 
 	if len(cfg.Exporter.Config) == 0 {
-		return fmt.Errorf("PipelineConfig.Valid(): exporter configuration was empty")
+		return fmt.Errorf("Config.Valid(): exporter configuration was empty")
 	}
 
 	return nil
 }
 
 // MakePipelineConfig creates a pipeline configuration
-func MakePipelineConfig(logger *log.Logger, cfg *Config) (*PipelineConfig, error) {
+func MakePipelineConfig(logger *log.Logger, cfg *conduit.Config) (*Config, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("MakePipelineConfig(): empty conduit config")
 	}
@@ -95,16 +95,16 @@ func MakePipelineConfig(logger *log.Logger, cfg *Config) (*PipelineConfig, error
 	if err := cfg.Valid(); err != nil {
 		return nil, fmt.Errorf("MakePipelineConfig(): %w", err)
 	}
-	pCfg := PipelineConfig{PipelineLogLevel: logger.Level.String(), ConduitConfig: cfg}
+	pCfg := Config{PipelineLogLevel: logger.Level.String(), ConduitConfig: cfg}
 
 	// Search for pipeline configuration in data directory
-	autoloadParamConfigPath := filepath.Join(cfg.ConduitDataDir, DefaultConfigName)
+	autoloadParamConfigPath := filepath.Join(cfg.ConduitDataDir, conduit.DefaultConfigName)
 
 	_, err := os.Stat(autoloadParamConfigPath)
 	paramConfigFound := err == nil
 
 	if !paramConfigFound {
-		return nil, fmt.Errorf("MakePipelineConfig(): could not find %s in data directory (%s)", DefaultConfigName, cfg.ConduitDataDir)
+		return nil, fmt.Errorf("MakePipelineConfig(): could not find %s in data directory (%s)", conduit.DefaultConfigName, cfg.ConduitDataDir)
 	}
 
 	logger.Infof("Auto-loading Conduit Configuration: %s", autoloadParamConfigPath)
@@ -141,7 +141,7 @@ type pipelineImpl struct {
 	ctx      context.Context
 	cf       context.CancelFunc
 	wg       sync.WaitGroup
-	cfg      *PipelineConfig
+	cfg      *Config
 	logger   *log.Logger
 	profFile *os.File
 	err      error
@@ -154,14 +154,14 @@ type pipelineImpl struct {
 	exporter         *exporters.Exporter
 	completeCallback []conduit.OnCompleteFunc
 
-	pipelineMetadata         PipelineMetaData
+	pipelineMetadata         state
 	pipelineMetadataFilePath string
 
 	metricsCallback []conduit.ProvideMetricsFunc
 }
 
-// PipelineMetaData contains the metadata for the pipeline
-type PipelineMetaData struct {
+// state contains the pipeline state.
+type state struct {
 	GenesisHash string `json:"genesis-hash"`
 	Network     string `json:"network"`
 	NextRound   uint64 `json:"next-round"`
@@ -472,7 +472,7 @@ func (p *pipelineImpl) encodeMetadataToFile() error {
 	return nil
 }
 
-func (p *pipelineImpl) initializeOrLoadBlockMetadata() (PipelineMetaData, error) {
+func (p *pipelineImpl) initializeOrLoadBlockMetadata() (state, error) {
 	p.pipelineMetadataFilePath = path.Join(p.cfg.ConduitConfig.ConduitDataDir, "metadata.json")
 	if stat, err := os.Stat(p.pipelineMetadataFilePath); errors.Is(err, os.ErrNotExist) || (stat != nil && stat.Size() == 0) {
 		if stat != nil && stat.Size() == 0 {
@@ -510,7 +510,7 @@ func (p *pipelineImpl) startMetricsServer() {
 }
 
 // MakePipeline creates a Pipeline
-func MakePipeline(ctx context.Context, cfg *PipelineConfig, logger *log.Logger) (Pipeline, error) {
+func MakePipeline(ctx context.Context, cfg *Config, logger *log.Logger) (Pipeline, error) {
 
 	if cfg == nil {
 		return nil, fmt.Errorf("MakePipeline(): pipeline config was empty")

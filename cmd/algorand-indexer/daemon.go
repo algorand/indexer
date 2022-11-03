@@ -20,6 +20,7 @@ import (
 
 	"github.com/algorand/indexer/api"
 	"github.com/algorand/indexer/api/generated/v2"
+	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/pipeline"
 	"github.com/algorand/indexer/config"
 	_ "github.com/algorand/indexer/exporters/postgresql"
@@ -358,9 +359,9 @@ func runDaemon(daemonConfig *daemonConfig) error {
 	return err
 }
 
-func makeConduitConfig(dCfg *daemonConfig) pipeline.PipelineConfig {
-	return pipeline.PipelineConfig{
-		ConduitConfig: &pipeline.Config{
+func makeConduitConfig(dCfg *daemonConfig) pipeline.Config {
+	return pipeline.Config{
+		ConduitConfig: &conduit.Config{
 			ConduitDataDir: dCfg.indexerDataDir,
 		},
 		PipelineLogLevel: logger.GetLevel().String(),

@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/algorand/indexer/cmd/conduit/internal/list"
+	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/pipeline"
 	"github.com/algorand/indexer/loggers"
 	"github.com/algorand/indexer/util/metrics"
@@ -52,7 +53,7 @@ func init() {
 }
 
 // runConduitCmdWithConfig run the main logic with a supplied conduit config
-func runConduitCmdWithConfig(cfg *pipeline.Config) error {
+func runConduitCmdWithConfig(cfg *conduit.Config) error {
 	defer pipeline.HandlePanic(logger)
 
 	// From docs:
@@ -110,7 +111,7 @@ func runConduitCmdWithConfig(cfg *pipeline.Config) error {
 
 // makeConduitCmd creates the main cobra command, initializes flags, and viper aliases
 func makeConduitCmd() *cobra.Command {
-	cfg := &pipeline.Config{}
+	cfg := &conduit.Config{}
 	cmd := &cobra.Command{
 		Use:   "conduit",
 		Short: "run the conduit framework",
@@ -148,7 +149,7 @@ func runConduitInit(path string) error {
 		return err
 	}
 
-	configFilePath := filepath.Join(path, pipeline.DefaultConfigName)
+	configFilePath := filepath.Join(path, conduit.DefaultConfigName)
 	f, err := os.Create(configFilePath)
 	if err != nil {
 		return fmt.Errorf("runConduitInit(): failed to create %s", configFilePath)

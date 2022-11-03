@@ -14,6 +14,7 @@ import (
 	"github.com/algorand/indexer/processors"
 )
 
+// Command is the list command to embed in a root cobra command.
 var Command = &cobra.Command{
 	Use:   "list",
 	Short: "lists all plugins available to conduit",

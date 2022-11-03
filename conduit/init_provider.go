@@ -11,6 +11,7 @@ type PipelineInitProvider struct {
 	genesis      *bookkeeping.Genesis
 }
 
+// MakePipelineInitProvider constructs an init provider.
 func MakePipelineInitProvider(currentRound *basics.Round, genesis *bookkeeping.Genesis) *PipelineInitProvider {
 	return &PipelineInitProvider{
 		currentRound: currentRound,
