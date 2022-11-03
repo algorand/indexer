@@ -8,13 +8,11 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"testing"
 	"time"
 
 	"github.com/algorand/go-algorand/crypto"
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -798,8 +796,9 @@ func TestRoundOverwrite(t *testing.T) {
 	pImpl := pipelineImpl{
 		cfg: &PipelineConfig{
 			ConduitConfig: &Config{
-				Flags:          &pflag.FlagSet{},
-				ConduitDataDir: t.TempDir(),
+				Flags:             nil,
+				ConduitDataDir:    t.TempDir(),
+				NextRoundOverride: 0,
 			},
 			Importer: NameConfigPair{
 				Name:   "",
@@ -828,26 +827,15 @@ func TestRoundOverwrite(t *testing.T) {
 		},
 	}
 
-	// pipeline should initialize if round arg is not set
+	// pipeline should initialize if NextRoundOverride is not set
 	err := pImpl.Init()
 	assert.Nil(t, err)
 
-	// round flag not found, pipeline should initialize as if round arg is not set
-	pImpl.cfg.ConduitConfig.Flags.Uint64("rounds", 1, "")
-	err = pImpl.Init()
-	assert.Nil(t, err)
-
-	// set a round < round in metadata
-	pImpl.cfg.ConduitConfig.Flags.Uint64("next-round", 0, "")
-	for i := 0; i < int(pImpl.pipelineMetadata.NextRound); i++ {
-		pImpl.cfg.ConduitConfig.Flags.Set("next-round", strconv.Itoa(i))
+	// override NextRound
+	for i := 1; i < 10; i++ {
+		pImpl.cfg.ConduitConfig.NextRoundOverride = uint64(i)
 		err = pImpl.Init()
-		assert.Contains(t, err.Error(), fmt.Sprintf("cannot set starting round to %d, it is behind next round 3", i))
+		assert.Nil(t, err)
+		assert.Equal(t, uint64(i), pImpl.pipelineMetadata.NextRound)
 	}
-
-	// set a round > round in metadata, NextRound should be overwritten
-	pImpl.cfg.ConduitConfig.Flags.Set("next-round", "5")
-	err = pImpl.Init()
-	assert.Equal(t, uint64(5), pImpl.pipelineMetadata.NextRound)
-
 }

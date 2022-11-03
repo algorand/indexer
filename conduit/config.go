@@ -14,8 +14,9 @@ const DefaultConfigName = "conduit.yml"
 // Config configuration for conduit running.
 // This is needed to support a CONDUIT_DATA_DIR environment variable.
 type Config struct {
-	Flags          *pflag.FlagSet
-	ConduitDataDir string `yaml:"data-dir"`
+	Flags             *pflag.FlagSet
+	ConduitDataDir    string `yaml:"data-dir"`
+	NextRoundOverride uint64 `yaml:"next-round-override"`
 }
 
 func (cfg *Config) String() string {

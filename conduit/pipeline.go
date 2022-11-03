@@ -262,13 +262,10 @@ func (p *pipelineImpl) Init() error {
 	if p.pipelineMetadata.GenesisHash != gh {
 		return fmt.Errorf("Pipeline.Start(): genesis hash in metadata does not match expected value: actual %s, expected %s", gh, p.pipelineMetadata.GenesisHash)
 	}
-	// overwriting NextRound if next-round arg is set
-	if p.cfg.ConduitConfig.Flags != nil && p.cfg.ConduitConfig.Flags.Changed("next-round") {
-		if round, _ := p.cfg.ConduitConfig.Flags.GetUint64("next-round"); err == nil && round > p.pipelineMetadata.NextRound {
-			p.pipelineMetadata.NextRound = round
-		} else if round < p.pipelineMetadata.NextRound {
-			return fmt.Errorf("Pipeline.Start(): cannot set starting round to %d, it is behind next round %d", round, p.pipelineMetadata.NextRound)
-		}
+	// overriding NextRound if NextRoundOverride is set
+	if p.cfg.ConduitConfig.NextRoundOverride > 0 {
+		p.logger.Infof("Overriding default next round from %d to %d.", p.pipelineMetadata.NextRound, p.cfg.ConduitConfig.NextRoundOverride)
+		p.pipelineMetadata.NextRound = p.cfg.ConduitConfig.NextRoundOverride
 	}
 
 	p.logger.Infof("Initialized Importer: %s", importerName)
