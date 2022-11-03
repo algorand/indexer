@@ -9,6 +9,6 @@ type Metadata struct {
 }
 
 type PluginMetadata interface {
-	// Metadata associated with each Exporter.
+	// Metadata associated with the plugin.
 	Metadata() Metadata
 }
