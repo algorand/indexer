@@ -19,7 +19,7 @@ var nc = exporters.ExporterConstructorFunc(func() exporters.Exporter {
 var ne = nc.New()
 
 func TestExporterBuilderByName(t *testing.T) {
-	exporters.RegisterExporter(metadata.Name, nc)
+	exporters.Register(metadata.Name, nc)
 	neBuilder, err := exporters.ExporterBuilderByName(metadata.Name)
 	assert.NoError(t, err)
 	ne := neBuilder.New()

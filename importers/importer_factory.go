@@ -23,10 +23,10 @@ func (f ImporterConstructorFunc) New() Importer {
 // Importers are the constructors to build importer plugins.
 var Importers = make(map[string]Constructor)
 
-// RegisterImporter is used to register Constructor implementations. This mechanism allows
+// Register is used to register Constructor implementations. This mechanism allows
 // for loose coupling between the configuration and the implementation. It is extremely similar to the way sql.DB
 // drivers are configured and used.
-func RegisterImporter(name string, constructor Constructor) {
+func Register(name string, constructor Constructor) {
 	Importers[name] = constructor
 }
 

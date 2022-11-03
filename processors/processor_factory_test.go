@@ -39,7 +39,7 @@ func (c *mockProcessorConstructor) New() Processor {
 
 func TestProcessorBuilderByNameSuccess(t *testing.T) {
 	me := mockProcessor{}
-	RegisterProcessor("foobar", &mockProcessorConstructor{&me})
+	Register("foobar", &mockProcessorConstructor{&me})
 
 	expBuilder, err := ProcessorBuilderByName("foobar")
 	assert.NoError(t, err)

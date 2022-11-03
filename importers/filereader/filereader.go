@@ -47,7 +47,7 @@ func (r *fileReader) Metadata() conduit.Metadata {
 
 // package-wide init function
 func init() {
-	importers.RegisterImporter(importerName, importers.ImporterConstructorFunc(func() importers.Importer {
+	importers.Register(importerName, importers.ImporterConstructorFunc(func() importers.Importer {
 		return &fileReader{}
 	}))
 }

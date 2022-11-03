@@ -754,8 +754,8 @@ func TestPipelineLogFile(t *testing.T) {
 
 	var mockedImpNew mockedImporterNew
 	var mockedExpNew mockedExporterNew
-	importers.RegisterImporter("mockedImporter", mockedImpNew)
-	exporters.RegisterExporter("mockedExporter", mockedExpNew)
+	importers.Register("mockedImporter", mockedImpNew)
+	exporters.Register("mockedExporter", mockedExpNew)
 
 	logfilePath := path.Join(t.TempDir(), "conduit.log")
 	configs := &PipelineConfig{

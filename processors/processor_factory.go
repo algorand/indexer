@@ -23,10 +23,10 @@ func (f ProcessorConstructorFunc) New() Processor {
 // Processors are the constructors to build processor plugins.
 var Processors = make(map[string]ProcessorConstructor)
 
-// RegisterProcessor is used to register ProcessorConstructor implementations. This mechanism allows
+// Register is used to register ProcessorConstructor implementations. This mechanism allows
 // for loose coupling between the configuration and the implementation. It is extremely similar to the way sql.DB
 // drivers are configured and used.
-func RegisterProcessor(name string, constructor ProcessorConstructor) {
+func Register(name string, constructor ProcessorConstructor) {
 	Processors[name] = constructor
 }
 

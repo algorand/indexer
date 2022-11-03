@@ -25,7 +25,7 @@ const implementationName = "filter_processor"
 
 // package-wide init function
 func init() {
-	processors.RegisterProcessor(implementationName, processors.ProcessorConstructorFunc(func() processors.Processor {
+	processors.Register(implementationName, processors.ProcessorConstructorFunc(func() processors.Processor {
 		return &FilterProcessor{}
 	}))
 }

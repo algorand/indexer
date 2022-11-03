@@ -62,7 +62,7 @@ func (exp *exampleExporter) Round() uint64 {
 func init() {
 	// In order to provide a Constructor to the exporter_factory, we register our Exporter in the init block.
 	// To load this Exporter into the factory, simply import the package.
-	exporters.RegisterExporter(metadata.Name, exporters.ExporterConstructorFunc(func() exporters.Exporter {
+	exporters.Register(metadata.Name, exporters.ExporterConstructorFunc(func() exporters.Exporter {
 		return &exampleExporter{}
 	}))
 }

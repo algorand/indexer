@@ -67,7 +67,7 @@ func (exp *noopExporter) Round() uint64 {
 }
 
 func init() {
-	exporters.RegisterExporter(implementationName, exporters.ExporterConstructorFunc(func() exporters.Exporter {
+	exporters.Register(implementationName, exporters.ExporterConstructorFunc(func() exporters.Exporter {
 		return &noopExporter{}
 	}))
 }

@@ -147,7 +147,7 @@ func (exp *postgresqlExporter) unmarhshalConfig(cfg string) error {
 }
 
 func init() {
-	exporters.RegisterExporter(exporterName, exporters.ExporterConstructorFunc(func() exporters.Exporter {
+	exporters.Register(exporterName, exporters.ExporterConstructorFunc(func() exporters.Exporter {
 		return &postgresqlExporter{}
 	}))
 }

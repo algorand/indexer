@@ -23,10 +23,10 @@ func (f ExporterConstructorFunc) New() Exporter {
 // Exporters are the constructors to build exporter plugins.
 var Exporters = make(map[string]ExporterConstructor)
 
-// RegisterExporter is used to register ExporterConstructor implementations. This mechanism allows
+// Register is used to register ExporterConstructor implementations. This mechanism allows
 // for loose coupling between the configuration and the implementation. It is extremely similar to the way sql.DB
 // drivers are configured and used.
-func RegisterExporter(name string, constructor ExporterConstructor) {
+func Register(name string, constructor ExporterConstructor) {
 	Exporters[name] = constructor
 }
 
