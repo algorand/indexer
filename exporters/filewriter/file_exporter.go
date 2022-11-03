@@ -10,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
+	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
 	"github.com/algorand/indexer/plugins"
@@ -28,14 +29,14 @@ type fileExporter struct {
 	logger *logrus.Logger
 }
 
-var fileExporterMetadata = exporters.ExporterMetadata{
-	ExpName:        exporterName,
-	ExpDescription: "Exporter for writing data to a file.",
-	ExpDeprecated:  false,
+var metadata = conduit.Metadata{
+	Name:        exporterName,
+	Description: "Exporter for writing data to a file.",
+	Deprecated:  false,
 }
 
-func (exp *fileExporter) Metadata() exporters.ExporterMetadata {
-	return fileExporterMetadata
+func (exp *fileExporter) Metadata() conduit.Metadata {
+	return metadata
 }
 
 func (exp *fileExporter) Init(_ context.Context, initProvider data.InitProvider, cfg plugins.PluginConfig, logger *logrus.Logger) error {
@@ -103,7 +104,7 @@ func unmarshalConfig(cfg string) (Config, error) {
 }
 
 func init() {
-	exporters.RegisterExporter(fileExporterMetadata.ExpName, exporters.ExporterConstructorFunc(func() exporters.Exporter {
+	exporters.RegisterExporter(exporterName, exporters.ExporterConstructorFunc(func() exporters.Exporter {
 		return &fileExporter{}
 	}))
 }

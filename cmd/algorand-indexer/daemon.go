@@ -20,7 +20,7 @@ import (
 
 	"github.com/algorand/indexer/api"
 	"github.com/algorand/indexer/api/generated/v2"
-	"github.com/algorand/indexer/conduit"
+	"github.com/algorand/indexer/conduit/pipeline"
 	"github.com/algorand/indexer/config"
 	_ "github.com/algorand/indexer/exporters/postgresql"
 	"github.com/algorand/indexer/fetcher"
@@ -358,20 +358,20 @@ func runDaemon(daemonConfig *daemonConfig) error {
 	return err
 }
 
-func makeConduitConfig(dCfg *daemonConfig) conduit.PipelineConfig {
-	return conduit.PipelineConfig{
-		ConduitConfig: &conduit.Config{
+func makeConduitConfig(dCfg *daemonConfig) pipeline.PipelineConfig {
+	return pipeline.PipelineConfig{
+		ConduitConfig: &pipeline.Config{
 			ConduitDataDir: dCfg.indexerDataDir,
 		},
 		PipelineLogLevel: logger.GetLevel().String(),
-		Importer: conduit.NameConfigPair{
+		Importer: pipeline.NameConfigPair{
 			Name: "algod",
 			Config: map[string]interface{}{
 				"netaddr": dCfg.algodAddr,
 				"token":   dCfg.algodToken,
 			},
 		},
-		Processors: []conduit.NameConfigPair{
+		Processors: []pipeline.NameConfigPair{
 			{
 				Name: "block_evaluator",
 				Config: map[string]interface{}{
@@ -383,7 +383,7 @@ func makeConduitConfig(dCfg *daemonConfig) conduit.PipelineConfig {
 				},
 			},
 		},
-		Exporter: conduit.NameConfigPair{
+		Exporter: pipeline.NameConfigPair{
 			Name: "postgresql",
 			Config: map[string]interface{}{
 				"connection-string": postgresAddr,
@@ -395,27 +395,27 @@ func makeConduitConfig(dCfg *daemonConfig) conduit.PipelineConfig {
 
 }
 
-func runConduitPipeline(ctx context.Context, dbAvailable chan struct{}, dCfg *daemonConfig) conduit.Pipeline {
+func runConduitPipeline(ctx context.Context, dbAvailable chan struct{}, dCfg *daemonConfig) pipeline.Pipeline {
 	// Need to redefine exitHandler() for every go-routine
 	defer exitHandler()
 
 	// Wait until the database is available.
 	<-dbAvailable
 
-	var pipeline conduit.Pipeline
+	var conduit pipeline.Pipeline
 	var err error
 	pcfg := makeConduitConfig(dCfg)
-	if pipeline, err = conduit.MakePipeline(ctx, &pcfg, logger); err != nil {
+	if conduit, err = pipeline.MakePipeline(ctx, &pcfg, logger); err != nil {
 		logger.Errorf("%v", err)
 		panic(exit{1})
 	}
-	err = pipeline.Init()
+	err = conduit.Init()
 	if err != nil {
 		logger.Errorf("%v", err)
 		panic(exit{1})
 	}
-	pipeline.Start()
-	return pipeline
+	conduit.Start()
+	return conduit
 }
 
 // makeOptions converts CLI options to server options

@@ -1,4 +1,4 @@
-package conduit
+package pipeline
 
 import (
 	"context"
@@ -19,6 +19,7 @@ import (
 
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
 	"github.com/algorand/indexer/importers"
@@ -163,8 +164,8 @@ func (m *mockImporter) Close() error {
 	return nil
 }
 
-func (m *mockImporter) Metadata() importers.ImporterMetadata {
-	return importers.ImporterMetadata{ImpName: "mockImporter"}
+func (m *mockImporter) Metadata() conduit.Metadata {
+	return conduit.Metadata{Name: "mockImporter"}
 }
 
 func (m *mockImporter) GetBlock(rnd uint64) (data.BlockData, error) {
@@ -203,8 +204,10 @@ func (m *mockProcessor) Close() error {
 	return nil
 }
 
-func (m *mockProcessor) Metadata() processors.ProcessorMetadata {
-	return processors.MakeProcessorMetadata("mockProcessor", "", false, "")
+func (m *mockProcessor) Metadata() conduit.Metadata {
+	return conduit.Metadata{
+		Name: "mockProcessor",
+	}
 }
 
 func (m *mockProcessor) Process(input data.BlockData) (data.BlockData, error) {
@@ -235,9 +238,9 @@ type mockExporter struct {
 	onCompleteError bool
 }
 
-func (m *mockExporter) Metadata() exporters.ExporterMetadata {
-	return exporters.ExporterMetadata{
-		ExpName: "mockExporter",
+func (m *mockExporter) Metadata() conduit.Metadata {
+	return conduit.Metadata{
+		Name: "mockExporter",
 	}
 }
 
@@ -292,7 +295,7 @@ func TestPipelineRun(t *testing.T) {
 	var pImporter importers.Importer = &mImporter
 	var pProcessor processors.Processor = &mProcessor
 	var pExporter exporters.Exporter = &mExporter
-	var cbComplete Completed = &mProcessor
+	var cbComplete conduit.Completed = &mProcessor
 
 	ctx, cf := context.WithCancel(context.Background())
 
@@ -304,7 +307,7 @@ func TestPipelineRun(t *testing.T) {
 		importer:         &pImporter,
 		processors:       []*processors.Processor{&pProcessor},
 		exporter:         &pExporter,
-		completeCallback: []OnCompleteFunc{cbComplete.OnComplete},
+		completeCallback: []conduit.OnCompleteFunc{cbComplete.OnComplete},
 		pipelineMetadata: PipelineMetaData{
 			NextRound:   0,
 			GenesisHash: "",
@@ -412,7 +415,7 @@ func TestPipelineErrors(t *testing.T) {
 	var pImporter importers.Importer = &mImporter
 	var pProcessor processors.Processor = &mProcessor
 	var pExporter exporters.Exporter = &mExporter
-	var cbComplete Completed = &mProcessor
+	var cbComplete conduit.Completed = &mProcessor
 
 	ctx, cf := context.WithCancel(context.Background())
 	pImpl := pipelineImpl{
@@ -424,7 +427,7 @@ func TestPipelineErrors(t *testing.T) {
 		importer:         &pImporter,
 		processors:       []*processors.Processor{&pProcessor},
 		exporter:         &pExporter,
-		completeCallback: []OnCompleteFunc{cbComplete.OnComplete},
+		completeCallback: []conduit.OnCompleteFunc{cbComplete.OnComplete},
 		pipelineMetadata: PipelineMetaData{},
 	}
 

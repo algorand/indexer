@@ -2,11 +2,13 @@ package noop
 
 import (
 	"context"
+
 	// use for getting sample config
 	_ "embed"
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/plugins"
 	"github.com/algorand/indexer/processors"
@@ -28,8 +30,13 @@ type Processor struct{}
 var sampleConfig string
 
 // Metadata noop
-func (p *Processor) Metadata() processors.ProcessorMetadata {
-	return processors.MakeProcessorMetadata(implementationName, "noop processor", false, sampleConfig)
+func (p *Processor) Metadata() conduit.Metadata {
+	return conduit.Metadata{
+		Name:         implementationName,
+		Description:  "noop processor",
+		Deprecated:   false,
+		SampleConfig: sampleConfig,
+	}
 }
 
 // Config noop

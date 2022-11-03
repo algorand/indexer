@@ -2,6 +2,7 @@ package filterprocessor
 
 import (
 	"context"
+
 	// use for getting sample config
 	_ "embed"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
+	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/plugins"
 	"github.com/algorand/indexer/processors"
@@ -41,8 +43,13 @@ type FilterProcessor struct {
 var sampleConfig string
 
 // Metadata returns metadata
-func (a *FilterProcessor) Metadata() processors.ProcessorMetadata {
-	return processors.MakeProcessorMetadata(implementationName, "FilterProcessor Filter Processor", false, sampleConfig)
+func (a *FilterProcessor) Metadata() conduit.Metadata {
+	return conduit.Metadata{
+		Name:         implementationName,
+		Description:  "FilterProcessor Filter Processor",
+		Deprecated:   false,
+		SampleConfig: sampleConfig,
+	}
 }
 
 // Config returns the config

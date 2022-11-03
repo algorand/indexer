@@ -1,4 +1,4 @@
-package conduit
+package pipeline
 
 import (
 	"context"
@@ -13,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/algorand/indexer/util/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
@@ -23,12 +22,14 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"gopkg.in/yaml.v3"
 
+	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
 	"github.com/algorand/indexer/importers"
 	"github.com/algorand/indexer/plugins"
 	"github.com/algorand/indexer/processors"
 	"github.com/algorand/indexer/util"
+	"github.com/algorand/indexer/util/metrics"
 )
 
 func init() {
@@ -151,12 +152,12 @@ type pipelineImpl struct {
 	importer         *importers.Importer
 	processors       []*processors.Processor
 	exporter         *exporters.Exporter
-	completeCallback []OnCompleteFunc
+	completeCallback []conduit.OnCompleteFunc
 
 	pipelineMetadata         PipelineMetaData
 	pipelineMetadataFilePath string
 
-	metricsCallback []ProvideMetricsFunc
+	metricsCallback []conduit.ProvideMetricsFunc
 }
 
 // PipelineMetaData contains the metadata for the pipeline
@@ -179,29 +180,29 @@ func (p *pipelineImpl) setError(err error) {
 }
 
 func (p *pipelineImpl) registerLifecycleCallbacks() {
-	if v, ok := (*p.importer).(Completed); ok {
+	if v, ok := (*p.importer).(conduit.Completed); ok {
 		p.completeCallback = append(p.completeCallback, v.OnComplete)
 	}
 	for _, processor := range p.processors {
-		if v, ok := (*processor).(Completed); ok {
+		if v, ok := (*processor).(conduit.Completed); ok {
 			p.completeCallback = append(p.completeCallback, v.OnComplete)
 		}
 	}
-	if v, ok := (*p.exporter).(Completed); ok {
+	if v, ok := (*p.exporter).(conduit.Completed); ok {
 		p.completeCallback = append(p.completeCallback, v.OnComplete)
 	}
 }
 
 func (p *pipelineImpl) registerPluginMetricsCallbacks() {
-	if v, ok := (*p.importer).(PluginMetrics); ok {
+	if v, ok := (*p.importer).(conduit.PluginMetrics); ok {
 		p.metricsCallback = append(p.metricsCallback, v.ProvideMetrics)
 	}
 	for _, processor := range p.processors {
-		if v, ok := (*processor).(PluginMetrics); ok {
+		if v, ok := (*processor).(conduit.PluginMetrics); ok {
 			p.metricsCallback = append(p.metricsCallback, v.ProvideMetrics)
 		}
 	}
-	if v, ok := (*p.exporter).(PluginMetrics); ok {
+	if v, ok := (*p.exporter).(conduit.PluginMetrics); ok {
 		p.metricsCallback = append(p.metricsCallback, v.ProvideMetrics)
 	}
 }
@@ -239,7 +240,7 @@ func (p *pipelineImpl) Init() error {
 	importerLogger := log.New()
 	// Make sure we are thread-safe
 	importerLogger.SetOutput(p.logger.Out)
-	importerName := (*p.importer).Metadata().Name()
+	importerName := (*p.importer).Metadata().Name
 	importerLogger.SetFormatter(makePluginLogFormatter(plugins.Importer, importerName))
 
 	configs, err := yaml.Marshal(p.cfg.Importer.Config)
@@ -267,10 +268,7 @@ func (p *pipelineImpl) Init() error {
 
 	// InitProvider
 	round := basics.Round(p.pipelineMetadata.NextRound)
-	var initProvider data.InitProvider = &PipelineInitProvider{
-		currentRound: &round,
-		genesis:      genesis,
-	}
+	var initProvider data.InitProvider = conduit.MakePipelineInitProvider(&round, genesis)
 	p.initProvider = &initProvider
 
 	// Initialize Processors
@@ -278,13 +276,13 @@ func (p *pipelineImpl) Init() error {
 		processorLogger := log.New()
 		// Make sure we are thread-safe
 		processorLogger.SetOutput(p.logger.Out)
-		processorLogger.SetFormatter(makePluginLogFormatter(plugins.Processor, (*processor).Metadata().Name()))
+		processorLogger.SetFormatter(makePluginLogFormatter(plugins.Processor, (*processor).Metadata().Name))
 		configs, err = yaml.Marshal(p.cfg.Processors[idx].Config)
 		if err != nil {
 			return fmt.Errorf("Pipeline.Start(): could not serialize Processors[%d].Config : %w", idx, err)
 		}
 		err := (*processor).Init(p.ctx, *p.initProvider, plugins.PluginConfig(configs), processorLogger)
-		processorName := (*processor).Metadata().Name()
+		processorName := (*processor).Metadata().Name
 		if err != nil {
 			return fmt.Errorf("Pipeline.Init(): could not initialize processor (%s): %w", processorName, err)
 		}
@@ -295,14 +293,14 @@ func (p *pipelineImpl) Init() error {
 	exporterLogger := log.New()
 	// Make sure we are thread-safe
 	exporterLogger.SetOutput(p.logger.Out)
-	exporterLogger.SetFormatter(makePluginLogFormatter(plugins.Exporter, (*p.exporter).Metadata().Name()))
+	exporterLogger.SetFormatter(makePluginLogFormatter(plugins.Exporter, (*p.exporter).Metadata().Name))
 
 	configs, err = yaml.Marshal(p.cfg.Exporter.Config)
 	if err != nil {
 		return fmt.Errorf("Pipeline.Start(): could not serialize Exporter.Config : %w", err)
 	}
 	err = (*p.exporter).Init(p.ctx, *p.initProvider, plugins.PluginConfig(configs), exporterLogger)
-	exporterName := (*p.exporter).Metadata().Name()
+	exporterName := (*p.exporter).Metadata().Name
 	if err != nil {
 		return fmt.Errorf("Pipeline.Start(): could not initialize Exporter (%s): %w", exporterName, err)
 	}
@@ -345,18 +343,18 @@ func (p *pipelineImpl) Stop() {
 
 	if err := (*p.importer).Close(); err != nil {
 		// Log and continue on closing the rest of the pipeline
-		p.logger.Errorf("Pipeline.Stop(): Importer (%s) error on close: %v", (*p.importer).Metadata().Name(), err)
+		p.logger.Errorf("Pipeline.Stop(): Importer (%s) error on close: %v", (*p.importer).Metadata().Name, err)
 	}
 
 	for _, processor := range p.processors {
 		if err := (*processor).Close(); err != nil {
 			// Log and continue on closing the rest of the pipeline
-			p.logger.Errorf("Pipeline.Stop(): Processor (%s) error on close: %v", (*processor).Metadata().Name(), err)
+			p.logger.Errorf("Pipeline.Stop(): Processor (%s) error on close: %v", (*processor).Metadata().Name, err)
 		}
 	}
 
 	if err := (*p.exporter).Close(); err != nil {
-		p.logger.Errorf("Pipeline.Stop(): Exporter (%s) error on close: %v", (*p.exporter).Metadata().Name(), err)
+		p.logger.Errorf("Pipeline.Stop(): Exporter (%s) error on close: %v", (*p.exporter).Metadata().Name, err)
 	}
 }
 
@@ -413,7 +411,7 @@ func (p *pipelineImpl) Start() {
 							retry++
 							goto pipelineRun
 						}
-						metrics.ProcessorTimeSeconds.WithLabelValues((*proc).Metadata().Name()).Observe(time.Since(processorStart).Seconds())
+						metrics.ProcessorTimeSeconds.WithLabelValues((*proc).Metadata().Name).Observe(time.Since(processorStart).Seconds())
 					}
 					// run through exporter
 					exporterStart := time.Now()

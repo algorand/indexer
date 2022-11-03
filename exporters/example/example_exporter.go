@@ -3,11 +3,14 @@ package example
 import (
 	"context"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/algorand/go-algorand/data/bookkeeping"
+
+	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
 	"github.com/algorand/indexer/plugins"
-	"github.com/sirupsen/logrus"
 )
 
 // This is our exporter object. It should store all the in memory data required to run the Exporter.
@@ -15,15 +18,15 @@ type exampleExporter struct{}
 
 // Each Exporter should implement its own Metadata object. These fields shouldn't change at runtime so there is
 // no reason to construct more than a single metadata object.
-var exampleExporterMetadata exporters.ExporterMetadata = exporters.ExporterMetadata{
-	ExpName:        "example",
-	ExpDescription: "example exporter",
-	ExpDeprecated:  false,
+var metadata = conduit.Metadata{
+	Name:        "example",
+	Description: "example exporter",
+	Deprecated:  false,
 }
 
 // Metadata returns the Exporter's Metadata object
-func (exp *exampleExporter) Metadata() exporters.ExporterMetadata {
-	return exampleExporterMetadata
+func (exp *exampleExporter) Metadata() conduit.Metadata {
+	return metadata
 }
 
 // Init provides the opportunity for your Exporter to initialize connections, store config variables, etc.
@@ -59,7 +62,7 @@ func (exp *exampleExporter) Round() uint64 {
 func init() {
 	// In order to provide a Constructor to the exporter_factory, we register our Exporter in the init block.
 	// To load this Exporter into the factory, simply import the package.
-	exporters.RegisterExporter(exampleExporterMetadata.ExpName, exporters.ExporterConstructorFunc(func() exporters.Exporter {
+	exporters.RegisterExporter(metadata.Name, exporters.ExporterConstructorFunc(func() exporters.Exporter {
 		return &exampleExporter{}
 	}))
 }

@@ -31,10 +31,9 @@ func init() {
 func TestImporterMetadata(t *testing.T) {
 	testImporter = New()
 	metadata := testImporter.Metadata()
-	assert.Equal(t, metadata.Type(), algodImporterMetadata.Type())
-	assert.Equal(t, metadata.Name(), algodImporterMetadata.Name())
-	assert.Equal(t, metadata.Description(), algodImporterMetadata.Description())
-	assert.Equal(t, metadata.Deprecated(), algodImporterMetadata.Deprecated())
+	assert.Equal(t, metadata.Name, algodImporterMetadata.Name)
+	assert.Equal(t, metadata.Description, algodImporterMetadata.Description)
+	assert.Equal(t, metadata.Deprecated, algodImporterMetadata.Deprecated)
 }
 
 func TestCloseSuccess(t *testing.T) {

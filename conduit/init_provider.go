@@ -11,6 +11,13 @@ type PipelineInitProvider struct {
 	genesis      *bookkeeping.Genesis
 }
 
+func MakePipelineInitProvider(currentRound *basics.Round, genesis *bookkeeping.Genesis) *PipelineInitProvider {
+	return &PipelineInitProvider{
+		currentRound: currentRound,
+		genesis:      genesis,
+	}
+}
+
 // GetGenesis produces genesis pointer
 func (a *PipelineInitProvider) GetGenesis() *bookkeeping.Genesis {
 	return a.genesis

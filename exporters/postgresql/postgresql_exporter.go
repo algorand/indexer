@@ -6,17 +6,18 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/algorand/indexer/exporters/util"
-	"github.com/algorand/indexer/importer"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 
+	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
+	"github.com/algorand/indexer/exporters/util"
 	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/importer"
 	// Necessary to ensure the postgres implementation has been registered in the idb factory
 	_ "github.com/algorand/indexer/idb/postgres"
 	"github.com/algorand/indexer/plugins"
@@ -35,14 +36,14 @@ type postgresqlExporter struct {
 	dm     util.DataManager
 }
 
-var postgresqlExporterMetadata = exporters.ExporterMetadata{
-	ExpName:        exporterName,
-	ExpDescription: "Exporter for writing data to a postgresql instance.",
-	ExpDeprecated:  false,
+var metadata = conduit.Metadata{
+	Name:        exporterName,
+	Description: "Exporter for writing data to a postgresql instance.",
+	Deprecated:  false,
 }
 
-func (exp *postgresqlExporter) Metadata() exporters.ExporterMetadata {
-	return postgresqlExporterMetadata
+func (exp *postgresqlExporter) Metadata() conduit.Metadata {
+	return metadata
 }
 
 func (exp *postgresqlExporter) Init(ctx context.Context, initProvider data.InitProvider, cfg plugins.PluginConfig, logger *logrus.Logger) error {

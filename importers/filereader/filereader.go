@@ -12,6 +12,8 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/algorand/go-algorand/data/bookkeeping"
+
+	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters/filewriter"
 	"github.com/algorand/indexer/importers"
@@ -28,18 +30,18 @@ type fileReader struct {
 	cancel context.CancelFunc
 }
 
-var metadata = importers.ImporterMetadata{
-	ImpName:        importerName,
-	ImpDescription: "Importer for fetching blocks from files in a directory created by the 'file_writer' plugin.",
-	ImpDeprecated:  false,
-}
-
 // New initializes an algod importer
 func New() importers.Importer {
 	return &fileReader{}
 }
 
-func (r *fileReader) Metadata() importers.ImporterMetadata {
+var metadata = conduit.Metadata{
+	Name:        importerName,
+	Description: "Importer for fetching blocks from files in a directory created by the 'file_writer' plugin.",
+	Deprecated:  false,
+}
+
+func (r *fileReader) Metadata() conduit.Metadata {
 	return metadata
 }
 
