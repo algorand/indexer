@@ -2,6 +2,7 @@ package blockprocessor
 
 import (
 	"context"
+
 	// use for getting sample config
 	_ "embed"
 	"fmt"
@@ -41,7 +42,7 @@ type BlockProcessor interface {
 
 // package-wide init function
 func init() {
-	processors.RegisterProcessor(implementationName, processors.ProcessorConstructorFunc(func() processors.Processor {
+	processors.Register(implementationName, processors.ProcessorConstructorFunc(func() processors.Processor {
 		return &blockProcessor{}
 	}))
 }
@@ -65,8 +66,13 @@ type blockProcessor struct {
 //go:embed sample.yaml
 var sampleConfig string
 
-func (proc *blockProcessor) Metadata() processors.ProcessorMetadata {
-	return processors.MakeProcessorMetadata(implementationName, "Local Ledger Block Processor", false, sampleConfig)
+func (proc *blockProcessor) Metadata() conduit.Metadata {
+	return conduit.Metadata{
+		Name:         implementationName,
+		Description:  "Local Ledger Block Processor",
+		Deprecated:   false,
+		SampleConfig: sampleConfig,
+	}
 }
 
 func (proc *blockProcessor) Config() plugins.PluginConfig {

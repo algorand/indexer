@@ -6,16 +6,19 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v3"
+
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
+
+	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/importers"
 	"github.com/algorand/indexer/plugins"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v3"
 )
 
 const importerName = "algod"
@@ -28,10 +31,10 @@ type algodImporter struct {
 	cancel  context.CancelFunc
 }
 
-var algodImporterMetadata = importers.ImporterMetadata{
-	ImpName:        importerName,
-	ImpDescription: "Importer for fetching blocks from an algod REST API.",
-	ImpDeprecated:  false,
+var algodImporterMetadata = conduit.Metadata{
+	Name:        importerName,
+	Description: "Importer for fetching blocks from an algod REST API.",
+	Deprecated:  false,
 }
 
 // New initializes an algod importer
@@ -39,13 +42,13 @@ func New() importers.Importer {
 	return &algodImporter{}
 }
 
-func (algodImp *algodImporter) Metadata() importers.ImporterMetadata {
+func (algodImp *algodImporter) Metadata() conduit.Metadata {
 	return algodImporterMetadata
 }
 
 // package-wide init function
 func init() {
-	importers.RegisterImporter(importerName, importers.ImporterConstructorFunc(func() importers.Importer {
+	importers.Register(importerName, importers.ImporterConstructorFunc(func() importers.Importer {
 		return &algodImporter{}
 	}))
 }

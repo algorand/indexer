@@ -7,11 +7,12 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/plugins"
 	"github.com/algorand/indexer/processors"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
 )
 
 // TestFilterProcessorSampleConfigInit validates that all fields in the sample config are valid for a filter processor

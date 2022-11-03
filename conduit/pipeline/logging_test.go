@@ -1,4 +1,4 @@
-package conduit
+package pipeline
 
 import (
 	"testing"
