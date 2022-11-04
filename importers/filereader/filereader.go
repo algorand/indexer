@@ -2,6 +2,7 @@ package fileimporter
 
 import (
 	"context"
+	_ "embed" // used to embed config
 	"errors"
 	"fmt"
 	"io/fs"
@@ -35,10 +36,14 @@ func New() importers.Importer {
 	return &fileReader{}
 }
 
+//go:embed sample.yaml
+var sampleConfig string
+
 var metadata = conduit.Metadata{
-	Name:        importerName,
-	Description: "Importer for fetching blocks from files in a directory created by the 'file_writer' plugin.",
-	Deprecated:  false,
+	Name:         importerName,
+	Description:  "Importer for fetching blocks from files in a directory created by the 'file_writer' plugin.",
+	Deprecated:   false,
+	SampleConfig: sampleConfig,
 }
 
 func (r *fileReader) Metadata() conduit.Metadata {

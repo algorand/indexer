@@ -1,0 +1,6 @@
+name: algod
+config:
+  # Algod netaddr string
+  netaddr: "http://url"
+  # Algod rest endpoint token
+  token: ""

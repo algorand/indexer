@@ -2,6 +2,7 @@ package filewriter
 
 import (
 	"context"
+	_ "embed" // used to embed config
 	"errors"
 	"fmt"
 	"os"
@@ -29,10 +30,14 @@ type fileExporter struct {
 	logger *logrus.Logger
 }
 
+//go:embed sample.yaml
+var sampleFile string
+
 var metadata = conduit.Metadata{
-	Name:        exporterName,
-	Description: "Exporter for writing data to a file.",
-	Deprecated:  false,
+	Name:         exporterName,
+	Description:  "Exporter for writing data to a file.",
+	Deprecated:   false,
+	SampleConfig: sampleFile,
 }
 
 func (exp *fileExporter) Metadata() conduit.Metadata {

@@ -2,6 +2,7 @@ package postgresql
 
 import (
 	"context"
+	_ "embed" // used to embed config
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -36,10 +37,14 @@ type postgresqlExporter struct {
 	dm     util.DataManager
 }
 
+//go:embed sample.yaml
+var sampleConfig string
+
 var metadata = conduit.Metadata{
-	Name:        exporterName,
-	Description: "Exporter for writing data to a postgresql instance.",
-	Deprecated:  false,
+	Name:         exporterName,
+	Description:  "Exporter for writing data to a postgresql instance.",
+	Deprecated:   false,
+	SampleConfig: sampleConfig,
 }
 
 func (exp *postgresqlExporter) Metadata() conduit.Metadata {

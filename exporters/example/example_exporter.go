@@ -2,6 +2,7 @@ package example
 
 import (
 	"context"
+	_ "embed" // used to embed config
 
 	"github.com/sirupsen/logrus"
 
@@ -16,12 +17,16 @@ import (
 // This is our exporter object. It should store all the in memory data required to run the Exporter.
 type exampleExporter struct{}
 
+//go:embed sample.yaml
+var sampleConfig string
+
 // Each Exporter should implement its own Metadata object. These fields shouldn't change at runtime so there is
 // no reason to construct more than a single metadata object.
 var metadata = conduit.Metadata{
-	Name:        "example",
-	Description: "example exporter",
-	Deprecated:  false,
+	Name:         "example",
+	Description:  "example exporter",
+	Deprecated:   false,
+	SampleConfig: sampleConfig,
 }
 
 // Metadata returns the Exporter's Metadata object

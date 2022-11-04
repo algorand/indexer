@@ -1,5 +1,5 @@
-Name: filter_processor
-Config:
+name: filter_processor
+config:
   filters:
     - any:
         - tag: txn.rcv

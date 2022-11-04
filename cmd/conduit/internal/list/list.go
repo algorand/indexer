@@ -9,9 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/algorand/indexer/conduit"
-	"github.com/algorand/indexer/exporters"
-	"github.com/algorand/indexer/importers"
-	"github.com/algorand/indexer/processors"
+	"github.com/algorand/indexer/conduit/pipeline"
 )
 
 // Command is the list command to embed in a root cobra command.
@@ -44,9 +42,9 @@ func makeDetailsCommand(use string, data func() []conduit.Metadata) *cobra.Comma
 }
 
 func init() {
-	Command.AddCommand(makeDetailsCommand("importer", importerMetadata))
-	Command.AddCommand(makeDetailsCommand("processor", processorMetadata))
-	Command.AddCommand(makeDetailsCommand("exporter", exporterMetadata))
+	Command.AddCommand(makeDetailsCommand("importer", pipeline.ImporterMetadata))
+	Command.AddCommand(makeDetailsCommand("processor", pipeline.ProcessorMetadata))
+	Command.AddCommand(makeDetailsCommand("exporter", pipeline.ExporterMetadata))
 }
 
 func printDetails(name string, plugins []conduit.Metadata) {
@@ -58,30 +56,6 @@ func printDetails(name string, plugins []conduit.Metadata) {
 	}
 
 	fmt.Printf("Plugin not found: %s\n", name)
-}
-
-func importerMetadata() (results []conduit.Metadata) {
-	for _, constructor := range importers.Importers {
-		plugin := constructor.New()
-		results = append(results, plugin.Metadata())
-	}
-	return
-}
-
-func processorMetadata() (results []conduit.Metadata) {
-	for _, constructor := range processors.Processors {
-		plugin := constructor.New()
-		results = append(results, plugin.Metadata())
-	}
-	return
-}
-
-func exporterMetadata() (results []conduit.Metadata) {
-	for _, constructor := range exporters.Exporters {
-		plugin := constructor.New()
-		results = append(results, plugin.Metadata())
-	}
-	return
 }
 
 func printMetadata(w io.Writer, plugins []conduit.Metadata) {
@@ -101,10 +75,10 @@ func printMetadata(w io.Writer, plugins []conduit.Metadata) {
 }
 
 func printAll() {
-	fmt.Fprint(os.Stdout, "importers:\n")
-	printMetadata(os.Stdout, importerMetadata())
-	fmt.Fprint(os.Stdout, "processors:\n")
-	printMetadata(os.Stdout, processorMetadata())
-	fmt.Fprint(os.Stdout, "exporters:\n")
-	printMetadata(os.Stdout, exporterMetadata())
+	fmt.Fprint(os.Stdout, "Importers:\n")
+	printMetadata(os.Stdout, pipeline.ImporterMetadata())
+	fmt.Fprint(os.Stdout, "\nProcessors:\n")
+	printMetadata(os.Stdout, pipeline.ProcessorMetadata())
+	fmt.Fprint(os.Stdout, "\nExporters:\n")
+	printMetadata(os.Stdout, pipeline.ExporterMetadata())
 }
