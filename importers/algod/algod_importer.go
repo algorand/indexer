@@ -2,6 +2,7 @@ package algodimporter
 
 import (
 	"context"
+	_ "embed" // used to embed config
 	"fmt"
 	"net/url"
 	"time"
@@ -31,10 +32,14 @@ type algodImporter struct {
 	cancel  context.CancelFunc
 }
 
+//go:embed sample.yaml
+var sampleConfig string
+
 var algodImporterMetadata = conduit.Metadata{
-	Name:        importerName,
-	Description: "Importer for fetching blocks from an algod REST API.",
-	Deprecated:  false,
+	Name:         importerName,
+	Description:  "Importer for fetching blocks from an algod REST API.",
+	Deprecated:   false,
+	SampleConfig: sampleConfig,
 }
 
 // New initializes an algod importer

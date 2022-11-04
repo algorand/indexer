@@ -2,9 +2,7 @@ package noop
 
 import (
 	"context"
-
-	// use for getting sample config
-	_ "embed"
+	_ "embed" // used to embed config
 
 	"github.com/sirupsen/logrus"
 

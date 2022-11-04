@@ -2,6 +2,7 @@ package noop
 
 import (
 	"context"
+	_ "embed" // used to embed config
 	"fmt"
 
 	"github.com/sirupsen/logrus"
@@ -26,10 +27,14 @@ type noopExporter struct {
 	cfg   ExporterConfig
 }
 
+//go:embed sample.yaml
+var sampleConfig string
+
 var metadata = conduit.Metadata{
-	Name:        implementationName,
-	Description: "noop exporter",
-	Deprecated:  false,
+	Name:         implementationName,
+	Description:  "noop exporter",
+	Deprecated:   false,
+	SampleConfig: sampleConfig,
 }
 
 func (exp *noopExporter) Metadata() conduit.Metadata {
