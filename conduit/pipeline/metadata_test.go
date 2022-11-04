@@ -10,6 +10,7 @@ import (
 
 import (
 	_ "github.com/algorand/indexer/exporters/all"
+	_ "github.com/algorand/indexer/exporters/example"
 	_ "github.com/algorand/indexer/importers/all"
 	_ "github.com/algorand/indexer/processors/all"
 )
@@ -23,7 +24,7 @@ func TestSamples(t *testing.T) {
 			t.Parallel()
 			var config NameConfigPair
 			assert.NoError(t, yaml.Unmarshal([]byte(data.SampleConfig), &config))
-			assert.Equal(t, config.Name, data.Name)
+			assert.Equal(t, data.Name, config.Name)
 		})
 	}
 }
