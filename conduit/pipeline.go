@@ -262,6 +262,11 @@ func (p *pipelineImpl) Init() error {
 	if p.pipelineMetadata.GenesisHash != gh {
 		return fmt.Errorf("Pipeline.Start(): genesis hash in metadata does not match expected value: actual %s, expected %s", gh, p.pipelineMetadata.GenesisHash)
 	}
+	// overriding NextRound if NextRoundOverride is set
+	if p.cfg.ConduitConfig.NextRoundOverride > 0 {
+		p.logger.Infof("Overriding default next round from %d to %d.", p.pipelineMetadata.NextRound, p.cfg.ConduitConfig.NextRoundOverride)
+		p.pipelineMetadata.NextRound = p.cfg.ConduitConfig.NextRoundOverride
+	}
 
 	p.logger.Infof("Initialized Importer: %s", importerName)
 
@@ -424,6 +429,11 @@ func (p *pipelineImpl) Start() {
 						retry++
 						goto pipelineRun
 					}
+
+					// Increment Round, update metadata
+					p.pipelineMetadata.NextRound++
+					p.encodeMetadataToFile()
+
 					// Callback Processors
 					for _, cb := range p.completeCallback {
 						err = cb(blkData)
@@ -436,13 +446,10 @@ func (p *pipelineImpl) Start() {
 					}
 					metrics.ExporterTimeSeconds.Observe(time.Since(exporterStart).Seconds())
 					// Ignore round 0 (which is empty).
-					if p.pipelineMetadata.NextRound > 0 {
+					if p.pipelineMetadata.NextRound > 1 {
 						p.addMetrics(blkData, time.Since(start))
 					}
-					// Increment Round
 					p.setError(nil)
-					p.pipelineMetadata.NextRound++
-					p.encodeMetadataToFile()
 					retry = 0
 				}
 			}

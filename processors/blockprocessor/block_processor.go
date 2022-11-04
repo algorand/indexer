@@ -200,7 +200,7 @@ func MakeBlockProcessor(logger *log.Logger, genesis *bookkeeping.Genesis, dbRoun
 		return nil, fmt.Errorf("MakeBlockProcessor() err: %w", err)
 	}
 	if uint64(l.Latest()) > dbRound {
-		return nil, fmt.Errorf("MakeBlockProcessor() err: the ledger cache is ahead of the required round and must be re-initialized")
+		return nil, fmt.Errorf("MakeBlockProcessor() err: the ledger cache is ahead of the required round (%d > %d) and must be re-initialized", l.Latest(), dbRound)
 	}
 	return MakeBlockProcessorWithLedger(logger, l, handler)
 }

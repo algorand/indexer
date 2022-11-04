@@ -416,16 +416,17 @@ func TestPipelineErrors(t *testing.T) {
 
 	ctx, cf := context.WithCancel(context.Background())
 	pImpl := pipelineImpl{
-		ctx:              ctx,
-		cf:               cf,
-		cfg:              &PipelineConfig{},
-		logger:           log.New(),
-		initProvider:     nil,
-		importer:         &pImporter,
-		processors:       []*processors.Processor{&pProcessor},
-		exporter:         &pExporter,
-		completeCallback: []OnCompleteFunc{cbComplete.OnComplete},
-		pipelineMetadata: PipelineMetaData{},
+		ctx:                      ctx,
+		cf:                       cf,
+		cfg:                      &PipelineConfig{},
+		logger:                   log.New(),
+		initProvider:             nil,
+		importer:                 &pImporter,
+		processors:               []*processors.Processor{&pProcessor},
+		exporter:                 &pExporter,
+		completeCallback:         []OnCompleteFunc{cbComplete.OnComplete},
+		pipelineMetadata:         PipelineMetaData{},
+		pipelineMetadataFilePath: path.Join(t.TempDir(), "metadata.json"),
 	}
 
 	mImporter.returnError = true
@@ -785,4 +786,56 @@ func TestPipelineLogFile(t *testing.T) {
 
 	_, err = os.Stat(logfilePath)
 	assert.Nil(t, err)
+}
+
+// TestPipelineLogFile tests that log file is created when specified
+func TestRoundOverwrite(t *testing.T) {
+	var pImporter importers.Importer = &mockImporter{genesis: bookkeeping.Genesis{Network: "test"}}
+	var pProcessor processors.Processor = &mockProcessor{}
+	var pExporter exporters.Exporter = &mockExporter{}
+	pImpl := pipelineImpl{
+		cfg: &PipelineConfig{
+			ConduitConfig: &Config{
+				Flags:             nil,
+				ConduitDataDir:    t.TempDir(),
+				NextRoundOverride: 0,
+			},
+			Importer: NameConfigPair{
+				Name:   "",
+				Config: map[string]interface{}{},
+			},
+			Processors: []NameConfigPair{
+				{
+					Name:   "",
+					Config: map[string]interface{}{},
+				},
+			},
+			Exporter: NameConfigPair{
+				Name:   "unknown",
+				Config: map[string]interface{}{},
+			},
+		},
+		logger:       log.New(),
+		initProvider: nil,
+		importer:     &pImporter,
+		processors:   []*processors.Processor{&pProcessor},
+		exporter:     &pExporter,
+		pipelineMetadata: PipelineMetaData{
+			GenesisHash: "",
+			Network:     "",
+			NextRound:   3,
+		},
+	}
+
+	// pipeline should initialize if NextRoundOverride is not set
+	err := pImpl.Init()
+	assert.Nil(t, err)
+
+	// override NextRound
+	for i := 1; i < 10; i++ {
+		pImpl.cfg.ConduitConfig.NextRoundOverride = uint64(i)
+		err = pImpl.Init()
+		assert.Nil(t, err)
+		assert.Equal(t, uint64(i), pImpl.pipelineMetadata.NextRound)
+	}
 }
