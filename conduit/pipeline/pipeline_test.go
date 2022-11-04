@@ -796,8 +796,8 @@ func TestRoundOverwrite(t *testing.T) {
 	var pProcessor processors.Processor = &mockProcessor{}
 	var pExporter exporters.Exporter = &mockExporter{}
 	pImpl := pipelineImpl{
-		cfg: &PipelineConfig{
-			ConduitConfig: &Config{
+		cfg: &Config{
+			ConduitConfig: &conduit.Config{
 				Flags:             nil,
 				ConduitDataDir:    t.TempDir(),
 				NextRoundOverride: 0,
@@ -822,7 +822,7 @@ func TestRoundOverwrite(t *testing.T) {
 		importer:     &pImporter,
 		processors:   []*processors.Processor{&pProcessor},
 		exporter:     &pExporter,
-		pipelineMetadata: PipelineMetaData{
+		pipelineMetadata: state{
 			GenesisHash: "",
 			Network:     "",
 			NextRound:   3,
