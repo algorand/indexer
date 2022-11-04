@@ -191,7 +191,7 @@ func makeInitCmd() *cobra.Command {
 
 func main() {
 	if err := conduitCmd.Execute(); err != nil {
-		logger.Errorf("%v", err)
+		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 
