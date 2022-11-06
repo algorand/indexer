@@ -154,8 +154,7 @@ type pipelineImpl struct {
 	exporter         *exporters.Exporter
 	completeCallback []conduit.OnCompleteFunc
 
-	pipelineMetadata         state
-	pipelineMetadataFilePath string
+	pipelineMetadata state
 
 	metricsCallback []conduit.ProvideMetricsFunc
 }
@@ -460,8 +459,13 @@ func (p *pipelineImpl) Wait() {
 	p.wg.Wait()
 }
 
+func metadataPath(dataDir string) string {
+	return path.Join(dataDir, "metadata.json")
+}
+
 func (p *pipelineImpl) encodeMetadataToFile() error {
-	tempFilename := fmt.Sprintf("%s.temp", p.pipelineMetadataFilePath)
+	pipelineMetadataFilePath := metadataPath(p.cfg.ConduitConfig.ConduitDataDir)
+	tempFilename := fmt.Sprintf("%s.temp", pipelineMetadataFilePath)
 	file, err := os.Create(tempFilename)
 	if err != nil {
 		return fmt.Errorf("encodeMetadataToFile(): failed to create temp metadata file: %w", err)
@@ -472,7 +476,7 @@ func (p *pipelineImpl) encodeMetadataToFile() error {
 		return fmt.Errorf("encodeMetadataToFile(): failed to write temp metadata: %w", err)
 	}
 
-	err = os.Rename(tempFilename, p.pipelineMetadataFilePath)
+	err = os.Rename(tempFilename, pipelineMetadataFilePath)
 	if err != nil {
 		return fmt.Errorf("encodeMetadataToFile(): failed to replace metadata file: %w", err)
 	}
@@ -480,10 +484,12 @@ func (p *pipelineImpl) encodeMetadataToFile() error {
 }
 
 func (p *pipelineImpl) initializeOrLoadBlockMetadata() (state, error) {
-	p.pipelineMetadataFilePath = path.Join(p.cfg.ConduitConfig.ConduitDataDir, "metadata.json")
-	if stat, err := os.Stat(p.pipelineMetadataFilePath); errors.Is(err, os.ErrNotExist) || (stat != nil && stat.Size() == 0) {
+	pipelineMetadataFilePath := metadataPath(p.cfg.ConduitConfig.ConduitDataDir)
+	if stat, err := os.Stat(pipelineMetadataFilePath); errors.Is(err, os.ErrNotExist) || (stat != nil && stat.Size() == 0) {
+		fmt.Println(err)
+		fmt.Println(stat)
 		if stat != nil && stat.Size() == 0 {
-			err = os.Remove(p.pipelineMetadataFilePath)
+			err = os.Remove(pipelineMetadataFilePath)
 			if err != nil {
 				return p.pipelineMetadata, fmt.Errorf("Init(): error creating file: %w", err)
 			}
@@ -497,7 +503,7 @@ func (p *pipelineImpl) initializeOrLoadBlockMetadata() (state, error) {
 			return p.pipelineMetadata, fmt.Errorf("error opening file: %w", err)
 		}
 		var data []byte
-		data, err = os.ReadFile(p.pipelineMetadataFilePath)
+		data, err = os.ReadFile(pipelineMetadataFilePath)
 		if err != nil {
 			return p.pipelineMetadata, fmt.Errorf("error reading metadata: %w", err)
 		}
