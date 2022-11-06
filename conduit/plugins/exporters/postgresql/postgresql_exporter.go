@@ -14,13 +14,13 @@ import (
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 
 	"github.com/algorand/indexer/conduit"
+	"github.com/algorand/indexer/conduit/plugins"
+	"github.com/algorand/indexer/conduit/plugins/exporters"
+	"github.com/algorand/indexer/conduit/plugins/exporters/postgresql/util"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
 	// Necessary to ensure the postgres implementation has been registered in the idb factory
-	"github.com/algorand/indexer/conduit/plugins"
-	"github.com/algorand/indexer/conduit/plugins/exporters"
-	"github.com/algorand/indexer/conduit/plugins/exporters/postgresql/util"
 	_ "github.com/algorand/indexer/idb/postgres"
 )
 
