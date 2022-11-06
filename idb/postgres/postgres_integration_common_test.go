@@ -2,18 +2,18 @@ package postgres
 
 import (
 	"context"
-	"github.com/algorand/go-algorand/rpcs"
 	"testing"
 
+	"github.com/jackc/pgx/v4/pgxpool"
 	test2 "github.com/sirupsen/logrus/hooks/test"
+	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger"
-	"github.com/algorand/indexer/processors/blockprocessor"
+	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/indexer/util/test"
-	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/stretchr/testify/require"
 
+	"github.com/algorand/indexer/conduit/plugins/processors/blockprocessor"
 	"github.com/algorand/indexer/idb"
 	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
 )

@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/algorand/go-algorand/util"
 	"github.com/spf13/pflag"
+
+	"github.com/algorand/go-algorand/util"
 )
 
 // DefaultConfigName is the default conduit configuration filename.
