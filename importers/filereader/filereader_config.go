@@ -12,7 +12,7 @@ type Config struct {
 	RetryDuration time.Duration `yaml:"retry-duration"`
 	// RetryCount controls the number of times to check for a missing block
 	// before generating an error. The retry count and retry duration should
-	// be configured according the the expected round time.
+	// be configured according the expected round time.
 	RetryCount uint64 `yaml:"retry-count"`
 	// FilenamePattern is the format used to find block files. It uses go string formatting and should accept one number for the round.
 	FilenamePattern string `yaml:"filename-pattern"`

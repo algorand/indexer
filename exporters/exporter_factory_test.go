@@ -6,6 +6,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/algorand/indexer/conduit"
 )
 
 var logger *logrus.Logger
@@ -18,6 +20,10 @@ type mockExporter struct {
 	Exporter
 }
 
+func (m *mockExporter) Metadata() conduit.Metadata {
+	return conduit.Metadata{}
+}
+
 type mockExporterConstructor struct {
 	me *mockExporter
 }
@@ -28,7 +34,7 @@ func (c *mockExporterConstructor) New() Exporter {
 
 func TestExporterByNameSuccess(t *testing.T) {
 	me := mockExporter{}
-	RegisterExporter("foobar", &mockExporterConstructor{&me})
+	Register("foobar", &mockExporterConstructor{&me})
 
 	expC, err := ExporterBuilderByName("foobar")
 	assert.NoError(t, err)

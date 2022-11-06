@@ -7,13 +7,15 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/algorand/indexer/util/metrics"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/algorand/indexer/cmd/conduit/internal/list"
 	"github.com/algorand/indexer/conduit"
+	"github.com/algorand/indexer/conduit/pipeline"
 	"github.com/algorand/indexer/loggers"
+	"github.com/algorand/indexer/util/metrics"
 
 	// We need to import these so that the package wide init() function gets called
 	_ "github.com/algorand/indexer/exporters/all"
@@ -36,7 +38,7 @@ func init() {
 	// Setup logger
 	logger = loggerManager.MakeLogger()
 
-	formatter := conduit.PluginLogFormatter{
+	formatter := pipeline.PluginLogFormatter{
 		Formatter: &log.JSONFormatter{
 			DisableHTMLEscape: true,
 		},
@@ -52,7 +54,7 @@ func init() {
 
 // runConduitCmdWithConfig run the main logic with a supplied conduit config
 func runConduitCmdWithConfig(cfg *conduit.Config) error {
-	defer conduit.HandlePanic(logger)
+	defer pipeline.HandlePanic(logger)
 
 	// From docs:
 	// BindEnv takes one or more parameters. The first parameter is the key name, the rest are the name of the
@@ -78,7 +80,7 @@ func runConduitCmdWithConfig(cfg *conduit.Config) error {
 
 	logger.Info(cfg)
 
-	pCfg, err := conduit.MakePipelineConfig(logger, cfg)
+	pCfg, err := pipeline.MakePipelineConfig(logger, cfg)
 
 	if err != nil {
 		return err
@@ -92,7 +94,7 @@ func runConduitCmdWithConfig(cfg *conduit.Config) error {
 
 	ctx := context.Background()
 
-	pipeline, err := conduit.MakePipeline(ctx, pCfg, logger)
+	pipeline, err := pipeline.MakePipeline(ctx, pCfg, logger)
 	if err != nil {
 		return fmt.Errorf("pipeline creation error: %w", err)
 	}
@@ -125,6 +127,8 @@ func makeConduitCmd() *cobra.Command {
 	cfg.Flags = cmd.Flags()
 	cfg.Flags.StringVarP(&cfg.ConduitDataDir, "data-dir", "d", "", "set the data directory for the conduit binary")
 	cfg.Flags.Uint64VarP(&cfg.NextRoundOverride, "next-round-override", "r", 0, "set the starting round. Overrides next-round in metadata.json")
+
+	cmd.AddCommand(list.Command)
 
 	return cmd
 }
@@ -187,7 +191,7 @@ func makeInitCmd() *cobra.Command {
 
 func main() {
 	if err := conduitCmd.Execute(); err != nil {
-		logger.Errorf("%v", err)
+		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 

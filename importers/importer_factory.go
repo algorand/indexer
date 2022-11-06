@@ -1,6 +1,8 @@
 package importers
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // Constructor must be implemented by each Importer.
 // It provides a basic no-arg constructor for instances of an ImporterImpl.
@@ -18,24 +20,19 @@ func (f ImporterConstructorFunc) New() Importer {
 	return f()
 }
 
-// importerImpls is a k/v store from importer names to their constructor implementations.
-// This layer of indirection allows for different importer integrations to be compiled in or compiled out by `go build --tags ...`
-var importerImpls = make(map[string]Constructor)
+// Importers are the constructors to build importer plugins.
+var Importers = make(map[string]Constructor)
 
-// RegisterImporter is used to register Constructor implementations. This mechanism allows
+// Register is used to register Constructor implementations. This mechanism allows
 // for loose coupling between the configuration and the implementation. It is extremely similar to the way sql.DB
-// driver's are configured and used.
-func RegisterImporter(name string, constructor Constructor) error {
-	if _, ok := importerImpls[name]; ok {
-		return fmt.Errorf("importer already exists")
-	}
-	importerImpls[name] = constructor
-	return nil
+// drivers are configured and used.
+func Register(name string, constructor Constructor) {
+	Importers[name] = constructor
 }
 
 // ImporterBuilderByName returns a Importer constructor for the name provided
 func ImporterBuilderByName(name string) (Constructor, error) {
-	constructor, ok := importerImpls[name]
+	constructor, ok := Importers[name]
 	if !ok {
 		return nil, fmt.Errorf("no Importer Constructor for %s", name)
 	}

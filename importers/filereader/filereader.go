@@ -2,6 +2,7 @@ package fileimporter
 
 import (
 	"context"
+	_ "embed" // used to embed config
 	"errors"
 	"fmt"
 	"io/fs"
@@ -12,6 +13,8 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/algorand/go-algorand/data/bookkeeping"
+
+	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters/filewriter"
 	"github.com/algorand/indexer/importers"
@@ -28,24 +31,28 @@ type fileReader struct {
 	cancel context.CancelFunc
 }
 
-var metadata = importers.ImporterMetadata{
-	ImpName:        importerName,
-	ImpDescription: "Importer for fetching blocks from files in a directory created by the 'file_writer' plugin.",
-	ImpDeprecated:  false,
-}
-
 // New initializes an algod importer
 func New() importers.Importer {
 	return &fileReader{}
 }
 
-func (r *fileReader) Metadata() importers.ImporterMetadata {
+//go:embed sample.yaml
+var sampleConfig string
+
+var metadata = conduit.Metadata{
+	Name:         importerName,
+	Description:  "Importer for fetching blocks from files in a directory created by the 'file_writer' plugin.",
+	Deprecated:   false,
+	SampleConfig: sampleConfig,
+}
+
+func (r *fileReader) Metadata() conduit.Metadata {
 	return metadata
 }
 
 // package-wide init function
 func init() {
-	importers.RegisterImporter(importerName, importers.ImporterConstructorFunc(func() importers.Importer {
+	importers.Register(importerName, importers.ImporterConstructorFunc(func() importers.Importer {
 		return &fileReader{}
 	}))
 }

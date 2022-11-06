@@ -2,6 +2,8 @@ package filterprocessor
 
 import (
 	"context"
+
+	_ "embed" // used to embed config
 	"fmt"
 	"reflect"
 
@@ -10,6 +12,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
+	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/plugins"
 	"github.com/algorand/indexer/processors"
@@ -21,7 +24,7 @@ const implementationName = "filter_processor"
 
 // package-wide init function
 func init() {
-	processors.RegisterProcessor(implementationName, processors.ProcessorConstructorFunc(func() processors.Processor {
+	processors.Register(implementationName, processors.ProcessorConstructorFunc(func() processors.Processor {
 		return &FilterProcessor{}
 	}))
 }
@@ -35,9 +38,17 @@ type FilterProcessor struct {
 	ctx    context.Context
 }
 
+//go:embed sample.yaml
+var sampleConfig string
+
 // Metadata returns metadata
-func (a *FilterProcessor) Metadata() processors.ProcessorMetadata {
-	return processors.MakeProcessorMetadata(implementationName, "FilterProcessor Filter Processor", false)
+func (a *FilterProcessor) Metadata() conduit.Metadata {
+	return conduit.Metadata{
+		Name:         implementationName,
+		Description:  "FilterProcessor Filter Processor",
+		Deprecated:   false,
+		SampleConfig: sampleConfig,
+	}
 }
 
 // Config returns the config

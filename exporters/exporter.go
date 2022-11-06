@@ -3,15 +3,17 @@ package exporters
 import (
 	"context"
 
+	"github.com/sirupsen/logrus"
+
+	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/plugins"
-	"github.com/sirupsen/logrus"
 )
 
 // Exporter defines the interface for plugins
 type Exporter interface {
-	// Metadata associated with each Exporter.
-	Metadata() ExporterMetadata
+	// PluginMetadata implement this interface.
+	conduit.PluginMetadata
 
 	// Init will be called during initialization, before block data starts going through the pipeline.
 	// Typically used for things like initializing network connections.

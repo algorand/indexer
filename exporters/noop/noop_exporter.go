@@ -2,15 +2,21 @@ package noop
 
 import (
 	"context"
+	_ "embed" // used to embed config
 	"fmt"
 
+	"github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v3"
+
 	"github.com/algorand/go-algorand/data/bookkeeping"
+
+	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
 	"github.com/algorand/indexer/plugins"
-	"github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v3"
 )
+
+var implementationName = "noop"
 
 // `noopExporter`s will function without ever erroring. This means they will also process out of order blocks
 // which may or may not be desirable for different use cases--it can hide errors in actual exporters expecting in order
@@ -21,14 +27,18 @@ type noopExporter struct {
 	cfg   ExporterConfig
 }
 
-var noopExporterMetadata exporters.ExporterMetadata = exporters.ExporterMetadata{
-	ExpName:        "noop",
-	ExpDescription: "noop exporter",
-	ExpDeprecated:  false,
+//go:embed sample.yaml
+var sampleConfig string
+
+var metadata = conduit.Metadata{
+	Name:         implementationName,
+	Description:  "noop exporter",
+	Deprecated:   false,
+	SampleConfig: sampleConfig,
 }
 
-func (exp *noopExporter) Metadata() exporters.ExporterMetadata {
-	return noopExporterMetadata
+func (exp *noopExporter) Metadata() conduit.Metadata {
+	return metadata
 }
 
 func (exp *noopExporter) Init(_ context.Context, initProvider data.InitProvider, cfg plugins.PluginConfig, _ *logrus.Logger) error {
@@ -62,7 +72,7 @@ func (exp *noopExporter) Round() uint64 {
 }
 
 func init() {
-	exporters.RegisterExporter(noopExporterMetadata.ExpName, exporters.ExporterConstructorFunc(func() exporters.Exporter {
+	exporters.Register(implementationName, exporters.ExporterConstructorFunc(func() exporters.Exporter {
 		return &noopExporter{}
 	}))
 }

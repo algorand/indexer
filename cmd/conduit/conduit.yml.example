@@ -4,7 +4,7 @@
 importer:
     name: algod
     config:
-        netaddr: "your algod address here"
+      - netaddr: "your algod address here"
         token: "your algod token here"
 
 # One or more processors may be defined to manipulate what data
@@ -17,4 +17,4 @@ processors:
 exporter:
     name: filewriter
     config:
-        block-dir: "path where data should be written"
+      - block-dir: "path where data should be written"

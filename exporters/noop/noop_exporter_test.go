@@ -19,8 +19,8 @@ var nc = exporters.ExporterConstructorFunc(func() exporters.Exporter {
 var ne = nc.New()
 
 func TestExporterBuilderByName(t *testing.T) {
-	exporters.RegisterExporter(noopExporterMetadata.ExpName, nc)
-	neBuilder, err := exporters.ExporterBuilderByName(noopExporterMetadata.ExpName)
+	exporters.Register(metadata.Name, nc)
+	neBuilder, err := exporters.ExporterBuilderByName(metadata.Name)
 	assert.NoError(t, err)
 	ne := neBuilder.New()
 	assert.Implements(t, (*exporters.Exporter)(nil), ne)
@@ -28,10 +28,9 @@ func TestExporterBuilderByName(t *testing.T) {
 
 func TestExporterMetadata(t *testing.T) {
 	meta := ne.Metadata()
-	assert.Equal(t, plugins.PluginType(plugins.Exporter), meta.Type())
-	assert.Equal(t, noopExporterMetadata.ExpName, meta.Name())
-	assert.Equal(t, noopExporterMetadata.ExpDescription, meta.Description())
-	assert.Equal(t, noopExporterMetadata.ExpDeprecated, meta.Deprecated())
+	assert.Equal(t, metadata.Name, meta.Name)
+	assert.Equal(t, metadata.Description, meta.Description)
+	assert.Equal(t, metadata.Deprecated, meta.Deprecated)
 }
 
 func TestExporterInit(t *testing.T) {

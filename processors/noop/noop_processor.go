@@ -2,9 +2,11 @@ package noop
 
 import (
 	"context"
+	_ "embed" // used to embed config
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/plugins"
 	"github.com/algorand/indexer/processors"
@@ -14,7 +16,7 @@ const implementationName = "noop"
 
 // package-wide init function
 func init() {
-	processors.RegisterProcessor(implementationName, processors.ProcessorConstructorFunc(func() processors.Processor {
+	processors.Register(implementationName, processors.ProcessorConstructorFunc(func() processors.Processor {
 		return &Processor{}
 	}))
 }
@@ -22,9 +24,17 @@ func init() {
 // Processor noop
 type Processor struct{}
 
+//go:embed sample.yaml
+var sampleConfig string
+
 // Metadata noop
-func (p *Processor) Metadata() processors.ProcessorMetadata {
-	return processors.MakeProcessorMetadata(implementationName, "noop processor", false)
+func (p *Processor) Metadata() conduit.Metadata {
+	return conduit.Metadata{
+		Name:         implementationName,
+		Description:  "noop processor",
+		Deprecated:   false,
+		SampleConfig: sampleConfig,
+	}
 }
 
 // Config noop
