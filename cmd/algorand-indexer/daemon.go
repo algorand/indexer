@@ -22,12 +22,12 @@ import (
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/pipeline"
+	_ "github.com/algorand/indexer/conduit/plugins/exporters/postgresql"
+	_ "github.com/algorand/indexer/conduit/plugins/importers/algod"
+	_ "github.com/algorand/indexer/conduit/plugins/processors/blockprocessor"
 	"github.com/algorand/indexer/config"
-	_ "github.com/algorand/indexer/exporters/postgresql"
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
-	_ "github.com/algorand/indexer/importers/algod"
-	_ "github.com/algorand/indexer/processors/blockprocessor"
 	iutil "github.com/algorand/indexer/util"
 )
 

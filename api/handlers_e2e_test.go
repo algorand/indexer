@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	test2 "github.com/sirupsen/logrus/hooks/test"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
+	test2 "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -29,10 +29,10 @@ import (
 	"github.com/algorand/go-algorand/rpcs"
 
 	"github.com/algorand/indexer/api/generated/v2"
+	"github.com/algorand/indexer/conduit/plugins/processors/blockprocessor"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres"
 	pgtest "github.com/algorand/indexer/idb/postgres/testing"
-	"github.com/algorand/indexer/processors/blockprocessor"
 	"github.com/algorand/indexer/util/test"
 )
 

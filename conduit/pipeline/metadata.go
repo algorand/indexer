@@ -4,9 +4,9 @@ package pipeline
 
 import (
 	"github.com/algorand/indexer/conduit"
-	"github.com/algorand/indexer/exporters"
-	"github.com/algorand/indexer/importers"
-	"github.com/algorand/indexer/processors"
+	"github.com/algorand/indexer/conduit/plugins/exporters"
+	"github.com/algorand/indexer/conduit/plugins/importers"
+	"github.com/algorand/indexer/conduit/plugins/processors"
 )
 
 // AllMetadata gets a slice with metadata from all registered plugins.

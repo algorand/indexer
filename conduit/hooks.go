@@ -1,8 +1,9 @@
 package conduit
 
 import (
-	"github.com/algorand/indexer/data"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/algorand/indexer/data"
 )
 
 // OnCompleteFunc is the signature for the Completed functional interface.

@@ -36,7 +36,7 @@ See the [Development](conduit/Development.md) page for building a plugin.
 # Features
 
 # Plugin System
-A Conduit pipeline is composed of 3 components, [Importers](../importers/README.md), [Processors](../processors/README.md), and [Exporters](../exporters/README.md).
+A Conduit pipeline is composed of 3 components, [Importers](../conduit/plugins/importers/README.md), [Processors](../conduit/plugins/processors/README.md), and [Exporters](../conduit/plugins/exporters/README.md).
 Every pipeline must define exactly 1 Importer, 1 Exporter, and can optionally define a series of 0 or more Processors.
 
 The original Algorand Indexer has been defined as a Conduit pipeline via the [algorand-indexer](../cmd/algorand-indexer/daemon.go) executable, see [Migrating from Indexer](#migrating-from-indexer)

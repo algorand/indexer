@@ -24,13 +24,13 @@ import (
 	"github.com/algorand/go-codec/codec"
 
 	"github.com/algorand/indexer/api/generated/v2"
+	"github.com/algorand/indexer/conduit/plugins/processors/blockprocessor"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
 	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
 	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
 	"github.com/algorand/indexer/importer"
-	"github.com/algorand/indexer/processors/blockprocessor"
 	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/test"
 )
