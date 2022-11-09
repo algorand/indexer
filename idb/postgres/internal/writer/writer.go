@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
@@ -188,7 +189,7 @@ type optionalSigTypeDelta struct {
 	value   sigTypeDelta
 }
 
-func writeAccount(round basics.Round, address basics.Address, accountData ledgercore.AccountData, sigtypeDelta optionalSigTypeDelta, batch *pgx.Batch) {
+func writeAccount(round types.Round, address basics.Address, accountData ledgercore.AccountData, sigtypeDelta optionalSigTypeDelta, batch *pgx.Batch) {
 	sigtypeFunc := func(delta sigTypeDelta) *idb.SigType {
 		if !delta.present {
 			return nil
@@ -229,7 +230,7 @@ func writeAccount(round basics.Round, address basics.Address, accountData ledger
 	}
 }
 
-func writeAssetResource(round basics.Round, resource *ledgercore.AssetResourceRecord, batch *pgx.Batch) {
+func writeAssetResource(round types.Round, resource *ledgercore.AssetResourceRecord, batch *pgx.Batch) {
 	if resource.Params.Deleted {
 		batch.Queue(deleteAssetStmtName, resource.Aidx, resource.Addr[:], round)
 	} else {
@@ -252,7 +253,7 @@ func writeAssetResource(round basics.Round, resource *ledgercore.AssetResourceRe
 	}
 }
 
-func writeAppResource(round basics.Round, resource *ledgercore.AppResourceRecord, batch *pgx.Batch) {
+func writeAppResource(round types.Round, resource *ledgercore.AppResourceRecord, batch *pgx.Batch) {
 	if resource.Params.Deleted {
 		batch.Queue(deleteAppStmtName, resource.Aidx, resource.Addr[:], round)
 	} else {
@@ -274,7 +275,7 @@ func writeAppResource(round basics.Round, resource *ledgercore.AppResourceRecord
 	}
 }
 
-func writeAccountDeltas(round basics.Round, accountDeltas *ledgercore.AccountDeltas, sigtypeDeltas map[basics.Address]sigTypeDelta, batch *pgx.Batch) {
+func writeAccountDeltas(round types.Round, accountDeltas *ledgercore.AccountDeltas, sigtypeDeltas map[basics.Address]sigTypeDelta, batch *pgx.Batch) {
 	// Update `account` table.
 	for i := 0; i < accountDeltas.Len(); i++ {
 		address, accountData := accountDeltas.GetByIdx(i)
@@ -369,7 +370,7 @@ func (w *Writer) AddBlock(block *bookkeeping.Block, modifiedTxns []transactions.
 		if err != nil {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
-		writeAccountDeltas(block.Round(), &delta.Accts, sigTypeDeltas, &batch)
+		writeAccountDeltas(types.Round(block.Round()), &delta.Accts, sigTypeDeltas, &batch)
 	}
 	{
 		err := writeBoxMods(delta.KvMods, &batch)

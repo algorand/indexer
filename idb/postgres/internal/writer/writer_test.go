@@ -126,7 +126,7 @@ func TestWriterBlockHeaderTableBasic(t *testing.T) {
 	err = row.Scan(&round, &realtime, &rewardslevel, &header)
 	require.NoError(t, err)
 
-	assert.Equal(t, block.BlockHeader.Round, basics.Round(round))
+	assert.Equal(t, uint64(block.BlockHeader.Round), round)
 	{
 		expected := time.Unix(block.BlockHeader.TimeStamp, 0).UTC()
 		assert.True(t, expected.Equal(realtime))
@@ -225,7 +225,7 @@ func TestWriterTxnTableBasic(t *testing.T) {
 	require.True(t, rows.Next())
 	err = rows.Scan(&round, &intra, &typeenum, &asset, &txid, &txn, &extra)
 	require.NoError(t, err)
-	assert.Equal(t, block.Round(), basics.Round(round))
+	assert.Equal(t, uint64(block.Round()), round)
 	assert.Equal(t, uint64(0), intra)
 	assert.Equal(t, idb.TypeEnumPay, idb.TxnTypeEnum(typeenum))
 	assert.Equal(t, uint64(0), asset)
@@ -240,7 +240,7 @@ func TestWriterTxnTableBasic(t *testing.T) {
 	require.True(t, rows.Next())
 	err = rows.Scan(&round, &intra, &typeenum, &asset, &txid, &txn, &extra)
 	require.NoError(t, err)
-	assert.Equal(t, block.Round(), basics.Round(round))
+	assert.Equal(t, uint64(block.Round()), round)
 	assert.Equal(t, uint64(1), intra)
 	assert.Equal(t, idb.TypeEnumAssetConfig, idb.TxnTypeEnum(typeenum))
 	assert.Equal(t, uint64(9), asset)
@@ -502,7 +502,7 @@ func TestWriterAccountTableBasic(t *testing.T) {
 		t, expectedAccountData.RewardedMicroAlgos,
 		basics.MicroAlgos{Raw: rewardsTotal})
 	assert.False(t, deleted)
-	assert.Equal(t, block.Round(), basics.Round(createdAt))
+	assert.Equal(t, uint64(block.Round()), createdAt)
 	assert.Nil(t, closedAt)
 	assert.Nil(t, keytype)
 	{
@@ -601,8 +601,8 @@ func TestWriterAccountTableCreateDeleteSameRound(t *testing.T) {
 	assert.Equal(t, uint64(0), rewardsbase)
 	assert.Equal(t, uint64(0), rewardsTotal)
 	assert.True(t, deleted)
-	assert.Equal(t, block.Round(), basics.Round(createdAt))
-	assert.Equal(t, block.Round(), basics.Round(closedAt))
+	assert.Equal(t, uint64(block.Round()), createdAt)
+	assert.Equal(t, uint64(block.Round()), closedAt)
 	assert.Nil(t, keytype)
 	assert.Equal(t, []byte("null"), accountData)
 	{
@@ -731,7 +731,7 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 	assert.Equal(t, assetHolding.Amount, amount)
 	assert.Equal(t, assetHolding.Frozen, frozen)
 	assert.False(t, deleted)
-	assert.Equal(t, block.Round(), basics.Round(createdAt))
+	assert.Equal(t, uint64(block.Round()), createdAt)
 	assert.Nil(t, closedAt)
 
 	assert.False(t, rows.Next())
@@ -813,8 +813,8 @@ func TestWriterAccountAssetTableCreateDeleteSameRound(t *testing.T) {
 	assert.Equal(t, uint64(0), amount)
 	assert.False(t, frozen)
 	assert.True(t, deleted)
-	assert.Equal(t, block.Round(), basics.Round(createdAt))
-	assert.Equal(t, block.Round(), basics.Round(closedAt))
+	assert.Equal(t, uint64(block.Round()), createdAt)
+	assert.Equal(t, uint64(block.Round()), closedAt)
 }
 
 func TestWriterAccountAssetTableLargeAmount(t *testing.T) {
@@ -907,7 +907,7 @@ func TestWriterAssetTableBasic(t *testing.T) {
 		assert.Equal(t, assetParams, paramsRead)
 	}
 	assert.False(t, deleted)
-	assert.Equal(t, block.Round(), basics.Round(createdAt))
+	assert.Equal(t, uint64(block.Round()), createdAt)
 	assert.Nil(t, closedAt)
 
 	assert.False(t, rows.Next())
@@ -996,8 +996,8 @@ func TestWriterAssetTableCreateDeleteSameRound(t *testing.T) {
 		assert.Equal(t, basics.AssetParams{}, paramsRead)
 	}
 	assert.True(t, deleted)
-	assert.Equal(t, block.Round(), basics.Round(createdAt))
-	assert.Equal(t, block.Round(), basics.Round(closedAt))
+	assert.Equal(t, uint64(block.Round()), createdAt)
+	assert.Equal(t, uint64(block.Round()), closedAt)
 }
 
 func TestWriterAppTableBasic(t *testing.T) {
@@ -1057,7 +1057,7 @@ func TestWriterAppTableBasic(t *testing.T) {
 		assert.Equal(t, appParams, paramsRead)
 	}
 	assert.False(t, deleted)
-	assert.Equal(t, block.Round(), basics.Round(createdAt))
+	assert.Equal(t, uint64(block.Round()), createdAt)
 	assert.Nil(t, closedAt)
 
 	assert.False(t, rows.Next())
@@ -1147,8 +1147,8 @@ func TestWriterAppTableCreateDeleteSameRound(t *testing.T) {
 		assert.Equal(t, basics.AppParams{}, paramsRead)
 	}
 	assert.True(t, deleted)
-	assert.Equal(t, block.Round(), basics.Round(createdAt))
-	assert.Equal(t, block.Round(), basics.Round(closedAt))
+	assert.Equal(t, uint64(block.Round()), createdAt)
+	assert.Equal(t, uint64(block.Round()), closedAt)
 }
 
 func TestWriterAccountAppTableBasic(t *testing.T) {
@@ -1207,7 +1207,7 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 		assert.Equal(t, appLocalState, appLocalStateRead)
 	}
 	assert.False(t, deleted)
-	assert.Equal(t, block.Round(), basics.Round(createdAt))
+	assert.Equal(t, uint64(block.Round()), createdAt)
 	assert.Nil(t, closedAt)
 
 	assert.False(t, rows.Next())
@@ -1296,8 +1296,8 @@ func TestWriterAccountAppTableCreateDeleteSameRound(t *testing.T) {
 		assert.Equal(t, basics.AppLocalState{}, appLocalStateRead)
 	}
 	assert.True(t, deleted)
-	assert.Equal(t, block.Round(), basics.Round(createdAt))
-	assert.Equal(t, block.Round(), basics.Round(closedAt))
+	assert.Equal(t, uint64(block.Round()), createdAt)
+	assert.Equal(t, uint64(block.Round()), closedAt)
 }
 
 func TestAddBlockInvalidInnerAsset(t *testing.T) {

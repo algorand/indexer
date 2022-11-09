@@ -127,7 +127,7 @@ func TestExporterReceive(t *testing.T) {
 
 		var blockData data.BlockData
 		err := util.DecodeFromFile(path, &blockData)
-		require.Equal(t, types.Round(i), blockData.BlockHeader.Round)
+		require.Equal(t, uint64(i), uint64(blockData.BlockHeader.Round))
 		require.NoError(t, err)
 		require.NotNil(t, blockData.Certificate)
 	}
@@ -159,7 +159,7 @@ func TestPatternOverride(t *testing.T) {
 
 		var blockData data.BlockData
 		err := util.DecodeFromFile(path, &blockData)
-		require.Equal(t, types.Round(i), blockData.BlockHeader.Round)
+		require.Equal(t, uint64(i), uint64(blockData.BlockHeader.Round))
 		require.NoError(t, err)
 		require.NotNil(t, blockData.Certificate)
 	}

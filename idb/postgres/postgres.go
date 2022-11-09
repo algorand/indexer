@@ -20,6 +20,7 @@ import (
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
+	"github.com/algorand/indexer/util"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v4"
@@ -34,7 +35,6 @@ import (
 	"github.com/algorand/indexer/idb/postgres/internal/types"
 	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
 	"github.com/algorand/indexer/idb/postgres/internal/writer"
-	"github.com/algorand/indexer/util"
 )
 
 var serializable = pgx.TxOptions{IsoLevel: pgx.Serializable} // be a real ACID database
@@ -187,7 +187,7 @@ func (db *IndexerDb) AddBlock(vb *ledgercore.ValidatedBlock) error {
 		if err != nil {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
-		if block.Round() != basics.Round(importstate.NextRoundToAccount) {
+		if uint64(block.Round()) != importstate.NextRoundToAccount {
 			return fmt.Errorf(
 				"AddBlock() adding block round %d but next round to account is %d",
 				block.Round(), importstate.NextRoundToAccount)
@@ -204,7 +204,7 @@ func (db *IndexerDb) AddBlock(vb *ledgercore.ValidatedBlock) error {
 		}
 		defer w.Close()
 
-		if block.Round() == basics.Round(0) {
+		if uint64(block.Round()) == uint64(0) {
 			err = w.AddBlock0(&block)
 			if err != nil {
 				return fmt.Errorf("AddBlock() err: %w", err)
