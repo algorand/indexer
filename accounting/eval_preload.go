@@ -27,7 +27,7 @@ func addToCreatorsRequest(stxnad *transactions.SignedTxnWithAD, assetsReq map[ba
 			!fields.AssetCloseTo.IsZero() && // closeout
 			!fields.AssetSender.IsZero() // clawback
 
-		if fields.XferAsset == 0 && !noOpXfer {
+		if fields.XferAsset != 0 && !noOpXfer {
 			assetsReq[fields.XferAsset] = struct{}{}
 		}
 	case protocol.AssetFreezeTx:
