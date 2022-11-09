@@ -323,7 +323,7 @@ func TestPipelineRun(t *testing.T) {
 	pImpl.Wait()
 	assert.NoError(t, pImpl.Error())
 
-	assert.Equal(t, mProcessor.finalRound, uniqueBlockData.BlockHeader.Round+1)
+	assert.Equal(t, uint64(mProcessor.finalRound), uint64(uniqueBlockData.BlockHeader.Round+1))
 
 	mock.AssertExpectationsForObjects(t, &mImporter, &mProcessor, &mExporter)
 
