@@ -22,7 +22,12 @@ func addToCreatorsRequest(stxnad *transactions.SignedTxnWithAD, assetsReq map[ba
 		}
 	case protocol.AssetTransferTx:
 		fields := &txn.AssetTransferTxnFields
-		if fields.XferAsset != 0 {
+
+		noOpXfer := (fields.AssetAmount == 0) &&
+			(txn.Sender != fields.AssetReceiver) &&
+			(fields.AssetCloseTo != basics.Address{})
+
+		if fields.XferAsset == 0 && !noOpXfer {
 			assetsReq[fields.XferAsset] = struct{}{}
 		}
 	case protocol.AssetFreezeTx:
@@ -112,6 +117,14 @@ func addToAccountsResourcesRequest(stxnad *transactions.SignedTxnWithAD, assetCr
 		}
 	case protocol.AssetTransferTx:
 		fields := &txn.AssetTransferTxnFields
+
+		noOpXfer := (fields.AssetAmount == 0) &&
+			(txn.Sender != fields.AssetReceiver) &&
+			(fields.AssetCloseTo != basics.Address{})
+		if noOpXfer {
+			break
+		}
+
 		creatable := ledger.Creatable{
 			Index: basics.CreatableIndex(fields.XferAsset),
 			Type:  basics.AssetCreatable,
