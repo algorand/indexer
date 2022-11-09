@@ -110,6 +110,19 @@ func JSONOneLine(obj interface{}) string {
 	return string(b)
 }
 
+// FileExists checks to see if the specified file (or directory) exists
+func FileExists(filePath string) bool {
+	_, err := os.Stat(filePath)
+	fileExists := err == nil
+	return fileExists
+}
+
+// IsDir returns true if the specified directory is valid
+func IsDir(path string) bool {
+	fi, err := os.Stat(path)
+	return err == nil && fi.IsDir()
+}
+
 func init() {
 	oneLineJSONCodecHandle = new(codec.JsonHandle)
 	oneLineJSONCodecHandle.ErrorIfNoField = true

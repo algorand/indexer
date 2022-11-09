@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand/data/basics"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
@@ -12,7 +14,6 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/algorand/go-algorand/agreement"
-	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 
@@ -28,7 +29,7 @@ var fileCons = exporters.ExporterConstructorFunc(func() exporters.Exporter {
 	return &fileExporter{}
 })
 var configTemplate = "block-dir: %s/blocks\n"
-var round = basics.Round(2)
+var round = types.Round(2)
 
 func init() {
 	logger, _ = test.NewNullLogger()
@@ -81,7 +82,7 @@ func sendData(t *testing.T, fileExp exporters.Exporter, config string, numRounds
 	require.Contains(t, err.Error(), "exporter not initialized")
 
 	// initialize
-	rnd := basics.Round(0)
+	rnd := types.Round(0)
 	err = fileExp.Init(context.Background(), testutil.MockedInitProvider(&rnd), plugins.PluginConfig(config), logger)
 	require.NoError(t, err)
 
@@ -126,7 +127,7 @@ func TestExporterReceive(t *testing.T) {
 
 		var blockData data.BlockData
 		err := util.DecodeFromFile(path, &blockData)
-		require.Equal(t, basics.Round(i), blockData.BlockHeader.Round)
+		require.Equal(t, types.Round(i), blockData.BlockHeader.Round)
 		require.NoError(t, err)
 		require.NotNil(t, blockData.Certificate)
 	}
@@ -135,7 +136,7 @@ func TestExporterReceive(t *testing.T) {
 func TestExporterClose(t *testing.T) {
 	config, _ := getConfig(t)
 	fileExp := fileCons.New()
-	rnd := basics.Round(0)
+	rnd := types.Round(0)
 	fileExp.Init(context.Background(), testutil.MockedInitProvider(&rnd), plugins.PluginConfig(config), logger)
 	require.NoError(t, fileExp.Close())
 }
@@ -158,7 +159,7 @@ func TestPatternOverride(t *testing.T) {
 
 		var blockData data.BlockData
 		err := util.DecodeFromFile(path, &blockData)
-		require.Equal(t, basics.Round(i), blockData.BlockHeader.Round)
+		require.Equal(t, types.Round(i), blockData.BlockHeader.Round)
 		require.NoError(t, err)
 		require.NotNil(t, blockData.Certificate)
 	}

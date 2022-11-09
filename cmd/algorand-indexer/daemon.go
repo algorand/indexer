@@ -16,8 +16,6 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/algorand/go-algorand/util"
-
 	"github.com/algorand/indexer/api"
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/conduit"
@@ -28,7 +26,7 @@ import (
 	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
-	iutil "github.com/algorand/indexer/util"
+	"github.com/algorand/indexer/util"
 )
 
 // GetConfigFromDataDir Given the data directory, configuration filename and a list of types, see if
@@ -272,7 +270,7 @@ func runDaemon(daemonConfig *daemonConfig) error {
 	logger.Infof("Using configuration file: %s", viper.ConfigFileUsed())
 
 	if daemonConfig.pidFilePath != "" {
-		err = iutil.CreateIndexerPidFile(logger, daemonConfig.pidFilePath)
+		err = util.CreateIndexerPidFile(logger, daemonConfig.pidFilePath)
 		if err != nil {
 			return err
 		}

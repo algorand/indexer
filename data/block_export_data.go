@@ -1,8 +1,8 @@
 package data
 
 import (
+	"github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/agreement"
-	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
@@ -19,7 +19,7 @@ type RoundProvider interface {
 // variables
 type InitProvider interface {
 	GetGenesis() *bookkeeping.Genesis
-	NextDBRound() basics.Round
+	NextDBRound() types.Round
 }
 
 // BlockData is provided to the Exporter on each round.

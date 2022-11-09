@@ -10,13 +10,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/algorand/go-algorand-sdk/types"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand/crypto"
-	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 
 	"github.com/algorand/indexer/conduit"
@@ -146,7 +146,7 @@ type mockImporter struct {
 	mock.Mock
 	importers.Importer
 	genesis         bookkeeping.Genesis
-	finalRound      basics.Round
+	finalRound      types.Round
 	returnError     bool
 	onCompleteError bool
 }
@@ -178,7 +178,7 @@ func (m *mockImporter) OnComplete(input data.BlockData) error {
 	if m.onCompleteError {
 		err = fmt.Errorf("on complete")
 	}
-	m.finalRound = input.BlockHeader.Round
+	m.finalRound = types.Round(input.BlockHeader.Round)
 	m.Called(input)
 	return err
 }
@@ -186,7 +186,7 @@ func (m *mockImporter) OnComplete(input data.BlockData) error {
 type mockProcessor struct {
 	mock.Mock
 	processors.Processor
-	finalRound      basics.Round
+	finalRound      types.Round
 	returnError     bool
 	onCompleteError bool
 }
@@ -220,7 +220,7 @@ func (m *mockProcessor) OnComplete(input data.BlockData) error {
 	if m.onCompleteError {
 		err = fmt.Errorf("on complete")
 	}
-	m.finalRound = input.BlockHeader.Round
+	m.finalRound = types.Round(input.BlockHeader.Round)
 	m.Called(input)
 	return err
 }
@@ -228,7 +228,7 @@ func (m *mockProcessor) OnComplete(input data.BlockData) error {
 type mockExporter struct {
 	mock.Mock
 	exporters.Exporter
-	finalRound      basics.Round
+	finalRound      types.Round
 	returnError     bool
 	onCompleteError bool
 }
@@ -261,7 +261,7 @@ func (m *mockExporter) OnComplete(input data.BlockData) error {
 	if m.onCompleteError {
 		err = fmt.Errorf("on complete")
 	}
-	m.finalRound = input.BlockHeader.Round
+	m.finalRound = types.Round(input.BlockHeader.Round)
 	m.Called(input)
 	return err
 }

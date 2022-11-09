@@ -13,13 +13,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/algorand/go-algorand-sdk/types"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
 	"github.com/algorand/go-algorand/crypto"
-	"github.com/algorand/go-algorand/data/basics"
 	"gopkg.in/yaml.v3"
 
 	"github.com/algorand/indexer/conduit"
@@ -271,7 +271,7 @@ func (p *pipelineImpl) Init() error {
 	p.logger.Infof("Initialized Importer: %s", importerName)
 
 	// InitProvider
-	round := basics.Round(p.pipelineMetadata.NextRound)
+	round := types.Round(p.pipelineMetadata.NextRound)
 	var initProvider data.InitProvider = conduit.MakePipelineInitProvider(&round, genesis)
 	p.initProvider = &initProvider
 

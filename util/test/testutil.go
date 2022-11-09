@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	log "github.com/sirupsen/logrus"
 
@@ -126,7 +127,7 @@ func MakeTestLedger(logger *log.Logger) (*ledger.Ledger, error) {
 
 // MockInitProvider mock an init provider
 type MockInitProvider struct {
-	CurrentRound *basics.Round
+	CurrentRound *types.Round
 	Genesis      *bookkeeping.Genesis
 }
 
@@ -136,12 +137,12 @@ func (m *MockInitProvider) GetGenesis() *bookkeeping.Genesis {
 }
 
 // NextDBRound provides next database round
-func (m *MockInitProvider) NextDBRound() basics.Round {
+func (m *MockInitProvider) NextDBRound() types.Round {
 	return *m.CurrentRound
 }
 
 // MockedInitProvider returns an InitProvider for testing
-func MockedInitProvider(round *basics.Round) *MockInitProvider {
+func MockedInitProvider(round *types.Round) *MockInitProvider {
 	return &MockInitProvider{
 		CurrentRound: round,
 		Genesis:      &bookkeeping.Genesis{},
