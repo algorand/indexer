@@ -1,7 +1,6 @@
 package encoding
 
 import (
-	"github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/crypto/merklesignature"
 	"github.com/algorand/go-algorand/data/basics"
@@ -115,8 +114,8 @@ type baseOnlineAccountData struct {
 	VoteID          crypto.OneTimeSignatureVerifier `codec:"vote"`
 	SelectionID     crypto.VRFVerifier              `codec:"sel"`
 	StateProofID    merklesignature.Commitment      `codec:"stprf"`
-	VoteFirstValid  types.Round                     `codec:"voteFst"`
-	VoteLastValid   types.Round                     `codec:"voteLst"`
+	VoteFirstValid  uint64                          `codec:"voteFst"`
+	VoteLastValid   uint64                          `codec:"voteLst"`
 	VoteKeyDilution uint64                          `codec:"voteKD"`
 }
 

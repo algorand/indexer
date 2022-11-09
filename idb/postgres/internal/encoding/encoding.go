@@ -695,8 +695,8 @@ func convertTrimmedLcAccountData(ad ledgercore.AccountData) baseAccountData {
 			VoteID:          ad.VoteID,
 			SelectionID:     ad.SelectionID,
 			StateProofID:    ad.StateProofID,
-			VoteFirstValid:  ad.VoteFirstValid,
-			VoteLastValid:   ad.VoteLastValid,
+			VoteFirstValid:  uint64(ad.VoteFirstValid),
+			VoteLastValid:   uint64(ad.VoteLastValid),
 			VoteKeyDilution: ad.VoteKeyDilution,
 		},
 	}
@@ -720,8 +720,8 @@ func unconvertTrimmedLcAccountData(ba baseAccountData) ledgercore.AccountData {
 			VoteID:          ba.VoteID,
 			SelectionID:     ba.SelectionID,
 			StateProofID:    ba.StateProofID,
-			VoteFirstValid:  ba.VoteFirstValid,
-			VoteLastValid:   ba.VoteLastValid,
+			VoteFirstValid:  basics.Round(ba.VoteFirstValid),
+			VoteLastValid:   basics.Round(ba.VoteLastValid),
 			VoteKeyDilution: ba.VoteKeyDilution,
 		},
 	}
