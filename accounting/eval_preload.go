@@ -23,9 +23,9 @@ func addToCreatorsRequest(stxnad *transactions.SignedTxnWithAD, assetsReq map[ba
 	case protocol.AssetTransferTx:
 		fields := &txn.AssetTransferTxnFields
 
-		noOpXfer := (fields.AssetAmount == 0) &&
-			(txn.Sender != fields.AssetReceiver) &&
-			(fields.AssetCloseTo != basics.Address{})
+		noOpXfer := (fields.AssetAmount == 0) && (txn.Sender != fields.AssetReceiver) && // optin
+			!fields.AssetCloseTo.IsZero() && // closeout
+			!fields.AssetSender.IsZero() // clawback
 
 		if fields.XferAsset == 0 && !noOpXfer {
 			assetsReq[fields.XferAsset] = struct{}{}
@@ -118,9 +118,10 @@ func addToAccountsResourcesRequest(stxnad *transactions.SignedTxnWithAD, assetCr
 	case protocol.AssetTransferTx:
 		fields := &txn.AssetTransferTxnFields
 
-		noOpXfer := (fields.AssetAmount == 0) &&
-			(txn.Sender != fields.AssetReceiver) &&
-			(fields.AssetCloseTo != basics.Address{})
+		noOpXfer := (fields.AssetAmount == 0) && (txn.Sender != fields.AssetReceiver) && // optin
+			!fields.AssetCloseTo.IsZero() && // closeout
+			!fields.AssetSender.IsZero() // clawback
+
 		if noOpXfer {
 			break
 		}
