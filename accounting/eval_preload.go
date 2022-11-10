@@ -23,9 +23,9 @@ func addToCreatorsRequest(stxnad *transactions.SignedTxnWithAD, assetsReq map[ba
 	case protocol.AssetTransferTx:
 		fields := &txn.AssetTransferTxnFields
 
-		noOpXfer := (fields.AssetAmount == 0) && (txn.Sender != fields.AssetReceiver) && // optin
-			!fields.AssetCloseTo.IsZero() && // closeout
-			!fields.AssetSender.IsZero() // clawback
+		noOpXfer := (fields.AssetAmount == 0) && (txn.Sender != fields.AssetReceiver) && // not an optin
+			fields.AssetCloseTo.IsZero() && // not a closeout
+			fields.AssetSender.IsZero() // not a clawback
 
 		if fields.XferAsset != 0 && !noOpXfer {
 			assetsReq[fields.XferAsset] = struct{}{}
@@ -118,9 +118,9 @@ func addToAccountsResourcesRequest(stxnad *transactions.SignedTxnWithAD, assetCr
 	case protocol.AssetTransferTx:
 		fields := &txn.AssetTransferTxnFields
 
-		noOpXfer := (fields.AssetAmount == 0) && (txn.Sender != fields.AssetReceiver) && // optin
-			!fields.AssetCloseTo.IsZero() && // closeout
-			!fields.AssetSender.IsZero() // clawback
+		noOpXfer := (fields.AssetAmount == 0) && (txn.Sender != fields.AssetReceiver) && // not an optin
+			fields.AssetCloseTo.IsZero() && // not a closeout
+			fields.AssetSender.IsZero() // not a clawback
 
 		if noOpXfer {
 			break
