@@ -19,6 +19,8 @@ import (
 
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/go-algorand/util"
+	
+	goconfig "github.com/algorand/go-algorand/config"
 
 	"github.com/algorand/indexer/api"
 	"github.com/algorand/indexer/api/generated/v2"
@@ -262,9 +264,30 @@ func createIndexerPidFile(pidFilePath string) error {
 	return err
 }
 
+func loadCustomConsensus(indexerDataDir string) error {
+	var err error
+	consensusPath := filepath.Join(indexerDataDir, "consensus.json")
+	consensusConfigFound := util.FileExists(consensusPath)
+	if consensusConfigFound {
+		err = goconfig.LoadConfigurableConsensusProtocols(indexerDataDir)
+		if err != nil {
+			errMsg := fmt.Errorf("Unable to load optional consensus protocols file: %s %v", consensusPath, err)
+			logger.Error(errMsg)
+		} else {
+			logger.Infof("consensus loaded from %s",consensusPath)
+		}
+	}
+	return err
+}
+
 func runDaemon(daemonConfig *daemonConfig) error {
 	var err error
 	config.BindFlagSet(daemonConfig.flags)
+
+	// Process custom consensus files
+	if err = loadCustomConsensus(daemonConfig.indexerDataDir); err != nil {
+		return err
+	}
 
 	// Create the data directory if necessary/possible
 	if err = configureIndexerDataDir(daemonConfig.indexerDataDir); err != nil {
