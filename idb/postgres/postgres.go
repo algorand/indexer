@@ -14,12 +14,14 @@ import (
 	"sync"
 	"time"
 
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
+	itypes "github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/util"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
@@ -1016,7 +1018,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		}
 
 		var account models.Account
-		var aaddr basics.Address
+		var aaddr sdk.Address
 		copy(aaddr[:], addr)
 		account.Address = aaddr.String()
 		account.Round = uint64(req.blockheader.Round)
@@ -1064,7 +1066,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			}
 
 			if !accountData.AuthAddr.IsZero() {
-				var spendingkey basics.Address
+				var spendingkey sdk.Address
 				copy(spendingkey[:], accountData.AuthAddr[:])
 				account.AuthAddr = stringPtr(spendingkey.String())
 			}
@@ -1714,7 +1716,7 @@ func (db *IndexerDb) checkAccountResourceLimit(ctx context.Context, tx pgx.Tx, o
 			resultCount += totalAppParams
 		}
 		if resultCount > opts.MaxResources {
-			var aaddr basics.Address
+			var aaddr sdk.Address
 			copy(aaddr[:], addr)
 			return idb.MaxAPIResourcesPerAccountError{
 				Address:             aaddr,
@@ -2268,7 +2270,7 @@ func (db *IndexerDb) yieldApplicationsThread(rows pgx.Rows, out chan idb.Applica
 		rec.Application.Params.ClearStateProgram = ap.ClearStateProgram
 		rec.Application.Params.Creator = new(string)
 
-		var aaddr basics.Address
+		var aaddr sdk.Address
 		copy(aaddr[:], creator)
 		rec.Application.Params.Creator = new(string)
 		*(rec.Application.Params.Creator) = aaddr.String()
@@ -2583,17 +2585,17 @@ func (db *IndexerDb) Health(ctx context.Context) (idb.Health, error) {
 }
 
 // GetSpecialAccounts is part of idb.IndexerDB
-func (db *IndexerDb) GetSpecialAccounts(ctx context.Context) (transactions.SpecialAddresses, error) {
+func (db *IndexerDb) GetSpecialAccounts(ctx context.Context) (itypes.SpecialAddresses, error) {
 	cache, err := db.getMetastate(ctx, nil, schema.SpecialAccountsMetastateKey)
 	if err != nil {
-		return transactions.SpecialAddresses{}, fmt.Errorf("GetSpecialAccounts() err: %w", err)
+		return itypes.SpecialAddresses{}, fmt.Errorf("GetSpecialAccounts() err: %w", err)
 	}
 
 	accounts, err := encoding.DecodeSpecialAddresses([]byte(cache))
 	if err != nil {
 		err = fmt.Errorf(
 			"GetSpecialAccounts() problem decoding, cache: '%s' err: %w", cache, err)
-		return transactions.SpecialAddresses{}, err
+		return itypes.SpecialAddresses{}, err
 	}
 
 	return accounts, nil

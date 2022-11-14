@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/protocol"
 	models "github.com/algorand/indexer/api/generated/v2"
+	itypes "github.com/algorand/indexer/types"
 
 	"github.com/algorand/indexer/idb"
 )
@@ -60,7 +61,7 @@ func (sare *SpecialAccountRewindError) Error() string {
 	return fmt.Sprintf("unable to rewind the %s", sare.account)
 }
 
-var specialAccounts *transactions.SpecialAddresses
+var specialAccounts *itypes.SpecialAddresses
 
 // AccountAtRound queries the idb.IndexerDb object for transactions and rewinds most fields of the account back to
 // their values at the requested round.
@@ -68,7 +69,7 @@ var specialAccounts *transactions.SpecialAddresses
 func AccountAtRound(ctx context.Context, account models.Account, round uint64, db idb.IndexerDb) (acct models.Account, err error) {
 	// Make sure special accounts cache has been initialized.
 	if specialAccounts == nil {
-		var accounts transactions.SpecialAddresses
+		var accounts itypes.SpecialAddresses
 		accounts, err = db.GetSpecialAccounts(ctx)
 		if err != nil {
 			return models.Account{}, fmt.Errorf("unable to get special accounts: %v", err)
@@ -84,11 +85,11 @@ func AccountAtRound(ctx context.Context, account models.Account, round uint64, d
 	}
 
 	// ensure that the don't attempt to rewind a special account.
-	if specialAccounts.FeeSink == addr {
+	if specialAccounts.FeeSink == sdk.Address(addr) {
 		err = MakeSpecialAccountRewindError("FeeSink")
 		return
 	}
-	if specialAccounts.RewardsPool == addr {
+	if specialAccounts.RewardsPool == sdk.Address(addr) {
 		err = MakeSpecialAccountRewindError("RewardsPool")
 		return
 	}

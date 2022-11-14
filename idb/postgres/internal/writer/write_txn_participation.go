@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
@@ -13,19 +14,19 @@ import (
 )
 
 // getTransactionParticipants returns referenced addresses from the txn and all inner txns
-func getTransactionParticipants(stxnad *transactions.SignedTxnWithAD, includeInner bool) []basics.Address {
+func getTransactionParticipants(stxnad *transactions.SignedTxnWithAD, includeInner bool) []types.Address {
 	const acctsPerTxn = 7
 
 	if !includeInner || len(stxnad.ApplyData.EvalDelta.InnerTxns) == 0 {
 		// if no inner transactions then adding into a slice with in-place de-duplication
-		res := make([]basics.Address, 0, acctsPerTxn)
+		res := make([]types.Address, 0, acctsPerTxn)
 		add := func(address basics.Address) {
 			for _, p := range res {
-				if address == p {
+				if types.Address(address) == p {
 					return
 				}
 			}
-			res = append(res, address)
+			res = append(res, types.Address(address))
 		}
 
 		accounting.GetTransactionParticipants(stxnad, includeInner, add)
@@ -36,14 +37,14 @@ func getTransactionParticipants(stxnad *transactions.SignedTxnWithAD, includeInn
 	// so the resultant slice is created after collecting all the data from nested transactions.
 	// this is probably a bit slower than the default case due to two mem allocs and additional iterations
 	size := acctsPerTxn * (1 + len(stxnad.ApplyData.EvalDelta.InnerTxns)) // approx
-	participants := make(map[basics.Address]struct{}, size)
+	participants := make(map[types.Address]struct{}, size)
 	add := func(address basics.Address) {
-		participants[address] = struct{}{}
+		participants[types.Address(address)] = struct{}{}
 	}
 
 	accounting.GetTransactionParticipants(stxnad, includeInner, add)
 
-	res := make([]basics.Address, 0, len(participants))
+	res := make([]types.Address, 0, len(participants))
 	for addr := range participants {
 		res = append(res, addr)
 	}

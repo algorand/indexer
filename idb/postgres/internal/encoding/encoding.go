@@ -4,12 +4,14 @@ import (
 	"encoding/base64"
 	"fmt"
 
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-codec/codec"
+	itypes "github.com/algorand/indexer/types"
 
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/types"
@@ -559,7 +561,7 @@ func DecodeAppLocalStateArray(data []byte) ([]basics.AppLocalState, error) {
 
 	return unconvertAppLocalStateArray(array), nil
 }
-func convertSpecialAddresses(special transactions.SpecialAddresses) specialAddresses {
+func convertSpecialAddresses(special itypes.SpecialAddresses) specialAddresses {
 	return specialAddresses{
 		SpecialAddresses:    special,
 		FeeSinkOverride:     crypto.Digest(special.FeeSink),
@@ -567,24 +569,24 @@ func convertSpecialAddresses(special transactions.SpecialAddresses) specialAddre
 	}
 }
 
-func unconvertSpecialAddresses(special specialAddresses) transactions.SpecialAddresses {
+func unconvertSpecialAddresses(special specialAddresses) itypes.SpecialAddresses {
 	res := special.SpecialAddresses
-	res.FeeSink = basics.Address(special.FeeSinkOverride)
-	res.RewardsPool = basics.Address(special.RewardsPoolOverride)
+	res.FeeSink = sdk.Address(special.FeeSinkOverride)
+	res.RewardsPool = sdk.Address(special.RewardsPoolOverride)
 	return res
 }
 
 // EncodeSpecialAddresses encodes special addresses (sink and rewards pool) into json.
-func EncodeSpecialAddresses(special transactions.SpecialAddresses) []byte {
+func EncodeSpecialAddresses(special itypes.SpecialAddresses) []byte {
 	return encodeJSON(convertSpecialAddresses(special))
 }
 
 // DecodeSpecialAddresses decodes special addresses (sink and rewards pool) from json.
-func DecodeSpecialAddresses(data []byte) (transactions.SpecialAddresses, error) {
+func DecodeSpecialAddresses(data []byte) (itypes.SpecialAddresses, error) {
 	var special specialAddresses
 	err := DecodeJSON(data, &special)
 	if err != nil {
-		return transactions.SpecialAddresses{}, err
+		return itypes.SpecialAddresses{}, err
 	}
 
 	return unconvertSpecialAddresses(special), nil

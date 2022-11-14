@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
@@ -310,7 +311,7 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 	case protocol.PaymentTx:
 		p := generated.TransactionPayment{
 			CloseAmount:      uint64Ptr(stxn.ApplyData.ClosingAmount.Raw),
-			CloseRemainderTo: addrPtr(stxn.Txn.CloseRemainderTo),
+			CloseRemainderTo: addrPtr(types.Address(stxn.Txn.CloseRemainderTo)),
 			Receiver:         stxn.Txn.Receiver.String(),
 			Amount:           stxn.Txn.Amount.Raw,
 		}
@@ -328,16 +329,16 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 		keyreg = &k
 	case protocol.AssetConfigTx:
 		assetParams := generated.AssetParams{
-			Clawback:      addrPtr(stxn.Txn.AssetParams.Clawback),
+			Clawback:      addrPtr(types.Address(stxn.Txn.AssetParams.Clawback)),
 			Creator:       stxn.Txn.Sender.String(),
 			Decimals:      uint64(stxn.Txn.AssetParams.Decimals),
 			DefaultFrozen: boolPtr(stxn.Txn.AssetParams.DefaultFrozen),
-			Freeze:        addrPtr(stxn.Txn.AssetParams.Freeze),
-			Manager:       addrPtr(stxn.Txn.AssetParams.Manager),
+			Freeze:        addrPtr(types.Address(stxn.Txn.AssetParams.Freeze)),
+			Manager:       addrPtr(types.Address(stxn.Txn.AssetParams.Manager)),
 			MetadataHash:  byteSliceOmitZeroPtr(stxn.Txn.AssetParams.MetadataHash[:]),
 			Name:          strPtr(util.PrintableUTF8OrEmpty(stxn.Txn.AssetParams.AssetName)),
 			NameB64:       byteSlicePtr([]byte(stxn.Txn.AssetParams.AssetName)),
-			Reserve:       addrPtr(stxn.Txn.AssetParams.Reserve),
+			Reserve:       addrPtr(types.Address(stxn.Txn.AssetParams.Reserve)),
 			Total:         stxn.Txn.AssetParams.Total,
 			UnitName:      strPtr(util.PrintableUTF8OrEmpty(stxn.Txn.AssetParams.UnitName)),
 			UnitNameB64:   byteSlicePtr([]byte(stxn.Txn.AssetParams.UnitName)),
@@ -353,9 +354,9 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 		t := generated.TransactionAssetTransfer{
 			Amount:      stxn.Txn.AssetAmount,
 			AssetId:     uint64(stxn.Txn.XferAsset),
-			CloseTo:     addrPtr(stxn.Txn.AssetCloseTo),
+			CloseTo:     addrPtr(types.Address(stxn.Txn.AssetCloseTo)),
 			Receiver:    stxn.Txn.AssetReceiver.String(),
-			Sender:      addrPtr(stxn.Txn.AssetSender),
+			Sender:      addrPtr(types.Address(stxn.Txn.AssetSender)),
 			CloseAmount: uint64Ptr(extra.AssetCloseAmount),
 		}
 		assetTransfer = &t
@@ -509,7 +510,7 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 	var localStateDelta *[]generated.AccountStateDelta
 	type tuple struct {
 		key     uint64
-		address basics.Address
+		address types.Address
 	}
 	if len(stxn.ApplyData.EvalDelta.LocalDeltas) > 0 {
 		keys := make([]tuple, 0)
@@ -517,10 +518,10 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 			if k == 0 {
 				keys = append(keys, tuple{
 					key:     0,
-					address: stxn.Txn.Sender,
+					address: types.Address(stxn.Txn.Sender),
 				})
 			} else {
-				addr := basics.Address{}
+				addr := types.Address{}
 				copy(addr[:], stxn.Txn.Accounts[k-1][:])
 				keys = append(keys, tuple{
 					key:     k,
@@ -601,7 +602,7 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 		CloseRewards:             uint64Ptr(stxn.CloseRewards.Raw),
 		SenderRewards:            uint64Ptr(stxn.SenderRewards.Raw),
 		TxType:                   string(stxn.Txn.Type),
-		RekeyTo:                  addrPtr(stxn.Txn.RekeyTo),
+		RekeyTo:                  addrPtr(types.Address(stxn.Txn.RekeyTo)),
 		GlobalStateDelta:         stateDeltaToStateDelta(stxn.EvalDelta.GlobalDelta),
 		LocalStateDelta:          localStateDelta,
 		Logs:                     logs,

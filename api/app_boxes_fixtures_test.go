@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/data/transactions/logic"
@@ -52,18 +53,18 @@ func setupLiveBoxes(t *testing.T, proc func(cert *rpcs.EncodedBlockCert) error, 
 	createTxn, err := test.MakeComplexCreateAppTxn(test.AccountA, test.BoxApprovalProgram, test.BoxClearProgram, 8)
 	require.NoError(t, err)
 
-	payNewAppTxn := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountA, firstAppid.Address(), basics.Address{},
-		basics.Address{})
+	payNewAppTxn := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountA, types.Address(firstAppid.Address()), types.Address{},
+		types.Address{})
 
 	createTxn2, err := test.MakeComplexCreateAppTxn(test.AccountB, test.BoxApprovalProgram, test.BoxClearProgram, 8)
 	require.NoError(t, err)
-	payNewAppTxn2 := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountB, secondAppid.Address(), basics.Address{},
-		basics.Address{})
+	payNewAppTxn2 := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountB, types.Address(secondAppid.Address()), types.Address{},
+		types.Address{})
 
 	createTxn3, err := test.MakeComplexCreateAppTxn(test.AccountC, test.BoxApprovalProgram, test.BoxClearProgram, 8)
 	require.NoError(t, err)
-	payNewAppTxn3 := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountC, thirdAppid.Address(), basics.Address{},
-		basics.Address{})
+	payNewAppTxn3 := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountC, types.Address(thirdAppid.Address()), types.Address{},
+		types.Address{})
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createTxn, &payNewAppTxn, &createTxn2, &payNewAppTxn2, &createTxn3, &payNewAppTxn3)
 	require.NoError(t, err)

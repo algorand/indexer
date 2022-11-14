@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
@@ -14,6 +15,7 @@ import (
 	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/indexer/types"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/stretchr/testify/assert"
@@ -71,7 +73,7 @@ func txnQuery(db *pgxpool.Pool, query string) ([]txnRow, error) {
 }
 
 type txnParticipationRow struct {
-	addr  basics.Address
+	addr  sdk.Address
 	round int
 	intra int
 }
@@ -162,7 +164,7 @@ func TestWriterSpecialAccounts(t *testing.T) {
 	accounts, err := encoding.DecodeSpecialAddresses([]byte(j))
 	require.NoError(t, err)
 
-	expected := transactions.SpecialAddresses{
+	expected := types.SpecialAddresses{
 		FeeSink:     test.FeeAddr,
 		RewardsPool: test.RewardAddr,
 	}
@@ -191,8 +193,8 @@ func TestWriterTxnTableBasic(t *testing.T) {
 	}
 
 	stxnad0 := test.MakePaymentTxn(
-		1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
-		basics.Address{})
+		1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, sdk.Address{},
+		sdk.Address{})
 	var err error
 	block.Payset[0], err =
 		block.BlockHeader.EncodeSignedTxn(stxnad0.SignedTxn, stxnad0.ApplyData)
@@ -338,8 +340,8 @@ func TestWriterTxnParticipationTable(t *testing.T) {
 	var tests []testtype
 	{
 		stxnad0 := test.MakePaymentTxn(
-			1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
-			basics.Address{})
+			1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, sdk.Address{},
+			sdk.Address{})
 		stib0, err := makeBlockFunc().EncodeSignedTxn(stxnad0.SignedTxn, stxnad0.ApplyData)
 		require.NoError(t, err)
 
@@ -374,7 +376,7 @@ func TestWriterTxnParticipationTable(t *testing.T) {
 	{
 		stxnad := test.MakeCreateAppTxn(test.AccountA)
 		stxnad.Txn.ApplicationCallTxnFields.Accounts =
-			[]basics.Address{test.AccountB, test.AccountC}
+			[]basics.Address{basics.Address(test.AccountB), basics.Address(test.AccountC)}
 		stib, err := makeBlockFunc().EncodeSignedTxn(stxnad.SignedTxn, stxnad.ApplyData)
 		require.NoError(t, err)
 
@@ -444,7 +446,7 @@ func TestWriterAccountTableBasic(t *testing.T) {
 	block.BlockHeader.Round = 4
 
 	var delta ledgercore.StateDelta
-	delta.Accts.Upsert(test.AccountA, ledgercore.AccountData{
+	delta.Accts.Upsert(basics.Address(test.AccountA), ledgercore.AccountData{
 		AccountBaseData: ledgercore.AccountBaseData{
 			Status:             basics.Online,
 			MicroAlgos:         basics.MicroAlgos{Raw: 5},
@@ -517,7 +519,7 @@ func TestWriterAccountTableBasic(t *testing.T) {
 	// Now delete this account.
 	block.BlockHeader.Round++
 	delta.Accts = ledgercore.AccountDeltas{}
-	delta.Accts.Upsert(test.AccountA, ledgercore.AccountData{})
+	delta.Accts.Upsert(basics.Address(test.AccountA), ledgercore.AccountData{})
 
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -561,7 +563,7 @@ func TestWriterAccountTableCreateDeleteSameRound(t *testing.T) {
 	block.BlockHeader.Round = 4
 
 	var delta ledgercore.StateDelta
-	delta.Accts.Upsert(test.AccountA, ledgercore.AccountData{})
+	delta.Accts.Upsert(basics.Address(test.AccountA), ledgercore.AccountData{})
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -632,15 +634,15 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 	}
 
 	stxnad := test.MakePaymentTxn(
-		1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
-		basics.Address{})
+		1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, sdk.Address{},
+		sdk.Address{})
 	stxnad.Sig[0] = 5 // set signature so that keytype for account is updated
 	var err error
 	block.Payset[0], err = block.EncodeSignedTxn(stxnad.SignedTxn, stxnad.ApplyData)
 	require.NoError(t, err)
 
 	var delta ledgercore.StateDelta
-	delta.Accts.Upsert(test.AccountA, ledgercore.AccountData{
+	delta.Accts.Upsert(basics.Address(test.AccountA), ledgercore.AccountData{
 		AccountBaseData: ledgercore.AccountBaseData{
 			MicroAlgos: basics.MicroAlgos{Raw: 5},
 		},
@@ -669,7 +671,7 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 	// Now delete this account.
 	block.BlockHeader.Round = basics.Round(5)
 	delta.Accts = ledgercore.AccountDeltas{}
-	delta.Accts.Upsert(test.AccountA, ledgercore.AccountData{})
+	delta.Accts.Upsert(basics.Address(test.AccountA), ledgercore.AccountData{})
 
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -694,7 +696,7 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 	}
 	var delta ledgercore.StateDelta
 	delta.Accts.UpsertAssetResource(
-		test.AccountA, assetID, ledgercore.AssetParamsDelta{},
+		basics.Address(test.AccountA), assetID, ledgercore.AssetParamsDelta{},
 		ledgercore.AssetHoldingDelta{Holding: &assetHolding})
 
 	f := func(tx pgx.Tx) error {
@@ -742,7 +744,7 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 
 	delta.Accts = ledgercore.AccountDeltas{}
 	delta.Accts.UpsertAssetResource(
-		test.AccountA, assetID, ledgercore.AssetParamsDelta{},
+		basics.Address(test.AccountA), assetID, ledgercore.AssetParamsDelta{},
 		ledgercore.AssetHoldingDelta{Deleted: true})
 
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
@@ -780,7 +782,7 @@ func TestWriterAccountAssetTableCreateDeleteSameRound(t *testing.T) {
 	assetID := basics.AssetIndex(3)
 	var delta ledgercore.StateDelta
 	delta.Accts.UpsertAssetResource(
-		test.AccountA, assetID, ledgercore.AssetParamsDelta{},
+		basics.Address(test.AccountA), assetID, ledgercore.AssetParamsDelta{},
 		ledgercore.AssetHoldingDelta{Deleted: true})
 
 	f := func(tx pgx.Tx) error {
@@ -830,7 +832,7 @@ func TestWriterAccountAssetTableLargeAmount(t *testing.T) {
 	}
 	var delta ledgercore.StateDelta
 	delta.Accts.UpsertAssetResource(
-		test.AccountA, assetID, ledgercore.AssetParamsDelta{},
+		basics.Address(test.AccountA), assetID, ledgercore.AssetParamsDelta{},
 		ledgercore.AssetHoldingDelta{Holding: &assetHolding})
 
 	f := func(tx pgx.Tx) error {
@@ -864,11 +866,11 @@ func TestWriterAssetTableBasic(t *testing.T) {
 	assetID := basics.AssetIndex(3)
 	assetParams := basics.AssetParams{
 		Total:   99999,
-		Manager: test.AccountB,
+		Manager: basics.Address(test.AccountB),
 	}
 	var delta ledgercore.StateDelta
 	delta.Accts.UpsertAssetResource(
-		test.AccountA, assetID, ledgercore.AssetParamsDelta{Params: &assetParams},
+		basics.Address(test.AccountA), assetID, ledgercore.AssetParamsDelta{Params: &assetParams},
 		ledgercore.AssetHoldingDelta{})
 
 	f := func(tx pgx.Tx) error {
@@ -918,7 +920,7 @@ func TestWriterAssetTableBasic(t *testing.T) {
 
 	delta.Accts = ledgercore.AccountDeltas{}
 	delta.Accts.UpsertAssetResource(
-		test.AccountA, assetID, ledgercore.AssetParamsDelta{Deleted: true},
+		basics.Address(test.AccountA), assetID, ledgercore.AssetParamsDelta{Deleted: true},
 		ledgercore.AssetHoldingDelta{})
 
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
@@ -960,7 +962,7 @@ func TestWriterAssetTableCreateDeleteSameRound(t *testing.T) {
 	assetID := basics.AssetIndex(3)
 	var delta ledgercore.StateDelta
 	delta.Accts.UpsertAssetResource(
-		test.AccountA, assetID, ledgercore.AssetParamsDelta{Deleted: true},
+		basics.Address(test.AccountA), assetID, ledgercore.AssetParamsDelta{Deleted: true},
 		ledgercore.AssetHoldingDelta{})
 
 	f := func(tx pgx.Tx) error {
@@ -1018,7 +1020,7 @@ func TestWriterAppTableBasic(t *testing.T) {
 	}
 	var delta ledgercore.StateDelta
 	delta.Accts.UpsertAppResource(
-		test.AccountA, appID, ledgercore.AppParamsDelta{Params: &appParams},
+		basics.Address(test.AccountA), appID, ledgercore.AppParamsDelta{Params: &appParams},
 		ledgercore.AppLocalStateDelta{})
 
 	f := func(tx pgx.Tx) error {
@@ -1068,7 +1070,7 @@ func TestWriterAppTableBasic(t *testing.T) {
 
 	delta.Accts = ledgercore.AccountDeltas{}
 	delta.Accts.UpsertAppResource(
-		test.AccountA, appID, ledgercore.AppParamsDelta{Deleted: true},
+		basics.Address(test.AccountA), appID, ledgercore.AppParamsDelta{Deleted: true},
 		ledgercore.AppLocalStateDelta{})
 
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
@@ -1110,7 +1112,7 @@ func TestWriterAppTableCreateDeleteSameRound(t *testing.T) {
 	appID := basics.AppIndex(3)
 	var delta ledgercore.StateDelta
 	delta.Accts.UpsertAppResource(
-		test.AccountA, appID, ledgercore.AppParamsDelta{Deleted: true},
+		basics.Address(test.AccountA), appID, ledgercore.AppParamsDelta{Deleted: true},
 		ledgercore.AppLocalStateDelta{})
 
 	f := func(tx pgx.Tx) error {
@@ -1168,7 +1170,7 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 	}
 	var delta ledgercore.StateDelta
 	delta.Accts.UpsertAppResource(
-		test.AccountA, appID, ledgercore.AppParamsDelta{},
+		basics.Address(test.AccountA), appID, ledgercore.AppParamsDelta{},
 		ledgercore.AppLocalStateDelta{LocalState: &appLocalState})
 
 	f := func(tx pgx.Tx) error {
@@ -1218,7 +1220,7 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 
 	delta.Accts = ledgercore.AccountDeltas{}
 	delta.Accts.UpsertAppResource(
-		test.AccountA, appID, ledgercore.AppParamsDelta{},
+		basics.Address(test.AccountA), appID, ledgercore.AppParamsDelta{},
 		ledgercore.AppLocalStateDelta{Deleted: true})
 
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
@@ -1260,7 +1262,7 @@ func TestWriterAccountAppTableCreateDeleteSameRound(t *testing.T) {
 	appID := basics.AppIndex(3)
 	var delta ledgercore.StateDelta
 	delta.Accts.UpsertAppResource(
-		test.AccountA, appID, ledgercore.AppParamsDelta{},
+		basics.Address(test.AccountA), appID, ledgercore.AppParamsDelta{},
 		ledgercore.AppLocalStateDelta{Deleted: true})
 
 	f := func(tx pgx.Tx) error {
@@ -1315,7 +1317,7 @@ func TestAddBlockInvalidInnerAsset(t *testing.T) {
 				Txn: transactions.Transaction{
 					Type: protocol.AssetConfigTx,
 					Header: transactions.Header{
-						Sender: test.AccountB,
+						Sender: basics.Address(test.AccountB),
 					},
 					AssetConfigTxnFields: transactions.AssetConfigTxnFields{
 						ConfigAsset: 0,
@@ -1339,7 +1341,7 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	defer shutdownFunc()
 
 	// App call with inner txns, should be intra 0, 1, 2, 3, 4
-	var appAddr basics.Address
+	var appAddr sdk.Address
 	appAddr[1] = 99
 	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
 
@@ -1558,7 +1560,7 @@ func TestWriterAddBlock0(t *testing.T) {
 		accounts, err := encoding.DecodeSpecialAddresses([]byte(j))
 		require.NoError(t, err)
 
-		expected := transactions.SpecialAddresses{
+		expected := types.SpecialAddresses{
 			FeeSink:     test.FeeAddr,
 			RewardsPool: test.RewardAddr,
 		}

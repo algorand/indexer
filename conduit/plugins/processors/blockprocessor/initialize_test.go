@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/algorand/go-algorand-sdk/types"
 	"github.com/jarcoal/httpmock"
 	"github.com/sirupsen/logrus"
 	test2 "github.com/sirupsen/logrus/hooks/test"
@@ -16,7 +17,6 @@ import (
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/rpcs"
 
 	"github.com/algorand/indexer/conduit/plugins/processors/blockprocessor/internal"
@@ -36,7 +36,7 @@ func TestRunMigration(t *testing.T) {
 
 	// responder for rounds 1 to 6
 	txn := test.MakePaymentTxn(0, 100, 0, 1, 1,
-		0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
+		0, test.AccountA, test.AccountA, types.Address{}, types.Address{})
 	prevHeader := genesisBlock.BlockHeader
 	txn.Txn.GenesisHash = genesis.Hash()
 	for i := 1; i < 7; i++ {

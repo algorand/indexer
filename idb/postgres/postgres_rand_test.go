@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/stretchr/testify/require"
 
+	"github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
@@ -21,8 +22,8 @@ import (
 	"github.com/algorand/indexer/util/test"
 )
 
-func generateAddress(t *testing.T) basics.Address {
-	var res basics.Address
+func generateAddress(t *testing.T) types.Address {
+	var res types.Address
 	_, err := rand.Read(res[:])
 	require.NoError(t, err)
 
@@ -44,7 +45,7 @@ func generateAccountData() ledgercore.AccountData {
 	return res
 }
 
-func maybeGetAccount(t *testing.T, db *IndexerDb, address basics.Address) *models.Account {
+func maybeGetAccount(t *testing.T, db *IndexerDb, address types.Address) *models.Account {
 	resultCh, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: address[:]})
 	num := 0
 	var result *models.Account
@@ -67,14 +68,14 @@ func TestWriteReadAccountData(t *testing.T) {
 	defer shutdownFunc()
 	defer ld.Close()
 
-	data := make(map[basics.Address]ledgercore.AccountData)
+	data := make(map[types.Address]ledgercore.AccountData)
 	var delta ledgercore.StateDelta
 	for i := 0; i < 1000; i++ {
 		address := generateAddress(t)
 
 		acctData := generateAccountData()
 		data[address] = acctData
-		delta.Accts.Upsert(address, acctData)
+		delta.Accts.Upsert(basics.Address(address), acctData)
 	}
 
 	f := func(tx pgx.Tx) error {
@@ -231,7 +232,7 @@ func TestWriteReadResources(t *testing.T) {
 		localState  ledgercore.AppLocalStateDelta
 	}
 
-	data := make(map[basics.Address]datum)
+	data := make(map[types.Address]datum)
 	var delta ledgercore.StateDelta
 	for i := 0; i < 1000; i++ {
 		address := generateAddress(t)
@@ -253,8 +254,8 @@ func TestWriteReadResources(t *testing.T) {
 			localState:  localState,
 		}
 
-		delta.Accts.UpsertAssetResource(address, assetIndex, assetParams, holding)
-		delta.Accts.UpsertAppResource(address, appIndex, appParamsDelta, localState)
+		delta.Accts.UpsertAssetResource(basics.Address(address), assetIndex, assetParams, holding)
+		delta.Accts.UpsertAppResource(basics.Address(address), appIndex, appParamsDelta, localState)
 	}
 
 	f := func(tx pgx.Tx) error {
@@ -278,15 +279,15 @@ func TestWriteReadResources(t *testing.T) {
 		fmt.Println(base64.StdEncoding.EncodeToString(address[:]))
 
 		// asset info
-		assetParams, _ := delta.Accts.GetAssetParams(address, datum.assetIndex)
+		assetParams, _ := delta.Accts.GetAssetParams(basics.Address(address), datum.assetIndex)
 		require.Equal(t, datum.assetParams, assetParams)
-		holding, _ := delta.Accts.GetAssetHolding(address, datum.assetIndex)
+		holding, _ := delta.Accts.GetAssetHolding(basics.Address(address), datum.assetIndex)
 		require.Equal(t, datum.holding, holding)
 
 		// app info
-		appParams, _ := delta.Accts.GetAppParams(address, datum.appIndex)
+		appParams, _ := delta.Accts.GetAppParams(basics.Address(address), datum.appIndex)
 		require.Equal(t, datum.appParams, appParams)
-		localState, _ := delta.Accts.GetAppLocalState(address, datum.appIndex)
+		localState, _ := delta.Accts.GetAppLocalState(basics.Address(address), datum.appIndex)
 		require.Equal(t, datum.localState, localState)
 	}
 }

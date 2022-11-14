@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/algorand/go-algorand-sdk/types"
 	test2 "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -37,7 +38,7 @@ func TestProcess(t *testing.T) {
 	assert.Equal(t, basics.Round(0), l.Latest())
 	// create a few rounds
 	for i := 1; i <= 3; i++ {
-		txn := test.MakePaymentTxn(0, uint64(i), 0, 1, 1, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
+		txn := test.MakePaymentTxn(0, uint64(i), 0, 1, 1, 0, test.AccountA, test.AccountA, types.Address{}, types.Address{})
 		block, err := test.MakeBlockForTxns(prevHeader, &txn)
 		assert.Nil(t, err)
 		rawBlock := rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
@@ -89,7 +90,7 @@ func TestFailedProcess(t *testing.T) {
 	assert.Contains(t, err.Error(), "ProcessBlockForIndexer() err")
 
 	// stxn GenesisID not empty
-	txn = test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
+	txn = test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, types.Address{}, types.Address{})
 	block, err = test.MakeBlockForTxns(genesisBlock.BlockHeader, &txn)
 	assert.Nil(t, err)
 	block.Payset[0].Txn.GenesisID = "genesisID"
@@ -98,7 +99,7 @@ func TestFailedProcess(t *testing.T) {
 	assert.Contains(t, err.Error(), "ProcessBlockForIndexer() err")
 
 	// eval error: concensus protocol not supported
-	txn = test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
+	txn = test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, types.Address{}, types.Address{})
 	block, err = test.MakeBlockForTxns(genesisBlock.BlockHeader, &txn)
 	block.BlockHeader.CurrentProtocol = "testing"
 	assert.Nil(t, err)
@@ -124,7 +125,7 @@ func TestFailedProcess(t *testing.T) {
 	assert.NoError(t, err)
 	// enable this so it will throw an error when we process the block
 	throwError = true
-	txn = test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
+	txn = test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, types.Address{}, types.Address{})
 	block, err = test.MakeBlockForTxns(genesisBlock.BlockHeader, &txn)
 	assert.Nil(t, err)
 	rawBlock = rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}

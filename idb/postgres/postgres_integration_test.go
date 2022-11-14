@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/algorand/go-algorand-sdk/types"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	test2 "github.com/sirupsen/logrus/hooks/test"
@@ -139,7 +140,7 @@ func TestMaxConnection(t *testing.T) {
 
 }
 
-func assertAccountAsset(t *testing.T, db *pgxpool.Pool, addr basics.Address, assetid uint64, frozen bool, amount uint64) {
+func assertAccountAsset(t *testing.T, db *pgxpool.Pool, addr types.Address, assetid uint64, frozen bool, amount uint64) {
 	var row pgx.Row
 	var f bool
 	var a uint64
@@ -167,11 +168,11 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	createAsset := test.MakeAssetConfigTxn(0, total, uint64(6), false, "mcn", "my coin", "http://antarctica.com", test.AccountD)
 	optInA1 := test.MakeAssetOptInTxn(assetid, test.AccountA)
 	optInA2 := test.MakeAssetOptInTxn(assetid, test.AccountA)
-	fundA := test.MakeAssetTransferTxn(assetid, amt, test.AccountD, test.AccountA, basics.Address{})
+	fundA := test.MakeAssetTransferTxn(assetid, amt, test.AccountD, test.AccountA, types.Address{})
 	optInB := test.MakeAssetOptInTxn(assetid, test.AccountB)
 	optInC := test.MakeAssetOptInTxn(assetid, test.AccountC)
 	closeA := test.MakeAssetTransferTxn(assetid, 1000, test.AccountA, test.AccountB, test.AccountC)
-	payMain := test.MakeAssetTransferTxn(assetid, amt, test.AccountD, test.AccountA, basics.Address{})
+	payMain := test.MakeAssetTransferTxn(assetid, amt, test.AccountD, test.AccountA, types.Address{})
 
 	block, err := test.MakeBlockForTxns(
 		test.MakeGenesisBlock().BlockHeader, &createAsset, &optInA1, &fundA, &optInB,
@@ -290,8 +291,8 @@ func TestMultipleWriters(t *testing.T) {
 	// Given // Send amt to AccountE
 	///////////
 	payAccountE := test.MakePaymentTxn(
-		1000, amt, 0, 0, 0, 0, test.AccountD, test.AccountE, basics.Address{},
-		basics.Address{})
+		1000, amt, 0, 0, 0, 0, test.AccountD, test.AccountE, types.Address{},
+		types.Address{})
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &payAccountE)
 	require.NoError(t, err)
@@ -354,15 +355,15 @@ func TestBlockWithTransactions(t *testing.T) {
 		test.AccountD)
 	txn2 := test.MakeAssetOptInTxn(assetid, test.AccountA)
 	txn3 := test.MakeAssetTransferTxn(
-		assetid, amt, test.AccountD, test.AccountA, basics.Address{})
+		assetid, amt, test.AccountD, test.AccountA, types.Address{})
 	txn4 := test.MakeAssetOptInTxn(assetid, test.AccountB)
 	txn5 := test.MakeAssetOptInTxn(assetid, test.AccountC)
 	txn6 := test.MakeAssetTransferTxn(
 		assetid, 1000, test.AccountA, test.AccountB, test.AccountC)
 	txn7 := test.MakeAssetTransferTxn(
-		assetid, 0, test.AccountA, test.AccountA, basics.Address{})
+		assetid, 0, test.AccountA, test.AccountA, types.Address{})
 	txn8 := test.MakeAssetTransferTxn(
-		assetid, amt, test.AccountD, test.AccountA, basics.Address{})
+		assetid, amt, test.AccountD, test.AccountA, types.Address{})
 	txns := []*transactions.SignedTxnWithAD{
 		&txn1, &txn2, &txn3, &txn4, &txn5, &txn6, &txn7, &txn8}
 
@@ -405,7 +406,7 @@ func TestRekeyBasic(t *testing.T) {
 	// Given // Send rekey transaction
 	///////////
 	txn := test.MakePaymentTxn(
-		1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountB)
+		1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, types.Address{}, test.AccountB)
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	require.NoError(t, err)
 
@@ -422,7 +423,7 @@ func TestRekeyBasic(t *testing.T) {
 
 	ad, err := encoding.DecodeTrimmedLcAccountData(accountDataStr)
 	require.NoError(t, err, "failed to parse account data json")
-	assert.Equal(t, test.AccountB, ad.AuthAddr)
+	assert.Equal(t, test.AccountB, types.Address(ad.AuthAddr))
 }
 
 func TestRekeyToItself(t *testing.T) {
@@ -434,7 +435,7 @@ func TestRekeyToItself(t *testing.T) {
 	// Given // Send rekey transactions
 	///////////
 	txn := test.MakePaymentTxn(
-		1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountB)
+		1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, types.Address{}, test.AccountB)
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	require.NoError(t, err)
 
@@ -442,7 +443,7 @@ func TestRekeyToItself(t *testing.T) {
 	require.NoError(t, err)
 
 	txn = test.MakePaymentTxn(
-		1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{},
+		1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, types.Address{},
 		test.AccountA)
 	block, err = test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
@@ -460,7 +461,7 @@ func TestRekeyToItself(t *testing.T) {
 
 	ad, err := encoding.DecodeTrimmedLcAccountData(accountDataStr)
 	require.NoError(t, err, "failed to parse account data json")
-	assert.Equal(t, basics.Address{}, ad.AuthAddr)
+	assert.Equal(t, types.Address{}, types.Address(ad.AuthAddr))
 }
 
 func TestRekeyThreeTimesInSameRound(t *testing.T) {
@@ -472,13 +473,13 @@ func TestRekeyThreeTimesInSameRound(t *testing.T) {
 	// Given // Send rekey transaction
 	///////////
 	txn0 := test.MakePaymentTxn(
-		1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{},
+		1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, types.Address{},
 		test.AccountB)
 	txn1 := test.MakePaymentTxn(
-		1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{},
-		basics.Address{})
+		1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, types.Address{},
+		types.Address{})
 	txn2 := test.MakePaymentTxn(
-		1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountC)
+		1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, types.Address{}, test.AccountC)
 
 	block, err := test.MakeBlockForTxns(
 		test.MakeGenesisBlock().BlockHeader, &txn0, &txn1, &txn2)
@@ -497,7 +498,7 @@ func TestRekeyThreeTimesInSameRound(t *testing.T) {
 
 	ad, err := encoding.DecodeTrimmedLcAccountData(accountDataStr)
 	require.NoError(t, err, "failed to parse account data json")
-	assert.Equal(t, test.AccountC, ad.AuthAddr)
+	assert.Equal(t, test.AccountC, types.Address(ad.AuthAddr))
 }
 
 func TestRekeyToItselfHasNotBeenRekeyed(t *testing.T) {
@@ -509,8 +510,8 @@ func TestRekeyToItselfHasNotBeenRekeyed(t *testing.T) {
 	// Given // Send rekey transaction
 	///////////
 	txn := test.MakePaymentTxn(
-		1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{},
-		basics.Address{})
+		1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, types.Address{},
+		types.Address{})
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	require.NoError(t, err)
 
@@ -606,7 +607,7 @@ func assertAssetDates(t *testing.T, db *pgxpool.Pool, assetID uint64, deleted sq
 	assert.Equal(t, closedAt, retClosedAt)
 }
 
-func assertAssetHoldingDates(t *testing.T, db *pgxpool.Pool, address basics.Address, assetID uint64, deleted sql.NullBool, createdAt sql.NullInt64, closedAt sql.NullInt64) {
+func assertAssetHoldingDates(t *testing.T, db *pgxpool.Pool, address types.Address, assetID uint64, deleted sql.NullBool, createdAt sql.NullInt64, closedAt sql.NullInt64) {
 	row := db.QueryRow(
 		context.Background(),
 		"SELECT deleted, created_at, closed_at FROM account_asset WHERE "+
@@ -704,15 +705,15 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 			Txn: transactions.Transaction{
 				Type: "acfg",
 				Header: transactions.Header{
-					Sender:      test.AccountA,
+					Sender:      basics.Address(test.AccountA),
 					GenesisHash: test.GenesisHash,
 				},
 				AssetConfigTxnFields: transactions.AssetConfigTxnFields{
 					AssetParams: basics.AssetParams{
-						Manager:  test.AccountB,
-						Reserve:  test.AccountB,
-						Freeze:   test.AccountB,
-						Clawback: test.AccountB,
+						Manager:  basics.Address(test.AccountB),
+						Reserve:  basics.Address(test.AccountB),
+						Freeze:   basics.Address(test.AccountB),
+						Clawback: basics.Address(test.AccountB),
 					},
 				},
 			},
@@ -810,7 +811,7 @@ func TestInnerTxnParticipation(t *testing.T) {
 	// since db.AddBlock uses ApplyData from the block and not from the evaluator,
 	// fake ApplyData to have inner txn
 	// otherwise it requires funding the app account and other special setup
-	var appAddr basics.Address
+	var appAddr types.Address
 	appAddr[1] = 99
 	createApp := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
 
@@ -858,7 +859,7 @@ func TestAppExtraPages(t *testing.T) {
 			Txn: transactions.Transaction{
 				Type: "appl",
 				Header: transactions.Header{
-					Sender:      test.AccountA,
+					Sender:      basics.Address(test.AccountA),
 					GenesisHash: test.GenesisHash,
 				},
 				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
@@ -922,7 +923,7 @@ func TestAppExtraPages(t *testing.T) {
 	require.Equal(t, uint64(extraPages), *app.Params.ExtraProgramPages)
 }
 
-func assertKeytype(t *testing.T, db *IndexerDb, address basics.Address, keytype *string) {
+func assertKeytype(t *testing.T, db *IndexerDb, address types.Address, keytype *string) {
 	opts := idb.AccountQueryOptions{
 		EqualToAddress: address[:],
 		IncludeDeleted: true,
@@ -946,7 +947,7 @@ func TestKeytypeBasic(t *testing.T) {
 
 	// Sig
 	txn := test.MakePaymentTxn(
-		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
+		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, types.Address{}, types.Address{})
 
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
@@ -958,7 +959,7 @@ func TestKeytypeBasic(t *testing.T) {
 
 	// Msig
 	txn = test.MakePaymentTxn(
-		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
+		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, types.Address{}, types.Address{})
 	txn.Sig = crypto.Signature{}
 	txn.Msig.Subsigs = append(txn.Msig.Subsigs, crypto.MultisigSubsig{})
 
@@ -1223,15 +1224,15 @@ func TestReconfigAsset(t *testing.T) {
 			Txn: transactions.Transaction{
 				Type: "acfg",
 				Header: transactions.Header{
-					Sender:      test.AccountA,
+					Sender:      basics.Address(test.AccountA),
 					Fee:         basics.MicroAlgos{Raw: 1000},
 					GenesisHash: test.GenesisHash,
 				},
 				AssetConfigTxnFields: transactions.AssetConfigTxnFields{
 					ConfigAsset: basics.AssetIndex(assetID),
 					AssetParams: basics.AssetParams{
-						Freeze:   test.AccountB,
-						Clawback: test.AccountC,
+						Freeze:   basics.Address(test.AccountB),
+						Clawback: basics.Address(test.AccountC),
 					},
 				},
 			},
@@ -1252,11 +1253,11 @@ func TestReconfigAsset(t *testing.T) {
 		require.Equal(t, unit, asset.Params.UnitName)
 		require.Equal(t, url, asset.Params.URL)
 
-		require.Equal(t, basics.Address{}, asset.Params.Manager, "Manager should have been cleared.")
-		require.Equal(t, basics.Address{}, asset.Params.Reserve, "Reserve should have been cleared.")
+		require.Equal(t, types.Address{}, types.Address(asset.Params.Manager), "Manager should have been cleared.")
+		require.Equal(t, types.Address{}, types.Address(asset.Params.Reserve), "Reserve should have been cleared.")
 		// These were updated
-		require.Equal(t, test.AccountB, asset.Params.Freeze)
-		require.Equal(t, test.AccountC, asset.Params.Clawback)
+		require.Equal(t, test.AccountB, types.Address(asset.Params.Freeze))
+		require.Equal(t, test.AccountC, types.Address(asset.Params.Clawback))
 		num++
 	}
 	require.Equal(t, 1, num)
@@ -1271,7 +1272,7 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 
 	// Sig
 	txn := test.MakePaymentTxn(
-		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
+		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, types.Address{}, types.Address{})
 
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
@@ -1283,7 +1284,7 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 
 	// Rekey.
 	txn = test.MakePaymentTxn(
-		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountB)
+		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, types.Address{}, test.AccountB)
 
 	block, err = test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
@@ -1294,10 +1295,10 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 
 	// Msig
 	txn = test.MakePaymentTxn(
-		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
+		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, types.Address{}, types.Address{})
 	txn.Sig = crypto.Signature{}
 	txn.Msig.Subsigs = append(txn.Msig.Subsigs, crypto.MultisigSubsig{})
-	txn.AuthAddr = test.AccountB
+	txn.AuthAddr = basics.Address(test.AccountB)
 
 	block, err = test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
@@ -1319,7 +1320,7 @@ func TestKeytypeDeletedAccount(t *testing.T) {
 	assertKeytype(t, db, test.AccountA, nil)
 
 	closeTxn := test.MakePaymentTxn(
-		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, test.AccountB, basics.Address{})
+		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, test.AccountB, types.Address{})
 
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &closeTxn)
 	require.NoError(t, err)
@@ -1369,7 +1370,7 @@ func TestAddBlockAssetCloseAmountInTxnExtra(t *testing.T) {
 		test.AccountA)
 	optinB := test.MakeAssetOptInTxn(assetid, test.AccountB)
 	transferAB := test.MakeAssetTransferTxn(
-		assetid, 100, test.AccountA, test.AccountB, basics.Address{})
+		assetid, 100, test.AccountA, test.AccountB, types.Address{})
 	optinC := test.MakeAssetOptInTxn(assetid, test.AccountC)
 	// Close B to C.
 	closeB := test.MakeAssetTransferTxn(
@@ -1459,9 +1460,9 @@ func TestAddBlockCreateDeleteAccountSameRound(t *testing.T) {
 	defer l.Close()
 
 	createTxn := test.MakePaymentTxn(
-		0, 5, 0, 0, 0, 0, test.AccountA, test.AccountE, basics.Address{}, basics.Address{})
+		0, 5, 0, 0, 0, 0, test.AccountA, test.AccountE, types.Address{}, types.Address{})
 	deleteTxn := test.MakePaymentTxn(
-		0, 2, 3, 0, 0, 0, test.AccountE, test.AccountB, test.AccountC, basics.Address{})
+		0, 2, 3, 0, 0, 0, test.AccountE, test.AccountB, test.AccountC, types.Address{})
 	block, err := test.MakeBlockForTxns(
 		test.MakeGenesisBlock().BlockHeader, &createTxn, &deleteTxn)
 	require.NoError(t, err)
@@ -1643,7 +1644,7 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 // ReturnInnerTxnFlag is false. If the ReturnInnerTxnFlag is true, it should
 // return the inner txn instead.
 func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
-	var appAddr basics.Address
+	var appAddr types.Address
 	appAddr[1] = 99
 
 	tests := []struct {
@@ -1811,7 +1812,7 @@ func TestNonUTF8Logs(t *testing.T) {
 							Txn: transactions.Transaction{
 								Type: protocol.ApplicationCallTx,
 								Header: transactions.Header{
-									Sender: test.AccountA,
+									Sender: basics.Address(test.AccountA),
 								},
 								ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
 									ApplicationID: 789,
@@ -1987,7 +1988,7 @@ func TestKeytypeDoNotResetReceiver(t *testing.T) {
 
 	// Sigtype of account B becomes "sig".
 	txn := test.MakePaymentTxn(
-		0, 0, 0, 0, 0, 0, test.AccountB, test.AccountB, basics.Address{}, basics.Address{})
+		0, 0, 0, 0, 0, 0, test.AccountB, test.AccountB, types.Address{}, types.Address{})
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
 	err = proc(&rpcs.EncodedBlockCert{Block: block})
@@ -1995,7 +1996,7 @@ func TestKeytypeDoNotResetReceiver(t *testing.T) {
 
 	// Sigtype of account A becomes "sig" and B remains the same.
 	txn = test.MakePaymentTxn(
-		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{}, basics.Address{})
+		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountB, types.Address{}, types.Address{})
 	block, err = test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
 	err = proc(&rpcs.EncodedBlockCert{Block: block})
@@ -2029,7 +2030,7 @@ func TestAddBlockTxnTxnParticipationAhead(t *testing.T) {
 	}
 
 	txn := test.MakePaymentTxn(
-		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
+		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, types.Address{}, types.Address{})
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
 	err = proc(&rpcs.EncodedBlockCert{Block: block})
@@ -2045,7 +2046,7 @@ func TestAddBlockTxnParticipationAdded(t *testing.T) {
 	defer l.Close()
 
 	txn := test.MakePaymentTxn(
-		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
+		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, types.Address{}, types.Address{})
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
 	err = proc(&rpcs.EncodedBlockCert{Block: block})
@@ -2266,7 +2267,7 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 	// AssetAmountLT
 	txnA := test.MakeAssetConfigTxn(0, 100, 0, false, "test", "test", "", test.AccountA)
 	txnB := test.MakeAssetOptInTxn(1, test.AccountB)
-	txnC := test.MakeAssetTransferTxn(1, 10, test.AccountA, test.AccountB, basics.Address{})
+	txnC := test.MakeAssetTransferTxn(1, 10, test.AccountA, test.AccountB, types.Address{})
 
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &txnA, &txnB, &txnC)
 	require.NoError(t, err)
@@ -2286,7 +2287,7 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 	// AssetAmountGT
 	txnD := test.MakeAssetConfigTxn(0, math.MaxUint64, 0, false, "test2", "test2", "", test.AccountA)
 	txnE := test.MakeAssetOptInTxn(4, test.AccountB)
-	txnF := test.MakeAssetTransferTxn(4, math.MaxUint64, test.AccountA, test.AccountB, basics.Address{})
+	txnF := test.MakeAssetTransferTxn(4, math.MaxUint64, test.AccountA, test.AccountB, types.Address{})
 
 	block, err = test.MakeBlockForTxns(block.BlockHeader, &txnD, &txnE, &txnF)
 	require.NoError(t, err)

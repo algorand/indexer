@@ -3,17 +3,18 @@ package generator
 import (
 	"encoding/binary"
 
+	"github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/protocol"
 )
 
-func (g *generator) makeTxnHeader(sender basics.Address, round, intra uint64) transactions.Header {
+func (g *generator) makeTxnHeader(sender types.Address, round, intra uint64) transactions.Header {
 	note := make([]byte, 8)
 	binary.LittleEndian.PutUint64(note, uint64(g.txnCounter+intra))
 
 	return transactions.Header{
-		Sender:      sender,
+		Sender:      basics.Address(sender),
 		Fee:         basics.MicroAlgos{Raw: g.params.MinTxnFee},
 		FirstValid:  basics.Round(round),
 		LastValid:   basics.Round(round + 1000),
@@ -23,14 +24,14 @@ func (g *generator) makeTxnHeader(sender basics.Address, round, intra uint64) tr
 	}
 }
 
-func (g *generator) makePaymentTxn(header transactions.Header, receiver basics.Address, amount uint64, closeRemainderTo basics.Address) transactions.Transaction {
+func (g *generator) makePaymentTxn(header transactions.Header, receiver types.Address, amount uint64, closeRemainderTo types.Address) transactions.Transaction {
 	return transactions.Transaction{
 		Type:   protocol.PaymentTx,
 		Header: header,
 		PaymentTxnFields: transactions.PaymentTxnFields{
-			Receiver:         receiver,
+			Receiver:         basics.Address(receiver),
 			Amount:           basics.MicroAlgos{Raw: amount},
-			CloseRemainderTo: closeRemainderTo,
+			CloseRemainderTo: basics.Address(closeRemainderTo),
 		},
 	}
 }
@@ -63,19 +64,19 @@ func (g *generator) makeAssetDestroyTxn(header transactions.Header, index uint64
 	}
 }
 
-func (g *generator) makeAssetTransferTxn(header transactions.Header, receiver basics.Address, amount uint64, closeAssetsTo basics.Address, index uint64) transactions.Transaction {
+func (g *generator) makeAssetTransferTxn(header transactions.Header, receiver types.Address, amount uint64, closeAssetsTo types.Address, index uint64) transactions.Transaction {
 	return transactions.Transaction{
 		Type:   protocol.AssetTransferTx,
 		Header: header,
 		AssetTransferTxnFields: transactions.AssetTransferTxnFields{
 			XferAsset:     basics.AssetIndex(index),
 			AssetAmount:   amount,
-			AssetReceiver: receiver,
-			AssetCloseTo:  closeAssetsTo,
+			AssetReceiver: basics.Address(receiver),
+			AssetCloseTo:  basics.Address(closeAssetsTo),
 		},
 	}
 }
 
 func (g *generator) makeAssetAcceptanceTxn(header transactions.Header, index uint64) transactions.Transaction {
-	return g.makeAssetTransferTxn(header, header.Sender, 0, basics.Address{}, index)
+	return g.makeAssetTransferTxn(header, types.Address(header.Sender), 0, types.Address{}, index)
 }

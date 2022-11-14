@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
+	"github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/crypto/merklesignature"
 	"github.com/algorand/go-algorand/data/basics"
@@ -266,7 +267,7 @@ func TestValidateTransactionFilter(t *testing.T) {
 		{
 			name: "Zero address close address role",
 			filter: idb.TransactionFilter{
-				Address:     addrSlice(basics.Address{}),
+				Address:     addrSlice(types.Address{}),
 				AddressRole: idb.AddressRoleSender | idb.AddressRoleCloseRemainderTo,
 			},
 			errorContains: []string{errZeroAddressCloseRemainderToRole},
@@ -274,7 +275,7 @@ func TestValidateTransactionFilter(t *testing.T) {
 		{
 			name: "Zero address asset sender and asset close address role",
 			filter: idb.TransactionFilter{
-				Address:     addrSlice(basics.Address{}),
+				Address:     addrSlice(types.Address{}),
 				AddressRole: idb.AddressRoleAssetSender | idb.AddressRoleAssetCloseTo,
 			},
 			errorContains: []string{

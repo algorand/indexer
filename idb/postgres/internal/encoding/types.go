@@ -6,6 +6,7 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
+	itypes "github.com/algorand/indexer/types"
 )
 
 type blockHeader struct {
@@ -103,7 +104,7 @@ type appParams struct {
 }
 
 type specialAddresses struct {
-	transactions.SpecialAddresses
+	itypes.SpecialAddresses
 	FeeSinkOverride     crypto.Digest `codec:"FeeSink"`
 	RewardsPoolOverride crypto.Digest `codec:"RewardsPool"`
 }

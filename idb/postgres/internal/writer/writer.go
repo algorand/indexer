@@ -6,13 +6,13 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/algorand/go-algorand-sdk/types"
-	"github.com/algorand/go-algorand/data/basics"
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/protocol"
+	itypes "github.com/algorand/indexer/types"
 	"github.com/jackc/pgx/v4"
 
 	"github.com/algorand/indexer/idb"
@@ -154,7 +154,7 @@ func addBlockHeader(blockHeader *bookkeeping.BlockHeader, batch *pgx.Batch) {
 		blockHeader.RewardsLevel, encoding.EncodeBlockHeader(*blockHeader))
 }
 
-func setSpecialAccounts(addresses transactions.SpecialAddresses, batch *pgx.Batch) {
+func setSpecialAccounts(addresses itypes.SpecialAddresses, batch *pgx.Batch) {
 	j := encoding.EncodeSpecialAddresses(addresses)
 	batch.Queue(setSpecialAccountsStmtName, j)
 }
@@ -166,18 +166,18 @@ type sigTypeDelta struct {
 	value   idb.SigType
 }
 
-func getSigTypeDeltas(payset []transactions.SignedTxnInBlock) (map[basics.Address]sigTypeDelta, error) {
-	res := make(map[basics.Address]sigTypeDelta, len(payset))
+func getSigTypeDeltas(payset []transactions.SignedTxnInBlock) (map[sdk.Address]sigTypeDelta, error) {
+	res := make(map[sdk.Address]sigTypeDelta, len(payset))
 
 	for i := range payset {
-		if payset[i].Txn.RekeyTo == (basics.Address{}) && payset[i].Txn.Type != protocol.StateProofTx {
+		if sdk.Address(payset[i].Txn.RekeyTo) == (sdk.Address{}) && payset[i].Txn.Type != protocol.StateProofTx {
 			sigtype, err := idb.SignatureType(&payset[i].SignedTxn)
 			if err != nil {
 				return nil, fmt.Errorf("getSigTypeDelta() err: %w", err)
 			}
-			res[payset[i].Txn.Sender] = sigTypeDelta{present: true, value: sigtype}
+			res[sdk.Address(payset[i].Txn.Sender)] = sigTypeDelta{present: true, value: sigtype}
 		} else {
-			res[payset[i].Txn.Sender] = sigTypeDelta{}
+			res[sdk.Address(payset[i].Txn.Sender)] = sigTypeDelta{}
 		}
 	}
 
@@ -189,7 +189,7 @@ type optionalSigTypeDelta struct {
 	value   sigTypeDelta
 }
 
-func writeAccount(round types.Round, address basics.Address, accountData ledgercore.AccountData, sigtypeDelta optionalSigTypeDelta, batch *pgx.Batch) {
+func writeAccount(round sdk.Round, address sdk.Address, accountData ledgercore.AccountData, sigtypeDelta optionalSigTypeDelta, batch *pgx.Batch) {
 	sigtypeFunc := func(delta sigTypeDelta) *idb.SigType {
 		if !delta.present {
 			return nil
@@ -230,7 +230,7 @@ func writeAccount(round types.Round, address basics.Address, accountData ledgerc
 	}
 }
 
-func writeAssetResource(round types.Round, resource *ledgercore.AssetResourceRecord, batch *pgx.Batch) {
+func writeAssetResource(round sdk.Round, resource *ledgercore.AssetResourceRecord, batch *pgx.Batch) {
 	if resource.Params.Deleted {
 		batch.Queue(deleteAssetStmtName, resource.Aidx, resource.Addr[:], round)
 	} else {
@@ -253,7 +253,7 @@ func writeAssetResource(round types.Round, resource *ledgercore.AssetResourceRec
 	}
 }
 
-func writeAppResource(round types.Round, resource *ledgercore.AppResourceRecord, batch *pgx.Batch) {
+func writeAppResource(round sdk.Round, resource *ledgercore.AppResourceRecord, batch *pgx.Batch) {
 	if resource.Params.Deleted {
 		batch.Queue(deleteAppStmtName, resource.Aidx, resource.Addr[:], round)
 	} else {
@@ -275,15 +275,15 @@ func writeAppResource(round types.Round, resource *ledgercore.AppResourceRecord,
 	}
 }
 
-func writeAccountDeltas(round types.Round, accountDeltas *ledgercore.AccountDeltas, sigtypeDeltas map[basics.Address]sigTypeDelta, batch *pgx.Batch) {
+func writeAccountDeltas(round sdk.Round, accountDeltas *ledgercore.AccountDeltas, sigtypeDeltas map[sdk.Address]sigTypeDelta, batch *pgx.Batch) {
 	// Update `account` table.
 	for i := 0; i < accountDeltas.Len(); i++ {
 		address, accountData := accountDeltas.GetByIdx(i)
 
 		var sigtypeDelta optionalSigTypeDelta
-		sigtypeDelta.value, sigtypeDelta.present = sigtypeDeltas[address]
+		sigtypeDelta.value, sigtypeDelta.present = sigtypeDeltas[sdk.Address(address)]
 
-		writeAccount(round, address, accountData, sigtypeDelta, batch)
+		writeAccount(round, sdk.Address(address), accountData, sigtypeDelta, batch)
 	}
 
 	// Update `asset` and `account_asset` tables.
@@ -330,9 +330,9 @@ func (w *Writer) AddBlock0(block *bookkeeping.Block) error {
 	var batch pgx.Batch
 
 	addBlockHeader(&block.BlockHeader, &batch)
-	specialAddresses := transactions.SpecialAddresses{
-		FeeSink:     block.FeeSink,
-		RewardsPool: block.RewardsPool,
+	specialAddresses := itypes.SpecialAddresses{
+		FeeSink:     sdk.Address(block.FeeSink),
+		RewardsPool: sdk.Address(block.RewardsPool),
 	}
 	setSpecialAccounts(specialAddresses, &batch)
 
@@ -360,9 +360,9 @@ func (w *Writer) AddBlock(block *bookkeeping.Block, modifiedTxns []transactions.
 	var batch pgx.Batch
 
 	addBlockHeader(&block.BlockHeader, &batch)
-	specialAddresses := transactions.SpecialAddresses{
-		FeeSink:     block.FeeSink,
-		RewardsPool: block.RewardsPool,
+	specialAddresses := itypes.SpecialAddresses{
+		FeeSink:     sdk.Address(block.FeeSink),
+		RewardsPool: sdk.Address(block.RewardsPool),
 	}
 	setSpecialAccounts(specialAddresses, &batch)
 	{
@@ -370,7 +370,7 @@ func (w *Writer) AddBlock(block *bookkeeping.Block, modifiedTxns []transactions.
 		if err != nil {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
-		writeAccountDeltas(types.Round(block.Round()), &delta.Accts, sigTypeDeltas, &batch)
+		writeAccountDeltas(sdk.Round(block.Round()), &delta.Accts, sigTypeDeltas, &batch)
 	}
 	{
 		err := writeBoxMods(delta.KvMods, &batch)

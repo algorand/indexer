@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/agreement"
 	cconfig "github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/crypto"
@@ -160,7 +161,7 @@ type Generator interface {
 	WriteBlock(output io.Writer, round uint64) error
 	WriteAccount(output io.Writer, accountString string) error
 	WriteStatus(output io.Writer) error
-	Accounts() <-chan basics.Address
+	Accounts() <-chan types.Address
 }
 
 type generator struct {
@@ -183,8 +184,8 @@ type generator struct {
 	genesisHash   crypto.Digest
 
 	// Rewards stuff
-	feeSink                   basics.Address
-	rewardsPool               basics.Address
+	feeSink                   types.Address
+	rewardsPool               types.Address
 	rewardsLevel              uint64
 	rewardsResidue            uint64
 	rewardsRate               uint64
@@ -351,8 +352,8 @@ func (g *generator) WriteBlock(output io.Writer, round uint64) error {
 		GenesisID:      g.genesisID,
 		GenesisHash:    g.genesisHash,
 		RewardsState: bookkeeping.RewardsState{
-			FeeSink:                   g.feeSink,
-			RewardsPool:               g.rewardsPool,
+			FeeSink:                   basics.Address(g.feeSink),
+			RewardsPool:               basics.Address(g.rewardsPool),
 			RewardsLevel:              0,
 			RewardsRate:               0,
 			RewardsResidue:            0,
@@ -402,13 +403,13 @@ func (g *generator) WriteBlock(output io.Writer, round uint64) error {
 	return nil
 }
 
-func indexToAccount(i uint64) (addr basics.Address) {
+func indexToAccount(i uint64) (addr types.Address) {
 	// Make sure we don't generate a zero address by adding 1 to i
 	binary.LittleEndian.PutUint64(addr[:], i+1)
 	return
 }
 
-func accountToIndex(a basics.Address) (addr uint64) {
+func accountToIndex(a types.Address) (addr uint64) {
 	// Make sure we don't generate a zero address by adding 1 to i
 	return binary.LittleEndian.Uint64(a[:]) - 1
 }
@@ -491,7 +492,7 @@ func (g *generator) generatePaymentTxnInternal(selection TxTypeID, round uint64,
 
 	g.numPayments++
 
-	txn := g.makePaymentTxn(g.makeTxnHeader(sender, round, intra), receiver, amount, basics.Address{})
+	txn := g.makePaymentTxn(g.makeTxnHeader(sender, round, intra), receiver, amount, types.Address{})
 	return signTxn(txn), transactions.ApplyData{}, nil
 }
 
@@ -600,7 +601,7 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, round uint64, 
 
 			amount := uint64(10)
 
-			txn = g.makeAssetTransferTxn(g.makeTxnHeader(sender, round, intra), receiver, amount, basics.Address{}, asset.assetID)
+			txn = g.makeAssetTransferTxn(g.makeTxnHeader(sender, round, intra), receiver, amount, types.Address{}, asset.assetID)
 
 			if asset.holdings[0].balance < amount {
 				fmt.Printf("\n\ncreator doesn't have enough funds for asset %d\n\n", asset.assetID)
@@ -642,7 +643,7 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, round uint64, 
 		}
 	}
 
-	if indexToAccount(senderIndex) != txn.Sender {
+	if indexToAccount(senderIndex) != types.Address(txn.Sender) {
 		fmt.Printf("failed to properly set sender index.")
 		os.Exit(1)
 	}
@@ -679,7 +680,7 @@ func (g *generator) WriteAccount(output io.Writer, accountString string) error {
 		return fmt.Errorf("failed to unmarshal address: %w", err)
 	}
 
-	idx := accountToIndex(addr)
+	idx := accountToIndex(types.Address(addr))
 
 	// Asset Holdings
 	assets := make([]generated.AssetHolding, 0)
@@ -740,8 +741,8 @@ func (g *generator) WriteAccount(output io.Writer, accountString string) error {
 }
 
 // Accounts is used in the runner to generate a list of addresses.
-func (g *generator) Accounts() <-chan basics.Address {
-	results := make(chan basics.Address, 10)
+func (g *generator) Accounts() <-chan types.Address {
+	results := make(chan types.Address, 10)
 	go func() {
 		defer close(results)
 		for i := uint64(0); i < g.numAccounts; i++ {

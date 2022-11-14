@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand-sdk/types"
-
 	"github.com/algorand/indexer/api"
 )
 

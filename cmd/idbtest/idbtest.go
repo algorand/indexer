@@ -10,7 +10,7 @@ import (
 	"time"
 
 	ajson "github.com/algorand/go-algorand-sdk/encoding/json"
-	sdk_types "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/accounting"
 	models "github.com/algorand/indexer/api/generated/v2"
@@ -43,7 +43,7 @@ func doAssetQueryTests(db idb.IndexerDb) {
 	printAssetQuery(db, idb.AssetsQuery{Unit: "USDt", Limit: 2})
 	printAssetQuery(db, idb.AssetsQuery{AssetID: 312769, Limit: 1})
 	printAssetQuery(db, idb.AssetsQuery{AssetIDGreaterThan: 312769, Query: "us", Limit: 2})
-	tcreator, err := sdk_types.DecodeAddress("XIU7HGGAJ3QOTATPDSIIHPFVKMICXKHMOR2FJKHTVLII4FAOA3CYZQDLG4")
+	tcreator, err := types.DecodeAddress("XIU7HGGAJ3QOTATPDSIIHPFVKMICXKHMOR2FJKHTVLII4FAOA3CYZQDLG4")
 	maybeFail(err, "addr decode, %v\n", err)
 	printAssetQuery(db, idb.AssetsQuery{Creator: tcreator[:], Limit: 1})
 }
@@ -149,7 +149,7 @@ func main() {
 
 	if false {
 		// account rewind debug
-		xa, _ := sdk_types.DecodeAddress("QRP4AJLQXHJ42VJ5PSGAH53IVVACYCI6ZDRJMF4JPRFY5VKSYKFWKKMFVU")
+		xa, _ := types.DecodeAddress("QRP4AJLQXHJ42VJ5PSGAH53IVVACYCI6ZDRJMF4JPRFY5VKSYKFWKKMFVU")
 		account, err := getAccount(db, xa[:])
 		fmt.Printf("account %s\n", string(ajson.Encode(account)))
 		maybeFail(err, "addr lookup, %v", err)
@@ -167,7 +167,7 @@ func main() {
 
 	if txntest {
 		// txn query tests
-		xa, _ := sdk_types.DecodeAddress("QRP4AJLQXHJ42VJ5PSGAH53IVVACYCI6ZDRJMF4JPRFY5VKSYKFWKKMFVU")
+		xa, _ := types.DecodeAddress("QRP4AJLQXHJ42VJ5PSGAH53IVVACYCI6ZDRJMF4JPRFY5VKSYKFWKKMFVU")
 		printTxnQuery(db, idb.TransactionFilter{Limit: 2})
 		printTxnQuery(db, idb.TransactionFilter{MinRound: 5000000, Limit: 2})
 		printTxnQuery(db, idb.TransactionFilter{MaxRound: 100000, Limit: 2})
@@ -192,7 +192,7 @@ func main() {
 	//printAssetBalanceQuery(db, 312769)
 
 	if pagingtest {
-		xa, _ := sdk_types.DecodeAddress("QRP4AJLQXHJ42VJ5PSGAH53IVVACYCI6ZDRJMF4JPRFY5VKSYKFWKKMFVU")
+		xa, _ := types.DecodeAddress("QRP4AJLQXHJ42VJ5PSGAH53IVVACYCI6ZDRJMF4JPRFY5VKSYKFWKKMFVU")
 		testTxnPaging(db, idb.TransactionFilter{Address: xa[:]})
 		testTxnPaging(db, idb.TransactionFilter{TypeEnum: 2})
 		testTxnPaging(db, idb.TransactionFilter{AlgosGT: uint64Ptr(1)})

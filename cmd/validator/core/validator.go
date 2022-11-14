@@ -11,8 +11,7 @@ import (
 	"sync"
 	"time"
 
-	sdk_types "github.com/algorand/go-algorand-sdk/types"
-
+	"github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/indexer/api"
 )
 
@@ -190,14 +189,14 @@ func CallProcessor(processor Processor, addrInput string, config Params, results
 
 // normalizeAddress accepts an algorand address or base64 encoded address and outputs the algorand address
 func normalizeAddress(addr string) (string, error) {
-	_, err := sdk_types.DecodeAddress(addr)
+	_, err := types.DecodeAddress(addr)
 	if err == nil {
 		return addr, nil
 	}
 
 	addrBytes, err := base64.StdEncoding.DecodeString(addr)
 	if err == nil {
-		var address sdk_types.Address
+		var address types.Address
 		copy(address[:], addrBytes)
 		return address.String(), nil
 	}

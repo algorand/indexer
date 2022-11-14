@@ -11,7 +11,6 @@ import (
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/util"
@@ -65,7 +64,7 @@ func PrintAssetQuery(db idb.IndexerDb, q idb.AssetsQuery) {
 		util.MaybeFail(ar.Error, "asset query %v\n", ar.Error)
 		pjs, err := json.Marshal(ar.Params)
 		util.MaybeFail(err, "json.Marshal params %v\n", err)
-		var creator basics.Address
+		var creator types.Address
 		copy(creator[:], ar.Creator)
 		info("%d %s %s\n", ar.AssetID, creator.String(), pjs)
 		count++

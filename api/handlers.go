@@ -16,6 +16,7 @@ import (
 	"github.com/labstack/echo/v4"
 	log "github.com/sirupsen/logrus"
 
+	"github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/protocol"
@@ -94,7 +95,7 @@ func validateTransactionFilter(filter *idb.TransactionFilter) error {
 	}
 
 	{
-		var address basics.Address
+		var address types.Address
 		copy(address[:], filter.Address)
 		if address.IsZero() {
 			if filter.AddressRole&idb.AddressRoleCloseRemainderTo != 0 {
@@ -1141,7 +1142,7 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 				return row.Error
 			}
 
-			creator := basics.Address{}
+			creator := types.Address{}
 			if len(row.Creator) != len(creator) {
 				return fmt.Errorf(errInvalidCreatorAddress)
 			}
@@ -1198,7 +1199,7 @@ func (si *ServerImplementation) fetchAssetBalances(ctx context.Context, options 
 				return row.Error
 			}
 
-			addr := basics.Address{}
+			addr := types.Address{}
 			if len(row.Address) != len(addr) {
 				return fmt.Errorf(errInvalidCreatorAddress)
 			}
@@ -1239,7 +1240,7 @@ func (si *ServerImplementation) fetchAssetHoldings(ctx context.Context, options 
 				return row.Error
 			}
 
-			addr := basics.Address{}
+			addr := types.Address{}
 			if len(row.Address) != len(addr) {
 				return fmt.Errorf(errInvalidCreatorAddress)
 			}

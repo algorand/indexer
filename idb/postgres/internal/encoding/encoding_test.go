@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"testing"
 
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/crypto/merklesignature"
 	"github.com/algorand/go-algorand/data/basics"
@@ -12,6 +13,7 @@ import (
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/protocol"
+	itypes "github.com/algorand/indexer/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -442,14 +444,14 @@ func TestAppParamsEncoding(t *testing.T) {
 // same object.
 func TestSpecialAddressesEncoding(t *testing.T) {
 	i := byte(0)
-	newaddr := func() basics.Address {
+	newaddr := func() sdk.Address {
 		i++
-		var address basics.Address
+		var address sdk.Address
 		address[0] = i
 		return address
 	}
 
-	special := transactions.SpecialAddresses{
+	special := itypes.SpecialAddresses{
 		FeeSink:     newaddr(),
 		RewardsPool: newaddr(),
 	}

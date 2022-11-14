@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
+	"github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/crypto/merklesignature"
 	"github.com/algorand/go-algorand/data/basics"
@@ -108,7 +109,7 @@ func TestApplicationHandlers(t *testing.T) {
 			Txn: transactions.Transaction{
 				Type: "appl",
 				Header: transactions.Header{
-					Sender:      test.AccountA,
+					Sender:      basics.Address(test.AccountA),
 					GenesisHash: test.GenesisHash,
 				},
 				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
@@ -281,13 +282,13 @@ func TestAccountExcludeParameters(t *testing.T) {
 	//////////
 
 	testCases := []struct {
-		address        basics.Address
+		address        types.Address
 		exclude        []string
 		check          func(*testing.T, generated.AccountResponse)
 		errStatus      int
 		includeDeleted bool
 	}{{
-		address: test.AccountA,
+		address: types.Address(test.AccountA),
 		exclude: []string{"all"},
 		check: func(t *testing.T, r generated.AccountResponse) {
 			require.Nil(t, r.Account.CreatedAssets)
@@ -295,7 +296,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 			require.Nil(t, r.Account.Assets)
 			require.Nil(t, r.Account.AppsLocalState)
 		}}, {
-		address: test.AccountA,
+		address: types.Address(test.AccountA),
 		exclude: []string{"none"},
 		check: func(t *testing.T, r generated.AccountResponse) {
 			require.NotNil(t, r.Account.CreatedAssets)
@@ -303,7 +304,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 			require.NotNil(t, r.Account.Assets)
 			require.NotNil(t, r.Account.AppsLocalState)
 		}}, {
-		address:        test.AccountA,
+		address:        types.Address(test.AccountA),
 		exclude:        []string{},
 		includeDeleted: true,
 		check: func(t *testing.T, r generated.AccountResponse) {
@@ -312,14 +313,14 @@ func TestAccountExcludeParameters(t *testing.T) {
 			require.NotNil(t, r.Account.Assets)
 			require.NotNil(t, r.Account.AppsLocalState)
 		}}, {
-		address: test.AccountA,
+		address: types.Address(test.AccountA),
 		check: func(t *testing.T, r generated.AccountResponse) {
 			require.NotNil(t, r.Account.CreatedAssets)
 			require.NotNil(t, r.Account.CreatedApps)
 			require.NotNil(t, r.Account.Assets)
 			require.NotNil(t, r.Account.AppsLocalState)
 		}}, {
-		address: test.AccountA,
+		address: types.Address(test.AccountA),
 		exclude: []string{"created-assets", "created-apps", "apps-local-state", "assets"},
 		check: func(t *testing.T, r generated.AccountResponse) {
 			require.Nil(t, r.Account.CreatedAssets)
@@ -327,7 +328,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 			require.Nil(t, r.Account.Assets)
 			require.Nil(t, r.Account.AppsLocalState)
 		}}, {
-		address: test.AccountA,
+		address: types.Address(test.AccountA),
 		exclude: []string{"created-assets"},
 		check: func(t *testing.T, r generated.AccountResponse) {
 			require.Nil(t, r.Account.CreatedAssets)
@@ -335,7 +336,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 			require.NotNil(t, r.Account.Assets)
 			require.NotNil(t, r.Account.AppsLocalState)
 		}}, {
-		address: test.AccountA,
+		address: types.Address(test.AccountA),
 		exclude: []string{"created-apps"},
 		check: func(t *testing.T, r generated.AccountResponse) {
 			require.NotNil(t, r.Account.CreatedAssets)
@@ -343,7 +344,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 			require.NotNil(t, r.Account.Assets)
 			require.NotNil(t, r.Account.AppsLocalState)
 		}}, {
-		address: test.AccountA,
+		address: types.Address(test.AccountA),
 		exclude: []string{"apps-local-state"},
 		check: func(t *testing.T, r generated.AccountResponse) {
 			require.NotNil(t, r.Account.CreatedAssets)
@@ -351,7 +352,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 			require.NotNil(t, r.Account.Assets)
 			require.Nil(t, r.Account.AppsLocalState)
 		}}, {
-		address: test.AccountA,
+		address: types.Address(test.AccountA),
 		exclude: []string{"assets"},
 		check: func(t *testing.T, r generated.AccountResponse) {
 			require.NotNil(t, r.Account.CreatedAssets)
@@ -359,7 +360,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 			require.Nil(t, r.Account.Assets)
 			require.NotNil(t, r.Account.AppsLocalState)
 		}}, {
-		address: test.AccountB,
+		address: types.Address(test.AccountB),
 		exclude: []string{"assets", "apps-local-state"},
 		check: func(t *testing.T, r generated.AccountResponse) {
 			require.Nil(t, r.Account.CreatedAssets)
@@ -368,7 +369,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 			require.Nil(t, r.Account.AppsLocalState)
 		}},
 		{
-			address:   test.AccountA,
+			address:   types.Address(test.AccountA),
 			exclude:   []string{"abc"},
 			errStatus: http.StatusBadRequest,
 		},
@@ -549,7 +550,7 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 	}
 
 	testCases := []struct {
-		address        basics.Address
+		address        types.Address
 		exclude        []string
 		includeDeleted bool
 		errStatus      int
@@ -607,7 +608,7 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 	for _, tc := range []struct {
 		exclude    []string
 		errStatus  int
-		errAddress basics.Address
+		errAddress types.Address
 	}{
 		{exclude: []string{"all"}},
 		{exclude: []string{"created-assets", "created-apps", "apps-local-state", "assets"}},
@@ -821,7 +822,7 @@ func TestBlockNotFound(t *testing.T) {
 // TestInnerTxn runs queries that return one or more root/inner transactions,
 // and verifies that only a single root transaction is returned.
 func TestInnerTxn(t *testing.T) {
-	var appAddr basics.Address
+	var appAddr types.Address
 	appAddr[1] = 99
 	appAddrStr := appAddr.String()
 
@@ -910,7 +911,7 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 	///////////
 	// Given // a DB with some inner txns in it.
 	///////////
-	var appAddr basics.Address
+	var appAddr types.Address
 	appAddr[1] = 99
 	appAddrStr := appAddr.String()
 
@@ -1048,7 +1049,7 @@ func TestKeyregTransactionWithStateProofKeys(t *testing.T) {
 			Txn: transactions.Transaction{
 				Type: "keyreg",
 				Header: transactions.Header{
-					Sender:      test.AccountA,
+					Sender:      basics.Address(test.AccountA),
 					GenesisHash: test.GenesisHash,
 				},
 				KeyregTxnFields: transactions.KeyregTxnFields{
@@ -1247,7 +1248,7 @@ func TestAccountClearsNonUTF8(t *testing.T) {
 // TestLookupInnerLogs runs queries for logs given application ids,
 // and checks that logs in inner transactions match properly.
 func TestLookupInnerLogs(t *testing.T) {
-	var appAddr basics.Address
+	var appAddr types.Address
 	appAddr[1] = 99
 
 	params := generated.LookupApplicationLogsByIDParams{}
@@ -1338,7 +1339,7 @@ func TestLookupInnerLogs(t *testing.T) {
 // TestLookupInnerLogs runs queries for logs given application ids,
 // and checks that logs in inner transactions match properly.
 func TestLookupMultiInnerLogs(t *testing.T) {
-	var appAddr basics.Address
+	var appAddr types.Address
 	appAddr[1] = 99
 
 	params := generated.LookupApplicationLogsByIDParams{}
@@ -1449,7 +1450,7 @@ func TestFetchBlockWithExpiredPartAccts(t *testing.T) {
 	///////////
 	appCreate := test.MakeCreateAppTxn(test.AccountA)
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCreate)
-	block.ExpiredParticipationAccounts = append(block.ExpiredParticipationAccounts, test.AccountB, test.AccountC)
+	block.ExpiredParticipationAccounts = append(block.ExpiredParticipationAccounts, basics.Address(test.AccountB), basics.Address(test.AccountC))
 	require.NoError(t, err)
 	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
@@ -1570,7 +1571,7 @@ func TestGetBlocksTransactionsLimit(t *testing.T) {
 	for i, n := range ntxns {
 		var txns []transactions.SignedTxnWithAD
 		for j := 0; j < n; j++ {
-			txns = append(txns, test.MakePaymentTxn(1, 100, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{}, basics.Address{}))
+			txns = append(txns, test.MakePaymentTxn(1, 100, 0, 0, 0, 0, test.AccountA, test.AccountB, types.Address{}, types.Address{}))
 		}
 		ptxns := make([]*transactions.SignedTxnWithAD, n)
 		for k := range txns {
@@ -1812,8 +1813,8 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	createTxn, err := test.MakeComplexCreateAppTxn(test.AccountA, test.BoxApprovalProgram, test.BoxClearProgram, 8)
 	require.NoError(t, err)
 
-	payNewAppTxn := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountA, appid.Address(), basics.Address{},
-		basics.Address{})
+	payNewAppTxn := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountA, types.Address(appid.Address()), types.Address{},
+		types.Address{})
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createTxn, &payNewAppTxn)
 	require.NoError(t, err)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/stretchr/testify/assert"
@@ -19,13 +20,13 @@ import (
 	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
 )
 
-func makeAddress(i int) basics.Address {
-	var address basics.Address
+func makeAddress(i int) types.Address {
+	var address types.Address
 	address[0] = byte(i)
 	return address
 }
 
-func insertAccount(t *testing.T, db *pgxpool.Pool, address basics.Address, trimmedAccountData *basics.AccountData) {
+func insertAccount(t *testing.T, db *pgxpool.Pool, address types.Address, trimmedAccountData *basics.AccountData) {
 	query := `INSERT INTO account (addr, microalgos, rewardsbase, rewards_total, deleted,
 		created_at, account_data) VALUES ($1, 0, 0, 0, false, 0, $2)`
 	_, err := db.Exec(
@@ -34,14 +35,14 @@ func insertAccount(t *testing.T, db *pgxpool.Pool, address basics.Address, trimm
 	require.NoError(t, err)
 }
 
-func insertDeletedAccount(t *testing.T, db *pgxpool.Pool, address basics.Address) {
+func insertDeletedAccount(t *testing.T, db *pgxpool.Pool, address types.Address) {
 	query := `INSERT INTO account (addr, microalgos, rewardsbase, rewards_total, deleted,
 		created_at, account_data) VALUES ($1, 0, 0, 0, true, 0, 'null'::jsonb)`
 	_, err := db.Exec(context.Background(), query, address[:])
 	require.NoError(t, err)
 }
 
-func checkAccount(t *testing.T, db *pgxpool.Pool, address basics.Address, accountData *ledgercore.AccountData) {
+func checkAccount(t *testing.T, db *pgxpool.Pool, address types.Address, accountData *ledgercore.AccountData) {
 	query := "SELECT account_data FROM account WHERE addr = $1"
 	row := db.QueryRow(context.Background(), query, address[:])
 
@@ -55,7 +56,7 @@ func checkAccount(t *testing.T, db *pgxpool.Pool, address basics.Address, accoun
 	assert.Equal(t, accountData, &ret)
 }
 
-func checkDeletedAccount(t *testing.T, db *pgxpool.Pool, address basics.Address) {
+func checkDeletedAccount(t *testing.T, db *pgxpool.Pool, address types.Address) {
 	query := "SELECT account_data FROM account WHERE addr = $1"
 	row := db.QueryRow(context.Background(), query, address[:])
 
@@ -66,28 +67,28 @@ func checkDeletedAccount(t *testing.T, db *pgxpool.Pool, address basics.Address)
 	assert.Equal(t, []byte("null"), buf)
 }
 
-func insertAccountAsset(t *testing.T, db *pgxpool.Pool, address basics.Address, assetid uint64, deleted bool) {
+func insertAccountAsset(t *testing.T, db *pgxpool.Pool, address types.Address, assetid uint64, deleted bool) {
 	query := `INSERT INTO account_asset (addr, assetid, amount, frozen, deleted,
 		created_at) VALUES ($1, $2, 0, false, $3, 0)`
 	_, err := db.Exec(context.Background(), query, address[:], assetid, deleted)
 	require.NoError(t, err)
 }
 
-func insertAsset(t *testing.T, db *pgxpool.Pool, assetid uint64, address basics.Address, deleted bool) {
+func insertAsset(t *testing.T, db *pgxpool.Pool, assetid uint64, address types.Address, deleted bool) {
 	query := `INSERT INTO asset (index, creator_addr, params, deleted, created_at)
 		VALUES ($1, $2, 'null'::jsonb, $3, 0)`
 	_, err := db.Exec(context.Background(), query, assetid, address[:], deleted)
 	require.NoError(t, err)
 }
 
-func insertApp(t *testing.T, db *pgxpool.Pool, appid uint64, address basics.Address, deleted bool) {
+func insertApp(t *testing.T, db *pgxpool.Pool, appid uint64, address types.Address, deleted bool) {
 	query := `INSERT INTO app (index, creator, params, deleted, created_at)
 		VALUES ($1, $2, 'null'::jsonb, $3, 0)`
 	_, err := db.Exec(context.Background(), query, appid, address[:], deleted)
 	require.NoError(t, err)
 }
 
-func insertAccountApp(t *testing.T, db *pgxpool.Pool, address basics.Address, appid uint64, deleted bool) {
+func insertAccountApp(t *testing.T, db *pgxpool.Pool, address types.Address, appid uint64, deleted bool) {
 	query := `INSERT INTO account_app (addr, app, localstate, deleted, created_at)
 		VALUES ($1, $2, 'null'::jsonb, $3, 0)`
 	_, err := db.Exec(context.Background(), query, address[:], appid, deleted)

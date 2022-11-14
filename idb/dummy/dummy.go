@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/algorand/go-algorand/crypto"
+	itypes "github.com/algorand/indexer/types"
 
 	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	log "github.com/sirupsen/logrus"
 
@@ -46,8 +46,8 @@ func (db *dummyIndexerDb) GetNextRoundToLoad() (uint64, error) {
 }
 
 // GetSpecialAccounts is part of idb.IndexerDb
-func (db *dummyIndexerDb) GetSpecialAccounts(ctx context.Context) (transactions.SpecialAddresses, error) {
-	return transactions.SpecialAddresses{}, nil
+func (db *dummyIndexerDb) GetSpecialAccounts(ctx context.Context) (itypes.SpecialAddresses, error) {
+	return itypes.SpecialAddresses{}, nil
 }
 
 // GetBlock is part of idb.IndexerDB

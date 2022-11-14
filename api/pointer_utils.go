@@ -3,7 +3,7 @@ package api
 import (
 	"time"
 
-	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand-sdk/types"
 )
 
 ////////////////////////////////
@@ -81,7 +81,7 @@ func timePtr(x time.Time) *time.Time {
 	return &x
 }
 
-func addrPtr(x basics.Address) *string {
+func addrPtr(x types.Address) *string {
 	if x.IsZero() {
 		return nil
 	}
@@ -108,8 +108,8 @@ func strArrayPtr(x []string) *[]string {
 	return &x
 }
 
-func addrSlice(x basics.Address) []byte {
-	xx := new(basics.Address)
+func addrSlice(x types.Address) []byte {
+	xx := new(types.Address)
 	*xx = x
 	return xx[:]
 }
