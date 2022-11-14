@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/algorand/indexer/util"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -756,7 +757,7 @@ func TestFetchAccountsRewindRoundTooLarge(t *testing.T) {
 // createTxn allows saving msgp-encoded canonical object to a file in order to add more test data
 func createTxn(t *testing.T, target string) []byte {
 	defer assert.Fail(t, "this method should only be used for generating test inputs.")
-	addr1, err := basics.UnmarshalChecksumAddress("PT4K5LK4KYIQYYRAYPAZIEF47NVEQRDX3CPYWJVH25LKO2METIRBKRHRAE")
+	addr1, err := util.UnmarshalChecksumAddress("PT4K5LK4KYIQYYRAYPAZIEF47NVEQRDX3CPYWJVH25LKO2METIRBKRHRAE")
 	assert.Error(t, err)
 	var votePK crypto.OneTimeSignatureVerifier
 	votePK[0] = 1
@@ -772,7 +773,7 @@ func createTxn(t *testing.T, target string) []byte {
 			Txn: transactions.Transaction{
 				Type: protocol.KeyRegistrationTx,
 				Header: transactions.Header{
-					Sender: addr1,
+					Sender: basics.Address(addr1),
 				},
 				KeyregTxnFields: transactions.KeyregTxnFields{
 					VotePK:           votePK,

@@ -16,8 +16,7 @@ import (
 	"github.com/labstack/echo/v4"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/algorand/go-algorand-sdk/types"
-	"github.com/algorand/go-algorand/data/basics"
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/protocol"
 
@@ -95,7 +94,7 @@ func validateTransactionFilter(filter *idb.TransactionFilter) error {
 	}
 
 	{
-		var address types.Address
+		var address sdk.Address
 		copy(address[:], filter.Address)
 		if address.IsZero() {
 			if filter.AddressRole&idb.AddressRoleCloseRemainderTo != 0 {
@@ -426,7 +425,7 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 	}
 
 	if params.Next != nil {
-		addr, err := basics.UnmarshalChecksumAddress(*params.Next)
+		addr, err := util.UnmarshalChecksumAddress(*params.Next)
 		if err != nil {
 			return badRequest(ctx, errUnableToParseNext)
 		}
@@ -821,7 +820,7 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID ui
 	}
 
 	if params.Next != nil {
-		addr, err := basics.UnmarshalChecksumAddress(*params.Next)
+		addr, err := util.UnmarshalChecksumAddress(*params.Next)
 		if err != nil {
 			return badRequest(ctx, errUnableToParseNext)
 		}
@@ -1142,7 +1141,7 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 				return row.Error
 			}
 
-			creator := types.Address{}
+			creator := sdk.Address{}
 			if len(row.Creator) != len(creator) {
 				return fmt.Errorf(errInvalidCreatorAddress)
 			}
@@ -1199,7 +1198,7 @@ func (si *ServerImplementation) fetchAssetBalances(ctx context.Context, options 
 				return row.Error
 			}
 
-			addr := types.Address{}
+			addr := sdk.Address{}
 			if len(row.Address) != len(addr) {
 				return fmt.Errorf(errInvalidCreatorAddress)
 			}
@@ -1240,7 +1239,7 @@ func (si *ServerImplementation) fetchAssetHoldings(ctx context.Context, options 
 				return row.Error
 			}
 
-			addr := types.Address{}
+			addr := sdk.Address{}
 			if len(row.Address) != len(addr) {
 				return fmt.Errorf(errInvalidCreatorAddress)
 			}

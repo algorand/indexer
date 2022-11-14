@@ -20,6 +20,7 @@ import (
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
+	"github.com/algorand/indexer/util"
 )
 
 // TxTypeID is the transaction type.
@@ -675,7 +676,7 @@ func (g *generator) generateAssetTxn(round uint64, intra uint64) (transactions.S
 }
 
 func (g *generator) WriteAccount(output io.Writer, accountString string) error {
-	addr, err := basics.UnmarshalChecksumAddress(accountString)
+	addr, err := util.UnmarshalChecksumAddress(accountString)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal address: %w", err)
 	}

@@ -48,11 +48,11 @@ func createInitState(genesis *bookkeeping.Genesis) (ledgercore.InitState, error)
 
 	accounts := make(map[basics.Address]basics.AccountData)
 	for _, alloc := range genesis.Allocation {
-		address, err := basics.UnmarshalChecksumAddress(alloc.Address)
+		address, err := UnmarshalChecksumAddress(alloc.Address)
 		if err != nil {
 			return ledgercore.InitState{}, fmt.Errorf("openLedger() decode address err: %w", err)
 		}
-		accounts[address] = alloc.State
+		accounts[basics.Address(address)] = alloc.State
 	}
 	initState := ledgercore.InitState{
 		Block:       genesisBlock,

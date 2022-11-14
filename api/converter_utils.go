@@ -9,12 +9,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/algorand/go-algorand-sdk/types"
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/protocol"
-
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/util"
@@ -40,7 +39,7 @@ func decodeDigest(str *string, field string, errorArr []string) (string, []strin
 // decodeAddress returns the byte representation of the input string, or appends an error to errorArr
 func decodeAddress(str *string, field string, errorArr []string) ([]byte, []string) {
 	if str != nil {
-		addr, err := basics.UnmarshalChecksumAddress(*str)
+		addr, err := util.UnmarshalChecksumAddress(*str)
 		if err != nil {
 			return nil, append(errorArr, fmt.Sprintf("%s '%s': %v", errUnableToParseAddress, field, err))
 		}
@@ -311,7 +310,7 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 	case protocol.PaymentTx:
 		p := generated.TransactionPayment{
 			CloseAmount:      uint64Ptr(stxn.ApplyData.ClosingAmount.Raw),
-			CloseRemainderTo: addrPtr(types.Address(stxn.Txn.CloseRemainderTo)),
+			CloseRemainderTo: addrPtr(sdk.Address(stxn.Txn.CloseRemainderTo)),
 			Receiver:         stxn.Txn.Receiver.String(),
 			Amount:           stxn.Txn.Amount.Raw,
 		}
@@ -329,16 +328,16 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 		keyreg = &k
 	case protocol.AssetConfigTx:
 		assetParams := generated.AssetParams{
-			Clawback:      addrPtr(types.Address(stxn.Txn.AssetParams.Clawback)),
+			Clawback:      addrPtr(sdk.Address(stxn.Txn.AssetParams.Clawback)),
 			Creator:       stxn.Txn.Sender.String(),
 			Decimals:      uint64(stxn.Txn.AssetParams.Decimals),
 			DefaultFrozen: boolPtr(stxn.Txn.AssetParams.DefaultFrozen),
-			Freeze:        addrPtr(types.Address(stxn.Txn.AssetParams.Freeze)),
-			Manager:       addrPtr(types.Address(stxn.Txn.AssetParams.Manager)),
+			Freeze:        addrPtr(sdk.Address(stxn.Txn.AssetParams.Freeze)),
+			Manager:       addrPtr(sdk.Address(stxn.Txn.AssetParams.Manager)),
 			MetadataHash:  byteSliceOmitZeroPtr(stxn.Txn.AssetParams.MetadataHash[:]),
 			Name:          strPtr(util.PrintableUTF8OrEmpty(stxn.Txn.AssetParams.AssetName)),
 			NameB64:       byteSlicePtr([]byte(stxn.Txn.AssetParams.AssetName)),
-			Reserve:       addrPtr(types.Address(stxn.Txn.AssetParams.Reserve)),
+			Reserve:       addrPtr(sdk.Address(stxn.Txn.AssetParams.Reserve)),
 			Total:         stxn.Txn.AssetParams.Total,
 			UnitName:      strPtr(util.PrintableUTF8OrEmpty(stxn.Txn.AssetParams.UnitName)),
 			UnitNameB64:   byteSlicePtr([]byte(stxn.Txn.AssetParams.UnitName)),
@@ -354,9 +353,9 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 		t := generated.TransactionAssetTransfer{
 			Amount:      stxn.Txn.AssetAmount,
 			AssetId:     uint64(stxn.Txn.XferAsset),
-			CloseTo:     addrPtr(types.Address(stxn.Txn.AssetCloseTo)),
+			CloseTo:     addrPtr(sdk.Address(stxn.Txn.AssetCloseTo)),
 			Receiver:    stxn.Txn.AssetReceiver.String(),
-			Sender:      addrPtr(types.Address(stxn.Txn.AssetSender)),
+			Sender:      addrPtr(sdk.Address(stxn.Txn.AssetSender)),
 			CloseAmount: uint64Ptr(extra.AssetCloseAmount),
 		}
 		assetTransfer = &t
@@ -510,7 +509,7 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 	var localStateDelta *[]generated.AccountStateDelta
 	type tuple struct {
 		key     uint64
-		address types.Address
+		address sdk.Address
 	}
 	if len(stxn.ApplyData.EvalDelta.LocalDeltas) > 0 {
 		keys := make([]tuple, 0)
@@ -518,10 +517,10 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 			if k == 0 {
 				keys = append(keys, tuple{
 					key:     0,
-					address: types.Address(stxn.Txn.Sender),
+					address: sdk.Address(stxn.Txn.Sender),
 				})
 			} else {
-				addr := types.Address{}
+				addr := sdk.Address{}
 				copy(addr[:], stxn.Txn.Accounts[k-1][:])
 				keys = append(keys, tuple{
 					key:     k,
@@ -602,7 +601,7 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 		CloseRewards:             uint64Ptr(stxn.CloseRewards.Raw),
 		SenderRewards:            uint64Ptr(stxn.SenderRewards.Raw),
 		TxType:                   string(stxn.Txn.Type),
-		RekeyTo:                  addrPtr(types.Address(stxn.Txn.RekeyTo)),
+		RekeyTo:                  addrPtr(sdk.Address(stxn.Txn.RekeyTo)),
 		GlobalStateDelta:         stateDeltaToStateDelta(stxn.EvalDelta.GlobalDelta),
 		LocalStateDelta:          localStateDelta,
 		Logs:                     logs,

@@ -12,6 +12,7 @@ import (
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/indexer/util"
 )
 
 var (
@@ -45,11 +46,11 @@ func DecodeAddressOrPanic(addr string) types.Address {
 		return types.Address{}
 	}
 
-	result, err := basics.UnmarshalChecksumAddress(addr)
+	result, err := util.UnmarshalChecksumAddress(addr)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to decode address: '%s'", addr))
 	}
-	return types.Address(result)
+	return result
 }
 
 // MakeAssetConfigTxn is a helper to ensure test asset config are initialized.

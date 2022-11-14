@@ -5,10 +5,10 @@ import (
 	"fmt"
 
 	sdk "github.com/algorand/go-algorand-sdk/types"
-	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/protocol"
 	models "github.com/algorand/indexer/api/generated/v2"
 	itypes "github.com/algorand/indexer/types"
+	"github.com/algorand/indexer/util"
 
 	"github.com/algorand/indexer/idb"
 )
@@ -78,8 +78,8 @@ func AccountAtRound(ctx context.Context, account models.Account, round uint64, d
 	}
 
 	acct = account
-	var addr basics.Address
-	addr, err = basics.UnmarshalChecksumAddress(account.Address)
+	var addr sdk.Address
+	addr, err = util.UnmarshalChecksumAddress(account.Address)
 	if err != nil {
 		return
 	}
@@ -126,20 +126,20 @@ func AccountAtRound(ctx context.Context, account models.Account, round uint64, d
 			return models.Account{},
 				fmt.Errorf("rewinding past inner transactions is not supported")
 		}
-		if addr == stxn.Txn.Sender {
+		if addr == sdk.Address(stxn.Txn.Sender) {
 			acct.AmountWithoutPendingRewards += stxn.Txn.Fee.ToUint64()
 			acct.AmountWithoutPendingRewards -= stxn.SenderRewards.ToUint64()
 		}
 		switch stxn.Txn.Type {
 		case protocol.PaymentTx:
-			if addr == stxn.Txn.Sender {
+			if addr == sdk.Address(stxn.Txn.Sender) {
 				acct.AmountWithoutPendingRewards += stxn.Txn.Amount.ToUint64()
 			}
-			if addr == stxn.Txn.Receiver {
+			if addr == sdk.Address(stxn.Txn.Receiver) {
 				acct.AmountWithoutPendingRewards -= stxn.Txn.Amount.ToUint64()
 				acct.AmountWithoutPendingRewards -= stxn.ReceiverRewards.ToUint64()
 			}
-			if addr == stxn.Txn.CloseRemainderTo {
+			if addr == sdk.Address(stxn.Txn.CloseRemainderTo) {
 				// unwind receiving a close-to
 				acct.AmountWithoutPendingRewards -= stxn.ClosingAmount.ToUint64()
 				acct.AmountWithoutPendingRewards -= stxn.CloseRewards.ToUint64()
@@ -155,13 +155,13 @@ func AccountAtRound(ctx context.Context, account models.Account, round uint64, d
 				assetUpdate(&acct, txnrow.AssetID, 0, stxn.Txn.AssetParams.Total)
 			}
 		case protocol.AssetTransferTx:
-			if addr == stxn.Txn.AssetSender || addr == stxn.Txn.Sender {
+			if addr == sdk.Address(stxn.Txn.AssetSender) || addr == sdk.Address(stxn.Txn.Sender) {
 				assetUpdate(&acct, uint64(stxn.Txn.XferAsset), stxn.Txn.AssetAmount+txnrow.Extra.AssetCloseAmount, 0)
 			}
-			if addr == stxn.Txn.AssetReceiver {
+			if addr == sdk.Address(stxn.Txn.AssetReceiver) {
 				assetUpdate(&acct, uint64(stxn.Txn.XferAsset), 0, stxn.Txn.AssetAmount)
 			}
-			if addr == stxn.Txn.AssetCloseTo {
+			if addr == sdk.Address(stxn.Txn.AssetCloseTo) {
 				assetUpdate(&acct, uint64(stxn.Txn.XferAsset), 0, txnrow.Extra.AssetCloseAmount)
 			}
 		case protocol.AssetFreezeTx:
