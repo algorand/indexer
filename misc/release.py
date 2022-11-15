@@ -188,7 +188,7 @@ def compile(path="cmd/algorand-indexer", goos=None, goarch=None, ldflags=None):
     subprocess.run(cmd, cwd=path, env=env).check_returncode()
 
 
-def build_deb(debarch, version, outdir):
+def build_deb(debarch, version, filespec, outdir):
     os.makedirs(".deb_tmp/DEBIAN", exist_ok=True)
     debian_copyright(".deb_tmp/DEBIAN/copyright")
     arch_ver(".deb_tmp/DEBIAN/control", "misc/debian/control", debarch, version)
@@ -344,7 +344,7 @@ def main():
         conduit_tarname = build_tar("conduit", goos, goarch, version, conduit_filespec, outdir)
         logger.info("\t%s", conduit_tarname)
         if (not args.no_deb) and (debarch is not None):
-            debname = build_deb(debarch, version, outdir)
+            debname = build_deb(debarch, version, indexer_filespec, outdir)
             logger.info("\t%s", debname)
     dt = time.time() - start
     logger.info("done %0.1fs", dt)
