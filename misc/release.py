@@ -185,6 +185,7 @@ def compile(path="cmd/algorand-indexer", goos=None, goarch=None, ldflags=None):
     cmd = ["go", "build"]
     if ldflags is not None:
         cmd.append(ldflags)
+    subprocess.run(["go", "generate", "./..."], env=env).check_returncode()
     subprocess.run(cmd, cwd=path, env=env).check_returncode()
 
 
