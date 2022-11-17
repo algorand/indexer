@@ -8,8 +8,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
-	"github.com/algorand/go-algorand/data/bookkeeping"
-
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/exporters"
@@ -60,10 +58,6 @@ func (exp *noopExporter) Close() error {
 
 func (exp *noopExporter) Receive(exportData data.BlockData) error {
 	exp.round = exportData.Round() + 1
-	return nil
-}
-
-func (exp *noopExporter) HandleGenesis(_ bookkeeping.Genesis) error {
 	return nil
 }
 

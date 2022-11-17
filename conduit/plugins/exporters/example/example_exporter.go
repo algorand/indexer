@@ -6,8 +6,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/algorand/go-algorand/data/bookkeeping"
-
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/exporters"
@@ -51,11 +49,6 @@ func (exp *exampleExporter) Close() error {
 
 // Receive is the main handler function for blocks
 func (exp *exampleExporter) Receive(exportData data.BlockData) error {
-	panic("not implemented")
-}
-
-// HandleGenesis provides the opportunity to store initial chain state
-func (exp *exampleExporter) HandleGenesis(_ bookkeeping.Genesis) error {
 	panic("not implemented")
 }
 
