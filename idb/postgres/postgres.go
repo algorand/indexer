@@ -20,6 +20,7 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
+	"github.com/algorand/go-algorand/protocol"
 	itypes "github.com/algorand/indexer/types"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
@@ -1097,7 +1098,9 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			account.PendingRewards = 0
 		} else {
 			// TODO: pending rewards calculation doesn't belong in database layer (this is just the most covenient place which has all the data)
-			proto, ok := config.Consensus[req.blockheader.CurrentProtocol]
+			// todo: replace config.Consensus. config.Consensus map[protocol.ConsensusVersion]ConsensusParams
+			// temporarily cast req.blockheader.CurrentProtocol(string) to protocol.ConsensusVersion
+			proto, ok := config.Consensus[protocol.ConsensusVersion(req.blockheader.CurrentProtocol)]
 			if !ok {
 				err = fmt.Errorf("get protocol err (%s)", req.blockheader.CurrentProtocol)
 				req.out <- idb.AccountRow{Error: err}
