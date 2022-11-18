@@ -7,7 +7,7 @@ import (
 
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/plugins"
-	"github.com/algorand/indexer/data"
+	data "github.com/algorand/indexer/data/v2"
 )
 
 // Exporter defines the interface for plugins

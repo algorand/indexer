@@ -13,7 +13,7 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
+	"github.com/algorand/indexer/types"
 
 	models "github.com/algorand/indexer/api/generated/v2"
 )
@@ -162,7 +162,7 @@ type IndexerDb interface {
 	Close()
 
 	// Import a block and do the accounting.
-	AddBlock(block *ledgercore.ValidatedBlock) error
+	AddBlock(block *types.ValidatedBlock) error
 
 	LoadGenesis(genesis bookkeeping.Genesis) (err error)
 

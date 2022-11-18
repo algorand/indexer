@@ -6,7 +6,7 @@ replace github.com/algorand/go-algorand => ./third_party/go-algorand
 
 require (
 	github.com/algorand/go-algorand v0.0.0-20220211161928-53b157beb10f
-	github.com/algorand/go-algorand-sdk v1.9.1
+	github.com/algorand/go-algorand-sdk v1.23.0
 	github.com/algorand/go-codec/codec v1.1.8
 	github.com/algorand/go-deadlock v0.2.2
 	github.com/algorand/oapi-codegen v1.3.7

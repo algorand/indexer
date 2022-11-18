@@ -7,17 +7,16 @@ import (
 	"sync"
 	"sync/atomic"
 
+	sdk "github.com/algorand/go-algorand-sdk/types"
+	data "github.com/algorand/indexer/data/v2"
+	iutil "github.com/algorand/indexer/util"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
-
-	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/exporters"
 	"github.com/algorand/indexer/conduit/plugins/exporters/postgresql/util"
-	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
 	// Necessary to ensure the postgres implementation has been registered in the idb factory
@@ -118,7 +117,7 @@ func (exp *postgresqlExporter) Close() error {
 func (exp *postgresqlExporter) Receive(exportData data.BlockData) error {
 	if exportData.Delta == nil {
 		if exportData.Round() == 0 {
-			exportData.Delta = &ledgercore.StateDelta{}
+			exportData.Delta = &sdk.StateDelta{}
 		} else {
 			return fmt.Errorf("receive got an invalid block: %#v", exportData)
 		}
@@ -130,12 +129,12 @@ func (exp *postgresqlExporter) Receive(exportData data.BlockData) error {
 				return fmt.Errorf("protocol %s not found", block.CurrentProtocol)
 		}
 	*/
-	var delta ledgercore.StateDelta
+	var delta sdk.StateDelta
 	if exportData.Delta != nil {
 		delta = *exportData.Delta
 	}
-	vb := ledgercore.MakeValidatedBlock(
-		bookkeeping.Block{
+	vb := iutil.MakeValidatedBlock(
+		sdk.Block{
 			BlockHeader: exportData.BlockHeader,
 			Payset:      exportData.Payset,
 		},

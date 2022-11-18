@@ -14,12 +14,14 @@ import (
 	"sync"
 	"time"
 
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
+	itypes "github.com/algorand/indexer/types"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v4"
@@ -174,9 +176,10 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 }
 
 // AddBlock is part of idb.IndexerDb.
-func (db *IndexerDb) AddBlock(vb *ledgercore.ValidatedBlock) error {
-	block := vb.Block()
-	db.log.Printf("adding block %d", block.Round())
+func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
+	block := vb.Block
+	round := block.BlockHeader.Round
+	db.log.Printf("adding block %d", round)
 
 	db.accountingLock.Lock()
 	defer db.accountingLock.Unlock()
@@ -187,10 +190,10 @@ func (db *IndexerDb) AddBlock(vb *ledgercore.ValidatedBlock) error {
 		if err != nil {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
-		if block.Round() != basics.Round(importstate.NextRoundToAccount) {
+		if round != sdk.Round(importstate.NextRoundToAccount) {
 			return fmt.Errorf(
 				"AddBlock() adding block round %d but next round to account is %d",
-				block.Round(), importstate.NextRoundToAccount)
+				round, importstate.NextRoundToAccount)
 		}
 		importstate.NextRoundToAccount++
 		err = db.setImportState(tx, &importstate)
@@ -204,7 +207,7 @@ func (db *IndexerDb) AddBlock(vb *ledgercore.ValidatedBlock) error {
 		}
 		defer w.Close()
 
-		if block.Round() == basics.Round(0) {
+		if round == sdk.Round(0) {
 			err = w.AddBlock0(&block)
 			if err != nil {
 				return fmt.Errorf("AddBlock() err: %w", err)

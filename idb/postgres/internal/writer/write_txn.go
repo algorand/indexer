@@ -4,9 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/go-algorand-sdk/crypto"
+	"github.com/algorand/go-algorand-sdk/types"
 	"github.com/jackc/pgx/v4"
 
 	"github.com/algorand/indexer/idb"
@@ -20,39 +19,38 @@ import (
 //       other things too, so it is not clear we should use it. The only
 //       real benefit is that it would slightly simplify this function by
 //       allowing us to leave out the intra / block parameters.
-func transactionAssetID(stxnad *transactions.SignedTxnWithAD, intra uint, block *bookkeeping.Block) (uint64, error) {
+func transactionAssetID(stxnad *types.SignedTxnWithAD, intra uint, block *types.Block) (uint64, error) {
 	assetid := uint64(0)
-
 	switch stxnad.Txn.Type {
-	case protocol.ApplicationCallTx:
+	case types.ApplicationCallTx:
 		assetid = uint64(stxnad.Txn.ApplicationID)
 		if assetid == 0 {
 			assetid = uint64(stxnad.ApplyData.ApplicationID)
 		}
 		if assetid == 0 {
 			if block == nil {
-				return 0, fmt.Errorf("transactionAssetID(): Missing ApplicationID for transaction: %s", stxnad.ID())
+				return 0, fmt.Errorf("transactionAssetID(): Missing ApplicationID for transaction: %s", crypto.TransactionID(stxnad.Txn))
 			}
 			// pre v30 transactions do not have ApplyData.ConfigAsset or InnerTxns
 			// so txn counter + payset pos calculation is OK
 			assetid = block.TxnCounter - uint64(len(block.Payset)) + uint64(intra) + 1
 		}
-	case protocol.AssetConfigTx:
+	case types.AssetConfigTx:
 		assetid = uint64(stxnad.Txn.ConfigAsset)
 		if assetid == 0 {
 			assetid = uint64(stxnad.ApplyData.ConfigAsset)
 		}
 		if assetid == 0 {
 			if block == nil {
-				return 0, fmt.Errorf("transactionAssetID(): Missing ConfigAsset for transaction: %s", stxnad.ID())
+				return 0, fmt.Errorf("transactionAssetID(): Missing ConfigAsset for transaction: %s", crypto.TransactionID(stxnad.Txn))
 			}
 			// pre v30 transactions do not have ApplyData.ApplicationID or InnerTxns
 			// so txn counter + payset pos calculation is OK
 			assetid = block.TxnCounter - uint64(len(block.Payset)) + uint64(intra) + 1
 		}
-	case protocol.AssetTransferTx:
+	case types.AssetTransferTx:
 		assetid = uint64(stxnad.Txn.XferAsset)
-	case protocol.AssetFreezeTx:
+	case types.AssetFreezeTx:
 		assetid = uint64(stxnad.Txn.FreezeAsset)
 	}
 
@@ -62,7 +60,7 @@ func transactionAssetID(stxnad *transactions.SignedTxnWithAD, intra uint, block 
 // Traverses the inner transaction tree and writes database rows
 // to `outCh`. It performs a preorder traversal to correctly compute
 // the intra round offset, the offset for the next transaction is returned.
-func yieldInnerTransactions(ctx context.Context, stxnad *transactions.SignedTxnWithAD, block *bookkeeping.Block, intra, rootIntra uint, rootTxid string, outCh chan []interface{}) (uint, error) {
+func yieldInnerTransactions(ctx context.Context, stxnad *types.SignedTxnWithAD, block *types.Block, intra, rootIntra uint, rootTxid string, outCh chan []interface{}) (uint, error) {
 	for _, itxn := range stxnad.ApplyData.EvalDelta.InnerTxns {
 		txn := &itxn.Txn
 		typeenum, ok := idb.GetTypeEnum(txn.Type)
@@ -85,7 +83,7 @@ func yieldInnerTransactions(ctx context.Context, stxnad *transactions.SignedTxnW
 		txnNoInner := itxn
 		txnNoInner.EvalDelta.InnerTxns = nil
 		row := []interface{}{
-			uint64(block.Round()), intra, int(typeenum), assetid,
+			uint64(block.Round), intra, int(typeenum), assetid,
 			nil, // inner transactions do not have a txid.
 			encoding.EncodeSignedTxnWithAD(txnNoInner),
 			encoding.EncodeTxnExtra(&extra)}
@@ -107,10 +105,10 @@ func yieldInnerTransactions(ctx context.Context, stxnad *transactions.SignedTxnW
 }
 
 // Writes database rows for transactions (including inner transactions) to `outCh`.
-func yieldTransactions(ctx context.Context, block *bookkeeping.Block, modifiedTxns []transactions.SignedTxnInBlock, outCh chan []interface{}) error {
+func yieldTransactions(ctx context.Context, block *types.Block, modifiedTxns []types.SignedTxnInBlock, outCh chan []interface{}) error {
 	intra := uint(0)
 	for idx, stib := range block.Payset {
-		var stxnad transactions.SignedTxnWithAD
+		var stxnad types.SignedTxnWithAD
 		var err error
 		// This function makes sure to set correct genesis information so we can get the
 		// correct transaction hash.
@@ -120,7 +118,7 @@ func yieldTransactions(ctx context.Context, block *bookkeeping.Block, modifiedTx
 		}
 
 		txn := &stxnad.Txn
-		typeenum, ok := idb.GetTypeEnum(txn.Type)
+		typeenum, ok := idb.GetTypeEnum(types.TxType(txn.Type))
 		if !ok {
 			return fmt.Errorf("yieldTransactions() get type enum")
 		}
@@ -128,13 +126,13 @@ func yieldTransactions(ctx context.Context, block *bookkeeping.Block, modifiedTx
 		if err != nil {
 			return err
 		}
-		id := txn.ID().String()
+		id := string(crypto.TransactionID(*txn))
 
 		extra := idb.TxnExtra{
 			AssetCloseAmount: modifiedTxns[idx].ApplyData.AssetClosingAmount,
 		}
 		row := []interface{}{
-			uint64(block.Round()), intra, int(typeenum), assetid, id,
+			uint64(block.Round), intra, int(typeenum), assetid, id,
 			encoding.EncodeSignedTxnWithAD(stxnad),
 			encoding.EncodeTxnExtra(&extra)}
 		select {
@@ -155,7 +153,7 @@ func yieldTransactions(ctx context.Context, block *bookkeeping.Block, modifiedTx
 
 // AddTransactions adds transactions from `block` to the database.
 // `modifiedTxns` contains enhanced apply data generated by evaluator.
-func AddTransactions(block *bookkeeping.Block, modifiedTxns []transactions.SignedTxnInBlock, tx pgx.Tx) error {
+func AddTransactions(block *types.Block, modifiedTxns []types.SignedTxnInBlock, tx pgx.Tx) error {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 

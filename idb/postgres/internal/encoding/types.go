@@ -1,22 +1,22 @@
 package encoding
 
 import (
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/crypto/merklesignature"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/data/transactions"
+	itypes "github.com/algorand/indexer/types"
 )
 
 type blockHeader struct {
-	bookkeeping.BlockHeader
+	sdk.BlockHeader
 	BranchOverride      crypto.Digest `codec:"prev"`
 	FeeSinkOverride     crypto.Digest `codec:"fees"`
 	RewardsPoolOverride crypto.Digest `codec:"rwd"`
 }
 
 type assetParams struct {
-	basics.AssetParams
+	sdk.AssetParams
 	UnitNameBytes    []byte        `codec:"un64"`
 	AssetNameBytes   []byte        `codec:"an64"`
 	URLBytes         []byte        `codec:"au64"`
@@ -27,7 +27,7 @@ type assetParams struct {
 }
 
 type transaction struct {
-	transactions.Transaction
+	sdk.Transaction
 	SenderOverride           crypto.Digest   `codec:"snd"`
 	RekeyToOverride          crypto.Digest   `codec:"rekey"`
 	ReceiverOverride         crypto.Digest   `codec:"rcv"`
@@ -41,7 +41,7 @@ type transaction struct {
 }
 
 type valueDelta struct {
-	basics.ValueDelta
+	sdk.ValueDelta
 	BytesOverride []byte `codec:"bs"`
 }
 
@@ -66,7 +66,7 @@ func (ba *byteArray) UnmarshalText(text []byte) error {
 type stateDelta map[byteArray]valueDelta
 
 type evalDelta struct {
-	transactions.EvalDelta
+	sdk.EvalDelta
 	GlobalDeltaOverride stateDelta            `codec:"gd"`
 	LocalDeltasOverride map[uint64]stateDelta `codec:"ld"`
 	LogsOverride        [][]byte              `codec:"lg"`
@@ -74,7 +74,7 @@ type evalDelta struct {
 }
 
 type signedTxnWithAD struct {
-	transactions.SignedTxnWithAD
+	sdk.SignedTxnWithAD
 	TxnOverride       transaction   `codec:"txn"`
 	AuthAddrOverride  crypto.Digest `codec:"sgnr"`
 	EvalDeltaOverride evalDelta     `codec:"dt"`
@@ -103,7 +103,7 @@ type appParams struct {
 }
 
 type specialAddresses struct {
-	transactions.SpecialAddresses
+	itypes.SpecialAddresses
 	FeeSinkOverride     crypto.Digest `codec:"FeeSink"`
 	RewardsPoolOverride crypto.Digest `codec:"RewardsPool"`
 }

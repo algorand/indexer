@@ -12,7 +12,9 @@ import (
 	"unicode/utf8"
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-codec/codec"
+	"github.com/algorand/indexer/types"
 )
 
 // EncodeToFile is used to encode an object to a file. If the file ends in .gz it will be gzipped.
@@ -108,6 +110,14 @@ func JSONOneLine(obj interface{}) string {
 	enc := codec.NewEncoderBytes(&b, oneLineJSONCodecHandle)
 	enc.MustEncode(obj)
 	return string(b)
+}
+
+// MakeValidatedBlock creates a validated block.
+func MakeValidatedBlock(blk sdk.Block, delta sdk.StateDelta) types.ValidatedBlock {
+	return types.ValidatedBlock{
+		Block: blk,
+		Delta: delta,
+	}
 }
 
 func init() {
