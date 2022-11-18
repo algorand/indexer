@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
@@ -30,10 +31,10 @@ type TxnRow struct {
 	Intra int
 
 	// TxnBytes is the raw signed transaction with apply data object, only used when the root txn is being returned.
-	Txn *transactions.SignedTxnWithAD
+	Txn *sdk.SignedTxnWithAD
 
 	// RootTxnBytes the root transaction raw signed transaction with apply data object, only inner transactions have this.
-	RootTxn *transactions.SignedTxnWithAD
+	RootTxn *sdk.SignedTxnWithAD
 
 	// AssetID is the ID of any asset or application created or configured by this
 	// transaction.
@@ -46,7 +47,7 @@ type TxnRow struct {
 	Error error
 }
 
-func countInner(stxn *transactions.SignedTxnWithAD) uint {
+func countInner(stxn *sdk.SignedTxnWithAD) uint {
 	num := uint(0)
 	for _, itxn := range stxn.ApplyData.EvalDelta.InnerTxns {
 		num++
@@ -68,7 +69,7 @@ func (tr TxnRow) Next(ascending bool) (string, error) {
 
 	// when ascending add the count of inner transactions.
 	if ascending {
-		var stxn *transactions.SignedTxnWithAD
+		var stxn *sdk.SignedTxnWithAD
 		if tr.RootTxn != nil {
 			stxn = tr.RootTxn
 		} else {
@@ -325,7 +326,7 @@ type AssetsQuery struct {
 type AssetRow struct {
 	AssetID      uint64
 	Creator      []byte
-	Params       basics.AssetParams
+	Params       sdk.AssetParams
 	Error        error
 	CreatedRound *uint64
 	ClosedRound  *uint64

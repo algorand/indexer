@@ -19,7 +19,6 @@ import (
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	itypes "github.com/algorand/indexer/types"
 	"github.com/jackc/pgconn"
@@ -232,7 +231,7 @@ func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 			err0 = db.txWithRetry(serializable, f)
 		}()
 
-		err = w.AddBlock(&block, block.Payset, vb.Delta())
+		err = w.AddBlock(&block, vb.Delta)
 		if err != nil {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
@@ -436,7 +435,7 @@ func (db *IndexerDb) getMaxRoundAccounted(ctx context.Context, tx pgx.Tx) (uint6
 }
 
 // GetBlock is part of idb.IndexerDB
-func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (blockHeader bookkeeping.BlockHeader, transactions []idb.TxnRow, err error) {
+func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (blockHeader sdk.BlockHeader, transactions []idb.TxnRow, err error) {
 	tx, err := db.db.BeginTx(ctx, readonlyRepeatableRead)
 	if err != nil {
 		return
@@ -464,13 +463,13 @@ func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.Get
 			err = fmt.Errorf("txn query err %v", err)
 			out <- idb.TxnRow{Error: err}
 			close(out)
-			return bookkeeping.BlockHeader{}, nil, err
+			return sdk.BlockHeader{}, nil, err
 		}
 
 		rows, err := tx.Query(ctx, query, whereArgs...)
 		if err != nil {
 			err = fmt.Errorf("txn query %#v err %v", query, err)
-			return bookkeeping.BlockHeader{}, nil, err
+			return sdk.BlockHeader{}, nil, err
 		}
 
 		// Unlike other spots, because we don't return a channel, we don't need
@@ -485,7 +484,7 @@ func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.Get
 			results = append(results, txrow)
 		}
 		if uint64(len(results)) > options.MaxTransactionsLimit {
-			return bookkeeping.BlockHeader{}, nil, idb.MaxTransactionsError{}
+			return sdk.BlockHeader{}, nil, idb.MaxTransactionsError{}
 		}
 		transactions = results
 	}
@@ -862,7 +861,7 @@ func (db *IndexerDb) yieldTxnsThreadSimple(rows pgx.Rows, results chan<- idb.Txn
 			row.Intra = intra
 			if roottxn != nil {
 				// Inner transaction.
-				row.RootTxn = new(transactions.SignedTxnWithAD)
+				row.RootTxn = new(sdk.SignedTxnWithAD)
 				*row.RootTxn, err = encoding.DecodeSignedTxnWithAD(roottxn)
 				if err != nil {
 					err = fmt.Errorf("error decoding roottxn, err: %w", err)
@@ -870,7 +869,7 @@ func (db *IndexerDb) yieldTxnsThreadSimple(rows pgx.Rows, results chan<- idb.Txn
 				}
 			} else {
 				// Root transaction.
-				row.Txn = new(transactions.SignedTxnWithAD)
+				row.Txn = new(sdk.SignedTxnWithAD)
 				*row.Txn, err = encoding.DecodeSignedTxnWithAD(txn)
 				if err != nil {
 					err = fmt.Errorf("error decoding txn, err: %w", err)
@@ -1506,7 +1505,7 @@ func allZero(x []byte) bool {
 	return true
 }
 
-func addrStr(addr basics.Address) *string {
+func addrStr(addr sdk.Address) *string {
 	if addr.IsZero() {
 		return nil
 	}
@@ -1517,7 +1516,7 @@ func addrStr(addr basics.Address) *string {
 
 type getAccountsRequest struct {
 	opts        idb.AccountQueryOptions
-	blockheader bookkeeping.BlockHeader
+	blockheader sdk.BlockHeader
 	query       string
 	rows        pgx.Rows
 	out         chan idb.AccountRow
@@ -2586,17 +2585,17 @@ func (db *IndexerDb) Health(ctx context.Context) (idb.Health, error) {
 }
 
 // GetSpecialAccounts is part of idb.IndexerDB
-func (db *IndexerDb) GetSpecialAccounts(ctx context.Context) (transactions.SpecialAddresses, error) {
+func (db *IndexerDb) GetSpecialAccounts(ctx context.Context) (itypes.SpecialAddresses, error) {
 	cache, err := db.getMetastate(ctx, nil, schema.SpecialAccountsMetastateKey)
 	if err != nil {
-		return transactions.SpecialAddresses{}, fmt.Errorf("GetSpecialAccounts() err: %w", err)
+		return itypes.SpecialAddresses{}, fmt.Errorf("GetSpecialAccounts() err: %w", err)
 	}
 
 	accounts, err := encoding.DecodeSpecialAddresses([]byte(cache))
 	if err != nil {
 		err = fmt.Errorf(
 			"GetSpecialAccounts() problem decoding, cache: '%s' err: %w", cache, err)
-		return transactions.SpecialAddresses{}, err
+		return itypes.SpecialAddresses{}, err
 	}
 
 	return accounts, nil

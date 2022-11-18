@@ -8,10 +8,10 @@ import (
 
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/indexer/types"
+	"github.com/algorand/indexer/util"
 	"github.com/jackc/pgx/v4"
 
 	"github.com/algorand/indexer/idb"
@@ -236,7 +236,8 @@ func writeAssetResource(round sdk.Round, resource *ledgercore.AssetResourceRecor
 		if resource.Params.Params != nil {
 			batch.Queue(
 				upsertAssetStmtName, resource.Aidx, resource.Addr[:],
-				encoding.EncodeAssetParams(*resource.Params.Params), round)
+
+				encoding.EncodeAssetParams(util.ConvertParams(*resource.Params.Params)), round)
 		}
 	}
 
@@ -356,9 +357,8 @@ func (w *Writer) AddBlock0(block *sdk.Block) error {
 // AddBlock writes the block and accounting state deltas to the database, except for
 // transactions and transaction participation. Those are imported by free functions in
 // the writer/ directory.
-func (w *Writer) AddBlock(block *sdk.Block, modifiedTxns []transactions.SignedTxnInBlock, delta ledgercore.StateDelta) error {
+func (w *Writer) AddBlock(block *sdk.Block, delta sdk.StateDelta) error {
 	var batch pgx.Batch
-
 	addBlockHeader(&block.BlockHeader, &batch)
 	specialAddresses := types.SpecialAddresses{
 		FeeSink:     block.FeeSink,

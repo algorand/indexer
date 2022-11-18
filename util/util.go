@@ -13,6 +13,7 @@ import (
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	sdk "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-codec/codec"
 	"github.com/algorand/indexer/types"
 )
@@ -117,6 +118,23 @@ func MakeValidatedBlock(blk sdk.Block, delta sdk.StateDelta) types.ValidatedBloc
 	return types.ValidatedBlock{
 		Block: blk,
 		Delta: delta,
+	}
+}
+
+// ConvertParams converts basics.AssetParams to sdk.AssetParams
+func ConvertParams(params basics.AssetParams) sdk.AssetParams {
+	return sdk.AssetParams{
+		Total:         params.Total,
+		Decimals:      params.Decimals,
+		DefaultFrozen: params.DefaultFrozen,
+		UnitName:      params.UnitName,
+		AssetName:     params.AssetName,
+		URL:           params.URL,
+		MetadataHash:  params.MetadataHash,
+		Manager:       sdk.Address(params.Manager),
+		Reserve:       sdk.Address(params.Reserve),
+		Freeze:        sdk.Address(params.Freeze),
+		Clawback:      sdk.Address(params.Clawback),
 	}
 }
 
