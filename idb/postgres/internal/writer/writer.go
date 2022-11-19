@@ -357,7 +357,7 @@ func (w *Writer) AddBlock0(block *sdk.Block) error {
 // AddBlock writes the block and accounting state deltas to the database, except for
 // transactions and transaction participation. Those are imported by free functions in
 // the writer/ directory.
-func (w *Writer) AddBlock(block *sdk.Block, delta sdk.StateDelta) error {
+func (w *Writer) AddBlock(block *sdk.Block, delta ledgercore.StateDelta) error {
 	var batch pgx.Batch
 	addBlockHeader(&block.BlockHeader, &batch)
 	specialAddresses := types.SpecialAddresses{

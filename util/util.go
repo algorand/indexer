@@ -3,6 +3,9 @@ package util
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/sha512"
+	"encoding/base32"
+	json2 "encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -13,10 +16,21 @@ import (
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	sdk "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
+	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-codec/codec"
+	"github.com/algorand/indexer/data"
+	v2 "github.com/algorand/indexer/data/v2"
 	"github.com/algorand/indexer/types"
 )
+
+const (
+	checksumLength = 4
+)
+
+var base32Encoder = base32.StdEncoding.WithPadding(base32.NoPadding)
 
 // EncodeToFile is used to encode an object to a file. If the file ends in .gz it will be gzipped.
 func EncodeToFile(filename string, v interface{}, pretty bool) error {
@@ -114,7 +128,7 @@ func JSONOneLine(obj interface{}) string {
 }
 
 // MakeValidatedBlock creates a validated block.
-func MakeValidatedBlock(blk sdk.Block, delta sdk.StateDelta) types.ValidatedBlock {
+func MakeValidatedBlock(blk sdk.Block, delta ledgercore.StateDelta) types.ValidatedBlock {
 	return types.ValidatedBlock{
 		Block: blk,
 		Delta: delta,
@@ -136,6 +150,95 @@ func ConvertParams(params basics.AssetParams) sdk.AssetParams {
 		Freeze:        sdk.Address(params.Freeze),
 		Clawback:      sdk.Address(params.Clawback),
 	}
+}
+
+// DecodeSignedTxn converts a SignedTxnInBlock from a block to SignedTxn and its
+// associated ApplyData.
+func DecodeSignedTxn(bh sdk.BlockHeader, stb sdk.SignedTxnInBlock) (sdk.SignedTxn, sdk.ApplyData, error) {
+	st := stb.SignedTxn
+	ad := stb.ApplyData
+
+	proto, ok := config.Consensus[protocol.ConsensusVersion(bh.CurrentProtocol)]
+	if !ok {
+		return sdk.SignedTxn{}, sdk.ApplyData{},
+			fmt.Errorf("consensus protocol %s not found", bh.CurrentProtocol)
+	}
+	if !proto.SupportSignedTxnInBlock {
+		return st, sdk.ApplyData{}, nil
+	}
+
+	if st.Txn.GenesisID != "" {
+		return sdk.SignedTxn{}, sdk.ApplyData{}, fmt.Errorf("GenesisID <%s> not empty", st.Txn.GenesisID)
+	}
+
+	if stb.HasGenesisID {
+		st.Txn.GenesisID = bh.GenesisID
+	}
+
+	if st.Txn.GenesisHash != (sdk.Digest{}) {
+		return sdk.SignedTxn{}, sdk.ApplyData{}, fmt.Errorf("GenesisHash <%v> not empty", st.Txn.GenesisHash)
+	}
+
+	if proto.RequireGenesisHash {
+		if stb.HasGenesisHash {
+			return sdk.SignedTxn{}, sdk.ApplyData{}, fmt.Errorf("HasGenesisHash set to true but RequireGenesisHash obviates the flag")
+		}
+		st.Txn.GenesisHash = bh.GenesisHash
+	} else {
+		if stb.HasGenesisHash {
+			st.Txn.GenesisHash = bh.GenesisHash
+		}
+	}
+
+	return st, ad, nil
+}
+
+// UnmarshalChecksumAddress tries to unmarshal the checksummed address string.
+// Algorand strings addresses ( base32 encoded ) have a postamble which serves as the checksum of the address.
+// When converted to an Address object representation, that checksum is dropped (after validation).
+func UnmarshalChecksumAddress(address string) (sdk.Address, error) {
+	decoded, err := base32Encoder.DecodeString(address)
+
+	if err != nil {
+		return sdk.Address{}, fmt.Errorf("failed to decode address %s to base 32", address)
+	}
+	var short sdk.Address
+	if len(decoded) < len(short) {
+		return sdk.Address{}, fmt.Errorf("decoded bad addr: %s", address)
+	}
+
+	copy(short[:], decoded[:len(short)])
+	incomingchecksum := decoded[len(decoded)-checksumLength:]
+
+	calculatedchecksum := getChecksum(short[:])
+	isValid := bytes.Equal(incomingchecksum, calculatedchecksum)
+
+	if !isValid {
+		return sdk.Address{}, fmt.Errorf("address %s is malformed, checksum verification failed", address)
+	}
+
+	// Validate that we had a canonical string representation
+	if short.String() != address {
+		return sdk.Address{}, fmt.Errorf("address %s is non-canonical", address)
+	}
+
+	return short, nil
+}
+
+// getChecksum returns the checksum as []byte
+// Checksum in Algorand are the last 4 bytes of the shortAddress Hash. H(Address)[28:]
+func getChecksum(addr []byte) []byte {
+	shortAddressHash := sha512.Sum512_256(addr[:])
+	checksum := shortAddressHash[len(shortAddressHash)-checksumLength:]
+	return checksum
+}
+
+// ConvertBlock converts blockdata to blockdata v2
+func ConvertBlock(blkdata data.BlockData) v2.BlockData {
+	var ret v2.BlockData
+	bytes, _ := json2.Marshal(blkdata)
+	json2.Unmarshal(bytes, &ret)
+	return ret
 }
 
 func init() {

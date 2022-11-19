@@ -14,7 +14,7 @@ import (
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/exporters"
-	"github.com/algorand/indexer/data"
+	data "github.com/algorand/indexer/data/v2"
 	"github.com/algorand/indexer/util"
 )
 

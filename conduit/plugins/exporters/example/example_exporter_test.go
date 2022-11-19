@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/algorand/indexer/conduit/plugins/exporters"
-	"github.com/algorand/indexer/data"
+	data "github.com/algorand/indexer/data/v2"
 )
 
 var exCons = exporters.ExporterConstructorFunc(func() exporters.Exporter {

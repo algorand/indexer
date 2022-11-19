@@ -11,7 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v4"
 
-	"github.com/algorand/indexer/idb"
+	idb "github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/migration"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	cad "github.com/algorand/indexer/idb/postgres/internal/migrations/convert_account_data"

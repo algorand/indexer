@@ -13,7 +13,6 @@ import (
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/indexer/types"
 
 	models "github.com/algorand/indexer/api/generated/v2"
@@ -163,17 +162,20 @@ type IndexerDb interface {
 	Close()
 
 	// Import a block and do the accounting.
-	AddBlock(block *types.ValidatedBlock) error
+	// todo: set input type to inferface{} temporarily to keep ImportBlock working
+	// ImportBlock calls AddBlock with *ledgercore.ValidatedBlock
+	// but AddBlock in postgres.go has been refactor to accept itypes.ValidatedBlock
+	AddBlock(block interface{}) error
 
 	LoadGenesis(genesis bookkeeping.Genesis) (err error)
 
 	// GetNextRoundToAccount returns ErrorNotInitialized if genesis is not loaded.
 	GetNextRoundToAccount() (uint64, error)
-	GetSpecialAccounts(ctx context.Context) (transactions.SpecialAddresses, error)
+	GetSpecialAccounts(ctx context.Context) (types.SpecialAddresses, error)
 	GetNetworkState() (NetworkState, error)
 	SetNetworkState(genesis bookkeeping.Genesis) error
 
-	GetBlock(ctx context.Context, round uint64, options GetBlockOptions) (blockHeader bookkeeping.BlockHeader, transactions []TxnRow, err error)
+	GetBlock(ctx context.Context, round uint64, options GetBlockOptions) (blockHeader sdk.BlockHeader, transactions []TxnRow, err error)
 
 	// The next multiple functions return a channel with results as well as the latest round
 	// accounted.

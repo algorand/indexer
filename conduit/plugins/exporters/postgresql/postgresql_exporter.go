@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 
 	sdk "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 	data "github.com/algorand/indexer/data/v2"
 	iutil "github.com/algorand/indexer/util"
 	"github.com/sirupsen/logrus"
@@ -117,7 +118,7 @@ func (exp *postgresqlExporter) Close() error {
 func (exp *postgresqlExporter) Receive(exportData data.BlockData) error {
 	if exportData.Delta == nil {
 		if exportData.Round() == 0 {
-			exportData.Delta = &sdk.StateDelta{}
+			exportData.Delta = &ledgercore.StateDelta{}
 		} else {
 			return fmt.Errorf("receive got an invalid block: %#v", exportData)
 		}
@@ -129,7 +130,7 @@ func (exp *postgresqlExporter) Receive(exportData data.BlockData) error {
 				return fmt.Errorf("protocol %s not found", block.CurrentProtocol)
 		}
 	*/
-	var delta sdk.StateDelta
+	var delta ledgercore.StateDelta
 	if exportData.Delta != nil {
 		delta = *exportData.Delta
 	}

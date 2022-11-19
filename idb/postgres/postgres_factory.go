@@ -3,7 +3,7 @@ package postgres
 import (
 	log "github.com/sirupsen/logrus"
 
-	"github.com/algorand/indexer/idb"
+	idb "github.com/algorand/indexer/idb"
 )
 
 type postgresFactory struct {

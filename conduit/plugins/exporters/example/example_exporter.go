@@ -9,7 +9,7 @@ import (
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/exporters"
-	"github.com/algorand/indexer/data"
+	data "github.com/algorand/indexer/data/v2"
 )
 
 // This is our exporter object. It should store all the in memory data required to run the Exporter.

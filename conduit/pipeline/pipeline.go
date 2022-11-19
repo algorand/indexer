@@ -419,7 +419,8 @@ func (p *pipelineImpl) Start() {
 					}
 					// run through exporter
 					exporterStart := time.Now()
-					err = (*p.exporter).Receive(blkData)
+					// todo: remove conversion helper after blockdata type has been updated upstream
+					err = (*p.exporter).Receive(util.ConvertBlock(blkData))
 					if err != nil {
 						p.logger.Errorf("%v", err)
 						p.setError(err)

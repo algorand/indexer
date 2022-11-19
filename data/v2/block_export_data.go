@@ -4,6 +4,7 @@ import (
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
 // RoundProvider is the interface which all data types sent to Exporters should implement
@@ -29,7 +30,7 @@ type BlockData struct {
 	Payset []sdk.SignedTxnInBlock `json:"payset,omitempty"`
 
 	// Delta contains a list of account changes resulting from the block. Processor plugins may have modify this data.
-	Delta *sdk.StateDelta `json:"delta,omitempty"`
+	Delta *ledgercore.StateDelta `json:"delta,omitempty"`
 
 	// Certificate contains voting data that certifies the block. The certificate is non deterministic, a node stops collecting votes once the voting threshold is reached.
 	Certificate *map[string]interface{} `json:"cert,omitempty"`

@@ -6,6 +6,7 @@ import (
 
 	"github.com/algorand/go-algorand-sdk/crypto"
 	"github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/indexer/util"
 	"github.com/jackc/pgx/v4"
 
 	"github.com/algorand/indexer/idb"
@@ -112,7 +113,7 @@ func yieldTransactions(ctx context.Context, block *types.Block, modifiedTxns []t
 		var err error
 		// This function makes sure to set correct genesis information so we can get the
 		// correct transaction hash.
-		stxnad.SignedTxn, stxnad.ApplyData, err = block.BlockHeader.DecodeSignedTxn(stib)
+		stxnad.SignedTxn, stxnad.ApplyData, err = util.DecodeSignedTxn(block.BlockHeader, stib)
 		if err != nil {
 			return fmt.Errorf("yieldTransactions() decode signed txn err: %w", err)
 		}
