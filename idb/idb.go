@@ -13,6 +13,7 @@ import (
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/indexer/types"
 
 	models "github.com/algorand/indexer/api/generated/v2"
@@ -162,10 +163,7 @@ type IndexerDb interface {
 	Close()
 
 	// Import a block and do the accounting.
-	// todo: set input type to inferface{} temporarily to keep ImportBlock working
-	// ImportBlock calls AddBlock with *ledgercore.ValidatedBlock
-	// but AddBlock in postgres.go has been refactor to accept itypes.ValidatedBlock
-	AddBlock(block interface{}) error
+	AddBlock(block *ledgercore.ValidatedBlock) error
 
 	LoadGenesis(genesis bookkeeping.Genesis) (err error)
 

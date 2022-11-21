@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	sdk "github.com/algorand/go-algorand-sdk/types"
+	v2 "github.com/algorand/indexer/data/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -228,7 +230,7 @@ func (m *mockProcessor) OnComplete(input data.BlockData) error {
 type mockExporter struct {
 	mock.Mock
 	exporters.Exporter
-	finalRound      basics.Round
+	finalRound      sdk.Round
 	returnError     bool
 	onCompleteError bool
 }
@@ -239,7 +241,7 @@ func (m *mockExporter) Metadata() conduit.Metadata {
 	}
 }
 
-func (m *mockExporter) Init(_ context.Context, _ data.InitProvider, _ plugins.PluginConfig, _ *log.Logger) error {
+func (m *mockExporter) Init(_ context.Context, _ v2.InitProvider, _ plugins.PluginConfig, _ *log.Logger) error {
 	return nil
 }
 
@@ -247,7 +249,7 @@ func (m *mockExporter) Close() error {
 	return nil
 }
 
-func (m *mockExporter) Receive(exportData data.BlockData) error {
+func (m *mockExporter) Receive(exportData v2.BlockData) error {
 	var err error
 	if m.returnError {
 		err = fmt.Errorf("receive")
@@ -256,7 +258,7 @@ func (m *mockExporter) Receive(exportData data.BlockData) error {
 	return err
 }
 
-func (m *mockExporter) OnComplete(input data.BlockData) error {
+func (m *mockExporter) OnComplete(input v2.BlockData) error {
 	var err error
 	if m.onCompleteError {
 		err = fmt.Errorf("on complete")

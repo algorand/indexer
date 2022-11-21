@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/protocol"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
@@ -17,7 +17,7 @@ import (
 )
 
 func TestBasic(t *testing.T) {
-	var a basics.Address
+	var a sdk.Address
 	a[0] = 'a'
 
 	account := models.Account{
@@ -29,13 +29,13 @@ func TestBasic(t *testing.T) {
 
 	txnRow := idb.TxnRow{
 		Round: 7,
-		Txn: &transactions.SignedTxnWithAD{
-			SignedTxn: transactions.SignedTxn{
-				Txn: transactions.Transaction{
-					Type: protocol.PaymentTx,
-					PaymentTxnFields: transactions.PaymentTxnFields{
+		Txn: &sdk.SignedTxnWithAD{
+			SignedTxn: sdk.SignedTxn{
+				Txn: sdk.Transaction{
+					Type: sdk.PaymentTx,
+					PaymentTxnFields: sdk.PaymentTxnFields{
 						Receiver: a,
-						Amount:   basics.MicroAlgos{Raw: 2},
+						Amount:   sdk.MicroAlgos(2),
 					},
 				},
 			},

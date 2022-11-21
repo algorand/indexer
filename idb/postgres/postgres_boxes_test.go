@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/jackc/pgx/v4"
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
@@ -420,7 +420,7 @@ func addAppBoxesBlock(t *testing.T, db *IndexerDb, delta ledgercore.StateDelta) 
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
 
-		err = w.AddBlock(&bookkeeping.Block{}, transactions.Payset{}, delta)
+		err = w.AddBlock(&sdk.Block{}, delta)
 		require.NoError(t, err)
 
 		w.Close()

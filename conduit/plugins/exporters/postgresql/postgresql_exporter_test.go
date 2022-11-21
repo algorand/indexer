@@ -5,21 +5,20 @@ import (
 	"fmt"
 	"testing"
 
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 
-	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/exporters"
 	"github.com/algorand/indexer/conduit/plugins/exporters/postgresql/util"
-	"github.com/algorand/indexer/data"
+	data "github.com/algorand/indexer/data/v2"
 	_ "github.com/algorand/indexer/idb/dummy"
 	testutil "github.com/algorand/indexer/util/test"
 )
@@ -77,11 +76,11 @@ func TestReceiveInvalidBlock(t *testing.T) {
 	assert.NoError(t, pgsqlExp.Init(context.Background(), testutil.MockedInitProvider(&round), cfg, logger))
 
 	invalidBlock := data.BlockData{
-		BlockHeader: bookkeeping.BlockHeader{
+		BlockHeader: sdk.BlockHeader{
 			Round: 1,
 		},
-		Payset:      transactions.Payset{},
-		Certificate: &agreement.Certificate{},
+		Payset:      sdk.Payset{},
+		Certificate: &map[string]interface{}{},
 		Delta:       nil,
 	}
 	expectedErr := fmt.Sprintf("receive got an invalid block: %#v", invalidBlock)
@@ -94,9 +93,9 @@ func TestReceiveAddBlockSuccess(t *testing.T) {
 	assert.NoError(t, pgsqlExp.Init(context.Background(), testutil.MockedInitProvider(&round), cfg, logger))
 
 	block := data.BlockData{
-		BlockHeader: bookkeeping.BlockHeader{},
-		Payset:      transactions.Payset{},
-		Certificate: &agreement.Certificate{},
+		BlockHeader: sdk.BlockHeader{},
+		Payset:      sdk.Payset{},
+		Certificate: &map[string]interface{}{},
 		Delta:       &ledgercore.StateDelta{},
 	}
 	assert.NoError(t, pgsqlExp.Receive(block))

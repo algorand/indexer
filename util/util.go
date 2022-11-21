@@ -241,6 +241,14 @@ func ConvertBlock(blkdata data.BlockData) v2.BlockData {
 	return ret
 }
 
+// ConvertValidatedBlock
+func ConvertValidatedBlock(block ledgercore.ValidatedBlock) types.ValidatedBlock {
+	var vb types.ValidatedBlock
+	bytes, _ := json2.Marshal(block)
+	json2.Unmarshal(bytes, &vb)
+	return vb
+}
+
 func init() {
 	oneLineJSONCodecHandle = new(codec.JsonHandle)
 	oneLineJSONCodecHandle.ErrorIfNoField = true

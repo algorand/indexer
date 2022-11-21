@@ -11,6 +11,8 @@ import (
 
 	indexertypes "github.com/algorand/indexer/types"
 
+	ledgercore "github.com/algorand/go-algorand/ledger/ledgercore"
+
 	mock "github.com/stretchr/testify/mock"
 
 	testing "testing"
@@ -24,11 +26,11 @@ type IndexerDb struct {
 }
 
 // AddBlock provides a mock function with given fields: block
-func (_m *IndexerDb) AddBlock(block interface{}) error {
+func (_m *IndexerDb) AddBlock(block *ledgercore.ValidatedBlock) error {
 	ret := _m.Called(block)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(interface{}) error); ok {
+	if rf, ok := ret.Get(0).(func(*ledgercore.ValidatedBlock) error); ok {
 		r0 = rf(block)
 	} else {
 		r0 = ret.Error(0)

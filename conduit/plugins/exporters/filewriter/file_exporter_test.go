@@ -5,20 +5,19 @@ import (
 	"fmt"
 	"testing"
 
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
-	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/exporters"
-	"github.com/algorand/indexer/data"
+	data "github.com/algorand/indexer/data/v2"
 	"github.com/algorand/indexer/util"
 	testutil "github.com/algorand/indexer/util/test"
 )
@@ -69,7 +68,7 @@ func TestExporterInit(t *testing.T) {
 func sendData(t *testing.T, fileExp exporters.Exporter, config string, numRounds int) {
 	// Test invalid block receive
 	block := data.BlockData{
-		BlockHeader: bookkeeping.BlockHeader{
+		BlockHeader: sdk.BlockHeader{
 			Round: 3,
 		},
 		Payset:      nil,
@@ -92,17 +91,17 @@ func sendData(t *testing.T, fileExp exporters.Exporter, config string, numRounds
 	// write block to file
 	for i := 0; i < numRounds; i++ {
 		block = data.BlockData{
-			BlockHeader: bookkeeping.BlockHeader{
-				Round: basics.Round(i),
+			BlockHeader: sdk.BlockHeader{
+				Round: sdk.Round(i),
 			},
 			Payset: nil,
 			Delta: &ledgercore.StateDelta{
 				PrevTimestamp: 1234,
 			},
-			Certificate: &agreement.Certificate{
-				Round:  basics.Round(i),
-				Period: 2,
-				Step:   2,
+			Certificate: &map[string]interface{}{
+				"Round":  sdk.Round(i),
+				"Period": 2,
+				"Step":   2,
 			},
 		}
 		err = fileExp.Receive(block)
