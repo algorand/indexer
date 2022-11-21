@@ -5,7 +5,7 @@ import (
 	"compress/gzip"
 	"crypto/sha512"
 	"encoding/base32"
-	json2 "encoding/json"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -15,6 +15,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
+	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
@@ -268,11 +269,15 @@ func getChecksum(addr []byte) []byte {
 }
 
 // ConvertValidatedBlock converts ledgercore.ValidatedBlock to types.ValidatedBlock
-func ConvertValidatedBlock(block ledgercore.ValidatedBlock) types.ValidatedBlock {
-	var vb types.ValidatedBlock
-	bytes, _ := json2.Marshal(block)
-	json2.Unmarshal(bytes, &vb)
-	return vb
+func ConvertValidatedBlock(vb ledgercore.ValidatedBlock) (types.ValidatedBlock, error) {
+	var ret types.ValidatedBlock
+	b64data := base64.StdEncoding.EncodeToString(msgpack.Encode(vb.Block()))
+	err := ret.Block.FromBase64String(b64data)
+	if err != nil {
+		return ret, fmt.Errorf("ConvertValidatedBlock err: %v", err)
+	}
+	ret.Delta = vb.Delta()
+	return ret, nil
 }
 
 func init() {

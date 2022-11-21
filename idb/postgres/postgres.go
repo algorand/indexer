@@ -177,7 +177,11 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 
 // AddBlock is part of idb.IndexerDb.
 func (db *IndexerDb) AddBlock(vblk *ledgercore.ValidatedBlock) error {
-	vb := util.ConvertValidatedBlock(*vblk)
+	//todo: use a converter util until vblk type is changed
+	vb, err := util.ConvertValidatedBlock(*vblk)
+	if err != nil {
+		return fmt.Errorf("AddBlock() err: %w", err)
+	}
 	block := vb.Block
 	round := block.BlockHeader.Round
 	db.log.Printf("adding block %d", round)
@@ -253,7 +257,7 @@ func (db *IndexerDb) AddBlock(vblk *ledgercore.ValidatedBlock) error {
 
 		return nil
 	}
-	err := db.txWithRetry(serializable, f)
+	err = db.txWithRetry(serializable, f)
 	if err != nil {
 		return fmt.Errorf("AddBlock() err: %w", err)
 	}
@@ -715,7 +719,7 @@ func (db *IndexerDb) yieldTxns(ctx context.Context, tx pgx.Tx, tf idb.Transactio
 		out <- idb.TxnRow{Error: err}
 		return
 	}
-
+	db.log.Printf("rows: %d, query: %s", rows.RawValues(), query)
 	db.yieldTxnsThreadSimple(rows, out, nil, nil)
 }
 
