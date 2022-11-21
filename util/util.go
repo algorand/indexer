@@ -21,8 +21,6 @@ import (
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-codec/codec"
-	"github.com/algorand/indexer/data"
-	v2 "github.com/algorand/indexer/data/v2"
 	"github.com/algorand/indexer/types"
 )
 
@@ -127,14 +125,6 @@ func JSONOneLine(obj interface{}) string {
 	return string(b)
 }
 
-// MakeValidatedBlock creates a validated block.
-func MakeValidatedBlock(blk sdk.Block, delta ledgercore.StateDelta) types.ValidatedBlock {
-	return types.ValidatedBlock{
-		Block: blk,
-		Delta: delta,
-	}
-}
-
 // ConvertParams converts basics.AssetParams to sdk.AssetParams
 func ConvertParams(params basics.AssetParams) sdk.AssetParams {
 	return sdk.AssetParams{
@@ -193,6 +183,50 @@ func DecodeSignedTxn(bh sdk.BlockHeader, stb sdk.SignedTxnInBlock) (sdk.SignedTx
 	return st, ad, nil
 }
 
+// EncodeSignedTxn converts a SignedTxn and ApplyData into a SignedTxnInBlock
+// for that block.
+func EncodeSignedTxn(bh sdk.BlockHeader, st sdk.SignedTxn, ad sdk.ApplyData) (sdk.SignedTxnInBlock, error) {
+	var stb sdk.SignedTxnInBlock
+
+	proto, ok := config.Consensus[protocol.ConsensusVersion(bh.CurrentProtocol)]
+	if !ok {
+		return sdk.SignedTxnInBlock{},
+			fmt.Errorf("consensus protocol %s not found", bh.CurrentProtocol)
+	}
+	if !proto.SupportSignedTxnInBlock {
+		stb.SignedTxn = st
+		return stb, nil
+	}
+
+	if st.Txn.GenesisID != "" {
+		if st.Txn.GenesisID == bh.GenesisID {
+			st.Txn.GenesisID = ""
+			stb.HasGenesisID = true
+		} else {
+			return sdk.SignedTxnInBlock{}, fmt.Errorf("GenesisID mismatch: %s != %s", st.Txn.GenesisID, bh.GenesisID)
+		}
+	}
+
+	if (st.Txn.GenesisHash != sdk.Digest{}) {
+		if st.Txn.GenesisHash == bh.GenesisHash {
+			st.Txn.GenesisHash = sdk.Digest{}
+			if !proto.RequireGenesisHash {
+				stb.HasGenesisHash = true
+			}
+		} else {
+			return sdk.SignedTxnInBlock{}, fmt.Errorf("GenesisHash mismatch: %v != %v", st.Txn.GenesisHash, bh.GenesisHash)
+		}
+	} else {
+		if proto.RequireGenesisHash {
+			return sdk.SignedTxnInBlock{}, fmt.Errorf("GenesisHash required but missing")
+		}
+	}
+
+	stb.SignedTxn = st
+	stb.ApplyData = ad
+	return stb, nil
+}
+
 // UnmarshalChecksumAddress tries to unmarshal the checksummed address string.
 // Algorand strings addresses ( base32 encoded ) have a postamble which serves as the checksum of the address.
 // When converted to an Address object representation, that checksum is dropped (after validation).
@@ -231,14 +265,6 @@ func getChecksum(addr []byte) []byte {
 	shortAddressHash := sha512.Sum512_256(addr[:])
 	checksum := shortAddressHash[len(shortAddressHash)-checksumLength:]
 	return checksum
-}
-
-// ConvertBlock converts blockdata to blockdata v2
-func ConvertBlock(blkdata data.BlockData) v2.BlockData {
-	var ret v2.BlockData
-	bytes, _ := json2.Marshal(blkdata)
-	json2.Unmarshal(bytes, &ret)
-	return ret
 }
 
 // ConvertValidatedBlock converts ledgercore.ValidatedBlock to types.ValidatedBlock

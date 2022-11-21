@@ -1,9 +1,11 @@
 package test
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand"
 
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
@@ -11,6 +13,7 @@ import (
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/indexer/util"
 )
 
 var (
@@ -85,6 +88,40 @@ func MakeAssetConfigTxn(configid, total, decimals uint64, defaultFrozen bool, un
 	}
 }
 
+// MakeAssetConfigTxnV2 is a helper to ensure test asset config are initialized.
+func MakeAssetConfigTxnV2(configid, total, decimals uint64, defaultFrozen bool, unitName, assetName, url string, addr sdk.Address) sdk.SignedTxnWithAD {
+	return sdk.SignedTxnWithAD{
+		SignedTxn: sdk.SignedTxn{
+			Txn: sdk.Transaction{
+				Type: "acfg",
+				Header: sdk.Header{
+					Sender:      addr,
+					Fee:         sdk.MicroAlgos(1000),
+					GenesisHash: sdk.Digest(GenesisHash),
+					Note:        ArbitraryString(),
+				},
+				AssetConfigTxnFields: sdk.AssetConfigTxnFields{
+					ConfigAsset: sdk.AssetIndex(configid),
+					AssetParams: sdk.AssetParams{
+						Total:         total,
+						Decimals:      uint32(decimals),
+						DefaultFrozen: defaultFrozen,
+						UnitName:      unitName,
+						AssetName:     assetName,
+						URL:           url,
+						MetadataHash:  [32]byte{},
+						Manager:       addr,
+						Reserve:       addr,
+						Freeze:        addr,
+						Clawback:      addr,
+					},
+				},
+			},
+			Sig: sdk.Signature(Signature),
+		},
+	}
+}
+
 // MakeAssetFreezeTxn create an asset freeze/unfreeze transaction.
 func MakeAssetFreezeTxn(assetid uint64, frozen bool, sender, freezeAccount basics.Address) transactions.SignedTxnWithAD {
 	return transactions.SignedTxnWithAD{
@@ -130,6 +167,32 @@ func MakeAssetTransferTxn(assetid, amt uint64, sender, receiver, close basics.Ad
 				},
 			},
 			Sig: Signature,
+		},
+	}
+}
+
+// MakeAssetTransferTxnV2 creates an asset transfer transaction.
+func MakeAssetTransferTxnV2(assetid, amt uint64, sender, receiver, close sdk.Address) sdk.SignedTxnWithAD {
+	return sdk.SignedTxnWithAD{
+		SignedTxn: sdk.SignedTxn{
+			Txn: sdk.Transaction{
+				Type: "axfer",
+				Header: sdk.Header{
+					Sender:      sender,
+					Fee:         sdk.MicroAlgos(1000),
+					GenesisHash: sdk.Digest(GenesisHash),
+					Note:        ArbitraryString(),
+				},
+				AssetTransferTxnFields: sdk.AssetTransferTxnFields{
+					XferAsset:   sdk.AssetIndex(assetid),
+					AssetAmount: amt,
+					//only used for clawback transactions
+					//AssetSender:   basics.Address{},
+					AssetReceiver: receiver,
+					AssetCloseTo:  close,
+				},
+			},
+			Sig: sdk.Signature(Signature),
 		},
 	}
 }
@@ -191,6 +254,38 @@ func MakePaymentTxn(fee, amt, closeAmt, sendRewards, receiveRewards,
 	}
 }
 
+// MakePaymentTxnV2 creates an algo transfer transaction.
+func MakePaymentTxnV2(fee, amt, closeAmt, sendRewards, receiveRewards,
+	closeRewards uint64, sender, receiver, close, rekeyTo sdk.Address) sdk.SignedTxnWithAD {
+	return sdk.SignedTxnWithAD{
+		SignedTxn: sdk.SignedTxn{
+			Txn: sdk.Transaction{
+				Type: "pay",
+				Header: sdk.Header{
+					Sender:      sender,
+					Fee:         sdk.MicroAlgos(fee),
+					GenesisHash: sdk.Digest(GenesisHash),
+					RekeyTo:     rekeyTo,
+					LastValid:   10,
+					Note:        ArbitraryString(),
+				},
+				PaymentTxnFields: sdk.PaymentTxnFields{
+					Receiver:         receiver,
+					Amount:           sdk.MicroAlgos(amt),
+					CloseRemainderTo: close,
+				},
+			},
+			Sig: sdk.Signature(Signature),
+		},
+		ApplyData: sdk.ApplyData{
+			ClosingAmount:   sdk.MicroAlgos(closeAmt),
+			SenderRewards:   sdk.MicroAlgos(sendRewards),
+			ReceiverRewards: sdk.MicroAlgos(receiveRewards),
+			CloseRewards:    sdk.MicroAlgos(closeRewards),
+		},
+	}
+}
+
 // MakeCreateAppTxn makes a transaction that creates a simple application.
 func MakeCreateAppTxn(sender basics.Address) transactions.SignedTxnWithAD {
 	// Create a transaction with ExtraProgramPages field set to 1
@@ -209,6 +304,30 @@ func MakeCreateAppTxn(sender basics.Address) transactions.SignedTxnWithAD {
 				},
 			},
 			Sig: Signature,
+		},
+	}
+}
+
+// MakeCreateAppTxnV2 makes a transaction that creates a simple application.
+func MakeCreateAppTxnV2(sender sdk.Address) sdk.SignedTxnWithAD {
+	// Create a transaction with ExtraProgramPages field set to 1
+	return sdk.SignedTxnWithAD{
+		SignedTxn: sdk.SignedTxn{
+			Txn: sdk.Transaction{
+				Type: "appl",
+				Header: sdk.Header{
+					Sender:      sender,
+					GenesisHash: sdk.Digest(GenesisHash),
+					Note:        ArbitraryString(),
+				},
+				ApplicationFields: sdk.ApplicationFields{
+					ApplicationCallTxnFields: sdk.ApplicationCallTxnFields{
+						ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+						ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+					},
+				},
+			},
+			Sig: sdk.Signature(Signature),
 		},
 	}
 }
@@ -331,6 +450,31 @@ func MakeSimpleAppCallTxn(appid uint64, sender basics.Address) transactions.Sign
 	}
 }
 
+// MakeSimpleAppCallTxnV2 is a MakeSimpleAppCallTxn return sdk.SignedTxnWithAD.
+func MakeSimpleAppCallTxnV2(appid uint64, sender sdk.Address) sdk.SignedTxnWithAD {
+	return sdk.SignedTxnWithAD{
+		SignedTxn: sdk.SignedTxn{
+			Txn: sdk.Transaction{
+				Type: "appl",
+				Header: sdk.Header{
+					Sender:      sender,
+					GenesisHash: sdk.Digest(GenesisHash),
+					Note:        ArbitraryString(),
+				},
+				ApplicationFields: sdk.ApplicationFields{
+					ApplicationCallTxnFields: sdk.ApplicationCallTxnFields{
+						ApplicationID:     sdk.AppIndex(appid),
+						OnCompletion:      sdk.NoOpOC,
+						ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+						ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+					},
+				},
+			},
+			Sig: sdk.Signature(Signature),
+		},
+	}
+}
+
 // MakeAppCallTxnWithBoxes makes an appl transaction with a NoOp upon completion.
 func MakeAppCallTxnWithBoxes(appid uint64, sender basics.Address, appArgs []string, boxNames []string) transactions.SignedTxnWithAD {
 	appArgBytes := [][]byte{}
@@ -436,6 +580,79 @@ func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSen
 						},
 						// Inner application call
 						MakeSimpleAppCallTxn(789, assetSender),
+					},
+				},
+			},
+		},
+	}
+
+	return createApp
+}
+
+// MakeAppCallWithInnerTxnV2 is a MakeAppCallWithInnerTxn returning sdk.SignedTxnWithAD
+func MakeAppCallWithInnerTxnV2(appSender, paymentSender, paymentReceiver, assetSender, assetReceiver sdk.Address) sdk.SignedTxnWithAD {
+	createApp := MakeCreateAppTxnV2(appSender)
+
+	// In order to simplify the test,
+	// since db.AddBlock uses ApplyData from the block and not from the evaluator,
+	// fake ApplyData to have inner txn
+	// otherwise it requires funding the app account and other special setup
+	createApp.ApplyData.EvalDelta.InnerTxns = []sdk.SignedTxnWithAD{
+		{
+			SignedTxn: sdk.SignedTxn{
+				Txn: sdk.Transaction{
+					Type: sdk.PaymentTx,
+					Header: sdk.Header{
+						Sender: paymentSender,
+						Note:   ArbitraryString(),
+					},
+					PaymentTxnFields: sdk.PaymentTxnFields{
+						Receiver: paymentReceiver,
+						Amount:   sdk.MicroAlgos(12),
+					},
+				},
+			},
+		},
+		{
+			SignedTxn: sdk.SignedTxn{
+				Txn: sdk.Transaction{
+					Type: sdk.ApplicationCallTx,
+					Header: sdk.Header{
+						Sender: assetSender,
+						Note:   ArbitraryString(),
+					},
+					ApplicationFields: sdk.ApplicationFields{
+						ApplicationCallTxnFields: sdk.ApplicationCallTxnFields{
+							ApplicationID:     789,
+							OnCompletion:      sdk.NoOpOC,
+							ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+							ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+						},
+					},
+				},
+			},
+			// also add a fake second-level ApplyData to ensure the recursive part works
+			ApplyData: sdk.ApplyData{
+				EvalDelta: sdk.EvalDelta{
+					InnerTxns: []sdk.SignedTxnWithAD{
+						// Inner axfer call
+						{
+							SignedTxn: sdk.SignedTxn{
+								Txn: sdk.Transaction{
+									Type: sdk.AssetTransferTx,
+									Header: sdk.Header{
+										Sender: assetSender,
+										Note:   ArbitraryString(),
+									},
+									AssetTransferTxnFields: sdk.AssetTransferTxnFields{
+										AssetReceiver: assetReceiver,
+										AssetAmount:   456,
+									},
+								},
+							},
+						},
+						// Inner application call
+						MakeSimpleAppCallTxnV2(789, assetSender),
 					},
 				},
 			},
@@ -625,6 +842,28 @@ func MakeBlockForTxns(prevHeader bookkeeping.BlockHeader, inputs ...*transaction
 	return res, nil
 }
 
+// MakeBlockForTxnsV2 takes some transactions and constructs a block compatible with the indexer import function.
+func MakeBlockForTxnsV2(prevHeader sdk.BlockHeader, inputs ...*sdk.SignedTxnWithAD) (sdk.Block, error) {
+	res := sdk.Block{BlockHeader: prevHeader}
+
+	res.RewardsState = sdk.RewardsState{
+		FeeSink:     sdk.Address(FeeAddr),
+		RewardsPool: sdk.Address(RewardAddr),
+	}
+	res.TxnCounter = prevHeader.TxnCounter + uint64(len(inputs))
+
+	for _, stxnad := range inputs {
+		stxnib, err := util.EncodeSignedTxn(res.BlockHeader, stxnad.SignedTxn, stxnad.ApplyData)
+		if err != nil {
+			return sdk.Block{}, err
+		}
+
+		res.Payset = append(res.Payset, stxnib)
+	}
+
+	return res, nil
+}
+
 // MakeGenesis creates a sample genesis info.
 func MakeGenesis() bookkeeping.Genesis {
 	return bookkeeping.Genesis{
@@ -681,6 +920,15 @@ func MakeGenesisBlock() bookkeeping.Block {
 	if err != nil {
 		return bookkeeping.Block{}
 	}
+	return genesisBlock
+}
+
+// MakeGenesisBlockV2 makes a genesis block.
+func MakeGenesisBlockV2() sdk.Block {
+	var genesisBlock sdk.Block
+	block := MakeGenesisBlock()
+	bytes, _ := json.Marshal(block)
+	json.Unmarshal(bytes, &genesisBlock)
 	return genesisBlock
 }
 

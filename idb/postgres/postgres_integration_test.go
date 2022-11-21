@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	crypto2 "github.com/algorand/go-algorand-sdk/crypto"
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	test2 "github.com/sirupsen/logrus/hooks/test"
@@ -1156,7 +1158,7 @@ func TestNonDisplayableUTF8(t *testing.T) {
 			for row := range txnRows {
 				require.NoError(t, row.Error)
 				// The inner txns will have a RootTxn instead of a Txn row
-				var rowTxn *transactions.SignedTxnWithAD
+				var rowTxn *sdk.SignedTxnWithAD
 				if row.Txn != nil {
 					rowTxn = row.Txn
 				} else {
@@ -1745,7 +1747,7 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 					require.True(t, (result.Txn != nil) && (result.RootTxn == nil))
 				} else {
 					// Make sure the root txn is returned.
-					var stxn *transactions.SignedTxnWithAD
+					var stxn *sdk.SignedTxnWithAD
 
 					// Exactly one of Txn and RootTxn must be present.
 					require.True(t, (result.Txn == nil) != (result.RootTxn == nil))
@@ -1757,7 +1759,7 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 					if result.RootTxn != nil {
 						stxn = result.RootTxn
 					}
-					require.Equal(t, rootTxid, stxn.Txn.ID())
+					require.Equal(t, rootTxid, string(crypto2.TransactionID(stxn.Txn)))
 				}
 			}
 
@@ -1838,7 +1840,7 @@ func TestNonUTF8Logs(t *testing.T) {
 			// Test 2: transaction results properly serialized
 			txnRows, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
 			for row := range txnRows {
-				var rowTxn *transactions.SignedTxnWithAD
+				var rowTxn *sdk.SignedTxnWithAD
 				if row.Txn != nil {
 					rowTxn = row.Txn
 				} else {

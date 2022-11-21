@@ -5,12 +5,12 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/crypto/merklesignature"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
-	"github.com/algorand/go-algorand/protocol"
 	itypes "github.com/algorand/indexer/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -47,7 +47,7 @@ func TestEncodeSignedTxnWithAD(t *testing.T) {
 	var stxn sdk.SignedTxnWithAD
 	for _, mt := range testTxns {
 		t.Run(mt.name, func(t *testing.T) {
-			protocol.Decode(mt.msgpack, &stxn)
+			msgpack.Decode(mt.msgpack, &stxn)
 			js := EncodeSignedTxnWithAD(stxn)
 			require.Equal(t, mt.json, string(js))
 		})

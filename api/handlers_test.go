@@ -13,6 +13,9 @@ import (
 	"testing"
 	"time"
 
+	sdkcrypto "github.com/algorand/go-algorand-sdk/crypto"
+	sdk "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/indexer/types"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -25,8 +28,6 @@ import (
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/protocol"
-	"github.com/algorand/go-algorand/rpcs"
-
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/mocks"
@@ -668,8 +669,8 @@ func TestFetchTransactions(t *testing.T) {
 
 			ch := make(chan idb.TxnRow, len(test.txnBytes))
 			for _, bytes := range test.txnBytes {
-				stxnad := new(transactions.SignedTxnWithAD)
-				err := protocol.Decode(bytes, stxnad)
+				stxnad := new(sdk.SignedTxnWithAD)
+				err := msgpack.Decode(bytes, stxnad)
 				require.NoError(t, err)
 				txnRow := idb.TxnRow{
 					Round:     1,
@@ -799,8 +800,8 @@ func TestLookupApplicationLogsByID(t *testing.T) {
 	si.EnableAddressSearchRoundRewind = true
 
 	txnBytes := loadResourceFileOrPanic("test_resources/app_call_logs.txn")
-	var stxn transactions.SignedTxnWithAD
-	err := protocol.Decode(txnBytes, &stxn)
+	var stxn sdk.SignedTxnWithAD
+	err := msgpack.Decode(txnBytes, &stxn)
 	assert.NoError(t, err)
 
 	roundTime := time.Now()
@@ -844,7 +845,7 @@ func TestLookupApplicationLogsByID(t *testing.T) {
 	assert.NotNil(t, response.LogData)
 	ld := *response.LogData
 	assert.Equal(t, 1, len(ld))
-	assert.Equal(t, stxn.Txn.ID().String(), ld[0].Txid)
+	assert.Equal(t, string(sdkcrypto.TransactionID(stxn.Txn)), ld[0].Txid)
 	assert.Equal(t, len(stxn.ApplyData.EvalDelta.Logs), len(ld[0].Logs))
 	for i, log := range ld[0].Logs {
 		assert.Equal(t, []byte(stxn.ApplyData.EvalDelta.Logs[i]), log)
@@ -1299,8 +1300,8 @@ func TestFetchBlock(t *testing.T) {
 		roundTime64 := uint64(roundTime.Unix())
 
 		t.Run(tc.name, func(t *testing.T) {
-			blk := new(rpcs.EncodedBlockCert)
-			err := protocol.Decode(tc.blockBytes, blk)
+			blk := new(types.EncodedBlockCert)
+			err := msgpack.Decode(tc.blockBytes, blk)
 			require.NoError(t, err)
 			txnRows := make([]idb.TxnRow, len(blk.Block.Payset))
 			for idx, stxn := range blk.Block.Payset {

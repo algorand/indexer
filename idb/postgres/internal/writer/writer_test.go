@@ -7,13 +7,14 @@ import (
 	"testing"
 	"time"
 
+	crypto2 "github.com/algorand/go-algorand-sdk/crypto"
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
-	"github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/indexer/util"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/stretchr/testify/assert"
@@ -71,7 +72,7 @@ func txnQuery(db *pgxpool.Pool, query string) ([]txnRow, error) {
 }
 
 type txnParticipationRow struct {
-	addr  basics.Address
+	addr  sdk.Address
 	round int
 	intra int
 }
@@ -141,7 +142,7 @@ func TestWriterSpecialAccounts(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	block := test.MakeGenesisBlock()
+	block := test.MakeGenesisBlockV2()
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -190,18 +191,18 @@ func TestWriterTxnTableBasic(t *testing.T) {
 		Payset: make([]sdk.SignedTxnInBlock, 2),
 	}
 
-	stxnad0 := test.MakePaymentTxn(
-		1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
-		basics.Address{})
+	stxnad0 := test.MakePaymentTxnV2(
+		1000, 1, 0, 0, 0, 0, sdk.Address(test.AccountA), sdk.Address(test.AccountB), sdk.Address{},
+		sdk.Address{})
 	var err error
 	block.Payset[0], err =
-		block.BlockHeader.EncodeSignedTxn(stxnad0.SignedTxn, stxnad0.ApplyData)
+		util.EncodeSignedTxn(block.BlockHeader, stxnad0.SignedTxn, stxnad0.ApplyData)
 	require.NoError(t, err)
 
-	stxnad1 := test.MakeAssetConfigTxn(
-		0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountA)
+	stxnad1 := test.MakeAssetConfigTxnV2(
+		0, 100, 1, false, "ma", "myasset", "myasset.com", sdk.Address(test.AccountA))
 	block.Payset[1], err =
-		block.BlockHeader.EncodeSignedTxn(stxnad1.SignedTxn, stxnad1.ApplyData)
+		util.EncodeSignedTxn(block.BlockHeader, stxnad1.SignedTxn, stxnad1.ApplyData)
 	require.NoError(t, err)
 
 	f := func(tx pgx.Tx) error {
@@ -229,7 +230,7 @@ func TestWriterTxnTableBasic(t *testing.T) {
 	assert.Equal(t, uint64(0), intra)
 	assert.Equal(t, idb.TypeEnumPay, idb.TxnTypeEnum(typeenum))
 	assert.Equal(t, uint64(0), asset)
-	assert.Equal(t, stxnad0.ID().String(), string(txid))
+	assert.Equal(t, string(crypto2.TransactionID(stxnad0.Txn)), string(txid))
 	{
 		stxn, err := encoding.DecodeSignedTxnWithAD(txn)
 		require.NoError(t, err)
@@ -244,7 +245,7 @@ func TestWriterTxnTableBasic(t *testing.T) {
 	assert.Equal(t, uint64(1), intra)
 	assert.Equal(t, idb.TypeEnumAssetConfig, idb.TxnTypeEnum(typeenum))
 	assert.Equal(t, uint64(9), asset)
-	assert.Equal(t, stxnad1.ID().String(), string(txid))
+	assert.Equal(t, string(crypto2.TransactionID(stxnad1.Txn)), string(txid))
 	{
 		stxn, err := encoding.DecodeSignedTxnWithAD(txn)
 		require.NoError(t, err)
@@ -270,11 +271,11 @@ func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
 				CurrentProtocol: "future",
 			},
 		},
-		Payset: make(transactions.Payset, 1),
+		Payset: make(sdk.Payset, 1),
 	}
-	stxnad := test.MakeAssetTransferTxn(1, 2, test.AccountA, test.AccountB, test.AccountC)
+	stxnad := test.MakeAssetTransferTxnV2(1, 2, sdk.Address(test.AccountA), sdk.Address(test.AccountB), sdk.Address(test.AccountC))
 	var err error
-	block.Payset[0], err = block.EncodeSignedTxn(stxnad.SignedTxn, stxnad.ApplyData)
+	block.Payset[0], err = util.EncodeSignedTxn(block.BlockHeader, stxnad.SignedTxn, stxnad.ApplyData)
 	require.NoError(t, err)
 
 	payset := []sdk.SignedTxnInBlock{block.Payset[0]}
@@ -318,7 +319,7 @@ func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
 func TestWriterTxnParticipationTable(t *testing.T) {
 	type testtype struct {
 		name     string
-		payset   transactions.Payset
+		payset   sdk.Payset
 		expected []txnParticipationRow
 	}
 
@@ -337,33 +338,33 @@ func TestWriterTxnParticipationTable(t *testing.T) {
 
 	var tests []testtype
 	{
-		stxnad0 := test.MakePaymentTxn(
-			1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
-			basics.Address{})
-		stib0, err := makeBlockFunc().EncodeSignedTxn(stxnad0.SignedTxn, stxnad0.ApplyData)
+		stxnad0 := test.MakePaymentTxnV2(
+			1000, 1, 0, 0, 0, 0, sdk.Address(test.AccountA), sdk.Address(test.AccountB), sdk.Address{},
+			sdk.Address{})
+		stib0, err := util.EncodeSignedTxn(makeBlockFunc().BlockHeader, stxnad0.SignedTxn, stxnad0.ApplyData)
 		require.NoError(t, err)
 
-		stxnad1 := test.MakeAssetConfigTxn(
-			0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountC)
-		stib1, err := makeBlockFunc().EncodeSignedTxn(stxnad1.SignedTxn, stxnad1.ApplyData)
+		stxnad1 := test.MakeAssetConfigTxnV2(
+			0, 100, 1, false, "ma", "myasset", "myasset.com", sdk.Address(test.AccountC))
+		stib1, err := util.EncodeSignedTxn(makeBlockFunc().BlockHeader, stxnad1.SignedTxn, stxnad1.ApplyData)
 		require.NoError(t, err)
 
 		testcase := testtype{
 			name:   "basic",
-			payset: []transactions.SignedTxnInBlock{stib0, stib1},
+			payset: []sdk.SignedTxnInBlock{stib0, stib1},
 			expected: []txnParticipationRow{
 				{
-					addr:  test.AccountA,
+					addr:  sdk.Address(test.AccountA),
 					round: 2,
 					intra: 0,
 				},
 				{
-					addr:  test.AccountB,
+					addr:  sdk.Address(test.AccountB),
 					round: 2,
 					intra: 0,
 				},
 				{
-					addr:  test.AccountC,
+					addr:  sdk.Address(test.AccountC),
 					round: 2,
 					intra: 1,
 				},
@@ -372,28 +373,28 @@ func TestWriterTxnParticipationTable(t *testing.T) {
 		tests = append(tests, testcase)
 	}
 	{
-		stxnad := test.MakeCreateAppTxn(test.AccountA)
+		stxnad := test.MakeCreateAppTxnV2(sdk.Address(test.AccountA))
 		stxnad.Txn.ApplicationCallTxnFields.Accounts =
-			[]basics.Address{test.AccountB, test.AccountC}
-		stib, err := makeBlockFunc().EncodeSignedTxn(stxnad.SignedTxn, stxnad.ApplyData)
+			[]sdk.Address{sdk.Address(test.AccountB), sdk.Address(test.AccountC)}
+		stib, err := util.EncodeSignedTxn(makeBlockFunc().BlockHeader, stxnad.SignedTxn, stxnad.ApplyData)
 		require.NoError(t, err)
 
 		testcase := testtype{
 			name:   "app_call_addresses",
-			payset: []transactions.SignedTxnInBlock{stib},
+			payset: []sdk.SignedTxnInBlock{stib},
 			expected: []txnParticipationRow{
 				{
-					addr:  test.AccountA,
+					addr:  sdk.Address(test.AccountA),
 					round: 2,
 					intra: 0,
 				},
 				{
-					addr:  test.AccountB,
+					addr:  sdk.Address(test.AccountB),
 					round: 2,
 					intra: 0,
 				},
 				{
-					addr:  test.AccountC,
+					addr:  sdk.Address(test.AccountC),
 					round: 2,
 					intra: 0,
 				},
@@ -631,12 +632,12 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 		Payset: make(sdk.Payset, 1),
 	}
 
-	stxnad := test.MakePaymentTxn(
-		1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
-		basics.Address{})
+	stxnad := test.MakePaymentTxnV2(
+		1000, 1, 0, 0, 0, 0, sdk.Address(test.AccountA), sdk.Address(test.AccountB), sdk.Address{},
+		sdk.Address{})
 	stxnad.Sig[0] = 5 // set signature so that keytype for account is updated
 	var err error
-	block.Payset[0], err = block.EncodeSignedTxn(stxnad.SignedTxn, stxnad.ApplyData)
+	block.Payset[0], err = util.EncodeSignedTxn(block.BlockHeader, stxnad.SignedTxn, stxnad.ApplyData)
 	require.NoError(t, err)
 
 	var delta ledgercore.StateDelta
@@ -667,7 +668,7 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 	assert.Equal(t, "sig", keytype)
 
 	// Now delete this account.
-	block.BlockHeader.Round = basics.Round(5)
+	block.BlockHeader.Round = sdk.Round(5)
 	delta.Accts = ledgercore.AccountDeltas{}
 	delta.Accts.Upsert(test.AccountA, ledgercore.AccountData{})
 
@@ -1025,7 +1026,7 @@ func TestWriterAppTableBasic(t *testing.T) {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
 
-		err = w.AddBlock(&block, block.Payset, delta)
+		err = w.AddBlock(&block, delta)
 		require.NoError(t, err)
 
 		w.Close()
@@ -1175,7 +1176,7 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
 
-		err = w.AddBlock(&block, block.Payset, delta)
+		err = w.AddBlock(&block, delta)
 		require.NoError(t, err)
 
 		w.Close()
@@ -1304,20 +1305,20 @@ func TestAddBlockInvalidInnerAsset(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	callWithBadInner := test.MakeCreateAppTxn(test.AccountA)
-	callWithBadInner.ApplyData.EvalDelta.InnerTxns = []transactions.SignedTxnWithAD{
+	callWithBadInner := test.MakeCreateAppTxnV2(sdk.Address(test.AccountA))
+	callWithBadInner.ApplyData.EvalDelta.InnerTxns = []sdk.SignedTxnWithAD{
 		{
-			ApplyData: transactions.ApplyData{
+			ApplyData: sdk.ApplyData{
 				// This is the invalid inner asset. It should not be zero.
 				ConfigAsset: 0,
 			},
-			SignedTxn: transactions.SignedTxn{
-				Txn: transactions.Transaction{
-					Type: protocol.AssetConfigTx,
-					Header: transactions.Header{
-						Sender: test.AccountB,
+			SignedTxn: sdk.SignedTxn{
+				Txn: sdk.Transaction{
+					Type: sdk.AssetConfigTx,
+					Header: sdk.Header{
+						Sender: sdk.Address(test.AccountB),
 					},
-					AssetConfigTxnFields: transactions.AssetConfigTxnFields{
+					AssetConfigTxnFields: sdk.AssetConfigTxnFields{
 						ConfigAsset: 0,
 					},
 				},
@@ -1325,7 +1326,7 @@ func TestAddBlockInvalidInnerAsset(t *testing.T) {
 		},
 	}
 
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &callWithBadInner)
+	block, err := test.MakeBlockForTxnsV2(test.MakeGenesisBlockV2().BlockHeader, &callWithBadInner)
 	require.NoError(t, err)
 
 	err = makeTx(db, func(tx pgx.Tx) error {
@@ -1339,15 +1340,15 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	defer shutdownFunc()
 
 	// App call with inner txns, should be intra 0, 1, 2, 3, 4
-	var appAddr basics.Address
+	var appAddr sdk.Address
 	appAddr[1] = 99
-	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
+	appCall := test.MakeAppCallWithInnerTxnV2(sdk.Address(test.AccountA), appAddr, sdk.Address(test.AccountB), appAddr, sdk.Address(test.AccountC))
 
 	// Asset create call, should have intra = 5
-	assetCreate := test.MakeAssetConfigTxn(
-		0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountD)
+	assetCreate := test.MakeAssetConfigTxnV2(
+		0, 100, 1, false, "ma", "myasset", "myasset.com", sdk.Address(test.AccountD))
 
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall, &assetCreate)
+	block, err := test.MakeBlockForTxnsV2(test.MakeGenesisBlockV2().BlockHeader, &appCall, &assetCreate)
 	require.NoError(t, err)
 
 	err = makeTx(db, func(tx pgx.Tx) error {
@@ -1410,17 +1411,17 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 			intra: 0,
 		},
 		{
-			addr:  test.AccountA,
+			addr:  sdk.Address(test.AccountA),
 			round: 1,
 			intra: 0,
 		},
 		{
-			addr:  test.AccountB,
+			addr:  sdk.Address(test.AccountB),
 			round: 1,
 			intra: 0,
 		},
 		{
-			addr:  test.AccountC,
+			addr:  sdk.Address(test.AccountC),
 			round: 1,
 			intra: 0,
 		},
@@ -1431,7 +1432,7 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 			intra: 1,
 		},
 		{
-			addr:  test.AccountB,
+			addr:  sdk.Address(test.AccountB),
 			round: 1,
 			intra: 1,
 		},
@@ -1448,7 +1449,7 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 			intra: 3,
 		},
 		{
-			addr:  test.AccountC,
+			addr:  sdk.Address(test.AccountC),
 			round: 1,
 			intra: 3,
 		},
@@ -1460,7 +1461,7 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 		},
 		// acfg after appl
 		{
-			addr:  test.AccountD,
+			addr:  sdk.Address(test.AccountD),
 			round: 1,
 			intra: 5,
 		},
@@ -1480,7 +1481,7 @@ func TestWriterAccountTotals(t *testing.T) {
 	err := pgutil.SetMetastate(db, nil, schema.AccountTotals, "{}")
 	require.NoError(t, err)
 
-	block := test.MakeGenesisBlock()
+	block := test.MakeGenesisBlockV2()
 
 	accountTotals := ledgercore.AccountTotals{
 		Online: ledgercore.AlgoCount{
@@ -1514,7 +1515,7 @@ func TestWriterAddBlock0(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	block := test.MakeGenesisBlock()
+	block := test.MakeGenesisBlockV2()
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
