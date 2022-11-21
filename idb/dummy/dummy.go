@@ -3,11 +3,11 @@ package dummy
 import (
 	"context"
 
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/crypto"
+	"github.com/algorand/indexer/types"
 
 	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/indexer/idb"
@@ -25,7 +25,7 @@ func IndexerDb() idb.IndexerDb {
 func (db *dummyIndexerDb) Close() {
 }
 
-func (db *dummyIndexerDb) AddBlock(block *ledgercore.ValidatedBlock) error {
+func (db *dummyIndexerDb) AddBlock(block interface{}) error {
 	db.log.Printf("AddBlock")
 	return nil
 }
@@ -46,13 +46,13 @@ func (db *dummyIndexerDb) GetNextRoundToLoad() (uint64, error) {
 }
 
 // GetSpecialAccounts is part of idb.IndexerDb
-func (db *dummyIndexerDb) GetSpecialAccounts(ctx context.Context) (transactions.SpecialAddresses, error) {
-	return transactions.SpecialAddresses{}, nil
+func (db *dummyIndexerDb) GetSpecialAccounts(ctx context.Context) (types.SpecialAddresses, error) {
+	return types.SpecialAddresses{}, nil
 }
 
 // GetBlock is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (blockHeader bookkeeping.BlockHeader, transactions []idb.TxnRow, err error) {
-	return bookkeeping.BlockHeader{}, nil, nil
+func (db *dummyIndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (blockHeader sdk.BlockHeader, transactions []idb.TxnRow, err error) {
+	return sdk.BlockHeader{}, nil, nil
 }
 
 // Transactions is part of idb.IndexerDB
