@@ -13,13 +13,12 @@ import (
 	"strings"
 	"time"
 
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/labstack/echo/v4"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions/logic"
-	"github.com/algorand/go-algorand/protocol"
-
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/api/generated/common"
 	"github.com/algorand/indexer/api/generated/v2"
@@ -1314,7 +1313,7 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64, op
 		}
 
 		// order these so they're deterministic
-		orderedTrackingTypes := make([]protocol.StateProofType, len(blockHeader.StateProofTracking))
+		orderedTrackingTypes := make([]sdk.StateProofType, len(blockHeader.StateProofTracking))
 		trackingArray := make([]generated.StateProofTracking, len(blockHeader.StateProofTracking))
 		elems := 0
 		for key := range blockHeader.StateProofTracking {
@@ -1328,7 +1327,7 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64, op
 				NextRound:         uint64Ptr(uint64(stpfTracking.StateProofNextRound)),
 				Type:              uint64Ptr(uint64(orderedTrackingTypes[i])),
 				VotersCommitment:  byteSliceOmitZeroPtr(stpfTracking.StateProofVotersCommitment),
-				OnlineTotalWeight: uint64Ptr(stpfTracking.StateProofOnlineTotalWeight.Raw),
+				OnlineTotalWeight: uint64Ptr(uint64(stpfTracking.StateProofOnlineTotalWeight)),
 			}
 			trackingArray[orderedTrackingTypes[i]] = thing1
 		}
