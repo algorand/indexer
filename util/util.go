@@ -241,7 +241,7 @@ func ConvertBlock(blkdata data.BlockData) v2.BlockData {
 	return ret
 }
 
-// ConvertValidatedBlock
+// ConvertValidatedBlock converts ledgercore.ValidatedBlock to types.ValidatedBlock
 func ConvertValidatedBlock(block ledgercore.ValidatedBlock) types.ValidatedBlock {
 	var vb types.ValidatedBlock
 	bytes, _ := json2.Marshal(block)

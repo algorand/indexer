@@ -4,13 +4,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/exporters"
-	data "github.com/algorand/indexer/data/v2"
+	"github.com/algorand/indexer/data"
 	testutil "github.com/algorand/indexer/util/test"
 )
 
@@ -54,7 +54,7 @@ func TestExporterClose(t *testing.T) {
 
 func TestExporterRoundReceive(t *testing.T) {
 	eData := data.BlockData{
-		BlockHeader: types.BlockHeader{
+		BlockHeader: bookkeeping.BlockHeader{
 			Round: 5,
 		},
 	}

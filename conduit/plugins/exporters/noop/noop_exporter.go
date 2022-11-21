@@ -11,7 +11,7 @@ import (
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/exporters"
-	data "github.com/algorand/indexer/data/v2"
+	"github.com/algorand/indexer/data"
 )
 
 var implementationName = "noop"

@@ -5,6 +5,7 @@ import (
 
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/crypto"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/indexer/types"
 
 	"github.com/algorand/go-algorand/data/bookkeeping"
@@ -25,7 +26,7 @@ func IndexerDb() idb.IndexerDb {
 func (db *dummyIndexerDb) Close() {
 }
 
-func (db *dummyIndexerDb) AddBlock(block interface{}) error {
+func (db *dummyIndexerDb) AddBlock(block *ledgercore.ValidatedBlock) error {
 	db.log.Printf("AddBlock")
 	return nil
 }

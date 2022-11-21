@@ -7,10 +7,9 @@ import (
 	"sync"
 	"sync/atomic"
 
-	sdk "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
-	data "github.com/algorand/indexer/data/v2"
-	iutil "github.com/algorand/indexer/util"
+	"github.com/algorand/indexer/data"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
@@ -134,8 +133,8 @@ func (exp *postgresqlExporter) Receive(exportData data.BlockData) error {
 	if exportData.Delta != nil {
 		delta = *exportData.Delta
 	}
-	vb := iutil.MakeValidatedBlock(
-		sdk.Block{
+	vb := ledgercore.MakeValidatedBlock(
+		bookkeeping.Block{
 			BlockHeader: exportData.BlockHeader,
 			Payset:      exportData.Payset,
 		},
