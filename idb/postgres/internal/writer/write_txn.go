@@ -30,7 +30,8 @@ func transactionAssetID(stxnad *types.SignedTxnWithAD, intra uint, block *types.
 		}
 		if assetid == 0 {
 			if block == nil {
-				return 0, fmt.Errorf("transactionAssetID(): Missing ApplicationID for transaction: %s", crypto.TransactionID(stxnad.Txn))
+				txid := util.TransactionID(crypto.TransactionID(stxnad.Txn)[:])
+				return 0, fmt.Errorf("transactionAssetID(): Missing ApplicationID for transaction: %s", txid)
 			}
 			// pre v30 transactions do not have ApplyData.ConfigAsset or InnerTxns
 			// so txn counter + payset pos calculation is OK
@@ -43,7 +44,8 @@ func transactionAssetID(stxnad *types.SignedTxnWithAD, intra uint, block *types.
 		}
 		if assetid == 0 {
 			if block == nil {
-				return 0, fmt.Errorf("transactionAssetID(): Missing ConfigAsset for transaction: %s", crypto.TransactionID(stxnad.Txn))
+				txid := util.TransactionID(crypto.TransactionID(stxnad.Txn)[:])
+				return 0, fmt.Errorf("transactionAssetID(): Missing ConfigAsset for transaction: %s", txid)
 			}
 			// pre v30 transactions do not have ApplyData.ApplicationID or InnerTxns
 			// so txn counter + payset pos calculation is OK
@@ -127,7 +129,7 @@ func yieldTransactions(ctx context.Context, block *types.Block, modifiedTxns []t
 		if err != nil {
 			return err
 		}
-		id := string(crypto.TransactionID(*txn))
+		id := util.TransactionID(crypto.TransactionID(*txn)[:])
 
 		extra := idb.TxnExtra{
 			AssetCloseAmount: modifiedTxns[idx].ApplyData.AssetClosingAmount,

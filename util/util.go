@@ -280,6 +280,11 @@ func ConvertValidatedBlock(vb ledgercore.ValidatedBlock) (types.ValidatedBlock, 
 	return ret, nil
 }
 
+// TransactionID returns base32 encoded transaction ID string
+func TransactionID(b []byte) string {
+	return base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(b)
+}
+
 func init() {
 	oneLineJSONCodecHandle = new(codec.JsonHandle)
 	oneLineJSONCodecHandle.ErrorIfNoField = true

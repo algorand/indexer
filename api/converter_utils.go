@@ -287,7 +287,7 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 	if row.Extra.RootIntra.Present {
 		txid = row.Extra.RootTxid
 	} else {
-		txid = string(crypto.TransactionID(stxn.Txn))
+		txid = util.TransactionID(crypto.TransactionID(stxn.Txn)[:])
 	}
 
 	txn.Id = &txid

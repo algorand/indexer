@@ -201,6 +201,7 @@ function start_indexer_with_connection_string() {
   fi
   mkdir -p $INDEXER_DATA
   ALGORAND_DATA= ../cmd/algorand-indexer/algorand-indexer daemon \
+    -f /Users/shiqi/projects/indexer/integration.log \
     -S $NET "$RO" \
     -P "$1" \
     -i "$TEST_DATA_DIR" \
