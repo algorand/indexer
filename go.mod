@@ -27,6 +27,7 @@ require (
 	github.com/spf13/viper v1.10.0
 	github.com/stretchr/testify v1.7.1
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
+
 )
 
 require (
@@ -34,7 +35,8 @@ require (
 	github.com/Microsoft/go-winio v0.4.14 // indirect
 	github.com/algorand/avm-abi v0.1.0 // indirect
 	github.com/algorand/falcon v0.0.0-20220727072124-02a2a64c4414 // indirect
-	github.com/algorand/go-sumhash v0.1.0 // indirect
+	github.com/algorand/go-stateproof-verification v1.0.0 // indirect
+	github.com/algorand/go-sumhash v1.0.0 // indirect
 	github.com/algorand/msgp v1.1.53 // indirect
 	github.com/algorand/websocket v1.4.5 // indirect
 	github.com/aws/aws-sdk-go v1.30.19 // indirect

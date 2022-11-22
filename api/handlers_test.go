@@ -16,7 +16,6 @@ import (
 	sdkcrypto "github.com/algorand/go-algorand-sdk/crypto"
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/indexer/types"
-	"github.com/algorand/indexer/util"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -621,24 +620,24 @@ func TestFetchTransactions(t *testing.T) {
 				loadTransactionFromFile("test_resources/app_call_inner_acfg.response"),
 			},
 		},
-		//{
-		//	name: "State Proof Txn",
-		//	txnBytes: [][]byte{
-		//		loadResourceFileOrPanic("test_resources/state_proof.txn"),
-		//	},
-		//	response: []generated.Transaction{
-		//		loadTransactionFromFile("test_resources/state_proof.response"),
-		//	},
-		//},
-		//{
-		//	name: "State Proof Txn - High Reveal Index",
-		//	txnBytes: [][]byte{
-		//		loadResourceFileOrPanic("test_resources/state_proof_with_index.txn"),
-		//	},
-		//	response: []generated.Transaction{
-		//		loadTransactionFromFile("test_resources/state_proof_with_index.response"),
-		//	},
-		//},
+		{
+			name: "State Proof Txn",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/state_proof.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/state_proof.response"),
+			},
+		},
+		{
+			name: "State Proof Txn - High Reveal Index",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/state_proof_with_index.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/state_proof_with_index.response"),
+			},
+		},
 	}
 
 	// use for the branch below and createTxn helper func to add a new test case
@@ -848,7 +847,7 @@ func TestLookupApplicationLogsByID(t *testing.T) {
 	assert.NotNil(t, response.LogData)
 	ld := *response.LogData
 	assert.Equal(t, 1, len(ld))
-	assert.Equal(t, util.TransactionID(sdkcrypto.TransactionID(stxn.Txn))[:], ld[0].Txid)
+	assert.Equal(t, sdkcrypto.TransactionIDString(stxn.Txn), ld[0].Txid)
 	assert.Equal(t, len(stxn.ApplyData.EvalDelta.Logs), len(ld[0].Logs))
 	for i, log := range ld[0].Logs {
 		assert.Equal(t, []byte(stxn.ApplyData.EvalDelta.Logs[i]), log)

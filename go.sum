@@ -94,8 +94,12 @@ github.com/algorand/go-codec/codec v1.1.8 h1:lsFuhcOH2LiEhpBH3BVUUkdevVmwCRyvb7F
 github.com/algorand/go-codec/codec v1.1.8/go.mod h1:tQ3zAJ6ijTps6V+wp8KsGDnPC2uhHVC7ANyrtkIY0bA=
 github.com/algorand/go-deadlock v0.2.2 h1:L7AKATSUCzoeVuOgpTipfCEjdUu5ECmlje8R7lP9DOY=
 github.com/algorand/go-deadlock v0.2.2/go.mod h1:Hat1OXKqKNUcN/iv74FjGhF4hsOE2l7gOgQ9ZVIq6Fk=
+github.com/algorand/go-stateproof-verification v1.0.0 h1:Ud2usI/WHVTM8MubTYv0VxWBXOkWnpHGgKmZ+NLCCM0=
+github.com/algorand/go-stateproof-verification v1.0.0/go.mod h1:l8ak3NIB27LdtzFfZ1rxQHBUWF1OoRnXUdWfCNe+Mrg=
 github.com/algorand/go-sumhash v0.1.0 h1:b/QRhyLuF//vOcicBIxBXYW8bERNoeLxieht/dUYpVg=
 github.com/algorand/go-sumhash v0.1.0/go.mod h1:OOe7jdDWUhLkuP1XytkK5gnLu9entAviN5DfDZh6XAc=
+github.com/algorand/go-sumhash v1.0.0 h1:00PkvdWAvPGxjd51eF84gZV81hlx3Yt/5sGeHzmcY0U=
+github.com/algorand/go-sumhash v1.0.0/go.mod h1:OOe7jdDWUhLkuP1XytkK5gnLu9entAviN5DfDZh6XAc=
 github.com/algorand/graphtrace v0.1.0 h1:QemP1iT0W56SExD0NfiU6rsG34/v0Je6bg5UZnptEUM=
 github.com/algorand/graphtrace v0.1.0/go.mod h1:HscLQrzBdH1BH+5oehs3ICd8SYcXvnSL9BjfTu8WHCc=
 github.com/algorand/msgp v1.1.53 h1:D6HKLyvLE6ltfsf8Apsrc+kqYb/CcOZEAfh1DpkPrNg=

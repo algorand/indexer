@@ -30,7 +30,7 @@ func transactionAssetID(stxnad *types.SignedTxnWithAD, intra uint, block *types.
 		}
 		if assetid == 0 {
 			if block == nil {
-				txid := util.TransactionID(crypto.TransactionID(stxnad.Txn)[:])
+				txid := crypto.TransactionIDString(stxnad.Txn)
 				return 0, fmt.Errorf("transactionAssetID(): Missing ApplicationID for transaction: %s", txid)
 			}
 			// pre v30 transactions do not have ApplyData.ConfigAsset or InnerTxns
@@ -44,7 +44,7 @@ func transactionAssetID(stxnad *types.SignedTxnWithAD, intra uint, block *types.
 		}
 		if assetid == 0 {
 			if block == nil {
-				txid := util.TransactionID(crypto.TransactionID(stxnad.Txn)[:])
+				txid := crypto.TransactionIDString(stxnad.Txn)
 				return 0, fmt.Errorf("transactionAssetID(): Missing ConfigAsset for transaction: %s", txid)
 			}
 			// pre v30 transactions do not have ApplyData.ApplicationID or InnerTxns
@@ -129,7 +129,7 @@ func yieldTransactions(ctx context.Context, block *types.Block, modifiedTxns []t
 		if err != nil {
 			return err
 		}
-		id := util.TransactionID(crypto.TransactionID(*txn)[:])
+		id := crypto.TransactionIDString(*txn)
 
 		extra := idb.TxnExtra{
 			AssetCloseAmount: modifiedTxns[idx].ApplyData.AssetClosingAmount,

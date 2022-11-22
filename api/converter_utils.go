@@ -9,10 +9,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/algorand/go-algorand-sdk/client/v2/common/models"
 	"github.com/algorand/go-algorand-sdk/crypto"
+	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-stateproof-verification/stateproof"
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/util"
@@ -287,9 +288,8 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 	if row.Extra.RootIntra.Present {
 		txid = row.Extra.RootTxid
 	} else {
-		txid = util.TransactionID(crypto.TransactionID(stxn.Txn)[:])
+		txid = crypto.TransactionIDString(stxn.Txn)
 	}
-
 	txn.Id = &txid
 	txn.Signature = &sig
 
@@ -408,34 +408,42 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 
 		application = &a
 	case sdk.StateProofTx:
-		partPath := make([][]byte, len(stxn.Txn.StateProof.(models.StateProofFields).PartProofs.Path))
-		for idx, part := range stxn.Txn.StateProof.(models.StateProofFields).PartProofs.Path {
+		var sprf stateproof.StateProof
+		bytes := msgpack.Encode(stxn.Txn.StateProof)
+		err := msgpack.Decode(bytes, &sprf)
+		if err != nil {
+			return generated.Transaction{}, err
+		}
+		partPath := make([][]byte, len(sprf.PartProofs.Path))
+		for idx, part := range sprf.PartProofs.Path {
 			digest := make([]byte, len(part))
 			copy(digest, part)
 			partPath[idx] = digest
 		}
 
-		sigProofPath := make([][]byte, len(stxn.Txn.StateProof.(models.StateProofFields).SigProofs.Path))
-		for idx, sigPart := range stxn.Txn.StateProof.(models.StateProofFields).SigProofs.Path {
+		sigProofPath := make([][]byte, len(sprf.SigProofs.Path))
+		for idx, sigPart := range sprf.SigProofs.Path {
 			digest := make([]byte, len(sigPart))
 			copy(digest, sigPart)
 			sigProofPath[idx] = digest
 		}
 
 		// We need to iterate through these in order, to make sure our responses are deterministic
-		keys := make([]uint64, len(stxn.Txn.StateProof.(models.StateProofFields).Reveals))
-		for i, reveal := range stxn.Txn.StateProof.(models.StateProofFields).Reveals {
-			keys[i] = reveal.Position
+		keys := make([]uint64, len(sprf.Reveals))
+		elems := 0
+		for key := range sprf.Reveals {
+			keys[elems] = key
+			elems++
 		}
 		sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
-		reveals := make([]generated.StateProofReveal, len(stxn.Txn.StateProof.(models.StateProofFields).Reveals))
+		reveals := make([]generated.StateProofReveal, len(sprf.Reveals))
 		for i, key := range keys {
-			revToConv := stxn.Txn.StateProof.(models.StateProofFields).Reveals[i]
-			commitment := revToConv.Participant.Verifier.Commitment[:]
-			falconSig := revToConv.SigSlot.Signature.FalconSignature
-			verifyKey := revToConv.SigSlot.Signature.VerifyingKey
-			proofPath := make([][]byte, len(revToConv.SigSlot.Signature.Proof.Path))
-			for idx, proofPart := range revToConv.SigSlot.Signature.Proof.Path {
+			revToConv := sprf.Reveals[key]
+			commitment := revToConv.Part.PK.Commitment[:]
+			falconSig := []byte(revToConv.SigSlot.Sig.Signature)
+			verifyKey := revToConv.SigSlot.Sig.VerifyingKey.PublicKey[:]
+			proofPath := make([][]byte, len(revToConv.SigSlot.Sig.Proof.Path))
+			for idx, proofPart := range revToConv.SigSlot.Sig.Proof.Path {
 				proofPath[idx] = proofPart
 			}
 
@@ -443,49 +451,48 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 				Participant: &generated.StateProofParticipant{
 					Verifier: &generated.StateProofVerifier{
 						Commitment:  &commitment,
-						KeyLifetime: uint64Ptr(revToConv.Participant.Verifier.KeyLifetime),
+						KeyLifetime: uint64Ptr(revToConv.Part.PK.KeyLifetime),
 					},
-					Weight: uint64Ptr(revToConv.Participant.Weight),
+					Weight: uint64Ptr(revToConv.Part.Weight),
 				},
 				Position: uint64Ptr(key),
 				SigSlot: &generated.StateProofSigSlot{
-					LowerSigWeight: uint64Ptr(revToConv.SigSlot.LowerSigWeight),
+					LowerSigWeight: uint64Ptr(revToConv.SigSlot.L),
 					Signature: &generated.StateProofSignature{
 						FalconSignature:  &falconSig,
-						MerkleArrayIndex: uint64Ptr(revToConv.SigSlot.Signature.MerkleArrayIndex),
+						MerkleArrayIndex: uint64Ptr(revToConv.SigSlot.Sig.VectorCommitmentIndex),
 						Proof: &generated.MerkleArrayProof{
 							HashFactory: &generated.HashFactory{
-								HashType: uint64Ptr(uint64(revToConv.SigSlot.Signature.Proof.HashFactory.HashType)),
+								HashType: uint64Ptr(uint64(revToConv.SigSlot.Sig.Proof.HashFactory.HashType)),
 							},
 							Path:      &proofPath,
-							TreeDepth: uint64Ptr(uint64(revToConv.SigSlot.Signature.Proof.TreeDepth)),
+							TreeDepth: uint64Ptr(uint64(revToConv.SigSlot.Sig.Proof.TreeDepth)),
 						},
 						VerifyingKey: &verifyKey,
 					},
 				},
 			}
 		}
-		positionsToReveal := stxn.Txn.StateProof.(models.StateProofFields).PositionsToReveal
 		proof := generated.StateProofFields{
 			PartProofs: &generated.MerkleArrayProof{
 				HashFactory: &generated.HashFactory{
-					HashType: uint64Ptr(stxn.Txn.StateProof.(models.StateProofFields).PartProofs.HashFactory.HashType),
+					HashType: uint64Ptr(uint64(sprf.PartProofs.HashFactory.HashType)),
 				},
 				Path:      &partPath,
-				TreeDepth: uint64Ptr(stxn.Txn.StateProof.(models.StateProofFields).PartProofs.TreeDepth),
+				TreeDepth: uint64Ptr(uint64(sprf.PartProofs.TreeDepth)),
 			},
 			Reveals:     &reveals,
-			SaltVersion: uint64Ptr(stxn.Txn.StateProof.(models.StateProofFields).SaltVersion),
-			SigCommit:   byteSliceOmitZeroPtr(stxn.Txn.StateProof.(models.StateProofFields).SigCommit),
+			SaltVersion: uint64Ptr(uint64(sprf.MerkleSignatureSaltVersion)),
+			SigCommit:   byteSliceOmitZeroPtr(sprf.SigCommit),
 			SigProofs: &generated.MerkleArrayProof{
 				HashFactory: &generated.HashFactory{
-					HashType: uint64Ptr(stxn.Txn.StateProof.(models.StateProofFields).SigProofs.HashFactory.HashType),
+					HashType: uint64Ptr(uint64(sprf.SigProofs.HashFactory.HashType)),
 				},
 				Path:      &sigProofPath,
-				TreeDepth: uint64Ptr(stxn.Txn.StateProof.(models.StateProofFields).SigProofs.TreeDepth),
+				TreeDepth: uint64Ptr(uint64(sprf.SigProofs.TreeDepth)),
 			},
-			SignedWeight:      uint64Ptr(stxn.Txn.StateProof.(models.StateProofFields).SignedWeight),
-			PositionsToReveal: &positionsToReveal,
+			SignedWeight:      uint64Ptr(sprf.SignedWeight),
+			PositionsToReveal: &sprf.PositionsToReveal,
 		}
 
 		message := generated.IndexerStateProofMessage{
