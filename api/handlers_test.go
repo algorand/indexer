@@ -25,7 +25,6 @@ import (
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/crypto/merklesignature"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/indexer/api/generated/v2"
@@ -875,7 +874,7 @@ func TestTimeouts(t *testing.T) {
 		mockIndexer.
 			On("GetBlock", mock.Anything, mock.Anything, mock.Anything).
 			WaitUntil(timeout).
-			Return(bookkeeping.BlockHeader{}, nil, nil)
+			Return(sdk.BlockHeader{}, nil, nil)
 	}
 	healthFunc := func(mockIndexer *mocks.IndexerDb, timeout <-chan time.Time) {
 		mockIndexer.
@@ -1319,7 +1318,7 @@ func TestFetchBlock(t *testing.T) {
 					Error: nil,
 				}
 			}
-			// bookkeeping.BlockHeader, []idb.TxnRow, error
+			// sdk.BlockHeader, []idb.TxnRow, error
 			mockIndexer.
 				On("GetBlock", mock.Anything, mock.Anything, mock.Anything).
 				Return(blk.Block.BlockHeader, txnRows, nil)
