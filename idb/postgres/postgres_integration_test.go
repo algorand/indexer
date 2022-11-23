@@ -2070,7 +2070,9 @@ func TestAddBlockTxnParticipationAdded(t *testing.T) {
 	require.True(t, ok)
 	require.NoError(t, row.Error)
 	require.NotNil(t, row.Txn)
-	assert.Equal(t, txn, *row.Txn)
+	expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txn))
+	actual := base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
+	assert.Equal(t, expected, actual)
 }
 
 // Test that if information in the `txn` table is ahead of the current round,
@@ -2291,7 +2293,9 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 	require.True(t, ok)
 	require.NoError(t, row.Error)
 	require.NotNil(t, row.Txn)
-	assert.Equal(t, txnC, *row.Txn)
+	expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txnC))
+	actual := base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
+	assert.Equal(t, expected, actual)
 
 	// AssetAmountGT
 	txnD := test.MakeAssetConfigTxn(0, math.MaxUint64, 0, false, "test2", "test2", "", test.AccountA)
@@ -2311,7 +2315,10 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 	require.True(t, ok)
 	require.NoError(t, row.Error)
 	require.NotNil(t, row.Txn)
-	assert.Equal(t, txnF, *row.Txn)
+
+	expected = base64.StdEncoding.EncodeToString(msgpack.Encode(txnF))
+	actual = base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
+	assert.Equal(t, expected, actual)
 
 }
 
@@ -2349,7 +2356,9 @@ func TestDeleteTransactions(t *testing.T) {
 	for row := range rowsCh {
 		require.NoError(t, row.Error)
 		require.NotNil(t, row.Txn)
-		assert.Equal(t, txns[i], *row.Txn)
+		expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txns[i]))
+		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
+		assert.Equal(t, expected, actual)
 		i++
 	}
 
@@ -2377,7 +2386,9 @@ func TestDeleteTransactions(t *testing.T) {
 	for row := range rowsCh {
 		require.NoError(t, row.Error)
 		require.NotNil(t, row.Txn)
-		assert.Equal(t, txns[i], *row.Txn)
+		expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txns[i]))
+		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
+		assert.Equal(t, expected, actual)
 		i++
 	}
 
