@@ -350,7 +350,8 @@ func getRequest(t *testing.T, endpoint string, params []param) (path string, res
 resp=%+v
 body=%s
 reqErr=%v
-bodyErr=%v`, resp, string(body), reqErr, bodyErr)
+bodyErr=%v
+`, resp, string(body), reqErr, bodyErr)
 	}
 	return
 }
