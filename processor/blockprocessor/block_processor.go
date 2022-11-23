@@ -6,6 +6,12 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/algorand/indexer/accounting"
+	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/processor"
+	indexerledger "github.com/algorand/indexer/processor/eval"
+	"github.com/algorand/indexer/util"
+
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
@@ -13,12 +19,6 @@ import (
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/rpcs"
-
-	"github.com/algorand/indexer/accounting"
-	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/processor"
-	indexerledger "github.com/algorand/indexer/processor/eval"
-	"github.com/algorand/indexer/util"
 )
 
 type blockProcessor struct {

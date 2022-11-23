@@ -56,7 +56,7 @@ test: idb/mocks/IndexerDb.go cmd/algorand-indexer/algorand-indexer
 	go test -coverpkg=$(COVERPKG) ./... -coverprofile=coverage.txt -covermode=atomic ${TEST_FLAG}
 
 lint: go-algorand
-	golint -set_exit_status ./...
+	golangci-lint run -c .golangci.yml
 	go vet ./...
 
 fmt:
