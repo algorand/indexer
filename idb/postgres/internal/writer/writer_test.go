@@ -11,9 +11,9 @@ import (
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
+	"github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/util"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -127,7 +127,7 @@ func TestWriterBlockHeaderTableBasic(t *testing.T) {
 	err = row.Scan(&round, &realtime, &rewardslevel, &header)
 	require.NoError(t, err)
 
-	assert.Equal(t, block.BlockHeader.Round, basics.Round(round))
+	assert.Equal(t, block.BlockHeader.Round, sdk.Round(round))
 	{
 		expected := time.Unix(block.BlockHeader.TimeStamp, 0).UTC()
 		assert.True(t, expected.Equal(realtime))
@@ -142,7 +142,8 @@ func TestWriterSpecialAccounts(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	block := test.MakeGenesisBlockV2()
+	block, err := test.MakeGenesisBlockV2()
+	require.NoError(t, err)
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -154,7 +155,7 @@ func TestWriterSpecialAccounts(t *testing.T) {
 		w.Close()
 		return nil
 	}
-	err := pgutil.TxWithRetry(db, serializable, f, nil)
+	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
 
 	j, err := pgutil.GetMetastate(
@@ -163,9 +164,9 @@ func TestWriterSpecialAccounts(t *testing.T) {
 	accounts, err := encoding.DecodeSpecialAddresses([]byte(j))
 	require.NoError(t, err)
 
-	expected := transactions.SpecialAddresses{
-		FeeSink:     test.FeeAddr,
-		RewardsPool: test.RewardAddr,
+	expected := types.SpecialAddresses{
+		FeeSink:     sdk.Address(test.FeeAddr),
+		RewardsPool: sdk.Address(test.RewardAddr),
 	}
 	assert.Equal(t, expected, accounts)
 }
@@ -226,11 +227,11 @@ func TestWriterTxnTableBasic(t *testing.T) {
 	require.True(t, rows.Next())
 	err = rows.Scan(&round, &intra, &typeenum, &asset, &txid, &txn, &extra)
 	require.NoError(t, err)
-	assert.Equal(t, block.Round, basics.Round(round))
+	assert.Equal(t, block.Round, sdk.Round(round))
 	assert.Equal(t, uint64(0), intra)
 	assert.Equal(t, idb.TypeEnumPay, idb.TxnTypeEnum(typeenum))
 	assert.Equal(t, uint64(0), asset)
-	assert.Equal(t, string(crypto2.TransactionID(stxnad0.Txn)), string(txid))
+	assert.Equal(t, crypto2.TransactionIDString(stxnad0.Txn), string(txid))
 	{
 		stxn, err := encoding.DecodeSignedTxnWithAD(txn)
 		require.NoError(t, err)
@@ -241,11 +242,11 @@ func TestWriterTxnTableBasic(t *testing.T) {
 	require.True(t, rows.Next())
 	err = rows.Scan(&round, &intra, &typeenum, &asset, &txid, &txn, &extra)
 	require.NoError(t, err)
-	assert.Equal(t, block.Round, basics.Round(round))
+	assert.Equal(t, block.Round, sdk.Round(round))
 	assert.Equal(t, uint64(1), intra)
 	assert.Equal(t, idb.TypeEnumAssetConfig, idb.TxnTypeEnum(typeenum))
 	assert.Equal(t, uint64(9), asset)
-	assert.Equal(t, string(crypto2.TransactionID(stxnad1.Txn)), string(txid))
+	assert.Equal(t, crypto2.TransactionIDString(stxnad1.Txn), string(txid))
 	{
 		stxn, err := encoding.DecodeSignedTxnWithAD(txn)
 		require.NoError(t, err)
@@ -503,7 +504,7 @@ func TestWriterAccountTableBasic(t *testing.T) {
 		t, expectedAccountData.RewardedMicroAlgos,
 		basics.MicroAlgos{Raw: rewardsTotal})
 	assert.False(t, deleted)
-	assert.Equal(t, block.Round, basics.Round(createdAt))
+	assert.Equal(t, block.Round, sdk.Round(createdAt))
 	assert.Nil(t, closedAt)
 	assert.Nil(t, keytype)
 	{
@@ -602,8 +603,8 @@ func TestWriterAccountTableCreateDeleteSameRound(t *testing.T) {
 	assert.Equal(t, uint64(0), rewardsbase)
 	assert.Equal(t, uint64(0), rewardsTotal)
 	assert.True(t, deleted)
-	assert.Equal(t, block.Round, basics.Round(createdAt))
-	assert.Equal(t, block.Round, basics.Round(closedAt))
+	assert.Equal(t, block.Round, sdk.Round(createdAt))
+	assert.Equal(t, block.Round, sdk.Round(closedAt))
 	assert.Nil(t, keytype)
 	assert.Equal(t, []byte("null"), accountData)
 	{
@@ -732,7 +733,7 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 	assert.Equal(t, assetHolding.Amount, amount)
 	assert.Equal(t, assetHolding.Frozen, frozen)
 	assert.False(t, deleted)
-	assert.Equal(t, block.Round, basics.Round(createdAt))
+	assert.Equal(t, block.Round, sdk.Round(createdAt))
 	assert.Nil(t, closedAt)
 
 	assert.False(t, rows.Next())
@@ -814,8 +815,8 @@ func TestWriterAccountAssetTableCreateDeleteSameRound(t *testing.T) {
 	assert.Equal(t, uint64(0), amount)
 	assert.False(t, frozen)
 	assert.True(t, deleted)
-	assert.Equal(t, block.Round, basics.Round(createdAt))
-	assert.Equal(t, block.Round, basics.Round(closedAt))
+	assert.Equal(t, block.Round, sdk.Round(createdAt))
+	assert.Equal(t, block.Round, sdk.Round(closedAt))
 }
 
 func TestWriterAccountAssetTableLargeAmount(t *testing.T) {
@@ -905,10 +906,10 @@ func TestWriterAssetTableBasic(t *testing.T) {
 	{
 		paramsRead, err := encoding.DecodeAssetParams(params)
 		require.NoError(t, err)
-		assert.Equal(t, assetParams, paramsRead)
+		assert.Equal(t, util.ConvertParams(assetParams), paramsRead)
 	}
 	assert.False(t, deleted)
-	assert.Equal(t, block.Round, basics.Round(createdAt))
+	assert.Equal(t, block.Round, sdk.Round(createdAt))
 	assert.Nil(t, closedAt)
 
 	assert.False(t, rows.Next())
@@ -939,7 +940,7 @@ func TestWriterAssetTableBasic(t *testing.T) {
 	{
 		paramsRead, err := encoding.DecodeAssetParams(params)
 		require.NoError(t, err)
-		assert.Equal(t, basics.AssetParams{}, paramsRead)
+		assert.Equal(t, util.ConvertParams(basics.AssetParams{}), paramsRead)
 	}
 	assert.True(t, deleted)
 	assert.Equal(t, uint64(block.Round)-1, createdAt)
@@ -994,11 +995,11 @@ func TestWriterAssetTableCreateDeleteSameRound(t *testing.T) {
 	{
 		paramsRead, err := encoding.DecodeAssetParams(params)
 		require.NoError(t, err)
-		assert.Equal(t, basics.AssetParams{}, paramsRead)
+		assert.Equal(t, util.ConvertParams(basics.AssetParams{}), paramsRead)
 	}
 	assert.True(t, deleted)
-	assert.Equal(t, block.Round, basics.Round(createdAt))
-	assert.Equal(t, block.Round, basics.Round(closedAt))
+	assert.Equal(t, block.Round, sdk.Round(createdAt))
+	assert.Equal(t, block.Round, sdk.Round(closedAt))
 }
 
 func TestWriterAppTableBasic(t *testing.T) {
@@ -1058,7 +1059,7 @@ func TestWriterAppTableBasic(t *testing.T) {
 		assert.Equal(t, appParams, paramsRead)
 	}
 	assert.False(t, deleted)
-	assert.Equal(t, block.Round, basics.Round(createdAt))
+	assert.Equal(t, block.Round, sdk.Round(createdAt))
 	assert.Nil(t, closedAt)
 
 	assert.False(t, rows.Next())
@@ -1148,8 +1149,8 @@ func TestWriterAppTableCreateDeleteSameRound(t *testing.T) {
 		assert.Equal(t, basics.AppParams{}, paramsRead)
 	}
 	assert.True(t, deleted)
-	assert.Equal(t, block.Round, basics.Round(createdAt))
-	assert.Equal(t, block.Round, basics.Round(closedAt))
+	assert.Equal(t, block.Round, sdk.Round(createdAt))
+	assert.Equal(t, block.Round, sdk.Round(closedAt))
 }
 
 func TestWriterAccountAppTableBasic(t *testing.T) {
@@ -1208,7 +1209,7 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 		assert.Equal(t, appLocalState, appLocalStateRead)
 	}
 	assert.False(t, deleted)
-	assert.Equal(t, block.Round, basics.Round(createdAt))
+	assert.Equal(t, block.Round, sdk.Round(createdAt))
 	assert.Nil(t, closedAt)
 
 	assert.False(t, rows.Next())
@@ -1297,8 +1298,8 @@ func TestWriterAccountAppTableCreateDeleteSameRound(t *testing.T) {
 		assert.Equal(t, basics.AppLocalState{}, appLocalStateRead)
 	}
 	assert.True(t, deleted)
-	assert.Equal(t, block.Round, basics.Round(createdAt))
-	assert.Equal(t, block.Round, basics.Round(closedAt))
+	assert.Equal(t, block.Round, sdk.Round(createdAt))
+	assert.Equal(t, block.Round, sdk.Round(closedAt))
 }
 
 func TestAddBlockInvalidInnerAsset(t *testing.T) {
@@ -1326,7 +1327,9 @@ func TestAddBlockInvalidInnerAsset(t *testing.T) {
 		},
 	}
 
-	block, err := test.MakeBlockForTxnsV2(test.MakeGenesisBlockV2().BlockHeader, &callWithBadInner)
+	genesisBlock, err := test.MakeGenesisBlockV2()
+	require.NoError(t, err)
+	block, err := test.MakeBlockForTxnsV2(genesisBlock.BlockHeader, &callWithBadInner)
 	require.NoError(t, err)
 
 	err = makeTx(db, func(tx pgx.Tx) error {
@@ -1348,7 +1351,9 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	assetCreate := test.MakeAssetConfigTxnV2(
 		0, 100, 1, false, "ma", "myasset", "myasset.com", sdk.Address(test.AccountD))
 
-	block, err := test.MakeBlockForTxnsV2(test.MakeGenesisBlockV2().BlockHeader, &appCall, &assetCreate)
+	genesisBlock, err := test.MakeGenesisBlockV2()
+	require.NoError(t, err)
+	block, err := test.MakeBlockForTxnsV2(genesisBlock.BlockHeader, &appCall, &assetCreate)
 	require.NoError(t, err)
 
 	err = makeTx(db, func(tx pgx.Tx) error {
@@ -1481,7 +1486,7 @@ func TestWriterAccountTotals(t *testing.T) {
 	err := pgutil.SetMetastate(db, nil, schema.AccountTotals, "{}")
 	require.NoError(t, err)
 
-	block := test.MakeGenesisBlockV2()
+	block, _ := test.MakeGenesisBlockV2()
 
 	accountTotals := ledgercore.AccountTotals{
 		Online: ledgercore.AlgoCount{
@@ -1515,7 +1520,7 @@ func TestWriterAddBlock0(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	block := test.MakeGenesisBlockV2()
+	block, _ := test.MakeGenesisBlockV2()
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -1540,7 +1545,7 @@ func TestWriterAddBlock0(t *testing.T) {
 		err = row.Scan(&round, &realtime, &rewardslevel, &header)
 		require.NoError(t, err)
 
-		assert.Equal(t, block.BlockHeader.Round, basics.Round(round))
+		assert.Equal(t, block.BlockHeader.Round, sdk.Round(round))
 		{
 			expected := time.Unix(block.BlockHeader.TimeStamp, 0).UTC()
 			assert.True(t, expected.Equal(realtime))
@@ -1559,9 +1564,9 @@ func TestWriterAddBlock0(t *testing.T) {
 		accounts, err := encoding.DecodeSpecialAddresses([]byte(j))
 		require.NoError(t, err)
 
-		expected := transactions.SpecialAddresses{
-			FeeSink:     test.FeeAddr,
-			RewardsPool: test.RewardAddr,
+		expected := types.SpecialAddresses{
+			FeeSink:     sdk.Address(test.FeeAddr),
+			RewardsPool: sdk.Address(test.RewardAddr),
 		}
 		assert.Equal(t, expected, accounts)
 	}

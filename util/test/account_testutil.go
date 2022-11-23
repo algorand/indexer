@@ -1,10 +1,11 @@
 package test
 
 import (
-	"encoding/json"
+	"encoding/base64"
 	"fmt"
 	"math/rand"
 
+	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/crypto"
@@ -845,7 +846,7 @@ func MakeBlockForTxns(prevHeader bookkeeping.BlockHeader, inputs ...*transaction
 // MakeBlockForTxnsV2 takes some transactions and constructs a block compatible with the indexer import function.
 func MakeBlockForTxnsV2(prevHeader sdk.BlockHeader, inputs ...*sdk.SignedTxnWithAD) (sdk.Block, error) {
 	res := sdk.Block{BlockHeader: prevHeader}
-
+	res.Round = prevHeader.Round + 1
 	res.RewardsState = sdk.RewardsState{
 		FeeSink:     sdk.Address(FeeAddr),
 		RewardsPool: sdk.Address(RewardAddr),
@@ -924,12 +925,15 @@ func MakeGenesisBlock() bookkeeping.Block {
 }
 
 // MakeGenesisBlockV2 makes a genesis block.
-func MakeGenesisBlockV2() sdk.Block {
+func MakeGenesisBlockV2() (sdk.Block, error) {
 	var genesisBlock sdk.Block
 	block := MakeGenesisBlock()
-	bytes, _ := json.Marshal(block)
-	json.Unmarshal(bytes, &genesisBlock)
-	return genesisBlock
+	b64data := base64.StdEncoding.EncodeToString(msgpack.Encode(block))
+	err := genesisBlock.FromBase64String(b64data)
+	if err != nil {
+		return genesisBlock, err
+	}
+	return genesisBlock, nil
 }
 
 // ArbitraryString should be used to generate a pseudo-random string to put in the Note field of a Txn Header.
