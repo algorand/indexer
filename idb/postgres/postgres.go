@@ -1031,7 +1031,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		// default to Offline in there have been no keyreg transactions.
 		account.Status = statusStrings[offlineStatusIdx]
 		if keytype != nil && *keytype != "" {
-			account.SigType = keytype
+			account.SigType = (*models.AccountSigType)(keytype)
 		}
 
 		{

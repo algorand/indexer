@@ -130,7 +130,7 @@ func (ddm *DisplayDisabledMap) validateSchema() error {
 
 // toDisabledMapConfig creates a disabled map config from a display disabled map.  If the swag pointer
 // is nil then no validation is performed on the disabled map config.  This is useful for unit tests
-func (ddm *DisplayDisabledMap) toDisabledMapConfig(swag *openapi3.Swagger) (*DisabledMapConfig, error) {
+func (ddm *DisplayDisabledMap) toDisabledMapConfig(swag *openapi3.T) (*DisabledMapConfig, error) {
 	// Check that all the "strings" are valid
 	err := ddm.validateSchema()
 	if err != nil {
@@ -170,7 +170,7 @@ func (ddm *DisplayDisabledMap) toDisabledMapConfig(swag *openapi3.Swagger) (*Dis
 }
 
 // MakeDisabledMapConfigFromFile loads a file containing a disabled map configuration.
-func MakeDisabledMapConfigFromFile(swag *openapi3.Swagger, filePath string) (*DisabledMapConfig, error) {
+func MakeDisabledMapConfigFromFile(swag *openapi3.T, filePath string) (*DisabledMapConfig, error) {
 	// First load the file...
 	f, err := ioutil.ReadFile(filePath)
 	if err != nil {
@@ -189,7 +189,7 @@ func MakeDisabledMapConfigFromFile(swag *openapi3.Swagger, filePath string) (*Di
 
 // MakeDisplayDisabledMapFromConfig will make a DisplayDisabledMap that takes into account the DisabledMapConfig.
 // If limited is set to true, then only disabled parameters will be added to the DisplayDisabledMap
-func MakeDisplayDisabledMapFromConfig(swag *openapi3.Swagger, mapConfig *DisabledMapConfig, limited bool) *DisplayDisabledMap {
+func MakeDisplayDisabledMapFromConfig(swag *openapi3.T, mapConfig *DisabledMapConfig, limited bool) *DisplayDisabledMap {
 
 	rval := makeDisplayDisabledMap()
 	for restPath, item := range swag.Paths {
@@ -362,7 +362,7 @@ func makeErrDisabledMapConfig() *ErrDisabledMapConfig {
 // are actually spelled right.  What might happen is that a user might
 // accidentally mis-spell an entry, so we want to make sure to mitigate against
 // that by checking the openapi definition
-func (dmc *DisabledMapConfig) validate(swag *openapi3.Swagger) error {
+func (dmc *DisabledMapConfig) validate(swag *openapi3.T) error {
 	potentialRval := makeErrDisabledMapConfig()
 
 	for recordedPath, recordedOp := range dmc.Data {
@@ -410,7 +410,7 @@ func (dmc *DisabledMapConfig) validate(swag *openapi3.Swagger) error {
 }
 
 // MakeDisabledMapFromOA3 Creates a new disabled map from an openapi3 definition
-func MakeDisabledMapFromOA3(swag *openapi3.Swagger, config *DisabledMapConfig) (*DisabledMap, error) {
+func MakeDisabledMapFromOA3(swag *openapi3.T, config *DisabledMapConfig) (*DisabledMap, error) {
 	if config == nil {
 		return nil, nil
 	}
