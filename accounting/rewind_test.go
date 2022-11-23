@@ -8,6 +8,7 @@ import (
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/indexer/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
@@ -48,7 +49,7 @@ func TestBasic(t *testing.T) {
 	var outCh <-chan idb.TxnRow = ch
 
 	db := &mocks.IndexerDb{}
-	db.On("GetSpecialAccounts", mock.Anything).Return(transactions.SpecialAddresses{}, nil)
+	db.On("GetSpecialAccounts", mock.Anything).Return(types.SpecialAddresses{}, nil)
 	db.On("Transactions", mock.Anything, mock.Anything).Return(outCh, uint64(8))
 
 	account, err := AccountAtRound(context.Background(), account, 6, db)

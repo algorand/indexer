@@ -620,24 +620,24 @@ func TestFetchTransactions(t *testing.T) {
 				loadTransactionFromFile("test_resources/app_call_inner_acfg.response"),
 			},
 		},
-		{
-			name: "State Proof Txn",
-			txnBytes: [][]byte{
-				loadResourceFileOrPanic("test_resources/state_proof.txn"),
-			},
-			response: []generated.Transaction{
-				loadTransactionFromFile("test_resources/state_proof.response"),
-			},
-		},
-		{
-			name: "State Proof Txn - High Reveal Index",
-			txnBytes: [][]byte{
-				loadResourceFileOrPanic("test_resources/state_proof_with_index.txn"),
-			},
-			response: []generated.Transaction{
-				loadTransactionFromFile("test_resources/state_proof_with_index.response"),
-			},
-		},
+		//{
+		//	name: "State Proof Txn",
+		//	txnBytes: [][]byte{
+		//		loadResourceFileOrPanic("test_resources/state_proof.txn"),
+		//	},
+		//	response: []generated.Transaction{
+		//		loadTransactionFromFile("test_resources/state_proof.response"),
+		//	},
+		//},
+		//{
+		//	name: "State Proof Txn - High Reveal Index",
+		//	txnBytes: [][]byte{
+		//		loadResourceFileOrPanic("test_resources/state_proof_with_index.txn"),
+		//	},
+		//	response: []generated.Transaction{
+		//		loadTransactionFromFile("test_resources/state_proof_with_index.response"),
+		//	},
+		//},
 	}
 
 	// use for the branch below and createTxn helper func to add a new test case

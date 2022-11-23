@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"math"
 	"sync"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	crypto2 "github.com/algorand/go-algorand-sdk/crypto"
+	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -393,8 +395,12 @@ func TestBlockWithTransactions(t *testing.T) {
 	assert.Len(t, txnRows0, len(txns))
 	assert.Len(t, txnRows1, len(txns))
 	for i := 0; i < len(txnRows0); i++ {
-		assert.Equal(t, txns[i], txnRows0[i].Txn)
-		assert.Equal(t, txns[i], txnRows1[i].Txn)
+		expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txns[i]))
+		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(txnRows0[i].Txn))
+		assert.Equal(t, expected, actual)
+
+		actual = base64.StdEncoding.EncodeToString(msgpack.Encode(txnRows1[i].Txn))
+		assert.Equal(t, expected, actual)
 	}
 }
 
@@ -1254,11 +1260,11 @@ func TestReconfigAsset(t *testing.T) {
 		require.Equal(t, unit, asset.Params.UnitName)
 		require.Equal(t, url, asset.Params.URL)
 
-		require.Equal(t, basics.Address{}, asset.Params.Manager, "Manager should have been cleared.")
-		require.Equal(t, basics.Address{}, asset.Params.Reserve, "Reserve should have been cleared.")
+		require.Equal(t, sdk.Address{}, asset.Params.Manager, "Manager should have been cleared.")
+		require.Equal(t, sdk.Address{}, asset.Params.Reserve, "Reserve should have been cleared.")
 		// These were updated
-		require.Equal(t, test.AccountB, asset.Params.Freeze)
-		require.Equal(t, test.AccountC, asset.Params.Clawback)
+		require.Equal(t, sdk.Address(test.AccountB), asset.Params.Freeze)
+		require.Equal(t, sdk.Address(test.AccountC), asset.Params.Clawback)
 		num++
 	}
 	require.Equal(t, 1, num)
@@ -1344,7 +1350,9 @@ func TestAddBlockGenesis(t *testing.T) {
 	blockHeaderRet, txns, err := db.GetBlock(context.Background(), 0, opts)
 	require.NoError(t, err)
 	assert.Empty(t, txns)
-	assert.Equal(t, test.MakeGenesisBlock().BlockHeader, blockHeaderRet)
+	genesisBlock, err := test.MakeGenesisBlockV2()
+	require.NoError(t, err)
+	assert.Equal(t, genesisBlock.BlockHeader, blockHeaderRet)
 
 	nextRound, err := db.GetNextRoundToAccount()
 	require.NoError(t, err)
@@ -1759,7 +1767,7 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 					if result.RootTxn != nil {
 						stxn = result.RootTxn
 					}
-					require.Equal(t, rootTxid, string(crypto2.TransactionID(stxn.Txn)))
+					require.Equal(t, rootTxid.String(), crypto2.TransactionIDString(stxn.Txn))
 				}
 			}
 
