@@ -1009,7 +1009,7 @@
       },
       "response": {
         "statusCode": 400,
-        "body": "{\"message\":\"Query argument name is required, but not found\"}\n"
+        "body": "{\"message\":\"Invalid format for parameter name: query parameter 'name' is required\"}\n"
       },
       "witness": null,
       "witnessError": "400 error"
@@ -1024,7 +1024,7 @@
       },
       "response": {
         "statusCode": 400,
-        "body": "{\"message\":\"Query argument name is required, but not found\"}\n"
+        "body": "{\"message\":\"Invalid format for parameter name: query parameter 'name' is required\"}\n"
       },
       "witness": null,
       "witnessError": "400 error"

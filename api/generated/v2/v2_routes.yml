@@ -1,0 +1,11 @@
+package: generated
+generate:
+  echo-server: true
+  embedded-spec: true
+output-options:
+  type-mappings:
+    integer: uint64
+  skip-prune: true
+  exclude-tags:
+  - common
+output: ./generated/v2/routes.go

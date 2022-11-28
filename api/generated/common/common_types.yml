@@ -1,0 +1,10 @@
+package: common
+generate:
+  models: true
+output-options:
+  type-mappings:
+    integer: uint64
+  skip-prune: true
+  include-tags:
+  - common
+output: ./generated/common/types.go
