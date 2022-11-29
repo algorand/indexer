@@ -43,7 +43,7 @@ osArchArch = [
 
 channel = "indexer"
 
-filespec = [
+indexer_filespec = [
     # [files], source path, deb path, tar path
     [
         ["algorand-indexer.service", "algorand-indexer@.service"],
@@ -56,6 +56,21 @@ filespec = [
         "cmd/algorand-indexer",
         "usr/bin",
         "",
+    ],
+    [
+        ["LICENSE"],
+        "",
+        None,
+        "",
+    ],
+]
+
+conduit_filespec = [
+    [
+        ["conduit"],
+        "cmd/conduit",
+        "usr/bin",
+        ""
     ],
     [
         ["LICENSE"],
@@ -161,7 +176,7 @@ def compile_version_opts(release_version=None, allow_mismatch=False):
     return ldflags
 
 
-def compile(goos=None, goarch=None, ldflags=None):
+def compile(path="cmd/algorand-indexer", goos=None, goarch=None, ldflags=None):
     env = dict(os.environ)
     if goos is not None:
         env["GOOS"] = goos
@@ -170,10 +185,11 @@ def compile(goos=None, goarch=None, ldflags=None):
     cmd = ["go", "build"]
     if ldflags is not None:
         cmd.append(ldflags)
-    subprocess.run(cmd, cwd="cmd/algorand-indexer", env=env).check_returncode()
+    subprocess.run(["go", "generate", "./..."], env=env).check_returncode()
+    subprocess.run(cmd, cwd=path, env=env).check_returncode()
 
 
-def build_deb(debarch, version, outdir):
+def build_deb(debarch, version, filespec, outdir):
     os.makedirs(".deb_tmp/DEBIAN", exist_ok=True)
     debian_copyright(".deb_tmp/DEBIAN/copyright")
     arch_ver(".deb_tmp/DEBIAN/control", "misc/debian/control", debarch, version)
@@ -228,8 +244,8 @@ def usage_html():
     return _usage_html
 
 
-def build_tar(goos, goarch, version, outdir):
-    rootdir = "algorand-indexer_{}_{}_{}".format(goos, goarch, version)
+def build_tar(name, goos, goarch, version, filespec, outdir):
+    rootdir = "{}_{}_{}_{}".format(name, goos, goarch, version)
     tarname = os.path.join(outdir, rootdir) + ".tar.bz2"
     tf = tarfile.open(tarname, "w:bz2")
     for files, source_path, _, tar_path in filespec:
@@ -319,14 +335,17 @@ def main():
             logger.debug("skip %s %s", goos, goarch)
             continue
         logger.info("GOOS=%s GOARCH=%s DEB_HOST_ARCH=%s", goos, goarch, debarch)
-        compile(goos, goarch, ldflags)
+        compile("cmd/algorand-indexer", goos, goarch, ldflags)
+        compile("cmd/conduit", goos, goarch)
         if args.build_only:
             logger.debug("skip packaging")
             continue
-        tarname = build_tar(goos, goarch, version, outdir)
-        logger.info("\t%s", tarname)
+        indexer_tarname = build_tar("algorand-indexer", goos, goarch, version, indexer_filespec, outdir)
+        logger.info("\t%s", indexer_tarname)
+        conduit_tarname = build_tar("conduit", goos, goarch, version, conduit_filespec, outdir)
+        logger.info("\t%s", conduit_tarname)
         if (not args.no_deb) and (debarch is not None):
-            debname = build_deb(debarch, version, outdir)
+            debname = build_deb(debarch, version, indexer_filespec, outdir)
             logger.info("\t%s", debname)
     dt = time.time() - start
     logger.info("done %0.1fs", dt)

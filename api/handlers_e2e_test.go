@@ -27,13 +27,12 @@ import (
 	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/rpcs"
-	"github.com/algorand/indexer/processor"
 
 	"github.com/algorand/indexer/api/generated/v2"
+	"github.com/algorand/indexer/conduit/plugins/processors/blockprocessor"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres"
 	pgtest "github.com/algorand/indexer/idb/postgres/testing"
-	"github.com/algorand/indexer/processor/blockprocessor"
 	"github.com/algorand/indexer/util/test"
 )
 
@@ -68,7 +67,7 @@ func testServerImplementation(db idb.IndexerDb) *ServerImplementation {
 	return &ServerImplementation{db: db, timeout: 30 * time.Second, opts: defaultOpts}
 }
 
-func setupIdb(t *testing.T, genesis bookkeeping.Genesis) (*postgres.IndexerDb, func(), processor.Processor, *ledger.Ledger) {
+func setupIdb(t *testing.T, genesis bookkeeping.Genesis) (*postgres.IndexerDb, func(), func(cert *rpcs.EncodedBlockCert) error, *ledger.Ledger) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 
 	db, _, err := postgres.OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
@@ -85,9 +84,12 @@ func setupIdb(t *testing.T, genesis bookkeeping.Genesis) (*postgres.IndexerDb, f
 	logger, _ := test2.NewNullLogger()
 	l, err := test.MakeTestLedger(logger)
 	require.NoError(t, err)
-	proc, err := blockprocessor.MakeProcessorWithLedger(logger, l, db.AddBlock)
+	proc, err := blockprocessor.MakeBlockProcessorWithLedger(logger, l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
-	return db, newShutdownFunc, proc, l
+
+	f := blockprocessor.MakeBlockProcessorHandlerAdapter(&proc, db.AddBlock)
+
+	return db, newShutdownFunc, f, l
 }
 
 func TestApplicationHandlers(t *testing.T) {
@@ -127,7 +129,8 @@ func TestApplicationHandlers(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn, &optInTxnA, &optInTxnB)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
+
 	require.NoError(t, err)
 
 	//////////
@@ -254,7 +257,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 		&appOptInTxnA, &appOptInTxnB, &assetOptInTxnA, &assetOptInTxnB)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	//////////
@@ -460,7 +463,7 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, ptxns...)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	//////////
@@ -864,7 +867,7 @@ func TestInnerTxn(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	for _, tc := range testcases {
@@ -917,7 +920,7 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	testcases := []struct {
@@ -1065,7 +1068,7 @@ func TestKeyregTransactionWithStateProofKeys(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	e := echo.New()
@@ -1170,7 +1173,7 @@ func TestAccountClearsNonUTF8(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createAsset)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	verify := func(params generated.AssetParams) {
@@ -1292,7 +1295,7 @@ func TestLookupInnerLogs(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	for _, tc := range testcases {
@@ -1391,7 +1394,7 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	for _, tc := range testcases {
@@ -1448,7 +1451,7 @@ func TestFetchBlockWithExpiredPartAccts(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCreate)
 	block.ExpiredParticipationAccounts = append(block.ExpiredParticipationAccounts, test.AccountB, test.AccountC)
 	require.NoError(t, err)
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	////////////
@@ -1515,7 +1518,7 @@ func TestFetchBlockWithOptions(t *testing.T) {
 	txnC := test.MakeCreateAppTxn(test.AccountC)
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txnA, &txnB, &txnC)
 	require.NoError(t, err)
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	//////////
@@ -1577,7 +1580,7 @@ func TestGetBlocksTransactionsLimit(t *testing.T) {
 		block.BlockHeader.Round = basics.Round(i + 1)
 		require.NoError(t, err)
 
-		err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+		err = proc(&rpcs.EncodedBlockCert{Block: block})
 		require.NoError(t, err)
 	}
 
@@ -1815,7 +1818,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createTxn, &payNewAppTxn)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	opts := idb.ApplicationQuery{ApplicationID: uint64(appid)}
@@ -1863,7 +1866,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
@@ -1901,7 +1904,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
@@ -1933,7 +1936,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
@@ -1969,7 +1972,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
@@ -2000,7 +2003,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)

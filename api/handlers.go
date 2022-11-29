@@ -39,7 +39,7 @@ type ServerImplementation struct {
 
 	db idb.IndexerDb
 
-	fetcher error
+	dataError func() error
 
 	timeout time.Duration
 
@@ -142,8 +142,10 @@ func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
 		errors = append(errors, fmt.Sprintf("database error: %s", health.Error))
 	}
 
-	if si.fetcher != nil && si.fetcher.Error() != "" {
-		errors = append(errors, fmt.Sprintf("fetcher error: %s", si.fetcher.Error()))
+	if si.dataError != nil {
+		if err := si.dataError(); err != nil {
+			errors = append(errors, fmt.Sprintf("data error: %s", err))
+		}
 	}
 
 	return ctx.JSON(http.StatusOK, common.HealthCheckResponse{
