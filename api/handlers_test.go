@@ -653,11 +653,7 @@ func TestFetchTransactions(t *testing.T) {
 			txnBytes: [][]byte{loadResourceFileOrPanic("test_resources/state_proof.txn")},
 		})
 	}
-	i := 0
 	for _, test := range tests {
-		if i > 0 {
-			break
-		}
 		t.Run(test.name, func(t *testing.T) {
 			// Setup the mocked responses
 			mockIndexer := &mocks.IndexerDb{}

@@ -8,7 +8,6 @@ import (
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
-	"github.com/algorand/go-stateproof-verification/stateproof"
 	"github.com/algorand/indexer/types"
 )
 
@@ -39,12 +38,4 @@ func ConvertValidatedBlock(vb ledgercore.ValidatedBlock) (types.ValidatedBlock, 
 	}
 	ret.Delta = vb.Delta()
 	return ret, nil
-}
-
-// IndexerTxn overrides StateProof
-type IndexerTxn struct {
-	_struct struct{} `codec:",omitempty,omitemptyarray"`
-	sdk.Transaction
-	// StateProof override with concrete type
-	StateProof stateproof.StateProof `codec:"sp"`
 }

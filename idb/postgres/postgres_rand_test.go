@@ -7,10 +7,10 @@ import (
 	"math/rand"
 	"testing"
 
-	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/jackc/pgx/v4"
 	"github.com/stretchr/testify/require"
 
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 

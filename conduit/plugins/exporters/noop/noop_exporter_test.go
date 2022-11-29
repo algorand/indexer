@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 
+	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/exporters"
 	"github.com/algorand/indexer/data"

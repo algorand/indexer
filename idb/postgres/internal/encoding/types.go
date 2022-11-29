@@ -5,7 +5,7 @@ import (
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/crypto/merklesignature"
 	"github.com/algorand/go-algorand/data/basics"
-	itypes "github.com/algorand/indexer/types"
+	"github.com/algorand/indexer/types"
 )
 
 type blockHeader struct {
@@ -103,7 +103,7 @@ type appParams struct {
 }
 
 type specialAddresses struct {
-	itypes.SpecialAddresses
+	types.SpecialAddresses
 	FeeSinkOverride     crypto.Digest `codec:"FeeSink"`
 	RewardsPoolOverride crypto.Digest `codec:"RewardsPool"`
 }

@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/algorand/go-algorand/agreement"
-	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
+	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 
 	"github.com/algorand/indexer/conduit/plugins"
