@@ -55,6 +55,7 @@ type IndexerTxn struct {
 	StateProof stateproof.StateProof `codec:"sp"`
 }
 
+// GetStateProofTxID computes StateProof txid
 func GetStateProofTxID(txn sdk.Transaction) string {
 	var buf strings.Builder
 	enc := codec.NewEncoder(&buf, json.CodecHandle)
