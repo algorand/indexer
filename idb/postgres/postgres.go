@@ -266,6 +266,7 @@ func (db *IndexerDb) AddBlock(vblk *ledgercore.ValidatedBlock) error {
 }
 
 // LoadGenesis is part of idb.IndexerDB
+// should this become a map[string]interface{}
 func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 	f := func(tx pgx.Tx) error {
 		// check genesis hash
@@ -297,6 +298,7 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 		if !ok {
 			return fmt.Errorf("LoadGenesis() consensus version %s not found", genesis.Proto)
 		}
+		// is this needed?
 		var ot basics.OverflowTracker
 		var totals ledgercore.AccountTotals
 		for ai, alloc := range genesis.Allocation {
