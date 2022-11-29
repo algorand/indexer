@@ -2,6 +2,11 @@ codecov:
   require_ci_to_pass: no
   branch: develop
 
+ignore:
+  - "idb/mocks"
+  - "idb/dummy"
+  - "util/test"
+
 coverage:
   precision: 2
   round: down

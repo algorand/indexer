@@ -125,7 +125,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createTxn, &payNewAppTxn)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	opts := idb.ApplicationQuery{ApplicationID: uint64(appid)}
@@ -173,7 +173,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
@@ -211,7 +211,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
@@ -243,7 +243,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
@@ -279,7 +279,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
@@ -310,7 +310,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)

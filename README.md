@@ -48,11 +48,11 @@ Indexer is part of the [sandbox](https://github.com/algorand/sandbox) private ne
 - Search and filter accounts, transactions, assets, and asset balances with many different parameters.
 - Pagination of results.
 - Enriched transaction and account data:
-    - Confirmation round (block containing the transaction)
-    - Confirmation time
-    - Signature type
-    - Close amounts
-    - Create/delete rounds.
+  - Confirmation round (block containing the transaction)
+  - Confirmation time
+  - Signature type
+  - Close amounts
+  - Create/delete rounds.
 - Human readable field names instead of the space optimized protocol level names.
 
 # Contributing

@@ -1,14 +1,71 @@
 package util
 
 import (
+	"bytes"
+	"compress/gzip"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-codec/codec"
 )
+
+// EncodeToFile is used to encode an object to a file. If the file ends in .gz it will be gzipped.
+func EncodeToFile(filename string, v interface{}, pretty bool) error {
+	var writer io.Writer
+
+	file, err := os.Create(filename)
+	if err != nil {
+		return fmt.Errorf("EncodeToFile(): failed to create %s: %w", filename, err)
+	}
+	defer file.Close()
+
+	if strings.HasSuffix(filename, ".gz") {
+		gz := gzip.NewWriter(file)
+		gz.Name = filename
+		defer gz.Close()
+		writer = gz
+	} else {
+		writer = file
+	}
+
+	handle := json.CodecHandle
+	if pretty {
+		handle.Indent = 2
+	} else {
+		handle.Indent = 0
+	}
+	enc := codec.NewEncoder(writer, handle)
+	return enc.Encode(v)
+}
+
+// DecodeFromFile is used to decode a file to an object.
+func DecodeFromFile(filename string, v interface{}) error {
+	// Streaming into the decoder was slow.
+	fileBytes, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return fmt.Errorf("DecodeFromFile(): failed to read %s: %w", filename, err)
+	}
+
+	var reader io.Reader = bytes.NewReader(fileBytes)
+
+	if strings.HasSuffix(filename, ".gz") {
+		gz, err := gzip.NewReader(reader)
+		defer gz.Close()
+		if err != nil {
+			return fmt.Errorf("DecodeFromFile(): failed to make gzip reader: %w", err)
+		}
+		reader = gz
+	}
+
+	enc := codec.NewDecoder(reader, json.CodecHandle)
+	return enc.Decode(v)
+}
 
 // PrintableUTF8OrEmpty checks to see if the entire string is a UTF8 printable string.
 // If this is the case, the string is returned as is. Otherwise, the empty string is returned.

@@ -157,6 +157,20 @@ func (_m *IndexerDb) Close() {
 	_m.Called()
 }
 
+// DeleteTransactions provides a mock function with given fields: ctx, keep
+func (_m *IndexerDb) DeleteTransactions(ctx context.Context, keep uint64) error {
+	ret := _m.Called(ctx, keep)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, uint64) error); ok {
+		r0 = rf(ctx, keep)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // GetAccounts provides a mock function with given fields: ctx, opts
 func (_m *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) (<-chan idb.AccountRow, uint64) {
 	ret := _m.Called(ctx, opts)

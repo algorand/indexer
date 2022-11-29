@@ -34,7 +34,7 @@ import time
 import algosdk
 import algosdk.v2client
 
-from util import xrun, atexitrun, find_indexer, ensure_test_db
+from e2e_common.util import xrun, atexitrun, find_indexer, ensure_test_db
 
 logger = logging.getLogger(__name__)
 

@@ -161,10 +161,6 @@ func recordDataToFile(start time.Time, entry Entry, prefix string, out *os.File)
 	record("_cumulative", metrics.BlockImportTimeName, floatTotal)
 	record("_average", metrics.ImportedTxnsPerBlockName, rate)
 	record("_cumulative", metrics.ImportedTxnsPerBlockName, intTotal)
-	record("_average", metrics.BlockUploadTimeName, rate)
-	record("_cumulative", metrics.BlockUploadTimeName, floatTotal)
-	record("_average", metrics.PostgresEvalName, rate)
-	record("_cumulative", metrics.PostgresEvalName, floatTotal)
 	record("", metrics.ImportedRoundGaugeName, intTotal)
 
 	if len(writeErrors) > 0 {
@@ -441,7 +437,7 @@ func startIndexer(dataDir string, logfile string, loglevel string, indexerBinary
 
 	// Ensure that the health endpoint can be queried.
 	// The service should start very quickly because the DB is empty.
-	time.Sleep(5 * time.Second)
+	time.Sleep(10 * time.Second)
 	resp, err := http.Get(fmt.Sprintf("http://%s/health", indexerNet))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "stdout:\n%s\n", stdout.String())

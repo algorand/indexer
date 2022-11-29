@@ -159,6 +159,7 @@ type Generator interface {
 	WriteGenesis(output io.Writer) error
 	WriteBlock(output io.Writer, round uint64) error
 	WriteAccount(output io.Writer, accountString string) error
+	WriteStatus(output io.Writer) error
 	Accounts() <-chan basics.Address
 }
 
@@ -244,6 +245,14 @@ func (g *generator) recordData(id TxTypeID, start time.Time) {
 
 func (g *generator) WriteReport(output io.Writer) error {
 	_, err := output.Write(protocol.EncodeJSON(g.reportData))
+	return err
+}
+
+func (g *generator) WriteStatus(output io.Writer) error {
+	response := generated.NodeStatusResponse{
+		LastRound: g.round,
+	}
+	_, err := output.Write(protocol.EncodeJSON(response))
 	return err
 }
 

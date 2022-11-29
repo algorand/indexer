@@ -1,0 +1,15 @@
+name: block_evaluator
+config:
+  # Catchpoint is the catchpoint you wish the block evaluator to use
+  catchpoint: "acatch"
+  # DataDir is the data directory for the Indexer process.  It should be a full directory
+  # path and is used for reading in config and writing some output.  See
+  # Algorand docs for further documentation
+  data-dir: "/tmp"
+  # AlgodDataDir is the algod data directory. It should be a full directory path.
+  # See Algorand docs for further documentation
+  algod-data-dir: "algod_data_dir"
+  # AlgodToken is the token to connect to algod.
+  algod-token: "algod_token"
+  # AlgodAddr is the address to connect to the algod instance.
+  algod-addr: "algod_addr"
