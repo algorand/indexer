@@ -1,19 +1,13 @@
 package helpers
 
 import (
-	"bytes"
-	"crypto/sha512"
-	"encoding/base32"
 	"encoding/base64"
 	"fmt"
-	"strings"
 
-	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
-	"github.com/algorand/go-codec/codec"
 	"github.com/algorand/go-stateproof-verification/stateproof"
 	"github.com/algorand/indexer/types"
 )
@@ -53,26 +47,4 @@ type IndexerTxn struct {
 	sdk.Transaction
 	// StateProof override with concrete type
 	StateProof stateproof.StateProof `codec:"sp"`
-}
-
-// GetStateProofTxID computes StateProof txid
-func GetStateProofTxID(txn sdk.Transaction) string {
-	var buf strings.Builder
-	enc := codec.NewEncoder(&buf, json.CodecHandle)
-	enc.Encode(txn)
-	dec := codec.NewDecoder(strings.NewReader(buf.String()), json.CodecHandle)
-	var t IndexerTxn
-	err := dec.Decode(&t)
-	if err != nil {
-		return ""
-	}
-	// Encode the transaction as msgpack
-	encodedTx := msgpack.Encode(t)
-	var txidPrefix = []byte("TX")
-	msgParts := [][]byte{txidPrefix, encodedTx}
-	toBeSigned := bytes.Join(msgParts, nil)
-	txid32 := sha512.Sum512_256(toBeSigned)
-	txidbytes := txid32[:]
-	txid := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(txidbytes)
-	return txid
 }
