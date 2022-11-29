@@ -13,6 +13,7 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
+	"github.com/algorand/indexer/helpers"
 	"github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/util"
 	"github.com/jackc/pgx/v4"
@@ -906,7 +907,7 @@ func TestWriterAssetTableBasic(t *testing.T) {
 	{
 		paramsRead, err := encoding.DecodeAssetParams(params)
 		require.NoError(t, err)
-		assert.Equal(t, util.ConvertParams(assetParams), paramsRead)
+		assert.Equal(t, helpers.ConvertParams(assetParams), paramsRead)
 	}
 	assert.False(t, deleted)
 	assert.Equal(t, block.Round, sdk.Round(createdAt))
@@ -940,7 +941,7 @@ func TestWriterAssetTableBasic(t *testing.T) {
 	{
 		paramsRead, err := encoding.DecodeAssetParams(params)
 		require.NoError(t, err)
-		assert.Equal(t, util.ConvertParams(basics.AssetParams{}), paramsRead)
+		assert.Equal(t, helpers.ConvertParams(basics.AssetParams{}), paramsRead)
 	}
 	assert.True(t, deleted)
 	assert.Equal(t, uint64(block.Round)-1, createdAt)
@@ -995,7 +996,7 @@ func TestWriterAssetTableCreateDeleteSameRound(t *testing.T) {
 	{
 		paramsRead, err := encoding.DecodeAssetParams(params)
 		require.NoError(t, err)
-		assert.Equal(t, util.ConvertParams(basics.AssetParams{}), paramsRead)
+		assert.Equal(t, helpers.ConvertParams(basics.AssetParams{}), paramsRead)
 	}
 	assert.True(t, deleted)
 	assert.Equal(t, block.Round, sdk.Round(createdAt))

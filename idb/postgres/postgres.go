@@ -21,6 +21,7 @@ import (
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/indexer/helpers"
 	itypes "github.com/algorand/indexer/types"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
@@ -178,7 +179,7 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 // AddBlock is part of idb.IndexerDb.
 func (db *IndexerDb) AddBlock(vblk *ledgercore.ValidatedBlock) error {
 	//todo: use a converter util until vblk type is changed
-	vb, err := util.ConvertValidatedBlock(*vblk)
+	vb, err := helpers.ConvertValidatedBlock(*vblk)
 	if err != nil {
 		return fmt.Errorf("AddBlock() err: %w", err)
 	}

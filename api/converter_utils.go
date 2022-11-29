@@ -15,6 +15,7 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-stateproof-verification/stateproof"
 	"github.com/algorand/indexer/api/generated/v2"
+	"github.com/algorand/indexer/helpers"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/util"
 )
@@ -288,7 +289,11 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 	if row.Extra.RootIntra.Present {
 		txid = row.Extra.RootTxid
 	} else {
-		txid = crypto.TransactionIDString(stxn.Txn)
+		if txn.TxType == string(sdk.StateProofTx) {
+			txid = helpers.GetStateProofTxID(stxn.Txn)
+		} else {
+			txid = crypto.TransactionIDString(stxn.Txn)
+		}
 	}
 	txn.Id = &txid
 	txn.Signature = &sig

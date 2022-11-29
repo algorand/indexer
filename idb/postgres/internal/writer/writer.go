@@ -10,8 +10,8 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
+	"github.com/algorand/indexer/helpers"
 	"github.com/algorand/indexer/types"
-	"github.com/algorand/indexer/util"
 	"github.com/jackc/pgx/v4"
 
 	"github.com/algorand/indexer/idb"
@@ -237,7 +237,7 @@ func writeAssetResource(round sdk.Round, resource *ledgercore.AssetResourceRecor
 			batch.Queue(
 				upsertAssetStmtName, resource.Aidx, resource.Addr[:],
 
-				encoding.EncodeAssetParams(util.ConvertParams(*resource.Params.Params)), round)
+				encoding.EncodeAssetParams(helpers.ConvertParams(*resource.Params.Params)), round)
 		}
 	}
 
