@@ -20,7 +20,6 @@ import (
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
-
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v4"
@@ -48,7 +47,7 @@ func OpenPostgres(connection string, opts idb.IndexerDbOptions, log *log.Logger)
 
 	postgresConfig, err := pgxpool.ParseConfig(connection)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Couldn't parse config: %v", err)
+		return nil, nil, fmt.Errorf("couldn't parse config: %v", err)
 	}
 
 	if opts.MaxConn != 0 {
@@ -1035,58 +1034,61 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		}
 
 		{
-			var ad ledgercore.AccountData
-			ad, err = encoding.DecodeTrimmedLcAccountData(accountDataJSONStr)
+			var accountData ledgercore.AccountData
+			accountData, err = encoding.DecodeTrimmedLcAccountData(accountDataJSONStr)
 			if err != nil {
 				err = fmt.Errorf("account decode err (%s) %v", accountDataJSONStr, err)
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
-			account.Status = statusStrings[ad.Status]
-			hasSel := !allZero(ad.SelectionID[:])
-			hasVote := !allZero(ad.VoteID[:])
-			hasStateProofkey := !allZero(ad.StateProofID[:])
+			account.Status = statusStrings[accountData.Status]
+			hasSel := !allZero(accountData.SelectionID[:])
+			hasVote := !allZero(accountData.VoteID[:])
+			hasStateProofkey := !allZero(accountData.StateProofID[:])
 
 			if hasSel || hasVote || hasStateProofkey {
 				part := new(models.AccountParticipation)
 				if hasSel {
-					part.SelectionParticipationKey = ad.SelectionID[:]
+					part.SelectionParticipationKey = accountData.SelectionID[:]
 				}
 				if hasVote {
-					part.VoteParticipationKey = ad.VoteID[:]
+					part.VoteParticipationKey = accountData.VoteID[:]
 				}
 				if hasStateProofkey {
-					part.StateProofKey = byteSlicePtr(ad.StateProofID[:])
+					part.StateProofKey = byteSlicePtr(accountData.StateProofID[:])
 				}
-				part.VoteFirstValid = uint64(ad.VoteFirstValid)
-				part.VoteLastValid = uint64(ad.VoteLastValid)
-				part.VoteKeyDilution = ad.VoteKeyDilution
+				part.VoteFirstValid = uint64(accountData.VoteFirstValid)
+				part.VoteLastValid = uint64(accountData.VoteLastValid)
+				part.VoteKeyDilution = accountData.VoteKeyDilution
 				account.Participation = part
 			}
 
-			if !ad.AuthAddr.IsZero() {
+			if !accountData.AuthAddr.IsZero() {
 				var spendingkey basics.Address
-				copy(spendingkey[:], ad.AuthAddr[:])
+				copy(spendingkey[:], accountData.AuthAddr[:])
 				account.AuthAddr = stringPtr(spendingkey.String())
 			}
 
 			{
 				totalSchema := models.ApplicationStateSchema{
-					NumByteSlice: ad.TotalAppSchema.NumByteSlice,
-					NumUint:      ad.TotalAppSchema.NumUint,
+					NumByteSlice: accountData.TotalAppSchema.NumByteSlice,
+					NumUint:      accountData.TotalAppSchema.NumUint,
 				}
 				if totalSchema != (models.ApplicationStateSchema{}) {
 					account.AppsTotalSchema = &totalSchema
 				}
 			}
-			if ad.TotalExtraAppPages != 0 {
-				account.AppsTotalExtraPages = uint64Ptr(uint64(ad.TotalExtraAppPages))
+			if accountData.TotalExtraAppPages != 0 {
+				account.AppsTotalExtraPages = uint64Ptr(uint64(accountData.TotalExtraAppPages))
 			}
 
-			account.TotalAppsOptedIn = ad.TotalAppLocalStates
-			account.TotalCreatedApps = ad.TotalAppParams
-			account.TotalAssetsOptedIn = ad.TotalAssets
-			account.TotalCreatedAssets = ad.TotalAssetParams
+			account.TotalAppsOptedIn = accountData.TotalAppLocalStates
+			account.TotalCreatedApps = accountData.TotalAppParams
+			account.TotalAssetsOptedIn = accountData.TotalAssets
+			account.TotalCreatedAssets = accountData.TotalAssetParams
+
+			account.TotalBoxes = accountData.TotalBoxes
+			account.TotalBoxBytes = accountData.TotalBoxBytes
 		}
 
 		if account.Status == "NotParticipating" {
@@ -2292,6 +2294,123 @@ func (db *IndexerDb) yieldApplicationsThread(rows pgx.Rows, out chan idb.Applica
 	}
 }
 
+// ApplicationBoxes is part of interface idb.IndexerDB. The most complex query formed looks like:
+//
+// WITH apps AS (SELECT index AS app FROM app WHERE index = $1)
+// SELECT a.app, ab.name, ab.value
+// FROM apps a
+// LEFT OUTER JOIN app_box ab ON ab.app = a.app AND name [= or >] $2 ORDER BY ab.name ASC LIMIT {queryOpts.Limit}
+//
+// where the binary operator in the last line is `=` for the box lookup and `>` for boxes search
+// with query substitutions:
+// $1 <-- queryOpts.ApplicationID
+// $2 <-- queryOpts.BoxName
+// $3 <-- queryOpts.PrevFinalBox
+func (db *IndexerDb) ApplicationBoxes(ctx context.Context, queryOpts idb.ApplicationBoxQuery) (<-chan idb.ApplicationBoxRow, uint64) {
+	out := make(chan idb.ApplicationBoxRow, 1)
+
+	columns := `a.app, ab.name`
+	if !queryOpts.OmitValues {
+		columns += `, ab.value`
+	}
+	query := fmt.Sprintf(`WITH apps AS (SELECT index AS app FROM app WHERE index = $1)
+SELECT %s
+FROM apps a
+LEFT OUTER JOIN app_box ab ON ab.app = a.app`, columns)
+
+	whereArgs := []interface{}{queryOpts.ApplicationID}
+	if queryOpts.BoxName != nil {
+		query += " AND name = $2"
+		whereArgs = append(whereArgs, queryOpts.BoxName)
+	} else if queryOpts.PrevFinalBox != nil {
+		// when enabling ORDER BY DESC, will need to filter by "name < $2":
+		query += " AND name > $2"
+		whereArgs = append(whereArgs, queryOpts.PrevFinalBox)
+	}
+
+	// To enable ORDER BY DESC, consider re-introducing and exposing queryOpts.Ascending
+	query += " ORDER BY ab.name ASC"
+
+	if queryOpts.Limit != 0 {
+		query += fmt.Sprintf(" LIMIT %d", queryOpts.Limit)
+	}
+
+	tx, err := db.db.BeginTx(ctx, readonlyRepeatableRead)
+	if err != nil {
+		out <- idb.ApplicationBoxRow{Error: err}
+		close(out)
+		return out, 0
+	}
+
+	round, err := db.getMaxRoundAccounted(ctx, tx)
+	if err != nil {
+		out <- idb.ApplicationBoxRow{Error: err}
+		close(out)
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			db.log.Printf("rollback error: %s", rerr)
+		}
+		return out, round
+	}
+
+	rows, err := tx.Query(ctx, query, whereArgs...)
+	if err != nil {
+		out <- idb.ApplicationBoxRow{Error: err}
+		close(out)
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			db.log.Printf("rollback error: %s", rerr)
+		}
+		return out, round
+	}
+
+	go func() {
+		db.yieldApplicationBoxThread(queryOpts.OmitValues, rows, out)
+		// Because we return a channel into a "callWithTimeout" function,
+		// We need to make sure that rollback is called before close()
+		// otherwise we can end up with a situation where "callWithTimeout"
+		// will cancel our context, resulting in connection pool churn
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			db.log.Printf("rollback error: %s", rerr)
+		}
+		close(out)
+	}()
+	return out, round
+}
+
+func (db *IndexerDb) yieldApplicationBoxThread(omitValues bool, rows pgx.Rows, out chan idb.ApplicationBoxRow) {
+	defer rows.Close()
+
+	gotRows := false
+	for rows.Next() {
+		gotRows = true
+		var app uint64
+		var name []byte
+		var value []byte
+		var err error
+
+		if omitValues {
+			err = rows.Scan(&app, &name)
+		} else {
+			err = rows.Scan(&app, &name, &value)
+		}
+		if err != nil {
+			out <- idb.ApplicationBoxRow{Error: err}
+			break
+		}
+
+		box := models.Box{
+			Name:  name,
+			Value: value, // is nil when omitValues
+		}
+
+		out <- idb.ApplicationBoxRow{App: app, Box: box}
+	}
+	if err := rows.Err(); err != nil {
+		out <- idb.ApplicationBoxRow{Error: err}
+	} else if !gotRows {
+		out <- idb.ApplicationBoxRow{Error: sql.ErrNoRows}
+	}
+}
+
 // AppLocalState is part of idb.IndexerDB
 func (db *IndexerDb) AppLocalState(ctx context.Context, filter idb.ApplicationQuery) (<-chan idb.AppLocalStateRow, uint64) {
 	out := make(chan idb.AppLocalStateRow, 1)
@@ -2498,4 +2617,37 @@ func (db *IndexerDb) SetNetworkState(genesis bookkeeping.Genesis) error {
 		GenesisHash: crypto.HashObj(genesis),
 	}
 	return db.setNetworkState(nil, &networkState)
+}
+
+// DeleteTransactions removes old transactions
+// keep is the number of rounds to keep in db
+func (db *IndexerDb) DeleteTransactions(ctx context.Context, keep uint64) error {
+	// delete old transactions and update metastate
+	deleteTxns := func(tx pgx.Tx) error {
+		db.log.Infof("deleteTxns(): removing transactions before round %d", keep)
+		// delete query
+		query := "DELETE FROM txn WHERE round < $1"
+		cmd, err2 := tx.Exec(ctx, query, keep)
+		if err2 != nil {
+			return fmt.Errorf("deleteTxns(): transaction delete err %w", err2)
+		}
+		t := time.Now().UTC()
+		// update metastate
+		status := types.DeleteStatus{
+			// format time, "2006-01-02T15:04:05Z07:00"
+			LastPruned:  t.Format(time.RFC3339),
+			OldestRound: keep,
+		}
+		err2 = db.setMetastate(tx, schema.DeleteStatusKey, string(encoding.EncodeDeleteStatus(&status)))
+		if err2 != nil {
+			return fmt.Errorf("deleteTxns(): metastate update err %w", err2)
+		}
+		db.log.Infof("%d transactions deleted, last pruned at %s", cmd.RowsAffected(), status.LastPruned)
+		return nil
+	}
+	err := db.txWithRetry(serializable, deleteTxns)
+	if err != nil {
+		return fmt.Errorf("DeleteTransactions err: %w", err)
+	}
+	return nil
 }

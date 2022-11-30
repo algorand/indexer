@@ -24,15 +24,15 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/rpcs"
-	"github.com/algorand/indexer/processor"
 
 	"github.com/algorand/indexer/api/generated/v2"
+	"github.com/algorand/indexer/conduit/plugins/processors/blockprocessor"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres"
 	pgtest "github.com/algorand/indexer/idb/postgres/testing"
-	"github.com/algorand/indexer/processor/blockprocessor"
 	"github.com/algorand/indexer/util/test"
 )
 
@@ -54,14 +54,20 @@ var defaultOpts = ExtraOptions{
 	MaxApplicationsLimit:     1000,
 	DefaultApplicationsLimit: 100,
 
+	MaxBoxesLimit:     10000,
+	DefaultBoxesLimit: 1000,
+
 	DisabledMapConfig: MakeDisabledMapConfig(),
 }
+
+type boxTestComparator func(t *testing.T, db *postgres.IndexerDb, appBoxes map[basics.AppIndex]map[string]string,
+	deletedBoxes map[basics.AppIndex]map[string]bool, verifyTotals bool)
 
 func testServerImplementation(db idb.IndexerDb) *ServerImplementation {
 	return &ServerImplementation{db: db, timeout: 30 * time.Second, opts: defaultOpts}
 }
 
-func setupIdb(t *testing.T, genesis bookkeeping.Genesis) (*postgres.IndexerDb, func(), processor.Processor, *ledger.Ledger) {
+func setupIdb(t *testing.T, genesis bookkeeping.Genesis) (*postgres.IndexerDb, func(), func(cert *rpcs.EncodedBlockCert) error, *ledger.Ledger) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 
 	db, _, err := postgres.OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
@@ -78,9 +84,12 @@ func setupIdb(t *testing.T, genesis bookkeeping.Genesis) (*postgres.IndexerDb, f
 	logger, _ := test2.NewNullLogger()
 	l, err := test.MakeTestLedger(logger)
 	require.NoError(t, err)
-	proc, err := blockprocessor.MakeProcessorWithLedger(logger, l, db.AddBlock)
+	proc, err := blockprocessor.MakeBlockProcessorWithLedger(logger, l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
-	return db, newShutdownFunc, proc, l
+
+	f := blockprocessor.MakeBlockProcessorHandlerAdapter(&proc, db.AddBlock)
+
+	return db, newShutdownFunc, f, l
 }
 
 func TestApplicationHandlers(t *testing.T) {
@@ -120,7 +129,8 @@ func TestApplicationHandlers(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn, &optInTxnA, &optInTxnB)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
+
 	require.NoError(t, err)
 
 	//////////
@@ -247,7 +257,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 		&appOptInTxnA, &appOptInTxnB, &assetOptInTxnA, &assetOptInTxnB)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	//////////
@@ -453,7 +463,7 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, ptxns...)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	//////////
@@ -857,7 +867,7 @@ func TestInnerTxn(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	for _, tc := range testcases {
@@ -910,7 +920,7 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	testcases := []struct {
@@ -1058,7 +1068,7 @@ func TestKeyregTransactionWithStateProofKeys(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	e := echo.New()
@@ -1163,7 +1173,7 @@ func TestAccountClearsNonUTF8(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createAsset)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	verify := func(params generated.AssetParams) {
@@ -1285,7 +1295,7 @@ func TestLookupInnerLogs(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	for _, tc := range testcases {
@@ -1384,7 +1394,7 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	for _, tc := range testcases {
@@ -1441,7 +1451,7 @@ func TestFetchBlockWithExpiredPartAccts(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCreate)
 	block.ExpiredParticipationAccounts = append(block.ExpiredParticipationAccounts, test.AccountB, test.AccountC)
 	require.NoError(t, err)
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	////////////
@@ -1508,7 +1518,7 @@ func TestFetchBlockWithOptions(t *testing.T) {
 	txnC := test.MakeCreateAppTxn(test.AccountC)
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txnA, &txnB, &txnC)
 	require.NoError(t, err)
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	//////////
@@ -1570,7 +1580,7 @@ func TestGetBlocksTransactionsLimit(t *testing.T) {
 		block.BlockHeader.Round = basics.Round(i + 1)
 		require.NoError(t, err)
 
-		err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+		err = proc(&rpcs.EncodedBlockCert{Block: block})
 		require.NoError(t, err)
 	}
 
@@ -1657,4 +1667,353 @@ func TestGetBlocksTransactionsLimit(t *testing.T) {
 			require.Equal(t, tc.ntxns, len(*response.Transactions))
 		})
 	}
+}
+
+// compareAppBoxesAgainstHandler is of type BoxTestComparator
+func compareAppBoxesAgainstHandler(t *testing.T, db *postgres.IndexerDb,
+	appBoxes map[basics.AppIndex]map[string]string, deletedBoxes map[basics.AppIndex]map[string]bool, verifyTotals bool) {
+
+	setupRequest := func(path, paramName, paramValue string) (echo.Context, *ServerImplementation, *httptest.ResponseRecorder) {
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath(path)
+		c.SetParamNames(paramName)
+		c.SetParamValues(paramValue)
+		api := testServerImplementation(db)
+		return c, api, rec
+	}
+
+	remainingBoxes := map[basics.AppIndex]map[string]string{}
+	numRequests := 0
+	sumOfBoxes := 0
+	sumOfBoxBytes := 0
+
+	caseNum := 1
+	var totalBoxes, totalBoxBytes int
+	for appIdx, boxes := range appBoxes {
+		totalBoxes = 0
+		totalBoxBytes = 0
+
+		remainingBoxes[appIdx] = map[string]string{}
+
+		// compare expected against handler response one box at a time
+		for key, expectedValue := range boxes {
+			msg := fmt.Sprintf("caseNum=%d, appIdx=%d, key=%#v", caseNum, appIdx, key)
+			expectedAppIdx, boxName, err := logic.SplitBoxKey(key)
+			require.NoError(t, err, msg)
+			require.Equal(t, appIdx, expectedAppIdx, msg)
+			numRequests++
+
+			boxDeleted := false
+			if deletedBoxes != nil {
+				if _, ok := deletedBoxes[appIdx][key]; ok {
+					boxDeleted = true
+				}
+			}
+
+			c, api, rec := setupRequest("/v2/applications/:appidx/box/", "appidx", strconv.Itoa(int(appIdx)))
+			prefixedName := fmt.Sprintf("str:%s", boxName)
+			params := generated.LookupApplicationBoxByIDAndNameParams{Name: prefixedName}
+			err = api.LookupApplicationBoxByIDAndName(c, uint64(appIdx), params)
+			require.NoError(t, err, msg)
+			require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("msg: %s. unexpected return code, body: %s", msg, rec.Body.String()))
+
+			var resp generated.BoxResponse
+			data := rec.Body.Bytes()
+			err = json.Decode(data, &resp)
+
+			if !boxDeleted {
+				require.NoError(t, err, msg, msg)
+				require.Equal(t, boxName, string(resp.Name), msg)
+				require.Equal(t, expectedValue, string(resp.Value), msg)
+
+				remainingBoxes[appIdx][boxName] = expectedValue
+
+				totalBoxes++
+				totalBoxBytes += len(boxName) + len(expectedValue)
+			} else {
+				require.ErrorContains(t, err, "no rows in result set", msg)
+			}
+		}
+
+		msg := fmt.Sprintf("caseNum=%d, appIdx=%d", caseNum, appIdx)
+
+		expectedBoxes := remainingBoxes[appIdx]
+
+		c, api, rec := setupRequest("/v2/applications/:appidx/boxes", "appidx", strconv.Itoa(int(appIdx)))
+		params := generated.SearchForApplicationBoxesParams{}
+
+		err := api.SearchForApplicationBoxes(c, uint64(appIdx), params)
+		require.NoError(t, err, msg)
+		require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("msg: %s. unexpected return code, body: %s", msg, rec.Body.String()))
+
+		var resp generated.BoxesResponse
+		data := rec.Body.Bytes()
+		err = json.Decode(data, &resp)
+		require.NoError(t, err, msg)
+
+		require.Equal(t, uint64(appIdx), uint64(resp.ApplicationId), msg)
+
+		boxes := resp.Boxes
+		require.NotNil(t, boxes, msg)
+		require.Len(t, boxes, len(expectedBoxes), msg)
+		for _, box := range boxes {
+			require.Contains(t, expectedBoxes, string(box.Name), msg)
+		}
+
+		if verifyTotals {
+			// compare expected totals against handler account_data JSON fields
+			msg := fmt.Sprintf("caseNum=%d, appIdx=%d", caseNum, appIdx)
+
+			appAddr := appIdx.Address().String()
+			c, api, rec = setupRequest("/v2/accounts/:addr", "addr", appAddr)
+			fmt.Printf("appIdx=%d\nappAddr=%s\npath=/v2/accounts/%s\n", appIdx, appAddr, appAddr)
+			tru := true
+			params := generated.LookupAccountByIDParams{IncludeAll: &tru}
+			err := api.LookupAccountByID(c, appAddr, params)
+			require.NoError(t, err, msg)
+			require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("msg: %s. unexpected return code, body: %s", msg, rec.Body.String()))
+
+			var resp generated.AccountResponse
+			data := rec.Body.Bytes()
+			err = json.Decode(data, &resp)
+
+			require.NoError(t, err, msg)
+			require.Equal(t, uint64(totalBoxes), resp.Account.TotalBoxes, msg)
+			require.Equal(t, uint64(totalBoxBytes), resp.Account.TotalBoxBytes, msg)
+
+			// sanity check of the account summary query vs. the direct box search query results:
+			require.Equal(t, uint64(len(boxes)), resp.Account.TotalBoxes, msg)
+		}
+
+		sumOfBoxes += totalBoxes
+		sumOfBoxBytes += totalBoxBytes
+		caseNum++
+	}
+
+	fmt.Printf("compareAppBoxesAgainstHandler succeeded with %d requests, %d boxes and %d boxBytes\n", numRequests, sumOfBoxes, sumOfBoxBytes)
+}
+
+// test runner copy/pastad/tweaked in handlers_e2e_test.go and postgres_integration_test.go
+func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
+	start := time.Now()
+
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+	defer l.Close()
+
+	appid := basics.AppIndex(1)
+
+	// ---- ROUND 1: create and fund the box app  ---- //
+	currentRound := basics.Round(1)
+
+	createTxn, err := test.MakeComplexCreateAppTxn(test.AccountA, test.BoxApprovalProgram, test.BoxClearProgram, 8)
+	require.NoError(t, err)
+
+	payNewAppTxn := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountA, appid.Address(), basics.Address{},
+		basics.Address{})
+
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createTxn, &payNewAppTxn)
+	require.NoError(t, err)
+
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
+
+	opts := idb.ApplicationQuery{ApplicationID: uint64(appid)}
+
+	rowsCh, round := db.Applications(context.Background(), opts)
+	require.Equal(t, uint64(currentRound), round)
+
+	row, ok := <-rowsCh
+	require.True(t, ok)
+	require.NoError(t, row.Error)
+	require.NotNil(t, row.Application.CreatedAtRound)
+	require.Equal(t, uint64(currentRound), *row.Application.CreatedAtRound)
+
+	// block header handoff: round 1 --> round 2
+	blockHdr, err := l.BlockHdr(currentRound)
+	require.NoError(t, err)
+
+	// ---- ROUND 2: create 8 boxes for appid == 1  ---- //
+	currentRound = basics.Round(2)
+
+	boxNames := []string{
+		"a great box",
+		"another great box",
+		"not so great box",
+		"disappointing box",
+		"don't box me in this way",
+		"I will be assimilated",
+		"I'm destined for deletion",
+		"box #8",
+	}
+
+	expectedAppBoxes := map[basics.AppIndex]map[string]string{}
+
+	expectedAppBoxes[appid] = map[string]string{}
+	newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+	boxTxns := make([]*transactions.SignedTxnWithAD, 0)
+	for _, boxName := range boxNames {
+		expectedAppBoxes[appid][logic.MakeBoxKey(appid, boxName)] = newBoxValue
+
+		args := []string{"create", boxName}
+		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+		boxTxns = append(boxTxns, &boxTxn)
+	}
+
+	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	require.NoError(t, err)
+
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
+	_, round = db.Applications(context.Background(), opts)
+	require.Equal(t, uint64(currentRound), round)
+
+	comparator(t, db, expectedAppBoxes, nil, true)
+
+	// block header handoff: round 2 --> round 3
+	blockHdr, err = l.BlockHdr(currentRound)
+	require.NoError(t, err)
+
+	// ---- ROUND 3: populate the boxes appropriately  ---- //
+	currentRound = basics.Round(3)
+
+	appBoxesToSet := map[string]string{
+		"a great box":               "it's a wonderful box",
+		"another great box":         "I'm wonderful too",
+		"not so great box":          "bummer",
+		"disappointing box":         "RUG PULL!!!!",
+		"don't box me in this way":  "non box-conforming",
+		"I will be assimilated":     "THE BORG",
+		"I'm destined for deletion": "I'm still alive!!!",
+		"box #8":                    "eight is beautiful",
+	}
+
+	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	expectedAppBoxes[appid] = make(map[string]string)
+	for boxName, valPrefix := range appBoxesToSet {
+		args := []string{"set", boxName, valPrefix}
+		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+		boxTxns = append(boxTxns, &boxTxn)
+
+		key := logic.MakeBoxKey(appid, boxName)
+		expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
+	}
+	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	require.NoError(t, err)
+
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
+	_, round = db.Applications(context.Background(), opts)
+	require.Equal(t, uint64(currentRound), round)
+
+	comparator(t, db, expectedAppBoxes, nil, true)
+
+	// block header handoff: round 3 --> round 4
+	blockHdr, err = l.BlockHdr(currentRound)
+	require.NoError(t, err)
+
+	// ---- ROUND 4: delete the unhappy boxes  ---- //
+	currentRound = basics.Round(4)
+
+	appBoxesToDelete := []string{
+		"not so great box",
+		"disappointing box",
+		"I'm destined for deletion",
+	}
+
+	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	for _, boxName := range appBoxesToDelete {
+		args := []string{"delete", boxName}
+		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+		boxTxns = append(boxTxns, &boxTxn)
+
+		key := logic.MakeBoxKey(appid, boxName)
+		delete(expectedAppBoxes[appid], key)
+	}
+	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	require.NoError(t, err)
+
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
+	_, round = db.Applications(context.Background(), opts)
+	require.Equal(t, uint64(currentRound), round)
+
+	deletedBoxes := make(map[basics.AppIndex]map[string]bool)
+	deletedBoxes[appid] = make(map[string]bool)
+	for _, deletedBox := range appBoxesToDelete {
+		deletedBoxes[appid][deletedBox] = true
+	}
+	comparator(t, db, expectedAppBoxes, deletedBoxes, true)
+
+	// block header handoff: round 4 --> round 5
+	blockHdr, err = l.BlockHdr(currentRound)
+	require.NoError(t, err)
+
+	// ---- ROUND 5: create 3 new boxes, overwriting one of the former boxes  ---- //
+	currentRound = basics.Round(5)
+
+	appBoxesToCreate := []string{
+		"fantabulous",
+		"disappointing box", // overwriting here
+		"AVM is the new EVM",
+	}
+	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	for _, boxName := range appBoxesToCreate {
+		args := []string{"create", boxName}
+		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+		boxTxns = append(boxTxns, &boxTxn)
+
+		key := logic.MakeBoxKey(appid, boxName)
+		expectedAppBoxes[appid][key] = newBoxValue
+	}
+	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	require.NoError(t, err)
+
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
+	_, round = db.Applications(context.Background(), opts)
+	require.Equal(t, uint64(currentRound), round)
+
+	comparator(t, db, expectedAppBoxes, nil, true)
+
+	// block header handoff: round 5 --> round 6
+	blockHdr, err = l.BlockHdr(currentRound)
+	require.NoError(t, err)
+
+	// ---- ROUND 6: populate the 3 new boxes  ---- //
+	currentRound = basics.Round(6)
+
+	appBoxesToSet = map[string]string{
+		"fantabulous":        "Italian food's the best!", // max char's
+		"disappointing box":  "you made it!",
+		"AVM is the new EVM": "yes we can!",
+	}
+	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	for boxName, valPrefix := range appBoxesToSet {
+		args := []string{"set", boxName, valPrefix}
+		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+		boxTxns = append(boxTxns, &boxTxn)
+
+		key := logic.MakeBoxKey(appid, boxName)
+		expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
+	}
+	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	require.NoError(t, err)
+
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
+	_, round = db.Applications(context.Background(), opts)
+	require.Equal(t, uint64(currentRound), round)
+
+	comparator(t, db, expectedAppBoxes, nil, true)
+
+	fmt.Printf("runBoxCreateMutateDelete total time: %s\n", time.Since(start))
+}
+
+// Test that box evolution is ingested as expected across rounds using API to compare
+func TestBoxCreateMutateDeleteAgainstHandler(t *testing.T) {
+	runBoxCreateMutateDelete(t, compareAppBoxesAgainstHandler)
 }

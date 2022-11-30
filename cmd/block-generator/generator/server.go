@@ -57,6 +57,7 @@ func MakeServerWithMiddleware(configFile string, addr string, blocksMiddleware B
 	mux.HandleFunc("/v2/accounts/", getAccountHandler(gen))
 	mux.HandleFunc("/genesis", getGenesisHandler(gen))
 	mux.HandleFunc("/report", getReportHandler(gen))
+	mux.HandleFunc("/v2/status/wait-for-block-after/", getStatusWaitHandler(gen))
 
 	return &http.Server{
 		Addr:    addr,
@@ -78,6 +79,12 @@ func maybeWriteError(w http.ResponseWriter, err error) {
 func getReportHandler(gen Generator) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		maybeWriteError(w, gen.WriteReport(w))
+	}
+}
+
+func getStatusWaitHandler(gen Generator) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		maybeWriteError(w, gen.WriteStatus(w))
 	}
 }
 

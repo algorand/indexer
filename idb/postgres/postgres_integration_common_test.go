@@ -4,16 +4,16 @@ import (
 	"context"
 	"testing"
 
+	"github.com/jackc/pgx/v4/pgxpool"
 	test2 "github.com/sirupsen/logrus/hooks/test"
+	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger"
-	"github.com/algorand/indexer/processor"
-	"github.com/algorand/indexer/processor/blockprocessor"
+	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/indexer/util/test"
-	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/stretchr/testify/require"
 
+	"github.com/algorand/indexer/conduit/plugins/processors/blockprocessor"
 	"github.com/algorand/indexer/idb"
 	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
 )
@@ -28,7 +28,8 @@ func setupIdbWithConnectionString(t *testing.T, connStr string, genesis bookkeep
 	return idb
 }
 
-func setupIdb(t *testing.T, genesis bookkeeping.Genesis) (*IndexerDb, func(), processor.Processor, *ledger.Ledger) {
+func setupIdb(t *testing.T, genesis bookkeeping.Genesis) (*IndexerDb, func(), func(cert *rpcs.EncodedBlockCert) error, *ledger.Ledger) {
+
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 
 	db := setupIdbWithConnectionString(t, connStr, genesis)
@@ -40,10 +41,12 @@ func setupIdb(t *testing.T, genesis bookkeeping.Genesis) (*IndexerDb, func(), pr
 	logger, _ := test2.NewNullLogger()
 	l, err := test.MakeTestLedger(logger)
 	require.NoError(t, err)
-	proc, err := blockprocessor.MakeProcessorWithLedger(logger, l, db.AddBlock)
+	proc, err := blockprocessor.MakeBlockProcessorWithLedger(logger, l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
 
-	return db, newShutdownFunc, proc, l
+	f := blockprocessor.MakeBlockProcessorHandlerAdapter(&proc, db.AddBlock)
+
+	return db, newShutdownFunc, f, l
 }
 
 // Helper to execute a query returning an integer, for example COUNT(*). Returns -1 on an error.

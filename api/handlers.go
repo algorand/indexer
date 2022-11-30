@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"database/sql"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"math"
@@ -15,6 +17,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/protocol"
 
 	"github.com/algorand/indexer/accounting"
@@ -36,7 +39,7 @@ type ServerImplementation struct {
 
 	db idb.IndexerDb
 
-	fetcher error
+	dataError func() error
 
 	timeout time.Duration
 
@@ -139,8 +142,10 @@ func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
 		errors = append(errors, fmt.Sprintf("database error: %s", health.Error))
 	}
 
-	if si.fetcher != nil && si.fetcher.Error() != "" {
-		errors = append(errors, fmt.Sprintf("fetcher error: %s", si.fetcher.Error()))
+	if si.dataError != nil {
+		if err := si.dataError(); err != nil {
+			errors = append(errors, fmt.Sprintf("data error: %s", err))
+		}
 	}
 
 	return ctx.JSON(http.StatusOK, common.HealthCheckResponse{
@@ -557,6 +562,140 @@ func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicat
 	})
 }
 
+// LookupApplicationBoxByIDAndName returns the value of an application's box
+// (GET /v2/applications/{application-id}/box)
+func (si *ServerImplementation) LookupApplicationBoxByIDAndName(ctx echo.Context, applicationID uint64, params generated.LookupApplicationBoxByIDAndNameParams) error {
+	if err := si.verifyHandler("LookupApplicationBoxByIDAndName", ctx); err != nil {
+		return badRequest(ctx, err.Error())
+	}
+	if uint64(applicationID) > math.MaxInt64 {
+		return notFound(ctx, errValueExceedingInt64)
+	}
+
+	encodedBoxName := params.Name
+	boxNameBytes, err := logic.NewAppCallBytes(encodedBoxName)
+	if err != nil {
+		return badRequest(ctx, fmt.Sprintf("LookupApplicationBoxByIDAndName received illegal box name (%s): %s", encodedBoxName, err.Error()))
+	}
+	boxName, err := boxNameBytes.Raw()
+	if err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
+	q := idb.ApplicationBoxQuery{
+		ApplicationID: applicationID,
+		BoxName:       boxName,
+	}
+	appid, boxes, round, err := si.fetchApplicationBoxes(ctx.Request().Context(), q)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return notFound(ctx, fmt.Sprintf("%s: round=%d, appid=%d, boxName=%s", errNoApplicationsFound, round, applicationID, encodedBoxName))
+		}
+		// sql.ErrNoRows is the only expected error condition
+		msg := fmt.Sprintf("%s: round=?=%d, appid=%d, boxName=%s", errFailedLookingUpBoxes, round, applicationID, encodedBoxName)
+		return indexerError(ctx, fmt.Errorf("%s: %w", msg, err))
+	}
+
+	if len(boxes) == 0 { // this is an unexpected situation as should have received a sql.ErrNoRows from fetchApplicationBoxes's err
+		msg := fmt.Sprintf("%s: round=?=%d, appid=%d, boxName=%s", errFailedLookingUpBoxes, round, applicationID, encodedBoxName)
+		return indexerError(ctx, fmt.Errorf(msg))
+	}
+
+	if appid != generated.ApplicationId(applicationID) {
+		return indexerError(ctx, fmt.Errorf("%s: round=%d, appid=%d, wrong appid=%d, boxName=%s", errWrongAppidFound, round, applicationID, appid, encodedBoxName))
+	}
+
+	if len(boxes) > 1 {
+		return indexerError(ctx, fmt.Errorf("%s: round=%d, appid=%d, boxName=%s", errMultipleBoxes, round, applicationID, encodedBoxName))
+	}
+
+	box := boxes[0]
+	if len(box.Name) == 0 && len(boxName) > 0 {
+		return notFound(ctx, fmt.Sprintf("%s: round=%d, appid=%d, boxName=%s", errNoBoxesFound, round, applicationID, encodedBoxName))
+	}
+
+	if string(box.Name) != string(boxName) {
+		return indexerError(ctx, fmt.Errorf("%s: round=%d, appid=%d, boxName=%s", errWrongBoxFound, round, applicationID, encodedBoxName))
+	}
+
+	return ctx.JSON(http.StatusOK, generated.BoxResponse(box))
+}
+
+// SearchForApplicationBoxes returns box names for an app
+// (GET /v2/applications/{application-id}/boxes)
+func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, applicationID uint64, params generated.SearchForApplicationBoxesParams) error {
+	if err := si.verifyHandler("SearchForApplicationBoxes", ctx); err != nil {
+		return badRequest(ctx, err.Error())
+	}
+	if uint64(applicationID) > math.MaxInt64 {
+		return notFound(ctx, errValueExceedingInt64)
+	}
+	happyResponse := generated.BoxesResponse{ApplicationId: applicationID, Boxes: []generated.BoxDescriptor{}}
+
+	q := idb.ApplicationBoxQuery{
+		ApplicationID: applicationID,
+		OmitValues:    true,
+	}
+	if params.Limit != nil {
+		q.Limit = *params.Limit
+	}
+	if params.Next != nil {
+		encodedBoxName := *params.Next
+		boxNameBytes, err := logic.NewAppCallBytes(encodedBoxName)
+		if err != nil {
+			return badRequest(ctx, fmt.Sprintf("SearchForApplicationBoxes received illegal next token (%s): %s", encodedBoxName, err.Error()))
+		}
+		prevBox, err := boxNameBytes.Raw()
+		if err != nil {
+			return badRequest(ctx, err.Error())
+		}
+		q.PrevFinalBox = []byte(prevBox)
+	}
+
+	appid, boxes, round, err := si.fetchApplicationBoxes(ctx.Request().Context(), q)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// NOTE: as an application may have once existed, we DO NOT error when not finding the corresponding application ID
+			return ctx.JSON(http.StatusOK, happyResponse)
+		}
+		// sql.ErrNoRows is the only expected error condition
+		msg := fmt.Sprintf("%s: round=?=%d, appid=%d", errFailedSearchingBoxes, round, applicationID)
+		return indexerError(ctx, fmt.Errorf("%s: %w", msg, err))
+	}
+
+	if len(boxes) == 0 { // this is an unexpected situation as should have received a sql.ErrNoRows from fetchApplicationBoxes's err
+		msg := fmt.Sprintf("%s: round=?=%d, appid=%d", errFailedSearchingBoxes, round, applicationID)
+		return indexerError(ctx, fmt.Errorf(msg))
+	}
+
+	if appid != generated.ApplicationId(applicationID) {
+		return indexerError(ctx, fmt.Errorf("%s: round=%d, appid=%d, wrong appid=%d", errWrongAppidFound, round, applicationID, appid))
+	}
+
+	var next *string
+	finalNameBytes := boxes[len(boxes)-1].Name
+	if finalNameBytes != nil {
+		encoded := base64.StdEncoding.EncodeToString(finalNameBytes)
+		next = strPtr(encoded)
+		if next != nil {
+			next = strPtr("b64:" + string(*next))
+		}
+	}
+	happyResponse.NextToken = next
+	descriptors := []generated.BoxDescriptor{}
+	for _, box := range boxes {
+		if box.Name == nil {
+			continue
+		}
+		descriptors = append(descriptors, generated.BoxDescriptor{Name: box.Name})
+	}
+	happyResponse.Boxes = descriptors
+
+	return ctx.JSON(http.StatusOK, happyResponse)
+}
+
 // LookupApplicationLogsByID returns one application logs
 // (GET /v2/applications/{application-id}/logs)
 func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, applicationID uint64, params generated.LookupApplicationLogsByIDParams) error {
@@ -941,6 +1080,29 @@ func (si *ServerImplementation) fetchApplications(ctx context.Context, params id
 	}
 
 	return apps, round, nil
+}
+
+// fetchApplications fetches all results
+func (si *ServerImplementation) fetchApplicationBoxes(ctx context.Context, params idb.ApplicationBoxQuery) (appid generated.ApplicationId, boxes []generated.Box, round uint64, err error) {
+	boxes = make([]generated.Box, 0)
+
+	err = callWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
+		var results <-chan idb.ApplicationBoxRow
+		results, round = si.db.ApplicationBoxes(ctx, params)
+
+		for result := range results {
+			if result.Error != nil {
+				return result.Error
+			}
+			if appid == 0 {
+				appid = generated.ApplicationId(result.App)
+			}
+			boxes = append(boxes, result.Box)
+		}
+
+		return nil
+	})
+	return
 }
 
 // fetchAppLocalStates fetches all generated.AppLocalState from a query

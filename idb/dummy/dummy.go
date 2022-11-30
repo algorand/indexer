@@ -3,6 +3,8 @@ package dummy
 import (
 	"context"
 
+	"github.com/algorand/go-algorand/crypto"
+
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
@@ -83,6 +85,11 @@ func (db *dummyIndexerDb) AppLocalState(ctx context.Context, filter idb.Applicat
 	return nil, 0
 }
 
+// ApplicationBoxes isn't currently implemented
+func (db *dummyIndexerDb) ApplicationBoxes(ctx context.Context, filter idb.ApplicationBoxQuery) (<-chan idb.ApplicationBoxRow, uint64) {
+	panic("not implemented")
+}
+
 // Health is part of idb.IndexerDB
 func (db *dummyIndexerDb) Health(ctx context.Context) (state idb.Health, err error) {
 	return idb.Health{}, nil
@@ -90,10 +97,15 @@ func (db *dummyIndexerDb) Health(ctx context.Context) (state idb.Health, err err
 
 // GetNetworkState is part of idb.IndexerDB
 func (db *dummyIndexerDb) GetNetworkState() (state idb.NetworkState, err error) {
-	return idb.NetworkState{}, nil
+	return idb.NetworkState{GenesisHash: crypto.HashObj(bookkeeping.Genesis{})}, nil
 }
 
 // SetNetworkState is part of idb.IndexerDB
 func (db *dummyIndexerDb) SetNetworkState(genesis bookkeeping.Genesis) error {
+	return nil
+}
+
+// SetNetworkState is part of idb.IndexerDB
+func (db *dummyIndexerDb) DeleteTransactions(ctx context.Context, keep uint64) error {
 	return nil
 }

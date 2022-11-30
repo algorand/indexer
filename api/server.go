@@ -69,6 +69,10 @@ type ExtraOptions struct {
 	// Applications
 	MaxApplicationsLimit     uint64
 	DefaultApplicationsLimit uint64
+
+	// Boxes
+	MaxBoxesLimit     uint64
+	DefaultBoxesLimit uint64
 }
 
 func (e ExtraOptions) handlerTimeout() time.Duration {
@@ -82,7 +86,7 @@ func (e ExtraOptions) handlerTimeout() time.Duration {
 }
 
 // Serve starts an http server for the indexer API. This call blocks.
-func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError error, log *log.Logger, options ExtraOptions) {
+func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, dataError func() error, log *log.Logger, options ExtraOptions) {
 	e := echo.New()
 	e.HideBanner = true
 
@@ -123,7 +127,7 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError
 	api := ServerImplementation{
 		EnableAddressSearchRoundRewind: options.DeveloperMode,
 		db:                             db,
-		fetcher:                        fetcherError,
+		dataError:                      dataError,
 		timeout:                        options.handlerTimeout(),
 		log:                            log,
 		disabledParams:                 disabledMap,

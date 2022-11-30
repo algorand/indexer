@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/algorand/go-algorand/data/bookkeeping"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/go-algorand/data/basics"
@@ -121,4 +122,28 @@ func PrintTxnQuery(db idb.IndexerDb, q idb.TransactionFilter) {
 func MakeTestLedger(logger *log.Logger) (*ledger.Ledger, error) {
 	genesis := MakeGenesis()
 	return util.MakeLedger(logger, true, &genesis, "ledger")
+}
+
+// MockInitProvider mock an init provider
+type MockInitProvider struct {
+	CurrentRound *basics.Round
+	Genesis      *bookkeeping.Genesis
+}
+
+// GetGenesis produces genesis pointer
+func (m *MockInitProvider) GetGenesis() *bookkeeping.Genesis {
+	return m.Genesis
+}
+
+// NextDBRound provides next database round
+func (m *MockInitProvider) NextDBRound() basics.Round {
+	return *m.CurrentRound
+}
+
+// MockedInitProvider returns an InitProvider for testing
+func MockedInitProvider(round *basics.Round) *MockInitProvider {
+	return &MockInitProvider{
+		CurrentRound: round,
+		Genesis:      &bookkeeping.Genesis{},
+	}
 }
