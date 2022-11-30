@@ -7,5 +7,5 @@ import "fmt"
 type CriticalError struct{}
 
 func (e *CriticalError) Error() string {
-	return fmt.Sprintf("critical error occured")
+	return fmt.Sprintf("critical error occurred")
 }
