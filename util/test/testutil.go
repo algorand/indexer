@@ -7,13 +7,14 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/algorand/go-algorand/data/bookkeeping"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/util"
+
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/ledger"
 )
 
 var quiet = false
