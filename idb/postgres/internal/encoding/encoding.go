@@ -55,9 +55,9 @@ func decodeBase64(data string) ([]byte, error) {
 func convertBlockHeader(header sdk.BlockHeader) blockHeader {
 	return blockHeader{
 		BlockHeader:         header,
-		BranchOverride:      crypto.Digest(header.Branch),
-		FeeSinkOverride:     crypto.Digest(header.FeeSink),
-		RewardsPoolOverride: crypto.Digest(header.RewardsPool),
+		BranchOverride:      sdk.Digest(header.Branch),
+		FeeSinkOverride:     sdk.Digest(header.FeeSink),
+		RewardsPoolOverride: sdk.Digest(header.RewardsPool),
 	}
 }
 
@@ -88,10 +88,10 @@ func DecodeBlockHeader(data []byte) (sdk.BlockHeader, error) {
 func convertAssetParams(params sdk.AssetParams) assetParams {
 	ret := assetParams{
 		AssetParams:      params,
-		ManagerOverride:  crypto.Digest(params.Manager),
-		ReserveOverride:  crypto.Digest(params.Reserve),
-		FreezeOverride:   crypto.Digest(params.Freeze),
-		ClawbackOverride: crypto.Digest(params.Clawback),
+		ManagerOverride:  sdk.Digest(params.Manager),
+		ReserveOverride:  sdk.Digest(params.Reserve),
+		FreezeOverride:   sdk.Digest(params.Freeze),
+		ClawbackOverride: sdk.Digest(params.Clawback),
 		AssetNameBytes:   []byte(params.AssetName),
 		UnitNameBytes:    []byte(params.UnitName),
 		URLBytes:         []byte(params.URL),
@@ -150,19 +150,19 @@ func DecodeAssetParams(data []byte) (sdk.AssetParams, error) {
 	return unconvertAssetParams(params), nil
 }
 
-func convertAccounts(accounts []sdk.Address) []crypto.Digest {
+func convertAccounts(accounts []sdk.Address) []sdk.Digest {
 	if accounts == nil {
 		return nil
 	}
 
-	res := make([]crypto.Digest, 0, len(accounts))
+	res := make([]sdk.Digest, 0, len(accounts))
 	for _, address := range accounts {
-		res = append(res, crypto.Digest(address))
+		res = append(res, sdk.Digest(address))
 	}
 	return res
 }
 
-func unconvertAccounts(accounts []crypto.Digest) []sdk.Address {
+func unconvertAccounts(accounts []sdk.Digest) []sdk.Address {
 	if accounts == nil {
 		return nil
 	}
@@ -177,15 +177,15 @@ func unconvertAccounts(accounts []crypto.Digest) []sdk.Address {
 func convertTransaction(txn sdk.Transaction) transaction {
 	return transaction{
 		Transaction:              txn,
-		SenderOverride:           crypto.Digest(txn.Sender),
-		RekeyToOverride:          crypto.Digest(txn.RekeyTo),
-		ReceiverOverride:         crypto.Digest(txn.Receiver),
+		SenderOverride:           sdk.Digest(txn.Sender),
+		RekeyToOverride:          sdk.Digest(txn.RekeyTo),
+		ReceiverOverride:         sdk.Digest(txn.Receiver),
 		AssetParamsOverride:      convertAssetParams(txn.AssetParams),
-		CloseRemainderToOverride: crypto.Digest(txn.CloseRemainderTo),
-		AssetSenderOverride:      crypto.Digest(txn.AssetSender),
-		AssetReceiverOverride:    crypto.Digest(txn.AssetReceiver),
-		AssetCloseToOverride:     crypto.Digest(txn.AssetCloseTo),
-		FreezeAccountOverride:    crypto.Digest(txn.FreezeAccount),
+		CloseRemainderToOverride: sdk.Digest(txn.CloseRemainderTo),
+		AssetSenderOverride:      sdk.Digest(txn.AssetSender),
+		AssetReceiverOverride:    sdk.Digest(txn.AssetReceiver),
+		AssetCloseToOverride:     sdk.Digest(txn.AssetCloseTo),
+		FreezeAccountOverride:    sdk.Digest(txn.FreezeAccount),
 		AccountsOverride:         convertAccounts(txn.Accounts),
 	}
 }
@@ -337,7 +337,7 @@ func convertSignedTxnWithAD(stxn sdk.SignedTxnWithAD) signedTxnWithAD {
 	return signedTxnWithAD{
 		SignedTxnWithAD:   stxn,
 		TxnOverride:       convertTransaction(stxn.Txn),
-		AuthAddrOverride:  crypto.Digest(stxn.AuthAddr),
+		AuthAddrOverride:  sdk.Digest(stxn.AuthAddr),
 		EvalDeltaOverride: convertEvalDelta(stxn.EvalDelta),
 	}
 }
@@ -562,8 +562,8 @@ func DecodeAppLocalStateArray(data []byte) ([]basics.AppLocalState, error) {
 func convertSpecialAddresses(special itypes.SpecialAddresses) specialAddresses {
 	return specialAddresses{
 		SpecialAddresses:    special,
-		FeeSinkOverride:     crypto.Digest(special.FeeSink),
-		RewardsPoolOverride: crypto.Digest(special.RewardsPool),
+		FeeSinkOverride:     sdk.Digest(special.FeeSink),
+		RewardsPoolOverride: sdk.Digest(special.RewardsPool),
 	}
 }
 

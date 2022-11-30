@@ -304,7 +304,7 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 		var ot basics.OverflowTracker
 		var totals ledgercore.AccountTotals
 		for ai, alloc := range genesis.Allocation {
-			addr, err := basics.UnmarshalChecksumAddress(alloc.Address)
+			addr, err := util.UnmarshalChecksumAddress(alloc.Address)
 			if err != nil {
 				return fmt.Errorf("LoadGenesis() decode address err: %w", err)
 			}

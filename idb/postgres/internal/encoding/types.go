@@ -10,34 +10,34 @@ import (
 
 type blockHeader struct {
 	sdk.BlockHeader
-	BranchOverride      crypto.Digest `codec:"prev"`
-	FeeSinkOverride     crypto.Digest `codec:"fees"`
-	RewardsPoolOverride crypto.Digest `codec:"rwd"`
+	BranchOverride      sdk.Digest `codec:"prev"`
+	FeeSinkOverride     sdk.Digest `codec:"fees"`
+	RewardsPoolOverride sdk.Digest `codec:"rwd"`
 }
 
 type assetParams struct {
 	sdk.AssetParams
-	UnitNameBytes    []byte        `codec:"un64"`
-	AssetNameBytes   []byte        `codec:"an64"`
-	URLBytes         []byte        `codec:"au64"`
-	ManagerOverride  crypto.Digest `codec:"m"`
-	ReserveOverride  crypto.Digest `codec:"r"`
-	FreezeOverride   crypto.Digest `codec:"f"`
-	ClawbackOverride crypto.Digest `codec:"c"`
+	UnitNameBytes    []byte     `codec:"un64"`
+	AssetNameBytes   []byte     `codec:"an64"`
+	URLBytes         []byte     `codec:"au64"`
+	ManagerOverride  sdk.Digest `codec:"m"`
+	ReserveOverride  sdk.Digest `codec:"r"`
+	FreezeOverride   sdk.Digest `codec:"f"`
+	ClawbackOverride sdk.Digest `codec:"c"`
 }
 
 type transaction struct {
 	sdk.Transaction
-	SenderOverride           crypto.Digest   `codec:"snd"`
-	RekeyToOverride          crypto.Digest   `codec:"rekey"`
-	ReceiverOverride         crypto.Digest   `codec:"rcv"`
-	CloseRemainderToOverride crypto.Digest   `codec:"close"`
-	AssetParamsOverride      assetParams     `codec:"apar"`
-	AssetSenderOverride      crypto.Digest   `codec:"asnd"`
-	AssetReceiverOverride    crypto.Digest   `codec:"arcv"`
-	AssetCloseToOverride     crypto.Digest   `codec:"aclose"`
-	FreezeAccountOverride    crypto.Digest   `codec:"fadd"`
-	AccountsOverride         []crypto.Digest `codec:"apat"`
+	SenderOverride           sdk.Digest   `codec:"snd"`
+	RekeyToOverride          sdk.Digest   `codec:"rekey"`
+	ReceiverOverride         sdk.Digest   `codec:"rcv"`
+	CloseRemainderToOverride sdk.Digest   `codec:"close"`
+	AssetParamsOverride      assetParams  `codec:"apar"`
+	AssetSenderOverride      sdk.Digest   `codec:"asnd"`
+	AssetReceiverOverride    sdk.Digest   `codec:"arcv"`
+	AssetCloseToOverride     sdk.Digest   `codec:"aclose"`
+	FreezeAccountOverride    sdk.Digest   `codec:"fadd"`
+	AccountsOverride         []sdk.Digest `codec:"apat"`
 }
 
 type valueDelta struct {
@@ -75,9 +75,9 @@ type evalDelta struct {
 
 type signedTxnWithAD struct {
 	sdk.SignedTxnWithAD
-	TxnOverride       transaction   `codec:"txn"`
-	AuthAddrOverride  crypto.Digest `codec:"sgnr"`
-	EvalDeltaOverride evalDelta     `codec:"dt"`
+	TxnOverride       transaction `codec:"txn"`
+	AuthAddrOverride  sdk.Digest  `codec:"sgnr"`
+	EvalDeltaOverride evalDelta   `codec:"dt"`
 }
 
 type trimmedAccountData struct {
@@ -104,8 +104,8 @@ type appParams struct {
 
 type specialAddresses struct {
 	types.SpecialAddresses
-	FeeSinkOverride     crypto.Digest `codec:"FeeSink"`
-	RewardsPoolOverride crypto.Digest `codec:"RewardsPool"`
+	FeeSinkOverride     sdk.Digest `codec:"FeeSink"`
+	RewardsPoolOverride sdk.Digest `codec:"RewardsPool"`
 }
 
 type baseOnlineAccountData struct {
