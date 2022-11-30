@@ -2,9 +2,15 @@ package metrics
 
 import "github.com/prometheus/client_golang/prometheus"
 
+// This is helpful for tests to ensure there are never uninitialized values.
+func init() {
+	RegisterPrometheusMetrics("uninitialized")
+}
+
 // RegisterPrometheusMetrics register all prometheus metrics with the global
 // metrics handler.
 func RegisterPrometheusMetrics(subsystem string) {
+	deregister()
 	instantiageCollectors(subsystem)
 
 	_ = prometheus.Register(GetAlgodRawBlockTimeSeconds)
@@ -17,6 +23,21 @@ func RegisterPrometheusMetrics(subsystem string) {
 	_ = prometheus.Register(ProcessorTimeSeconds)
 	_ = prometheus.Register(ExporterTimeSeconds)
 	_ = prometheus.Register(PipelineRetryCount)
+}
+func deregister() {
+	// Use ImportedTxns as a sentinel value. None or all should be initialized.
+	if ImportedTxns != nil {
+		prometheus.Unregister(GetAlgodRawBlockTimeSeconds)
+		prometheus.Unregister(BlockImportTimeSeconds)
+		prometheus.Unregister(BlockImportTimeSeconds)
+		prometheus.Unregister(ImportedTxnsPerBlock)
+		prometheus.Unregister(ImportedRoundGauge)
+		prometheus.Unregister(ImportedTxns)
+		prometheus.Unregister(ImporterTimeSeconds)
+		prometheus.Unregister(ProcessorTimeSeconds)
+		prometheus.Unregister(ExporterTimeSeconds)
+		prometheus.Unregister(PipelineRetryCount)
+	}
 }
 
 func instantiageCollectors(subsystem string) {
