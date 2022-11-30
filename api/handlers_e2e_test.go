@@ -282,13 +282,13 @@ func TestAccountExcludeParameters(t *testing.T) {
 
 	testCases := []struct {
 		address        basics.Address
-		exclude        []string
+		exclude        []generated.LookupAccountByIDParamsExclude
 		check          func(*testing.T, generated.AccountResponse)
 		errStatus      int
 		includeDeleted bool
 	}{{
 		address: test.AccountA,
-		exclude: []string{"all"},
+		exclude: []generated.LookupAccountByIDParamsExclude{"all"},
 		check: func(t *testing.T, r generated.AccountResponse) {
 			require.Nil(t, r.Account.CreatedAssets)
 			require.Nil(t, r.Account.CreatedApps)
@@ -296,7 +296,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 			require.Nil(t, r.Account.AppsLocalState)
 		}}, {
 		address: test.AccountA,
-		exclude: []string{"none"},
+		exclude: []generated.LookupAccountByIDParamsExclude{"none"},
 		check: func(t *testing.T, r generated.AccountResponse) {
 			require.NotNil(t, r.Account.CreatedAssets)
 			require.NotNil(t, r.Account.CreatedApps)
@@ -304,7 +304,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 			require.NotNil(t, r.Account.AppsLocalState)
 		}}, {
 		address:        test.AccountA,
-		exclude:        []string{},
+		exclude:        []generated.LookupAccountByIDParamsExclude{},
 		includeDeleted: true,
 		check: func(t *testing.T, r generated.AccountResponse) {
 			require.NotNil(t, r.Account.CreatedAssets)
@@ -320,7 +320,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 			require.NotNil(t, r.Account.AppsLocalState)
 		}}, {
 		address: test.AccountA,
-		exclude: []string{"created-assets", "created-apps", "apps-local-state", "assets"},
+		exclude: []generated.LookupAccountByIDParamsExclude{"created-assets", "created-apps", "apps-local-state", "assets"},
 		check: func(t *testing.T, r generated.AccountResponse) {
 			require.Nil(t, r.Account.CreatedAssets)
 			require.Nil(t, r.Account.CreatedApps)
@@ -328,7 +328,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 			require.Nil(t, r.Account.AppsLocalState)
 		}}, {
 		address: test.AccountA,
-		exclude: []string{"created-assets"},
+		exclude: []generated.LookupAccountByIDParamsExclude{"created-assets"},
 		check: func(t *testing.T, r generated.AccountResponse) {
 			require.Nil(t, r.Account.CreatedAssets)
 			require.NotNil(t, r.Account.CreatedApps)
@@ -336,7 +336,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 			require.NotNil(t, r.Account.AppsLocalState)
 		}}, {
 		address: test.AccountA,
-		exclude: []string{"created-apps"},
+		exclude: []generated.LookupAccountByIDParamsExclude{"created-apps"},
 		check: func(t *testing.T, r generated.AccountResponse) {
 			require.NotNil(t, r.Account.CreatedAssets)
 			require.Nil(t, r.Account.CreatedApps)
@@ -344,7 +344,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 			require.NotNil(t, r.Account.AppsLocalState)
 		}}, {
 		address: test.AccountA,
-		exclude: []string{"apps-local-state"},
+		exclude: []generated.LookupAccountByIDParamsExclude{"apps-local-state"},
 		check: func(t *testing.T, r generated.AccountResponse) {
 			require.NotNil(t, r.Account.CreatedAssets)
 			require.NotNil(t, r.Account.CreatedApps)
@@ -352,7 +352,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 			require.Nil(t, r.Account.AppsLocalState)
 		}}, {
 		address: test.AccountA,
-		exclude: []string{"assets"},
+		exclude: []generated.LookupAccountByIDParamsExclude{"assets"},
 		check: func(t *testing.T, r generated.AccountResponse) {
 			require.NotNil(t, r.Account.CreatedAssets)
 			require.NotNil(t, r.Account.CreatedApps)
@@ -360,7 +360,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 			require.NotNil(t, r.Account.AppsLocalState)
 		}}, {
 		address: test.AccountB,
-		exclude: []string{"assets", "apps-local-state"},
+		exclude: []generated.LookupAccountByIDParamsExclude{"assets", "apps-local-state"},
 		check: func(t *testing.T, r generated.AccountResponse) {
 			require.Nil(t, r.Account.CreatedAssets)
 			require.Nil(t, r.Account.CreatedApps)
@@ -369,7 +369,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 		}},
 		{
 			address:   test.AccountA,
-			exclude:   []string{"abc"},
+			exclude:   []generated.LookupAccountByIDParamsExclude{"abc"},
 			errStatus: http.StatusBadRequest,
 		},
 	}
@@ -825,9 +825,9 @@ func TestInnerTxn(t *testing.T) {
 	appAddr[1] = 99
 	appAddrStr := appAddr.String()
 
-	pay := "pay"
-	axfer := "axfer"
-	appl := "appl"
+	pay := generated.SearchForTransactionsParamsTxType("pay")
+	axfer := generated.SearchForTransactionsParamsTxType("axfer")
+	appl := generated.SearchForTransactionsParamsTxType("appl")
 	testcases := []struct {
 		name   string
 		filter generated.SearchForTransactionsParams
