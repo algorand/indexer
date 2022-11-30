@@ -356,7 +356,10 @@ func runDaemon(daemonConfig *daemonConfig) error {
 	opts.AlgodToken = daemonConfig.algodToken
 	opts.AlgodAddr = daemonConfig.algodAddr
 
-	db, availableCh := indexerDbFromFlags(opts)
+	db, availableCh, err := indexerDbFromFlags(opts)
+	if err != nil {
+		return err
+	}
 	defer db.Close()
 	var dataError func() error
 	if daemonConfig.noAlgod != true {

@@ -81,17 +81,18 @@ var (
 	logger         *log.Logger
 )
 
-func indexerDbFromFlags(opts idb.IndexerDbOptions) (idb.IndexerDb, chan struct{}) {
+func indexerDbFromFlags(opts idb.IndexerDbOptions) (idb.IndexerDb, chan struct{}, error) {
 	if postgresAddr != "" {
 		db, ch, err := idb.IndexerDbByName("postgres", postgresAddr, opts, logger)
 		maybeFail(err, "could not init db, %v", err)
-		return db, ch
+		return db, ch, nil
 	}
 	if dummyIndexerDb {
-		return dummy.IndexerDb(), nil
+		return dummy.IndexerDb(), nil, nil
 	}
-	logger.Errorf("no import db set")
-	panic(exit{1})
+	err := fmt.Errorf("no import db set")
+	logger.WithError(err)
+	return nil, nil, err
 }
 
 func init() {
