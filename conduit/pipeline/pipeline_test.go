@@ -25,6 +25,7 @@ import (
 	"github.com/algorand/indexer/conduit/plugins/importers"
 	"github.com/algorand/indexer/conduit/plugins/processors"
 	"github.com/algorand/indexer/data"
+	"github.com/algorand/indexer/util/metrics"
 )
 
 // TestPipelineConfigValidity tests the Valid() function for the Config
@@ -276,6 +277,7 @@ func (c mockedExporterNew) New() exporters.Exporter { return &mockExporter{} }
 
 // TestPipelineRun tests that running the pipeline calls the correct functions with mocking
 func TestPipelineRun(t *testing.T) {
+	metrics.RegisterPrometheusMetrics("test")
 
 	mImporter := mockImporter{}
 	mImporter.On("GetBlock", mock.Anything).Return(uniqueBlockData, nil)
