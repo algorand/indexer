@@ -106,6 +106,7 @@ func DaemonCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := runDaemon(cfg); err != nil {
 				fmt.Fprintf(os.Stderr, "Exiting with error: %s\n", err.Error())
+				os.Exit(1)
 			}
 		},
 	}
@@ -335,7 +336,9 @@ func runDaemon(daemonConfig *daemonConfig) error {
 
 	if daemonConfig.algodDataDir != "" {
 		daemonConfig.algodAddr, daemonConfig.algodToken, _, err = fetcher.AlgodArgsForDataDir(daemonConfig.algodDataDir)
-		maybeFail(err, "algod data dir err, %v", err)
+		if err != nil {
+			return fmt.Errorf("algod data dir err, %v", err)
+		}
 	} else if daemonConfig.algodAddr == "" || daemonConfig.algodToken == "" {
 		// no algod was found
 		logger.Info("no algod was found, provide either --algod OR --algod-net and --algod-token to enable")
