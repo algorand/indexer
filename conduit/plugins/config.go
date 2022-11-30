@@ -10,10 +10,12 @@ type PluginConfig struct {
 	Config string
 }
 
+// UnmarshalConfig attempts to Unmarshal the plugin config into an object.
 func (pc PluginConfig) UnmarshalConfig(config interface{}) error {
 	return yaml.Unmarshal([]byte(pc.Config), config)
 }
 
+// MakePluginConfig is a helper to create the struct.
 func MakePluginConfig(config string) PluginConfig {
 	return PluginConfig{Config: config}
 }
