@@ -210,6 +210,11 @@ func (p *pipelineImpl) makeConfig(pluginType, pluginName string, cfg []byte) (co
 	config.Config = string(cfg)
 	if p.cfg != nil && p.cfg.ConduitConfig != nil {
 		config.DataDir = path.Join(p.cfg.ConduitConfig.ConduitDataDir, fmt.Sprintf("%s_%s", pluginType, pluginName))
+		err := os.MkdirAll(config.DataDir, os.ModePerm)
+		if err != nil {
+			p.logger.Errorf("Unable to create plugin data directory: %s", err)
+			config.DataDir = ""
+		}
 	}
 	return
 }
@@ -494,8 +499,6 @@ func (p *pipelineImpl) encodeMetadataToFile() error {
 func (p *pipelineImpl) initializeOrLoadBlockMetadata() (state, error) {
 	pipelineMetadataFilePath := metadataPath(p.cfg.ConduitConfig.ConduitDataDir)
 	if stat, err := os.Stat(pipelineMetadataFilePath); errors.Is(err, os.ErrNotExist) || (stat != nil && stat.Size() == 0) {
-		fmt.Println(err)
-		fmt.Println(stat)
 		if stat != nil && stat.Size() == 0 {
 			err = os.Remove(pipelineMetadataFilePath)
 			if err != nil {

@@ -561,9 +561,11 @@ func TestPluginConfigDataDir(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, mImporter.cfg.DataDir, path.Join(datadir, "importer_mockImporter"))
+	assert.DirExists(t, mImporter.cfg.DataDir)
 	assert.Equal(t, mProcessor.cfg.DataDir, path.Join(datadir, "processor_mockProcessor"))
+	assert.DirExists(t, mProcessor.cfg.DataDir)
 	assert.Equal(t, mExporter.cfg.DataDir, path.Join(datadir, "exporter_mockExporter"))
-
+	assert.DirExists(t, mExporter.cfg.DataDir)
 }
 
 // TestBlockMetaDataFile tests that metadata.json file is created as expected
