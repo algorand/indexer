@@ -13,10 +13,10 @@ import (
 	"strings"
 	"time"
 
-	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/labstack/echo/v4"
 	log "github.com/sirupsen/logrus"
 
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/indexer/accounting"

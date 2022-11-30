@@ -10,10 +10,8 @@ import (
 	"strings"
 
 	"github.com/algorand/go-algorand-sdk/crypto"
-	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-stateproof-verification/stateproof"
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/util"
@@ -408,12 +406,7 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 
 		application = &a
 	case sdk.StateProofTx:
-		var sprf stateproof.StateProof
-		bytes := msgpack.Encode(stxn.Txn.StateProof)
-		err := msgpack.Decode(bytes, &sprf)
-		if err != nil {
-			return generated.Transaction{}, err
-		}
+		sprf := stxn.Txn.StateProof
 		partPath := make([][]byte, len(sprf.PartProofs.Path))
 		for idx, part := range sprf.PartProofs.Path {
 			digest := make([]byte, len(part))

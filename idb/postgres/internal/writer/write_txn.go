@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/algorand/go-algorand-sdk/crypto"
-	"github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/indexer/util"
 	"github.com/jackc/pgx/v4"
 
+	"github.com/algorand/go-algorand-sdk/crypto"
+	"github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 )

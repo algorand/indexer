@@ -3,10 +3,10 @@ package idb_test
 import (
 	"testing"
 
-	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/util/test"
 )

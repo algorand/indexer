@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/algorand/go-algorand-sdk/types"
 	"github.com/jackc/pgx/v4"
 
+	"github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/indexer/accounting"
 )
 
