@@ -46,7 +46,7 @@ jobs:
       go_version:
         type: string
     environment:
-      CI_E2E_FILENAME: "fad05790/rel-nightly"
+      CI_E2E_FILENAME: "faab6dcf/rel-nightly"
     steps:
       - go/install:
           version: << parameters.go_version >>
@@ -124,8 +124,8 @@ commands:
       - run: echo 'export PATH=$PATH:/usr/local/go/bin' >> $BASH_ENV
 
       - run:
-          name: Install golint
-          command: go install golang.org/x/lint/golint@latest
+          name: Install golangci-lint
+          command: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.47.3
 
   run_tests:
     steps:

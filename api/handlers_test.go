@@ -19,8 +19,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	"github.com/algorand/go-algorand/crypto"
-	"github.com/algorand/go-algorand/crypto/merklesignature"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
@@ -77,7 +75,7 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 		},
 		{
 			"Enum fields",
-			generated.SearchForTransactionsParams{TxType: strPtr("pay"), SigType: strPtr("lsig")},
+			generated.SearchForTransactionsParams{TxType: (*generated.SearchForTransactionsParamsTxType)(strPtr("pay")), SigType: (*generated.SearchForTransactionsParamsSigType)(strPtr("lsig"))},
 			idb.TransactionFilter{TypeEnum: 1, SigType: "lsig", Limit: defaultOpts.DefaultTransactionsLimit},
 			nil,
 		},
@@ -89,7 +87,7 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 		},
 		{
 			"Invalid Enum fields",
-			generated.SearchForTransactionsParams{TxType: strPtr("micro"), SigType: strPtr("handshake")},
+			generated.SearchForTransactionsParams{TxType: (*generated.SearchForTransactionsParamsTxType)(strPtr("micro")), SigType: (*generated.SearchForTransactionsParamsSigType)(strPtr("handshake"))},
 			idb.TransactionFilter{},
 			[]string{errUnknownSigType, errUnknownTxType},
 		},
@@ -99,8 +97,8 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 				Limit:               uint64Ptr(defaultOpts.DefaultTransactionsLimit + 1),
 				Next:                strPtr("next-token"),
 				NotePrefix:          strPtr(base64.StdEncoding.EncodeToString([]byte("custom-note"))),
-				TxType:              strPtr("pay"),
-				SigType:             strPtr("sig"),
+				TxType:              (*generated.SearchForTransactionsParamsTxType)(strPtr("pay")),
+				SigType:             (*generated.SearchForTransactionsParamsSigType)(strPtr("sig")),
 				Txid:                strPtr("YXGBWVBK764KGYPX6ENIADKXPWLBNAZ7MTXDZULZWGOBO2W6IAR622VSLA"),
 				Round:               nil,
 				MinRound:            uint64Ptr(2),
@@ -111,7 +109,7 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 				CurrencyGreaterThan: uint64Ptr(5),
 				CurrencyLessThan:    uint64Ptr(6),
 				Address:             strPtr("YXGBWVBK764KGYPX6ENIADKXPWLBNAZ7MTXDZULZWGOBO2W6IAR622VSLA"),
-				AddressRole:         strPtr("sender"),
+				AddressRole:         (*generated.SearchForTransactionsParamsAddressRole)(strPtr("sender")),
 				ExcludeCloseTo:      boolPtr(true),
 				ApplicationId:       uint64Ptr(7),
 			},
@@ -151,43 +149,43 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 		},
 		{
 			name:          "Unknown address role error",
-			params:        generated.SearchForTransactionsParams{AddressRole: strPtr("unknown")},
+			params:        generated.SearchForTransactionsParams{AddressRole: (*generated.SearchForTransactionsParamsAddressRole)(strPtr("unknown"))},
 			filter:        idb.TransactionFilter{},
 			errorContains: []string{errUnknownAddressRole},
 		},
 		{
 			name:          "Bitmask sender + closeTo(true)",
-			params:        generated.SearchForTransactionsParams{AddressRole: strPtr("sender"), ExcludeCloseTo: boolPtr(true)},
+			params:        generated.SearchForTransactionsParams{AddressRole: (*generated.SearchForTransactionsParamsAddressRole)(strPtr("sender")), ExcludeCloseTo: boolPtr(true)},
 			filter:        idb.TransactionFilter{AddressRole: 9, Limit: defaultOpts.DefaultTransactionsLimit},
 			errorContains: nil,
 		},
 		{
 			name:          "Bitmask sender + closeTo(false)",
-			params:        generated.SearchForTransactionsParams{AddressRole: strPtr("sender"), ExcludeCloseTo: boolPtr(false)},
+			params:        generated.SearchForTransactionsParams{AddressRole: (*generated.SearchForTransactionsParamsAddressRole)(strPtr("sender")), ExcludeCloseTo: boolPtr(false)},
 			filter:        idb.TransactionFilter{AddressRole: 9, Limit: defaultOpts.DefaultTransactionsLimit},
 			errorContains: nil,
 		},
 		{
 			name:          "Bitmask receiver + closeTo(true)",
-			params:        generated.SearchForTransactionsParams{AddressRole: strPtr("receiver"), ExcludeCloseTo: boolPtr(true)},
+			params:        generated.SearchForTransactionsParams{AddressRole: (*generated.SearchForTransactionsParamsAddressRole)(strPtr("receiver")), ExcludeCloseTo: boolPtr(true)},
 			filter:        idb.TransactionFilter{AddressRole: 18, Limit: defaultOpts.DefaultTransactionsLimit},
 			errorContains: nil,
 		},
 		{
 			name:          "Bitmask receiver + closeTo(false)",
-			params:        generated.SearchForTransactionsParams{AddressRole: strPtr("receiver"), ExcludeCloseTo: boolPtr(false)},
+			params:        generated.SearchForTransactionsParams{AddressRole: (*generated.SearchForTransactionsParamsAddressRole)(strPtr("receiver")), ExcludeCloseTo: boolPtr(false)},
 			filter:        idb.TransactionFilter{AddressRole: 54, Limit: defaultOpts.DefaultTransactionsLimit},
 			errorContains: nil,
 		},
 		{
 			name:          "Bitmask receiver + implicit closeTo (false)",
-			params:        generated.SearchForTransactionsParams{AddressRole: strPtr("receiver")},
+			params:        generated.SearchForTransactionsParams{AddressRole: (*generated.SearchForTransactionsParamsAddressRole)(strPtr("receiver"))},
 			filter:        idb.TransactionFilter{AddressRole: 54, Limit: defaultOpts.DefaultTransactionsLimit},
 			errorContains: nil,
 		},
 		{
 			name:          "Bitmask freeze-target",
-			params:        generated.SearchForTransactionsParams{AddressRole: strPtr("freeze-target")},
+			params:        generated.SearchForTransactionsParams{AddressRole: (*generated.SearchForTransactionsParamsAddressRole)(strPtr("freeze-target"))},
 			filter:        idb.TransactionFilter{AddressRole: 64, Limit: defaultOpts.DefaultTransactionsLimit},
 			errorContains: nil,
 		},
@@ -205,7 +203,7 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 		},
 		{
 			name:          "Search all asset transfer by amount",
-			params:        generated.SearchForTransactionsParams{TxType: strPtr("axfer"), CurrencyGreaterThan: uint64Ptr(10)},
+			params:        generated.SearchForTransactionsParams{TxType: (*generated.SearchForTransactionsParamsTxType)(strPtr("axfer")), CurrencyGreaterThan: uint64Ptr(10)},
 			filter:        idb.TransactionFilter{TypeEnum: idb.TypeEnumAssetTransfer, AssetAmountGT: uint64Ptr(10), Limit: defaultOpts.DefaultTransactionsLimit},
 			errorContains: nil,
 		},
@@ -750,47 +748,6 @@ func TestFetchAccountsRewindRoundTooLarge(t *testing.T) {
 	_, _, err := si.fetchAccounts(context.Background(), idb.AccountQueryOptions{}, &atRound)
 	assert.Error(t, err)
 	assert.True(t, strings.HasPrefix(err.Error(), errRewindingAccount), err.Error())
-}
-
-// createTxn allows saving msgp-encoded canonical object to a file in order to add more test data
-func createTxn(t *testing.T, target string) []byte {
-	defer assert.Fail(t, "this method should only be used for generating test inputs.")
-	addr1, err := basics.UnmarshalChecksumAddress("PT4K5LK4KYIQYYRAYPAZIEF47NVEQRDX3CPYWJVH25LKO2METIRBKRHRAE")
-	assert.Error(t, err)
-	var votePK crypto.OneTimeSignatureVerifier
-	votePK[0] = 1
-
-	var selectionPK crypto.VRFVerifier
-	selectionPK[0] = 1
-
-	var sprfkey merklesignature.Commitment
-	sprfkey[0] = 1
-
-	stxnad := transactions.SignedTxnWithAD{
-		SignedTxn: transactions.SignedTxn{
-			Txn: transactions.Transaction{
-				Type: protocol.KeyRegistrationTx,
-				Header: transactions.Header{
-					Sender: addr1,
-				},
-				KeyregTxnFields: transactions.KeyregTxnFields{
-					VotePK:           votePK,
-					SelectionPK:      selectionPK,
-					StateProofPK:     sprfkey,
-					VoteFirst:        basics.Round(0),
-					VoteLast:         basics.Round(100),
-					VoteKeyDilution:  1000,
-					Nonparticipation: false,
-				},
-			},
-		},
-		ApplyData: transactions.ApplyData{},
-	}
-
-	data := msgpack.Encode(stxnad)
-	err = ioutil.WriteFile(target, data, 0644)
-	assert.NoError(t, err)
-	return data
 }
 
 func TestLookupApplicationLogsByID(t *testing.T) {

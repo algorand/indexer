@@ -1,8 +1,9 @@
 package noop
 
 import (
-	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/indexer/exporters"
+
+	"github.com/algorand/go-algorand/data/bookkeeping"
 )
 
 // `noopExporter`s will function without ever erroring. This means they will also process out of order blocks
