@@ -3,14 +3,14 @@ package dummy
 import (
 	"context"
 
-	"github.com/algorand/go-algorand/crypto"
-
-	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/indexer/idb"
+
+	"github.com/algorand/go-algorand/crypto"
+	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
 type dummyIndexerDb struct {

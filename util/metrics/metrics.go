@@ -6,7 +6,7 @@ import "github.com/prometheus/client_golang/prometheus"
 // metrics handler.
 func RegisterPrometheusMetrics() {
 	for _, c := range collectors {
-		prometheus.Register(c)
+		_ = prometheus.Register(c)
 	}
 }
 

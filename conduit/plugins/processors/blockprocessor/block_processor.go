@@ -10,6 +10,14 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
+	"github.com/algorand/indexer/accounting"
+	"github.com/algorand/indexer/conduit"
+	"github.com/algorand/indexer/conduit/plugins"
+	"github.com/algorand/indexer/conduit/plugins/processors"
+	indexerledger "github.com/algorand/indexer/conduit/plugins/processors/eval"
+	"github.com/algorand/indexer/data"
+	"github.com/algorand/indexer/util"
+
 	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
@@ -18,14 +26,6 @@ import (
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/rpcs"
-
-	"github.com/algorand/indexer/accounting"
-	"github.com/algorand/indexer/conduit"
-	"github.com/algorand/indexer/conduit/plugins"
-	"github.com/algorand/indexer/conduit/plugins/processors"
-	indexerledger "github.com/algorand/indexer/conduit/plugins/processors/eval"
-	"github.com/algorand/indexer/data"
-	"github.com/algorand/indexer/util"
 )
 
 const implementationName = "block_evaluator"

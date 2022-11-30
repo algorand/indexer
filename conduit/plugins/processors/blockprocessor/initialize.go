@@ -8,12 +8,12 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/algorand/indexer/conduit/plugins/processors/blockprocessor/internal"
+	"github.com/algorand/indexer/fetcher"
+
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/rpcs"
-
-	"github.com/algorand/indexer/conduit/plugins/processors/blockprocessor/internal"
-	"github.com/algorand/indexer/fetcher"
 )
 
 // InitializeLedger will initialize a ledger to the directory given by the

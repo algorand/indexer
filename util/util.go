@@ -11,8 +11,9 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-codec/codec"
+
+	"github.com/algorand/go-algorand-sdk/encoding/json"
 )
 
 // EncodeToFile is used to encode an object to a file. If the file ends in .gz it will be gzipped.
