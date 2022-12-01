@@ -736,7 +736,7 @@ func TestInitError(t *testing.T) {
 
 	// could not read metadata
 	err := pImpl.Init()
-	assert.Contains(t, err.Error(), "could not read metadata")
+	assert.ErrorContains(t, err, "could not read metadata")
 }
 
 func TestPipelineMetricsConfigs(t *testing.T) {
