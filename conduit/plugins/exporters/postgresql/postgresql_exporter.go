@@ -10,18 +10,18 @@ import (
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
-	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
-
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/exporters"
 	"github.com/algorand/indexer/conduit/plugins/exporters/postgresql/util"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/importer"
 	// Necessary to ensure the postgres implementation has been registered in the idb factory
 	_ "github.com/algorand/indexer/idb/postgres"
+	"github.com/algorand/indexer/importer"
+
+	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
 const exporterName = "postgresql"

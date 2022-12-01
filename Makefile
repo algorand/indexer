@@ -60,8 +60,8 @@ fakepackage: go-algorand
 test: idb/mocks/IndexerDb.go cmd/algorand-indexer/algorand-indexer
 	go test -coverpkg=$(COVERPKG) ./... -coverprofile=coverage.txt -covermode=atomic ${TEST_FLAG}
 
-lint: conduit
-	golint -set_exit_status ./...
+lint: go-algorand
+	golangci-lint run -c .golangci.yml
 	go vet ./...
 
 fmt:

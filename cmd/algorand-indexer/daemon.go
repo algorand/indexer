@@ -16,8 +16,6 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/algorand/go-algorand/util"
-
 	"github.com/algorand/indexer/api"
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/conduit"
@@ -29,6 +27,8 @@ import (
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
 	iutil "github.com/algorand/indexer/util"
+
+	"github.com/algorand/go-algorand/util"
 )
 
 // GetConfigFromDataDir Given the data directory, configuration filename and a list of types, see if

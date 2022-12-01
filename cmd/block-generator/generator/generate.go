@@ -249,7 +249,7 @@ func (g *generator) WriteReport(output io.Writer) error {
 }
 
 func (g *generator) WriteStatus(output io.Writer) error {
-	response := generated.NodeStatusResponse{
+	response := model.NodeStatusResponse{
 		LastRound: g.round,
 	}
 	_, err := output.Write(protocol.EncodeJSON(response))
