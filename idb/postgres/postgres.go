@@ -179,7 +179,7 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 
 // AddBlock is part of idb.IndexerDb.
 func (db *IndexerDb) AddBlock(vblk *ledgercore.ValidatedBlock) error {
-	//todo: use a converter util until vblk type is changed
+	// TODO: use a converter util until vblk type is changed
 	vb, err := helpers.ConvertValidatedBlock(*vblk)
 	if err != nil {
 		return fmt.Errorf("AddBlock() err: %w", err)
@@ -304,7 +304,7 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 		var ot basics.OverflowTracker
 		var totals ledgercore.AccountTotals
 		for ai, alloc := range genesis.Allocation {
-			addr, err := util.UnmarshalChecksumAddress(alloc.Address)
+			addr, err := sdk.DecodeAddress(alloc.Address)
 			if err != nil {
 				return fmt.Errorf("LoadGenesis() decode address err: %w", err)
 			}
@@ -723,7 +723,6 @@ func (db *IndexerDb) yieldTxns(ctx context.Context, tx pgx.Tx, tf idb.Transactio
 		out <- idb.TxnRow{Error: err}
 		return
 	}
-	db.log.Printf("rows: %d, query: %s", rows.RawValues(), query)
 	db.yieldTxnsThreadSimple(rows, out, nil, nil)
 }
 
@@ -1107,7 +1106,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			account.PendingRewards = 0
 		} else {
 			// TODO: pending rewards calculation doesn't belong in database layer (this is just the most covenient place which has all the data)
-			// todo: replace config.Consensus. config.Consensus map[protocol.ConsensusVersion]ConsensusParams
+			// TODO: replace config.Consensus. config.Consensus map[protocol.ConsensusVersion]ConsensusParams
 			// temporarily cast req.blockheader.CurrentProtocol(string) to protocol.ConsensusVersion
 			proto, ok := config.Consensus[protocol.ConsensusVersion(req.blockheader.CurrentProtocol)]
 			if !ok {

@@ -697,7 +697,7 @@ func ArbitraryString() []byte {
 }
 
 //==============================
-//todo: test utils returning sdk types. Rename before merge to develop
+// TODO: test utils returning sdk types. Rename before release
 
 // MakeAssetConfigTxnV2 is a helper to ensure test asset config are initialized.
 func MakeAssetConfigTxnV2(configid, total, decimals uint64, defaultFrozen bool, unitName, assetName, url string, addr sdk.Address) sdk.SignedTxnWithAD {
