@@ -32,7 +32,7 @@ func BindFlagSet(flags *pflag.FlagSet) {
 		// Apply the viper config value to the flag when the flag is not set and viper has a value
 		if !f.Changed && viper.IsSet(f.Name) {
 			val := viper.Get(f.Name)
-			flags.Set(f.Name, fmt.Sprintf("%v", val))
+			_ = flags.Set(f.Name, fmt.Sprintf("%v", val))
 		}
 	})
 }

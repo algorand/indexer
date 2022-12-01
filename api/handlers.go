@@ -148,7 +148,7 @@ func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
 		}
 	}
 
-	return ctx.JSON(http.StatusOK, common.HealthCheckResponse{
+	return ctx.JSON(http.StatusOK, common.HealthCheck{
 		Version:     version.Version(),
 		Data:        health.Data,
 		Round:       health.Round,
@@ -217,7 +217,11 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 	}
 
 	if params.Exclude != nil {
-		err := setExcludeQueryOptions(*params.Exclude, &options)
+		paramsExclude := make([]string, len(*params.Exclude))
+		for i, option := range *params.Exclude {
+			paramsExclude[i] = string(option)
+		}
+		err := setExcludeQueryOptions(paramsExclude, &options)
 		if err != nil {
 			return badRequest(ctx, err.Error())
 		}
@@ -409,7 +413,11 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 	}
 
 	if params.Exclude != nil {
-		err := setExcludeQueryOptions(*params.Exclude, &options)
+		paramsExclude := make([]string, len(*params.Exclude))
+		for i, option := range *params.Exclude {
+			paramsExclude[i] = string(option)
+		}
+		err := setExcludeQueryOptions(paramsExclude, &options)
 		if err != nil {
 			return badRequest(ctx, err.Error())
 		}
@@ -480,8 +488,8 @@ func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, acco
 		Limit:               params.Limit,
 		Next:                params.Next,
 		NotePrefix:          params.NotePrefix,
-		TxType:              params.TxType,
-		SigType:             params.SigType,
+		TxType:              (*generated.SearchForTransactionsParamsTxType)(params.TxType),
+		SigType:             (*generated.SearchForTransactionsParamsSigType)(params.SigType),
 		Txid:                params.Txid,
 		Round:               params.Round,
 		MinRound:            params.MinRound,
@@ -859,8 +867,8 @@ func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetI
 		Limit:               params.Limit,
 		Next:                params.Next,
 		NotePrefix:          params.NotePrefix,
-		TxType:              params.TxType,
-		SigType:             params.SigType,
+		TxType:              (*generated.SearchForTransactionsParamsTxType)(params.TxType),
+		SigType:             (*generated.SearchForTransactionsParamsSigType)(params.SigType),
 		Txid:                params.Txid,
 		Round:               params.Round,
 		MinRound:            params.MinRound,
@@ -870,7 +878,7 @@ func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetI
 		CurrencyGreaterThan: params.CurrencyGreaterThan,
 		CurrencyLessThan:    params.CurrencyLessThan,
 		Address:             params.Address,
-		AddressRole:         params.AddressRole,
+		AddressRole:         (*generated.SearchForTransactionsParamsAddressRole)(params.AddressRole),
 		ExcludeCloseTo:      params.ExcludeCloseTo,
 		RekeyTo:             params.RekeyTo,
 	}

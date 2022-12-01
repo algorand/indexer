@@ -130,7 +130,7 @@ func CatchupServiceCatchup(ctx context.Context, logger *log.Logger, catchpoint, 
 		case stats.VerifiedBlocks > 0:
 			logger.Infof("catchup phase 4 of 4 (Verified Blocks): %d / %d", stats.VerifiedBlocks, stats.TotalBlocks)
 		case stats.AcquiredBlocks > 0:
-			logger.Infof("catchup phase 3 of 4 (Aquired Blocks): %d / %d", stats.AcquiredBlocks, stats.TotalBlocks)
+			logger.Infof("catchup phase 3 of 4 (Acquired Blocks): %d / %d", stats.AcquiredBlocks, stats.TotalBlocks)
 		case stats.VerifiedAccounts > 0:
 			logger.Infof("catchup phase 2 of 4 (Verified Accounts):  %d / %d", stats.VerifiedAccounts, stats.TotalAccounts)
 		case stats.ProcessedAccounts > 0:

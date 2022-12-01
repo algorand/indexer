@@ -114,6 +114,7 @@ func SignedTxnFunc(tag string, input *transactions.SignedTxnInBlock) (interface{
 		fmt.Fprintf(&bb, "case \"%s\":\nreturn &input.%s, nil\n", k, output[k])
 	}
 
+	//nolint:govet
 	_, err = fmt.Fprint(&bb, "default:\n"+
 		"return nil, fmt.Errorf(\"unknown tag: %s\", tag)\n"+
 		"}\n}")

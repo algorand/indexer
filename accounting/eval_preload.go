@@ -9,6 +9,19 @@ import (
 	"github.com/algorand/go-algorand/protocol"
 )
 
+func isNoOpAssetXfer(stxnad *transactions.SignedTxnWithAD) bool {
+	txn := &stxnad.Txn
+	fields := &txn.AssetTransferTxnFields
+
+	if txn.Type != protocol.AssetTransferTx {
+		return false
+	}
+
+	return (fields.AssetAmount == 0) && (txn.Sender != fields.AssetReceiver) && // not an optin
+		fields.AssetCloseTo.IsZero() && // not a closeout
+		fields.AssetSender.IsZero() // not a clawback
+}
+
 // Add requests for asset and app creators to `assetsReq` and `appsReq` for the given
 // transaction.
 func addToCreatorsRequest(stxnad *transactions.SignedTxnWithAD, assetsReq map[basics.AssetIndex]struct{}, appsReq map[basics.AppIndex]struct{}) {
@@ -22,7 +35,8 @@ func addToCreatorsRequest(stxnad *transactions.SignedTxnWithAD, assetsReq map[ba
 		}
 	case protocol.AssetTransferTx:
 		fields := &txn.AssetTransferTxnFields
-		if fields.XferAsset != 0 {
+
+		if fields.XferAsset != 0 && !isNoOpAssetXfer(stxnad) {
 			assetsReq[fields.XferAsset] = struct{}{}
 		}
 	case protocol.AssetFreezeTx:
@@ -111,7 +125,12 @@ func addToAccountsResourcesRequest(stxnad *transactions.SignedTxnWithAD, assetCr
 			}
 		}
 	case protocol.AssetTransferTx:
+		if isNoOpAssetXfer(stxnad) {
+			break
+		}
+
 		fields := &txn.AssetTransferTxnFields
+
 		creatable := ledger.Creatable{
 			Index: basics.CreatableIndex(fields.XferAsset),
 			Type:  basics.AssetCreatable,
