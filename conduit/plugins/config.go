@@ -1,4 +1,19 @@
 package plugins
 
+import "gopkg.in/yaml.v3"
+
 // PluginConfig is a generic string which can be deserialized by each individual Plugin
-type PluginConfig string
+type PluginConfig struct {
+	// DataDir available to this plugin.
+	DataDir string
+	// Config specific to this plugin.
+	Config string
+}
+
+func (pc PluginConfig) UnmarshalConfig(config interface{}) error {
+	return yaml.Unmarshal([]byte(pc.Config), config)
+}
+
+func MakePluginConfig(config string) PluginConfig {
+	return PluginConfig{Config: config}
+}

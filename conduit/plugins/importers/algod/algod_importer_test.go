@@ -39,7 +39,7 @@ func TestImporterMetadata(t *testing.T) {
 func TestCloseSuccess(t *testing.T) {
 	ts := test.NewAlgodServer(test.GenesisResponder)
 	testImporter = New()
-	_, err := testImporter.Init(ctx, plugins.PluginConfig("netaddr: "+ts.URL), logger)
+	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("netaddr: "+ts.URL), logger)
 	assert.NoError(t, err)
 	err = testImporter.Close()
 	assert.NoError(t, err)
@@ -48,7 +48,7 @@ func TestCloseSuccess(t *testing.T) {
 func TestInitSuccess(t *testing.T) {
 	ts := test.NewAlgodServer(test.GenesisResponder)
 	testImporter = New()
-	_, err := testImporter.Init(ctx, plugins.PluginConfig("netaddr: "+ts.URL), logger)
+	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("netaddr: "+ts.URL), logger)
 	assert.NoError(t, err)
 	assert.NotEqual(t, testImporter, nil)
 	testImporter.Close()
@@ -56,7 +56,7 @@ func TestInitSuccess(t *testing.T) {
 
 func TestInitUnmarshalFailure(t *testing.T) {
 	testImporter = New()
-	_, err := testImporter.Init(ctx, "`", logger)
+	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("`"), logger)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "connect failure in unmarshalConfig")
 	testImporter.Close()
@@ -68,13 +68,13 @@ func TestConfigDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unable to Marshal default algodimporter.Config: %v", err)
 	}
-	assert.Equal(t, plugins.PluginConfig(expected), testImporter.Config())
+	assert.Equal(t, string(expected), testImporter.Config())
 }
 
 func TestWaitForBlockBlockFailure(t *testing.T) {
 	ts := test.NewAlgodServer(test.GenesisResponder)
 	testImporter = New()
-	_, err := testImporter.Init(ctx, plugins.PluginConfig("netaddr: "+ts.URL), logger)
+	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("netaddr: "+ts.URL), logger)
 	assert.NoError(t, err)
 	assert.NotEqual(t, testImporter, nil)
 
@@ -90,7 +90,7 @@ func TestGetBlockSuccess(t *testing.T) {
 		test.BlockResponder,
 		test.BlockAfterResponder)
 	testImporter = New()
-	_, err := testImporter.Init(ctx, plugins.PluginConfig("netaddr: "+ts.URL), logger)
+	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("netaddr: "+ts.URL), logger)
 	assert.NoError(t, err)
 	assert.NotEqual(t, testImporter, nil)
 
@@ -108,7 +108,7 @@ func TestGetBlockContextCancelled(t *testing.T) {
 		test.BlockResponder,
 		test.BlockAfterResponder)
 	testImporter = New()
-	_, err := testImporter.Init(ctx, plugins.PluginConfig("netaddr: "+ts.URL), logger)
+	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("netaddr: "+ts.URL), logger)
 	assert.NoError(t, err)
 	assert.NotEqual(t, testImporter, nil)
 
@@ -123,7 +123,7 @@ func TestGetBlockFailure(t *testing.T) {
 		test.GenesisResponder,
 		test.BlockAfterResponder)
 	testImporter = New()
-	_, err := testImporter.Init(ctx, plugins.PluginConfig("netaddr: "+ts.URL), logger)
+	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("netaddr: "+ts.URL), logger)
 	assert.NoError(t, err)
 	assert.NotEqual(t, testImporter, nil)
 

@@ -54,14 +54,14 @@ func TestExporterInit(t *testing.T) {
 	defer fileExp.Close()
 
 	// creates a new output file
-	err := fileExp.Init(context.Background(), testutil.MockedInitProvider(&round), plugins.PluginConfig(config), logger)
+	err := fileExp.Init(context.Background(), testutil.MockedInitProvider(&round), plugins.MakePluginConfig(config), logger)
 	pluginConfig := fileExp.Config()
 	configWithDefault := config + "filename-pattern: '%[1]d_block.json'\n" + "drop-certificate: false\n"
 	assert.Equal(t, configWithDefault, string(pluginConfig))
 	fileExp.Close()
 
 	// can open existing file
-	err = fileExp.Init(context.Background(), testutil.MockedInitProvider(&round), plugins.PluginConfig(config), logger)
+	err = fileExp.Init(context.Background(), testutil.MockedInitProvider(&round), plugins.MakePluginConfig(config), logger)
 	assert.NoError(t, err)
 	fileExp.Close()
 }
@@ -82,7 +82,7 @@ func sendData(t *testing.T, fileExp exporters.Exporter, config string, numRounds
 
 	// initialize
 	rnd := basics.Round(0)
-	err = fileExp.Init(context.Background(), testutil.MockedInitProvider(&rnd), plugins.PluginConfig(config), logger)
+	err = fileExp.Init(context.Background(), testutil.MockedInitProvider(&rnd), plugins.MakePluginConfig(config), logger)
 	require.NoError(t, err)
 
 	// incorrect round
@@ -136,7 +136,7 @@ func TestExporterClose(t *testing.T) {
 	config, _ := getConfig(t)
 	fileExp := fileCons.New()
 	rnd := basics.Round(0)
-	fileExp.Init(context.Background(), testutil.MockedInitProvider(&rnd), plugins.PluginConfig(config), logger)
+	fileExp.Init(context.Background(), testutil.MockedInitProvider(&rnd), plugins.MakePluginConfig(config), logger)
 	require.NoError(t, fileExp.Close())
 }
 

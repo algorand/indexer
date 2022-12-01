@@ -52,7 +52,7 @@ filters:
 	assert.NoError(t, err)
 
 	fp := fpBuilder.New()
-	err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(sampleCfgStr), logrus.New())
+	err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(sampleCfgStr), logrus.New())
 	assert.NoError(t, err)
 
 	bd := data.BlockData{}
@@ -220,7 +220,7 @@ filters:
 			assert.NoError(t, err)
 
 			fp := fpBuilder.New()
-			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(test.cfg), logrus.New())
+			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(test.cfg), logrus.New())
 			assert.ErrorContains(t, err, test.errorContains)
 		})
 	}
@@ -348,7 +348,7 @@ filters:
 			assert.NoError(t, err)
 
 			fp := fpBuilder.New()
-			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(test.cfg), logrus.New())
+			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(test.cfg), logrus.New())
 			assert.NoError(t, err)
 
 			bd := data.BlockData{}
@@ -508,7 +508,7 @@ filters:
 			assert.NoError(t, err)
 
 			fp := fpBuilder.New()
-			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(test.cfg), logrus.New())
+			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(test.cfg), logrus.New())
 			assert.NoError(t, err)
 
 			bd := data.BlockData{}
@@ -667,7 +667,7 @@ filters:
 			assert.NoError(t, err)
 
 			fp := fpBuilder.New()
-			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(test.cfg), logrus.New())
+			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(test.cfg), logrus.New())
 			assert.NoError(t, err)
 
 			bd := data.BlockData{}
@@ -769,7 +769,7 @@ filters:
 			assert.NoError(t, err)
 
 			fp := fpBuilder.New()
-			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(test.sampleCfgStr), logrus.New())
+			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(test.sampleCfgStr), logrus.New())
 			assert.ErrorContains(t, err, test.errorContainsStr)
 		})
 	}
@@ -811,7 +811,7 @@ filters:
 	assert.NoError(t, err)
 
 	fp := fpBuilder.New()
-	err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(sampleCfgStr), logrus.New())
+	err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(sampleCfgStr), logrus.New())
 	assert.NoError(t, err)
 
 	bd := data.BlockData{}
@@ -910,7 +910,7 @@ filters:
 	assert.NoError(t, err)
 
 	fp := fpBuilder.New()
-	err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(sampleCfgStr), logrus.New())
+	err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(sampleCfgStr), logrus.New())
 	assert.NoError(t, err)
 
 	bd := data.BlockData{}
@@ -983,7 +983,7 @@ filters:
 	assert.NoError(t, err)
 
 	fp := fpBuilder.New()
-	err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(sampleCfgStr), logrus.New())
+	err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(sampleCfgStr), logrus.New())
 	assert.NoError(t, err)
 
 	bd := data.BlockData{}

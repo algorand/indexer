@@ -33,7 +33,7 @@ type FilterProcessor struct {
 	FieldFilters []fields.Filter
 
 	logger *log.Logger
-	cfg    plugins.PluginConfig
+	cfg    Config
 	ctx    context.Context
 }
 
@@ -51,26 +51,23 @@ func (a *FilterProcessor) Metadata() conduit.Metadata {
 }
 
 // Config returns the config
-func (a *FilterProcessor) Config() plugins.PluginConfig {
-	return a.cfg
+func (a *FilterProcessor) Config() string {
+	s, _ := yaml.Marshal(a.cfg)
+	return string(s)
 }
 
 // Init initializes the filter processor
 func (a *FilterProcessor) Init(ctx context.Context, _ data.InitProvider, cfg plugins.PluginConfig, logger *log.Logger) error {
 	a.logger = logger
-	a.cfg = cfg
 	a.ctx = ctx
 
-	// First get the configuration from the string
-	pCfg := Config{}
-
-	err := yaml.Unmarshal([]byte(cfg), &pCfg)
+	err := cfg.UnmarshalConfig(&a.cfg)
 	if err != nil {
 		return fmt.Errorf("filter processor init error: %w", err)
 	}
 
 	// configMaps is the "- any: ...." portion of the filter config
-	for _, configMaps := range pCfg.Filters {
+	for _, configMaps := range a.cfg.Filters {
 
 		// We only want one key in the map (i.e. either "any" or "all").  The reason we use a list is that want
 		// to maintain ordering of the filters and a straight-up map doesn't do that.

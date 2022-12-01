@@ -44,20 +44,20 @@ func TestExporterMetadata(t *testing.T) {
 
 func TestConnectDisconnectSuccess(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
-	cfg := plugins.PluginConfig("test: true\nconnection-string: ''")
+	cfg := plugins.MakePluginConfig("test: true\nconnection-string: ''")
 	assert.NoError(t, pgsqlExp.Init(context.Background(), testutil.MockedInitProvider(&round), cfg, logger))
 	assert.NoError(t, pgsqlExp.Close())
 }
 
 func TestConnectUnmarshalFailure(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
-	cfg := plugins.PluginConfig("'")
+	cfg := plugins.MakePluginConfig("'")
 	assert.ErrorContains(t, pgsqlExp.Init(context.Background(), testutil.MockedInitProvider(&round), cfg, logger), "connect failure in unmarshalConfig")
 }
 
 func TestConnectDbFailure(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
-	cfg := plugins.PluginConfig("")
+	cfg := plugins.MakePluginConfig("")
 	assert.ErrorContains(t, pgsqlExp.Init(context.Background(), testutil.MockedInitProvider(&round), cfg, logger), "connection string is empty for postgres")
 }
 
@@ -68,12 +68,12 @@ func TestConfigDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unable to Marshal default postgresql.ExporterConfig: %v", err)
 	}
-	assert.Equal(t, plugins.PluginConfig(expected), pgsqlExp.Config())
+	assert.Equal(t, string(expected), pgsqlExp.Config())
 }
 
 func TestReceiveInvalidBlock(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
-	cfg := plugins.PluginConfig("test: true")
+	cfg := plugins.MakePluginConfig("test: true")
 	assert.NoError(t, pgsqlExp.Init(context.Background(), testutil.MockedInitProvider(&round), cfg, logger))
 
 	invalidBlock := data.BlockData{
@@ -90,7 +90,7 @@ func TestReceiveInvalidBlock(t *testing.T) {
 
 func TestReceiveAddBlockSuccess(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
-	cfg := plugins.PluginConfig("test: true")
+	cfg := plugins.MakePluginConfig("test: true")
 	assert.NoError(t, pgsqlExp.Init(context.Background(), testutil.MockedInitProvider(&round), cfg, logger))
 
 	block := data.BlockData{
@@ -104,7 +104,7 @@ func TestReceiveAddBlockSuccess(t *testing.T) {
 
 func TestPostgresqlExporterInit(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
-	cfg := plugins.PluginConfig("test: true")
+	cfg := plugins.MakePluginConfig("test: true")
 
 	// genesis hash mismatch
 	initProvider := testutil.MockedInitProvider(&round)

@@ -40,16 +40,16 @@ func (exp *noopExporter) Metadata() conduit.Metadata {
 }
 
 func (exp *noopExporter) Init(_ context.Context, initProvider data.InitProvider, cfg plugins.PluginConfig, _ *logrus.Logger) error {
-	if err := yaml.Unmarshal([]byte(cfg), &exp.cfg); err != nil {
+	if err := cfg.UnmarshalConfig(&exp.cfg); err != nil {
 		return fmt.Errorf("init failure in unmarshalConfig: %v", err)
 	}
 	exp.round = exp.cfg.Round
 	return nil
 }
 
-func (exp *noopExporter) Config() plugins.PluginConfig {
+func (exp *noopExporter) Config() string {
 	ret, _ := yaml.Marshal(exp.cfg)
-	return plugins.PluginConfig(ret)
+	return string(ret)
 }
 
 func (exp *noopExporter) Close() error {

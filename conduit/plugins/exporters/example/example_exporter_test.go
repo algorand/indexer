@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/exporters"
 	"github.com/algorand/indexer/data"
 )
@@ -24,7 +25,7 @@ func TestExporterMetadata(t *testing.T) {
 }
 
 func TestExporterInit(t *testing.T) {
-	assert.Panics(t, func() { exExp.Init(context.Background(), nil, "", nil) })
+	assert.Panics(t, func() { exExp.Init(context.Background(), nil, plugins.MakePluginConfig(""), nil) })
 }
 
 func TestExporterConfig(t *testing.T) {

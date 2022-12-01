@@ -145,13 +145,15 @@ var uniqueBlockData = data.BlockData{
 type mockImporter struct {
 	mock.Mock
 	importers.Importer
+	cfg             plugins.PluginConfig
 	genesis         bookkeeping.Genesis
 	finalRound      basics.Round
 	returnError     bool
 	onCompleteError bool
 }
 
-func (m *mockImporter) Init(_ context.Context, _ plugins.PluginConfig, _ *log.Logger) (*bookkeeping.Genesis, error) {
+func (m *mockImporter) Init(_ context.Context, cfg plugins.PluginConfig, _ *log.Logger) (*bookkeeping.Genesis, error) {
+	m.cfg = cfg
 	return &m.genesis, nil
 }
 
@@ -186,12 +188,14 @@ func (m *mockImporter) OnComplete(input data.BlockData) error {
 type mockProcessor struct {
 	mock.Mock
 	processors.Processor
+	cfg             plugins.PluginConfig
 	finalRound      basics.Round
 	returnError     bool
 	onCompleteError bool
 }
 
-func (m *mockProcessor) Init(_ context.Context, _ data.InitProvider, _ plugins.PluginConfig, _ *log.Logger) error {
+func (m *mockProcessor) Init(_ context.Context, _ data.InitProvider, cfg plugins.PluginConfig, _ *log.Logger) error {
+	m.cfg = cfg
 	return nil
 }
 
@@ -228,6 +232,7 @@ func (m *mockProcessor) OnComplete(input data.BlockData) error {
 type mockExporter struct {
 	mock.Mock
 	exporters.Exporter
+	cfg             plugins.PluginConfig
 	finalRound      basics.Round
 	returnError     bool
 	onCompleteError bool
@@ -239,7 +244,8 @@ func (m *mockExporter) Metadata() conduit.Metadata {
 	}
 }
 
-func (m *mockExporter) Init(_ context.Context, _ data.InitProvider, _ plugins.PluginConfig, _ *log.Logger) error {
+func (m *mockExporter) Init(_ context.Context, _ data.InitProvider, cfg plugins.PluginConfig, _ *log.Logger) error {
+	m.cfg = cfg
 	return nil
 }
 
@@ -506,6 +512,58 @@ func Test_pipelineImpl_registerLifecycleCallbacks(t *testing.T) {
 	// plugins registered (one of them is registered twice)
 	pImpl.registerLifecycleCallbacks()
 	assert.Len(t, pImpl.completeCallback, 4)
+}
+
+// TestBlockMetaDataFile tests that metadata.json file is created as expected
+func TestPluginConfigDataDir(t *testing.T) {
+
+	mImporter := mockImporter{}
+	mProcessor := mockProcessor{}
+	mExporter := mockExporter{}
+
+	var pImporter importers.Importer = &mImporter
+	var pProcessor processors.Processor = &mProcessor
+	var pExporter exporters.Exporter = &mExporter
+
+	datadir := t.TempDir()
+	pImpl := pipelineImpl{
+		cfg: &Config{
+			ConduitConfig: &conduit.Config{
+				Flags:          nil,
+				ConduitDataDir: datadir,
+			},
+			Importer: NameConfigPair{
+				Name:   "",
+				Config: map[string]interface{}{},
+			},
+			Processors: []NameConfigPair{
+				{
+					Name:   "",
+					Config: map[string]interface{}{},
+				},
+			},
+			Exporter: NameConfigPair{
+				Name:   "",
+				Config: map[string]interface{}{},
+			},
+		},
+		logger:       log.New(),
+		initProvider: nil,
+		importer:     &pImporter,
+		processors:   []*processors.Processor{&pProcessor},
+		exporter:     &pExporter,
+		pipelineMetadata: state{
+			NextRound: 3,
+		},
+	}
+
+	err := pImpl.Init()
+	assert.NoError(t, err)
+
+	assert.Equal(t, mImporter.cfg.DataDir, path.Join(datadir, "importer_mockImporter"))
+	assert.Equal(t, mProcessor.cfg.DataDir, path.Join(datadir, "processor_mockProcessor"))
+	assert.Equal(t, mExporter.cfg.DataDir, path.Join(datadir, "exporter_mockExporter"))
+
 }
 
 // TestBlockMetaDataFile tests that metadata.json file is created as expected

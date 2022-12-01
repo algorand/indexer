@@ -91,7 +91,7 @@ func initializeImporter(t *testing.T, numRounds int) (importer importers.Importe
 	}
 	data, err := yaml.Marshal(cfg)
 	require.NoError(t, err)
-	genesis, err = importer.Init(context.Background(), plugins.PluginConfig(data), logger)
+	genesis, err = importer.Init(context.Background(), plugins.MakePluginConfig(string(data)), logger)
 	assert.NoError(t, err)
 	require.NotNil(t, genesis)
 	require.Equal(t, genesisExpected, *genesis)
@@ -105,7 +105,7 @@ func TestInitSuccess(t *testing.T) {
 
 func TestInitUnmarshalFailure(t *testing.T) {
 	testImporter = New()
-	_, err := testImporter.Init(context.Background(), "`", logger)
+	_, err := testImporter.Init(context.Background(), plugins.MakePluginConfig("`"), logger)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "invalid configuration")
 	testImporter.Close()
@@ -115,7 +115,7 @@ func TestConfigDefault(t *testing.T) {
 	testImporter = New()
 	expected, err := yaml.Marshal(&Config{})
 	require.NoError(t, err)
-	assert.Equal(t, plugins.PluginConfig(expected), testImporter.Config())
+	assert.Equal(t, string(expected), testImporter.Config())
 }
 
 func TestGetBlockSuccess(t *testing.T) {
@@ -144,7 +144,7 @@ func TestRetryAndDuration(t *testing.T) {
 	}
 	data, err := yaml.Marshal(cfg)
 	require.NoError(t, err)
-	_, err = importer.Init(context.Background(), plugins.PluginConfig(data), logger)
+	_, err = importer.Init(context.Background(), plugins.MakePluginConfig(string(data)), logger)
 	assert.NoError(t, err)
 
 	start := time.Now()
@@ -168,7 +168,7 @@ func TestRetryWithCancel(t *testing.T) {
 	data, err := yaml.Marshal(cfg)
 	ctx, cancel := context.WithCancel(context.Background())
 	require.NoError(t, err)
-	_, err = importer.Init(ctx, plugins.PluginConfig(data), logger)
+	_, err = importer.Init(ctx, plugins.MakePluginConfig(string(data)), logger)
 	assert.NoError(t, err)
 
 	// Cancel after delay
