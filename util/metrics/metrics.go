@@ -10,6 +10,8 @@ func init() {
 // RegisterPrometheusMetrics register all prometheus metrics with the global
 // metrics handler.
 func RegisterPrometheusMetrics(subsystem string) {
+	// deregister metric objects in case the register function was called more than once.
+	// This helps with testing.
 	deregister()
 	instantiageCollectors(subsystem)
 
