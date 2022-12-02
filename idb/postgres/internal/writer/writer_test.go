@@ -3,6 +3,7 @@ package writer_test
 import (
 	"context"
 	"fmt"
+	"github.com/algorand/indexer/logic"
 	"math"
 	"testing"
 	"time"
@@ -11,7 +12,6 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/jackc/pgx/v4"
@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	indexerBasics "github.com/algorand/indexer/basics"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
@@ -1570,14 +1571,14 @@ func getNameAndAccountPointer(t *testing.T, value ledgercore.KvValueDelta, fullK
 	appIdx, name, err := logic.SplitBoxKey(fullKey)
 	account := appIdx.Address()
 	require.NoError(t, err)
-	acctData, ok := accts[account]
+	acctData, ok := accts[basics.Address(account)]
 	if !ok {
 		acctData = &ledgercore.AccountData{
 			AccountBaseData: ledgercore.AccountBaseData{},
 		}
-		accts[account] = acctData
+		accts[basics.Address(account)] = acctData
 	}
-	return account, name, acctData
+	return basics.Address(account), name, acctData
 }
 
 func addBoxInfoToStats(t *testing.T, fullKey string, value ledgercore.KvValueDelta,
@@ -1700,11 +1701,11 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	n4, v4 := "box4", "inserted"
 	n5, v5 := "box5", "inserted"
 
-	k1 := logic.MakeBoxKey(appID, n1)
-	k2 := logic.MakeBoxKey(appID, n2)
-	k3 := logic.MakeBoxKey(appID, n3)
-	k4 := logic.MakeBoxKey(appID, n4)
-	k5 := logic.MakeBoxKey(appID, n5)
+	k1 := logic.MakeBoxKey(indexerBasics.AppIndex(appID), n1)
+	k2 := logic.MakeBoxKey(indexerBasics.AppIndex(appID), n2)
+	k3 := logic.MakeBoxKey(indexerBasics.AppIndex(appID), n3)
+	k4 := logic.MakeBoxKey(indexerBasics.AppIndex(appID), n4)
+	k5 := logic.MakeBoxKey(indexerBasics.AppIndex(appID), n5)
 
 	delta.KvMods = map[string]ledgercore.KvValueDelta{}
 	delta.KvMods[k1] = ledgercore.KvValueDelta{Data: []byte(v1)}
@@ -1771,7 +1772,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	// v5 is "deleted"
 	n6, v6 := "box6", "inserted"
 
-	k6 := logic.MakeBoxKey(appID, n6)
+	k6 := logic.MakeBoxKey(indexerBasics.AppIndex(appID), n6)
 
 	delta.KvMods = map[string]ledgercore.KvValueDelta{}
 	delta.KvMods[k2] = ledgercore.KvValueDelta{Data: []byte(v2), OldData: []byte(oldV2)}

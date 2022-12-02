@@ -17,13 +17,13 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/protocol"
 
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/api/generated/common"
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/logic"
 	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/version"
 )

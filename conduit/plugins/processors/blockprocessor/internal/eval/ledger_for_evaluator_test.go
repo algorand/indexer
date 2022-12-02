@@ -3,6 +3,7 @@ package eval_test
 import (
 	"crypto/rand"
 	"fmt"
+	"github.com/algorand/indexer/logic"
 	"testing"
 
 	test2 "github.com/sirupsen/logrus/hooks/test"
@@ -12,11 +13,11 @@ import (
 	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/rpcs"
 
+	indexerBasics "github.com/algorand/indexer/basics"
 	block_processor "github.com/algorand/indexer/conduit/plugins/processors/blockprocessor"
 	indxLedger "github.com/algorand/indexer/conduit/plugins/processors/blockprocessor/internal/eval"
 	"github.com/algorand/indexer/util/test"
@@ -647,7 +648,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 	newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 	boxTxns := make([]*transactions.SignedTxnWithAD, 0)
 	for _, boxName := range boxNames {
-		expectedAppBoxes[appid][logic.MakeBoxKey(appid, boxName)] = newBoxValue
+		expectedAppBoxes[appid][logic.MakeBoxKey(indexerBasics.AppIndex(appid), boxName)] = newBoxValue
 
 		args := []string{"create", boxName}
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
@@ -689,7 +690,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(appid, boxName)
+		key := logic.MakeBoxKey(indexerBasics.AppIndex(appid), boxName)
 		expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
@@ -720,7 +721,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(appid, boxName)
+		key := logic.MakeBoxKey(indexerBasics.AppIndex(appid), boxName)
 		delete(expectedAppBoxes[appid], key)
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
@@ -755,7 +756,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(appid, boxName)
+		key := logic.MakeBoxKey(indexerBasics.AppIndex(appid), boxName)
 		expectedAppBoxes[appid] = make(map[string]string)
 		expectedAppBoxes[appid][key] = newBoxValue
 	}
@@ -786,7 +787,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(appid, boxName)
+		key := logic.MakeBoxKey(indexerBasics.AppIndex(appid), boxName)
 		expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)

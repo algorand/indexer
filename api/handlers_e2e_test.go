@@ -26,15 +26,16 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/rpcs"
 
 	"github.com/algorand/indexer/api/generated/v2"
+	indexerBasics "github.com/algorand/indexer/basics"
 	"github.com/algorand/indexer/conduit/plugins/processors/blockprocessor"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres"
 	pgtest "github.com/algorand/indexer/idb/postgres/testing"
+	"github.com/algorand/indexer/logic"
 	"github.com/algorand/indexer/util/test"
 )
 
@@ -110,7 +111,7 @@ func TestApplicationHandlers(t *testing.T) {
 			Txn: transactions.Transaction{
 				Type: "appl",
 				Header: transactions.Header{
-					Sender:      test.AccountA,
+					Sender:      basics.Address(test.AccountA),
 					GenesisHash: test.GenesisHash,
 				},
 				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
@@ -1980,7 +1981,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 	boxTxns := make([]*transactions.SignedTxnWithAD, 0)
 	for _, boxName := range boxNames {
-		expectedAppBoxes[appid][logic.MakeBoxKey(appid, boxName)] = newBoxValue
+		expectedAppBoxes[appid][logic.MakeBoxKey(indexerBasics.AppIndex(appid), boxName)] = newBoxValue
 
 		args := []string{"create", boxName}
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
@@ -2022,7 +2023,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(appid, boxName)
+		key := logic.MakeBoxKey(indexerBasics.AppIndex(appid), boxName)
 		expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
@@ -2054,7 +2055,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(appid, boxName)
+		key := logic.MakeBoxKey(indexerBasics.AppIndex(appid), boxName)
 		delete(expectedAppBoxes[appid], key)
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
@@ -2090,7 +2091,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(appid, boxName)
+		key := logic.MakeBoxKey(indexerBasics.AppIndex(appid), boxName)
 		expectedAppBoxes[appid][key] = newBoxValue
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
@@ -2121,7 +2122,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(appid, boxName)
+		key := logic.MakeBoxKey(indexerBasics.AppIndex(appid), boxName)
 		expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
