@@ -13,7 +13,7 @@ func RegisterPrometheusMetrics(subsystem string) {
 	// deregister metric objects in case the register function was called more than once.
 	// This helps with testing.
 	deregister()
-	instantiageCollectors(subsystem)
+	instantiateCollectors(subsystem)
 
 	_ = prometheus.Register(GetAlgodRawBlockTimeSeconds)
 	_ = prometheus.Register(BlockImportTimeSeconds)
@@ -42,7 +42,7 @@ func deregister() {
 	}
 }
 
-func instantiageCollectors(subsystem string) {
+func instantiateCollectors(subsystem string) {
 	// GetAlgodRawBlockTimeSeconds is used by fetcher
 	GetAlgodRawBlockTimeSeconds = prometheus.NewSummary(
 		prometheus.SummaryOpts{
