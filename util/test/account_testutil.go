@@ -216,6 +216,7 @@ func MakeCreateAppTxn(sender basics.Address) transactions.SignedTxnWithAD {
 // MakeComplexCreateAppTxn makes a transaction that creates an arbitrary app. When assemblerVersion is set to 0, use the AssemblerDefaultVersion.
 func MakeComplexCreateAppTxn(sender basics.Address, approval, clear string, assemblerVersion uint64) (transactions.SignedTxnWithAD, error) {
 	// Create a transaction with ExtraProgramPages field set to 1
+	// TODO how to handle this?
 	approvalOps, err := logic.AssembleStringWithVersion(approval, assemblerVersion)
 	if err != nil {
 		return transactions.SignedTxnWithAD{}, err
