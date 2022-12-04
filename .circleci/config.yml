@@ -19,6 +19,14 @@ workflows:
           matrix: &go-version-matrix
             parameters:
               go_version: ["1.17.9"]
+      - test_nightly:  # TEMPorarily adding for test purpose
+          name: nightly_test_with_go_<< matrix.go_version >>
+          context: slack-secrets
+          matrix: &go-version-matrix
+            parameters:
+              go_version: ["1.17.9"]
+      - indexer_vs_algod_nightly_NOT:   # TEMPorarily adding for test purpose
+          name: nightly_test_indexer_vs_algod_NOT
 
   circleci_build_and_test_nightly:
     triggers:
@@ -101,6 +109,12 @@ jobs:
                 }
               ]
             }
+  indexer_vs_algod_nightly_NOT:   # TEMPorarily adding for test purpose
+    machine:
+      image: << pipeline.parameters.ubuntu_image >>
+    steps:
+      - install_dependencies
+      - run_indexer_vs_algod
 
 commands:
   install_dependencies:
