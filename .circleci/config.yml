@@ -123,6 +123,7 @@ jobs:
         parameters:
           version: << parameters.go_version >>
           cache: false
+          cache-key: "blahblah"
       - install_dependencies
       - run_indexer_vs_algod
 
