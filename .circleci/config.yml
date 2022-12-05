@@ -11,9 +11,8 @@ parameters:
     default: "ubuntu-2004:202107-02"
 
 workflows:
-  version: 2
+  version: 3
   circleci_build_and_test:
-    no_cache: true
     jobs:
       - test:
           name: test_with_go_<< matrix.go_version >>
@@ -31,7 +30,6 @@ workflows:
           matrix: &go-version-matrix
             parameters:
               go_version: ["1.17.13"]
-
   circleci_build_and_test_nightly:
     triggers:
       - schedule:
@@ -62,6 +60,7 @@ jobs:
     steps:
       - go/install:
           version: << parameters.go_version >>
+
       - install_dependencies
       - run_tests
       - codecov/upload
