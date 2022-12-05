@@ -44,8 +44,9 @@ type NameConfigPair struct {
 
 // Metrics configs for turning on Prometheus endpoint /metrics
 type Metrics struct {
-	Mode string `yaml:"mode"`
-	Addr string `yaml:"addr"`
+	Mode   string `yaml:"mode"`
+	Addr   string `yaml:"addr"`
+	Prefix string `yaml:"prefix"`
 }
 
 // Config stores configuration specific to the conduit pipeline
@@ -193,22 +194,32 @@ func (p *pipelineImpl) registerLifecycleCallbacks() {
 }
 
 func (p *pipelineImpl) registerPluginMetricsCallbacks() {
+	var collectors []prometheus.Collector
 	if v, ok := (*p.importer).(conduit.PluginMetrics); ok {
-		p.metricsCallback = append(p.metricsCallback, v.ProvideMetrics)
+		collectors = append(collectors, v.ProvideMetrics()...)
 	}
 	for _, processor := range p.processors {
 		if v, ok := (*processor).(conduit.PluginMetrics); ok {
-			p.metricsCallback = append(p.metricsCallback, v.ProvideMetrics)
+			collectors = append(collectors, v.ProvideMetrics()...)
 		}
 	}
 	if v, ok := (*p.exporter).(conduit.PluginMetrics); ok {
-		p.metricsCallback = append(p.metricsCallback, v.ProvideMetrics)
+		collectors = append(collectors, v.ProvideMetrics()...)
+	}
+	for _, c := range collectors {
+		_ = prometheus.Register(c)
 	}
 }
 
 // Init prepares the pipeline for processing block data
 func (p *pipelineImpl) Init() error {
 	p.logger.Infof("Starting Pipeline Initialization")
+
+	prefix := p.cfg.Metrics.Prefix
+	if prefix == "" {
+		prefix = "conduit"
+	}
+	metrics.RegisterPrometheusMetrics(prefix)
 
 	if p.cfg.CPUProfile != "" {
 		p.logger.Infof("Creating CPU Profile file at %s", p.cfg.CPUProfile)
@@ -316,12 +327,6 @@ func (p *pipelineImpl) Init() error {
 	// start metrics server
 	if p.cfg.Metrics.Mode == "ON" {
 		p.registerPluginMetricsCallbacks()
-		for _, cb := range p.metricsCallback {
-			collectors := cb()
-			for _, c := range collectors {
-				_ = prometheus.Register(c)
-			}
-		}
 		go p.startMetricsServer()
 	}
 

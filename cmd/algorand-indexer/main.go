@@ -154,7 +154,7 @@ func init() {
 	viper.AutomaticEnv()
 
 	// Register metrics with the global prometheus handler.
-	metrics.RegisterPrometheusMetrics()
+	metrics.RegisterPrometheusMetrics("indexer_daemon")
 }
 
 func configureLogger() error {
