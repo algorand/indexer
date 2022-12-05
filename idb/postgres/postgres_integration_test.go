@@ -12,8 +12,11 @@ import (
 	"time"
 
 	crypto2 "github.com/algorand/go-algorand-sdk/crypto"
+	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/types"
+	protocol2 "github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/indexer/helpers"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	test2 "github.com/sirupsen/logrus/hooks/test"
@@ -23,9 +26,9 @@ import (
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/go-codec/codec"
+	"github.com/algorand/indexer/protocol"
 
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/conduit/plugins/processors/blockprocessor"
@@ -1364,9 +1367,9 @@ func TestAddBlockGenesis(t *testing.T) {
 func TestAddBlockAssetCloseAmountInTxnExtra(t *testing.T) {
 	// Use an old version of consensus parameters that have AssetCloseAmount = false.
 	genesis := test.MakeGenesis()
-	genesis.Proto = protocol.ConsensusV24
+	genesis.Proto = helpers.ConvertConsensusType(protocol.ConsensusV24)
 	block := test.MakeGenesisBlock()
-	block.UpgradeState.CurrentProtocol = protocol.ConsensusV24
+	block.UpgradeState.CurrentProtocol = helpers.ConvertConsensusType(protocol.ConsensusV24)
 
 	db, shutdownFunc, proc, l := setupIdb(t, genesis)
 	defer shutdownFunc()
@@ -1819,7 +1822,7 @@ func TestNonUTF8Logs(t *testing.T) {
 					{
 						SignedTxn: transactions.SignedTxn{
 							Txn: transactions.Transaction{
-								Type: protocol.ApplicationCallTx,
+								Type: protocol2.ApplicationCallTx,
 								Header: transactions.Header{
 									Sender: test.AccountA,
 								},
@@ -2164,7 +2167,7 @@ func TestGenesisHashCheckAtInitialImport(t *testing.T) {
 	// network state not initialized
 	networkState, err := db.getNetworkState(context.Background(), nil)
 	require.ErrorIs(t, err, idb.ErrorNotInitialized)
-	genesisReader := bytes.NewReader(protocol.EncodeJSON(genesis))
+	genesisReader := bytes.NewReader(json.Encode(genesis))
 	gen, err := util.ReadGenesis(genesisReader)
 	require.NoError(t, err)
 	imported, err := importer.EnsureInitialImport(db, gen)
@@ -2177,7 +2180,7 @@ func TestGenesisHashCheckAtInitialImport(t *testing.T) {
 
 	// change genesis value
 	genesis.Network = "testnest"
-	genesisReader = bytes.NewReader(protocol.EncodeJSON(genesis))
+	genesisReader = bytes.NewReader(json.Encode(genesis))
 	gen, err = util.ReadGenesis(genesisReader)
 	require.NoError(t, err)
 	// different genesisHash, should fail

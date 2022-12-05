@@ -8,6 +8,8 @@ import (
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
+	protocol2 "github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/indexer/protocol"
 	"github.com/algorand/indexer/types"
 )
 
@@ -38,4 +40,9 @@ func ConvertValidatedBlock(vb ledgercore.ValidatedBlock) (types.ValidatedBlock, 
 	}
 	ret.Delta = vb.Delta()
 	return ret, nil
+}
+
+// ConvertConsensusType returns a go-algorand/protocol.ConsensusVersion type
+func ConvertConsensusType(v protocol.ConsensusVersion) protocol2.ConsensusVersion {
+	return protocol2.ConsensusVersion(v)
 }

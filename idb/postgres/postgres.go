@@ -21,12 +21,11 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	sdk "github.com/algorand/go-algorand-sdk/types"
-	"github.com/algorand/go-algorand/config"
+	config2 "github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
-	"github.com/algorand/go-algorand/protocol"
 
 	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/helpers"
@@ -37,6 +36,8 @@ import (
 	"github.com/algorand/indexer/idb/postgres/internal/types"
 	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
 	"github.com/algorand/indexer/idb/postgres/internal/writer"
+	"github.com/algorand/indexer/protocol"
+	"github.com/algorand/indexer/protocol/config"
 	itypes "github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/util"
 )
@@ -295,7 +296,9 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 		}
 		defer tx.Conn().Deallocate(context.Background(), setAccountStatementName)
 
-		proto, ok := config.Consensus[genesis.Proto]
+		// this can't be refactored since it's used in totals.AddAccount
+		// TODO: this line will be removed when removing accountTotals
+		proto, ok := config2.Consensus[genesis.Proto]
 		if !ok {
 			return fmt.Errorf("LoadGenesis() consensus version %s not found", genesis.Proto)
 		}
@@ -1106,8 +1109,6 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			account.PendingRewards = 0
 		} else {
 			// TODO: pending rewards calculation doesn't belong in database layer (this is just the most covenient place which has all the data)
-			// todo: replace config.Consensus. config.Consensus map[protocol.ConsensusVersion]ConsensusParams
-			// temporarily cast req.blockheader.CurrentProtocol(string) to protocol.ConsensusVersion
 			proto, ok := config.Consensus[protocol.ConsensusVersion(req.blockheader.CurrentProtocol)]
 			if !ok {
 				err = fmt.Errorf("get protocol err (%s)", req.blockheader.CurrentProtocol)
