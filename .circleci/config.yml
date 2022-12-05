@@ -115,6 +115,9 @@ jobs:
   indexer_vs_algod_nightly_NOT:   # TEMPorarily adding for test purpose
     machine:
       image: << pipeline.parameters.ubuntu_image >>
+    parameters:
+      go_version:
+        type: string
     steps:
       - install_dependencies
       - run_indexer_vs_algod
