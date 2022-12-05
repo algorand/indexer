@@ -11,6 +11,7 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -86,7 +87,7 @@ func TestPipelineConfigValidity(t *testing.T) {
 // TestMakePipelineConfig tests making the pipeline configuration
 func TestMakePipelineConfig(t *testing.T) {
 
-	l := log.New()
+	l, _ := test.NewNullLogger()
 
 	_, err := MakePipelineConfig(l, nil)
 	assert.Equal(t, fmt.Errorf("MakePipelineConfig(): empty conduit config"), err)
@@ -301,10 +302,11 @@ func TestPipelineRun(t *testing.T) {
 
 	ctx, cf := context.WithCancel(context.Background())
 
+	l, _ := test.NewNullLogger()
 	pImpl := pipelineImpl{
 		ctx:              ctx,
 		cf:               cf,
-		logger:           log.New(),
+		logger:           l,
 		initProvider:     nil,
 		importer:         &pImporter,
 		processors:       []*processors.Processor{&pProcessor},
@@ -347,6 +349,7 @@ func TestPipelineCpuPidFiles(t *testing.T) {
 	pidFilePath := filepath.Join(tempDir, "pidfile")
 	cpuFilepath := filepath.Join(tempDir, "cpufile")
 
+	l, _ := test.NewNullLogger()
 	pImpl := pipelineImpl{
 		cfg: &Config{
 			ConduitConfig: &conduit.Config{
@@ -368,7 +371,7 @@ func TestPipelineCpuPidFiles(t *testing.T) {
 				Config: map[string]interface{}{},
 			},
 		},
-		logger:       log.New(),
+		logger:       l,
 		initProvider: nil,
 		importer:     &pImporter,
 		processors:   []*processors.Processor{&pProcessor},
@@ -426,6 +429,7 @@ func TestPipelineErrors(t *testing.T) {
 	var cbComplete conduit.Completed = &mProcessor
 
 	ctx, cf := context.WithCancel(context.Background())
+	l, _ := test.NewNullLogger()
 	pImpl := pipelineImpl{
 		ctx: ctx,
 		cf:  cf,
@@ -434,7 +438,7 @@ func TestPipelineErrors(t *testing.T) {
 				ConduitDataDir: tempDir,
 			},
 		},
-		logger:           log.New(),
+		logger:           l,
 		initProvider:     nil,
 		importer:         &pImporter,
 		processors:       []*processors.Processor{&pProcessor},
@@ -498,11 +502,12 @@ func Test_pipelineImpl_registerLifecycleCallbacks(t *testing.T) {
 	var pExporter exporters.Exporter = &mExporter
 
 	ctx, cf := context.WithCancel(context.Background())
+	l, _ := test.NewNullLogger()
 	pImpl := pipelineImpl{
 		ctx:          ctx,
 		cf:           cf,
 		cfg:          &Config{},
-		logger:       log.New(),
+		logger:       l,
 		initProvider: nil,
 		importer:     &pImporter,
 		processors:   []*processors.Processor{&pProcessor, &pProcessor},
@@ -527,6 +532,7 @@ func TestPluginConfigDataDir(t *testing.T) {
 	var pExporter exporters.Exporter = &mExporter
 
 	datadir := t.TempDir()
+	l, _ := test.NewNullLogger()
 	pImpl := pipelineImpl{
 		cfg: &Config{
 			ConduitConfig: &conduit.Config{
@@ -548,7 +554,7 @@ func TestPluginConfigDataDir(t *testing.T) {
 				Config: map[string]interface{}{},
 			},
 		},
-		logger:       log.New(),
+		logger:       l,
 		initProvider: nil,
 		importer:     &pImporter,
 		processors:   []*processors.Processor{&pProcessor},
@@ -577,6 +583,7 @@ func TestBlockMetaDataFile(t *testing.T) {
 	var pExporter exporters.Exporter = &mockExporter{}
 
 	datadir := t.TempDir()
+	l, _ := test.NewNullLogger()
 	pImpl := pipelineImpl{
 		cfg: &Config{
 			ConduitConfig: &conduit.Config{
@@ -598,7 +605,7 @@ func TestBlockMetaDataFile(t *testing.T) {
 				Config: map[string]interface{}{},
 			},
 		},
-		logger:       log.New(),
+		logger:       l,
 		initProvider: nil,
 		importer:     &pImporter,
 		processors:   []*processors.Processor{&pProcessor},
@@ -647,6 +654,7 @@ func TestGenesisHash(t *testing.T) {
 	var pProcessor processors.Processor = &mockProcessor{}
 	var pExporter exporters.Exporter = &mockExporter{}
 	datadir := t.TempDir()
+	l, _ := test.NewNullLogger()
 	pImpl := pipelineImpl{
 		cfg: &Config{
 			ConduitConfig: &conduit.Config{
@@ -668,7 +676,7 @@ func TestGenesisHash(t *testing.T) {
 				Config: map[string]interface{}{},
 			},
 		},
-		logger:       log.New(),
+		logger:       l,
 		initProvider: nil,
 		importer:     &pImporter,
 		processors:   []*processors.Processor{&pProcessor},
@@ -701,7 +709,8 @@ func TestInitError(t *testing.T) {
 	var pImporter importers.Importer = &mockImporter{genesis: bookkeeping.Genesis{Network: "test"}}
 	var pProcessor processors.Processor = &mockProcessor{}
 	var pExporter exporters.Exporter = &mockExporter{}
-	datadir := "data"
+	datadir := t.TempDir()
+	l, _ := test.NewNullLogger()
 	pImpl := pipelineImpl{
 		cfg: &Config{
 			ConduitConfig: &conduit.Config{
@@ -723,7 +732,7 @@ func TestInitError(t *testing.T) {
 				Config: map[string]interface{}{},
 			},
 		},
-		logger:       log.New(),
+		logger:       l,
 		initProvider: nil,
 		importer:     &pImporter,
 		processors:   []*processors.Processor{&pProcessor},
@@ -745,6 +754,7 @@ func TestPipelineMetricsConfigs(t *testing.T) {
 	var pProcessor processors.Processor = &mockProcessor{}
 	var pExporter exporters.Exporter = &mockExporter{}
 	ctx, cf := context.WithCancel(context.Background())
+	l, _ := test.NewNullLogger()
 	pImpl := pipelineImpl{
 		cfg: &Config{
 			ConduitConfig: &conduit.Config{
@@ -767,7 +777,7 @@ func TestPipelineMetricsConfigs(t *testing.T) {
 			},
 			Metrics: Metrics{},
 		},
-		logger:       log.New(),
+		logger:       l,
 		initProvider: nil,
 		importer:     &pImporter,
 		processors:   []*processors.Processor{&pProcessor},
@@ -841,7 +851,8 @@ func TestPipelineLogFile(t *testing.T) {
 		PipelineLogLevel: "INFO",
 	}
 
-	_, err := MakePipeline(context.Background(), configs, log.New())
+	l, _ := test.NewNullLogger()
+	_, err := MakePipeline(context.Background(), configs, l)
 	require.NoError(t, err)
 
 	// Test that file is not created
@@ -850,7 +861,7 @@ func TestPipelineLogFile(t *testing.T) {
 
 	// Test that it is created
 	configs.LogFile = logfilePath
-	_, err = MakePipeline(context.Background(), configs, log.New())
+	_, err = MakePipeline(context.Background(), configs, l)
 	require.NoError(t, err)
 
 	_, err = os.Stat(logfilePath)
@@ -862,6 +873,7 @@ func TestRoundOverwrite(t *testing.T) {
 	var pImporter importers.Importer = &mockImporter{genesis: bookkeeping.Genesis{Network: "test"}}
 	var pProcessor processors.Processor = &mockProcessor{}
 	var pExporter exporters.Exporter = &mockExporter{}
+	l, _ := test.NewNullLogger()
 	pImpl := pipelineImpl{
 		cfg: &Config{
 			ConduitConfig: &conduit.Config{
@@ -884,7 +896,7 @@ func TestRoundOverwrite(t *testing.T) {
 				Config: map[string]interface{}{},
 			},
 		},
-		logger:       log.New(),
+		logger:       l,
 		initProvider: nil,
 		importer:     &pImporter,
 		processors:   []*processors.Processor{&pProcessor},
