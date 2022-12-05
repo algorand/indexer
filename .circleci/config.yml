@@ -121,7 +121,7 @@ jobs:
     steps:
       - go/install:
         version: << parameters.go_version >>
-        setup:
+        load-cache:
           no_cache: true
         save_cache:
           no_cache: true
