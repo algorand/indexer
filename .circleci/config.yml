@@ -120,11 +120,8 @@ jobs:
         type: string
     steps:
       - go/install:
+        no_cache: true
         version: << parameters.go_version >>
-        load-cache:
-          no_cache: true
-        save_cache:
-          no_cache: true
       - install_dependencies
       - run_indexer_vs_algod
 
