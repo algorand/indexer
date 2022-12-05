@@ -120,8 +120,9 @@ jobs:
         type: string
     steps:
       - go/install:
-        version: << parameters.go_version >>
-        cache: false
+        parameters:
+          - version: << parameters.go_version >>
+          - cache: false
       - install_dependencies
       - run_indexer_vs_algod
 
