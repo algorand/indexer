@@ -25,8 +25,8 @@ workflows:
           matrix: &go-version-matrix
             parameters:
               go_version: ["1.17.13"]
-      - indexer_vs_algod_nightly_NOT:   # TEMPorarily adding for test purpose
-          name: nightly_test_indexer_vs_algod_NOT_<< matrix.go_version >>
+      - indexer_vs_algod_nightly_BOO:   # TEMPorarily adding for test purpose
+          name: nightly_test_indexer_vs_algod_BOO_<< matrix.go_version >>
           matrix: &go-version-matrix
             parameters:
               go_version: ["1.17.13"]
@@ -112,7 +112,7 @@ jobs:
                 }
               ]
             }
-  indexer_vs_algod_nightly_NOT:   # TEMPorarily adding for test purpose
+  indexer_vs_algod_nightly_BOO:   # TEMPorarily adding for test purpose
     machine:
       image: << pipeline.parameters.ubuntu_image >>
     parameters:
@@ -148,7 +148,7 @@ commands:
 
       - run:
           name: Install golangci-lint
-          command: go install -v -x -a github.com/golangci/golangci-lint/cmd/golangci-lint@v1.47.3
+          command: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.47.3
 
   run_tests:
     steps:
