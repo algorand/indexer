@@ -11,25 +11,15 @@ parameters:
     default: "ubuntu-2004:202107-02"
 
 workflows:
-  version: 3
+  version: 2
   circleci_build_and_test:
     jobs:
       - test:
           name: test_with_go_<< matrix.go_version >>
           matrix: &go-version-matrix
             parameters:
-              go_version: ["1.17.13"]
-      - test_nightly:  # TEMPorarily adding for test purpose
-          name: nightly_test_with_go_<< matrix.go_version >>
-          context: slack-secrets
-          matrix: &go-version-matrix
-            parameters:
-              go_version: ["1.17.13"]
-      - indexer_vs_algod_nightly_BOO:   # TEMPorarily adding for test purpose
-          name: nightly_test_indexer_vs_algod_BOO_<< matrix.go_version >>
-          matrix: &go-version-matrix
-            parameters:
-              go_version: ["1.17.13"]
+              go_version: ["1.17.9"]
+
   circleci_build_and_test_nightly:
     triggers:
       - schedule:
@@ -43,7 +33,7 @@ workflows:
           context: slack-secrets
           matrix: &go-version-matrix
             parameters:
-              go_version: ["1.17.13"]
+              go_version: ["1.17.9"]
       - indexer_vs_algod_nightly:
           name: nightly_test_indexer_vs_algod
           context: slack-secrets
@@ -60,8 +50,8 @@ jobs:
     steps:
       - go/install:
           version: << parameters.go_version >>
-
       - install_dependencies
+      - install_linter
       - run_tests
       - codecov/upload
   test_nightly:
@@ -76,6 +66,7 @@ jobs:
       - go/install:
           version: << parameters.go_version >>
       - install_dependencies
+      - install_linter
       - run_tests
       - codecov/upload
       - slack/notify: &slack-fail-event
@@ -112,20 +103,6 @@ jobs:
                 }
               ]
             }
-  indexer_vs_algod_nightly_BOO:   # TEMPorarily adding for test purpose
-    machine:
-      image: << pipeline.parameters.ubuntu_image >>
-    parameters:
-      go_version:
-        type: string
-    steps:
-      - go/install:
-        parameters:
-          version: << parameters.go_version >>
-          cache: false
-          cache-key: go-binary-v2-1.17.9-arch1-linux-amd64-6_106
-      - install_dependencies
-      - run_indexer_vs_algod
 
 commands:
   install_dependencies:
@@ -149,6 +126,7 @@ commands:
 
       - run: echo 'export PATH=$PATH:/usr/local/go/bin:$HOME/.local/bin' >> $BASH_ENV
 
+  install_linter:
       - run:
           name: Install golangci-lint
           command: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.47.3
