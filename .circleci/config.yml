@@ -113,6 +113,7 @@ jobs:
               ]
             }
   indexer_vs_algod_nightly_BOO:   # TEMPorarily adding for test purpose
+    no_cache: true
     machine:
       image: << pipeline.parameters.ubuntu_image >>
     parameters:
@@ -121,7 +122,6 @@ jobs:
     steps:
       - go/install:
         version: << parameters.go_version >>
-        no_cache: true
       - install_dependencies
       - run_indexer_vs_algod
 
