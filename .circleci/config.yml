@@ -51,6 +51,7 @@ jobs:
       - go/install:
           version: << parameters.go_version >>
       - install_dependencies
+      - install_linter
       - run_tests
       - codecov/upload
   test_nightly:
@@ -65,6 +66,7 @@ jobs:
       - go/install:
           version: << parameters.go_version >>
       - install_dependencies
+      - install_linter
       - run_tests
       - codecov/upload
       - slack/notify: &slack-fail-event
@@ -124,6 +126,9 @@ commands:
 
       - run: echo 'export PATH=$PATH:/usr/local/go/bin:$HOME/.local/bin' >> $BASH_ENV
 
+  install_linter:
+    description: Install golangci-lint
+    steps:
       - run:
           name: Install golangci-lint
           command: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.47.3
