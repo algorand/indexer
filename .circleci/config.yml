@@ -113,6 +113,7 @@ jobs:
               ]
             }
   indexer_vs_algod_nightly_BOO:   # TEMPorarily adding for test purpose
+    no_cache: true
     machine:
       image: << pipeline.parameters.ubuntu_image >>
     parameters:
