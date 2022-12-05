@@ -121,8 +121,8 @@ jobs:
     steps:
       - go/install:
         parameters:
-          - version: << parameters.go_version >>
-          - cache: false
+          version: << parameters.go_version >>
+          cache: false
       - install_dependencies
       - run_indexer_vs_algod
 
