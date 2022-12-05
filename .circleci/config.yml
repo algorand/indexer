@@ -26,7 +26,10 @@ workflows:
             parameters:
               go_version: ["1.17.13"]
       - indexer_vs_algod_nightly_NOT:   # TEMPorarily adding for test purpose
-          name: nightly_test_indexer_vs_algod_NOT
+          name: nightly_test_indexer_vs_algod_NOT_<< matrix.go_version >>
+          matrix: &go-version-matrix
+            parameters:
+              go_version: ["1.17.13"]
 
   circleci_build_and_test_nightly:
     triggers:
