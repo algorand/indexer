@@ -705,50 +705,6 @@ func TestGenesisHash(t *testing.T) {
 	assert.Contains(t, err.Error(), "genesis hash in metadata does not match")
 }
 
-func TestInitError(t *testing.T) {
-	var pImporter importers.Importer = &mockImporter{genesis: bookkeeping.Genesis{Network: "test"}}
-	var pProcessor processors.Processor = &mockProcessor{}
-	var pExporter exporters.Exporter = &mockExporter{}
-	datadir := t.TempDir()
-	l, _ := test.NewNullLogger()
-	pImpl := pipelineImpl{
-		cfg: &Config{
-			ConduitConfig: &conduit.Config{
-				Flags:          nil,
-				ConduitDataDir: datadir,
-			},
-			Importer: NameConfigPair{
-				Name:   "",
-				Config: map[string]interface{}{},
-			},
-			Processors: []NameConfigPair{
-				{
-					Name:   "",
-					Config: map[string]interface{}{},
-				},
-			},
-			Exporter: NameConfigPair{
-				Name:   "unknown",
-				Config: map[string]interface{}{},
-			},
-		},
-		logger:       l,
-		initProvider: nil,
-		importer:     &pImporter,
-		processors:   []*processors.Processor{&pProcessor},
-		exporter:     &pExporter,
-		pipelineMetadata: state{
-			GenesisHash: "",
-			Network:     "",
-			NextRound:   3,
-		},
-	}
-
-	// could not read metadata
-	err := pImpl.Init()
-	assert.ErrorContains(t, err, "could not read metadata")
-}
-
 func TestPipelineMetricsConfigs(t *testing.T) {
 	var pImporter importers.Importer = &mockImporter{}
 	var pProcessor processors.Processor = &mockProcessor{}
