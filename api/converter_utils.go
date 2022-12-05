@@ -598,7 +598,7 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 		ReceiverRewards:          uint64Ptr(uint64(stxn.ReceiverRewards)),
 		CloseRewards:             uint64Ptr(uint64(stxn.CloseRewards)),
 		SenderRewards:            uint64Ptr(uint64(stxn.SenderRewards)),
-		TxType:                   string(stxn.Txn.Type),
+		TxType:                   generated.TransactionTxType(stxn.Txn.Type),
 		RekeyTo:                  addrPtr(stxn.Txn.RekeyTo),
 		GlobalStateDelta:         stateDeltaToStateDelta(stxn.EvalDelta.GlobalDelta),
 		LocalStateDelta:          localStateDelta,
