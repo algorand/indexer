@@ -127,6 +127,8 @@ commands:
       - run: echo 'export PATH=$PATH:/usr/local/go/bin:$HOME/.local/bin' >> $BASH_ENV
 
   install_linter:
+    description: Install golangci-lint
+    steps:
       - run:
           name: Install golangci-lint
           command: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.47.3
