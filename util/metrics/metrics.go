@@ -2,12 +2,115 @@ package metrics
 
 import "github.com/prometheus/client_golang/prometheus"
 
+// This is helpful for tests to ensure there are never uninitialized values.
+func init() {
+	RegisterPrometheusMetrics("uninitialized")
+}
+
 // RegisterPrometheusMetrics register all prometheus metrics with the global
 // metrics handler.
-func RegisterPrometheusMetrics() {
-	for _, c := range collectors {
-		_ = prometheus.Register(c)
+func RegisterPrometheusMetrics(subsystem string) {
+	// deregister metric objects in case the register function was called more than once.
+	// This helps with testing.
+	deregister()
+	instantiateCollectors(subsystem)
+
+	_ = prometheus.Register(GetAlgodRawBlockTimeSeconds)
+	_ = prometheus.Register(BlockImportTimeSeconds)
+	_ = prometheus.Register(BlockImportTimeSeconds)
+	_ = prometheus.Register(ImportedTxnsPerBlock)
+	_ = prometheus.Register(ImportedRoundGauge)
+	_ = prometheus.Register(ImportedTxns)
+	_ = prometheus.Register(ImporterTimeSeconds)
+	_ = prometheus.Register(ProcessorTimeSeconds)
+	_ = prometheus.Register(ExporterTimeSeconds)
+	_ = prometheus.Register(PipelineRetryCount)
+}
+func deregister() {
+	// Use ImportedTxns as a sentinel value. None or all should be initialized.
+	if ImportedTxns != nil {
+		prometheus.Unregister(GetAlgodRawBlockTimeSeconds)
+		prometheus.Unregister(BlockImportTimeSeconds)
+		prometheus.Unregister(BlockImportTimeSeconds)
+		prometheus.Unregister(ImportedTxnsPerBlock)
+		prometheus.Unregister(ImportedRoundGauge)
+		prometheus.Unregister(ImportedTxns)
+		prometheus.Unregister(ImporterTimeSeconds)
+		prometheus.Unregister(ProcessorTimeSeconds)
+		prometheus.Unregister(ExporterTimeSeconds)
+		prometheus.Unregister(PipelineRetryCount)
 	}
+}
+
+func instantiateCollectors(subsystem string) {
+	// GetAlgodRawBlockTimeSeconds is used by fetcher
+	GetAlgodRawBlockTimeSeconds = prometheus.NewSummary(
+		prometheus.SummaryOpts{
+			Subsystem: subsystem,
+			Name:      GetAlgodRawBlockTimeName,
+			Help:      "Total response time from Algod's raw block endpoint in seconds.",
+		})
+
+	BlockImportTimeSeconds = prometheus.NewSummary(
+		prometheus.SummaryOpts{
+			Subsystem: subsystem,
+			Name:      BlockImportTimeName,
+			Help:      "Total block upload and processing time in seconds.",
+		})
+
+	ImportedTxnsPerBlock = prometheus.NewSummary(
+		prometheus.SummaryOpts{
+			Subsystem: subsystem,
+			Name:      ImportedTxnsPerBlockName,
+			Help:      "Transactions per block.",
+		},
+	)
+
+	ImportedTxns = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Subsystem: subsystem,
+			Name:      ImportedTxnsName,
+			Help:      "Imported transactions grouped by type",
+		},
+		[]string{"txn_type"},
+	)
+
+	ImportedRoundGauge = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Subsystem: subsystem,
+			Name:      ImportedRoundGaugeName,
+			Help:      "The most recent round indexer has imported.",
+		})
+
+	ImporterTimeSeconds = prometheus.NewSummary(
+		prometheus.SummaryOpts{
+			Subsystem: subsystem,
+			Name:      ImporterTimeName,
+			Help:      "Time spent at importer step",
+		})
+
+	ProcessorTimeSeconds = prometheus.NewSummaryVec(
+		prometheus.SummaryOpts{
+			Subsystem: subsystem,
+			Name:      ProcessorTimeName,
+			Help:      "Time spent running a processor",
+		},
+		[]string{"processor_name"},
+	)
+
+	ExporterTimeSeconds = prometheus.NewSummary(
+		prometheus.SummaryOpts{
+			Subsystem: subsystem,
+			Name:      ExporterTimeName,
+			Help:      "Time spent at exporter step",
+		})
+
+	PipelineRetryCount = prometheus.NewHistogram(
+		prometheus.HistogramOpts{
+			Subsystem: subsystem,
+			Name:      PipelineRetryCountName,
+			Help:      "Total pipeline retries since last successful run",
+		})
 }
 
 // Prometheus metric names broken out for reuse.
@@ -37,84 +140,18 @@ var AllMetricNames = []string{
 
 // Initialize the prometheus objects.
 var (
-	BlockImportTimeSeconds = prometheus.NewSummary(
-		prometheus.SummaryOpts{
-			Subsystem: "indexer_daemon",
-			Name:      BlockImportTimeName,
-			Help:      "Total block upload and processing time in seconds.",
-		})
+	// used by fetcher
 
-	ImportedTxnsPerBlock = prometheus.NewSummary(
-		prometheus.SummaryOpts{
-			Subsystem: "indexer_daemon",
-			Name:      ImportedTxnsPerBlockName,
-			Help:      "Transactions per block.",
-		},
-	)
+	GetAlgodRawBlockTimeSeconds prometheus.Summary
 
-	ImportedTxns = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Subsystem: "indexer_daemon",
-			Name:      ImportedTxnsName,
-			Help:      "Imported transactions grouped by type",
-		},
-		[]string{"txn_type"},
-	)
+	// used by pipeline
 
-	ImportedRoundGauge = prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Subsystem: "indexer_daemon",
-			Name:      ImportedRoundGaugeName,
-			Help:      "The most recent round indexer has imported.",
-		})
-
-	GetAlgodRawBlockTimeSeconds = prometheus.NewSummary(
-		prometheus.SummaryOpts{
-			Subsystem: "indexer_daemon",
-			Name:      GetAlgodRawBlockTimeName,
-			Help:      "Total response time from Algod's raw block endpoint in seconds.",
-		})
-
-	ImporterTimeSeconds = prometheus.NewSummary(
-		prometheus.SummaryOpts{
-			Subsystem: "indexer_daemon",
-			Name:      ImporterTimeName,
-			Help:      "Time spent at importer step",
-		})
-
-	ProcessorTimeSeconds = prometheus.NewSummaryVec(
-		prometheus.SummaryOpts{
-			Subsystem: "indexer_daemon",
-			Name:      ProcessorTimeName,
-			Help:      "Time spent running a processor",
-		},
-		[]string{"processor_name"},
-	)
-
-	ExporterTimeSeconds = prometheus.NewSummary(
-		prometheus.SummaryOpts{
-			Subsystem: "indexer_daemon",
-			Name:      ExporterTimeName,
-			Help:      "Time spent at exporter step",
-		})
-
-	PipelineRetryCount = prometheus.NewHistogram(
-		prometheus.HistogramOpts{
-			Subsystem: "indexer_daemon",
-			Name:      PipelineRetryCountName,
-			Help:      "Total pipeline retries since last successful run",
-		})
+	BlockImportTimeSeconds prometheus.Summary
+	ImportedTxnsPerBlock   prometheus.Summary
+	ImportedTxns           *prometheus.GaugeVec
+	ImportedRoundGauge     prometheus.Gauge
+	ImporterTimeSeconds    prometheus.Summary
+	ProcessorTimeSeconds   *prometheus.SummaryVec
+	ExporterTimeSeconds    prometheus.Summary
+	PipelineRetryCount     prometheus.Histogram
 )
-
-var collectors = []prometheus.Collector{
-	BlockImportTimeSeconds,
-	BlockImportTimeSeconds,
-	ImportedTxnsPerBlock,
-	ImportedRoundGauge,
-	GetAlgodRawBlockTimeSeconds,
-	ImportedTxns,
-	ImporterTimeSeconds,
-	ProcessorTimeSeconds,
-	ExporterTimeSeconds,
-	PipelineRetryCount,
-}

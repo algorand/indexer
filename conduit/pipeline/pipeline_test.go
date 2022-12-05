@@ -276,7 +276,6 @@ func (c mockedExporterNew) New() exporters.Exporter { return &mockExporter{} }
 
 // TestPipelineRun tests that running the pipeline calls the correct functions with mocking
 func TestPipelineRun(t *testing.T) {
-
 	mImporter := mockImporter{}
 	mImporter.On("GetBlock", mock.Anything).Return(uniqueBlockData, nil)
 	mProcessor := mockProcessor{}
