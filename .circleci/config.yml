@@ -119,10 +119,15 @@ jobs:
       go_version:
         type: string
     steps:
+      - restore_cache:
+        keys:
       - go/install:
         version: << parameters.go_version >>
       - install_dependencies
       - run_indexer_vs_algod
+      - save_cache:
+        key: just-kidding
+        paths:
 
 commands:
   install_dependencies:
