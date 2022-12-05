@@ -13,6 +13,7 @@ parameters:
 workflows:
   version: 2
   circleci_build_and_test:
+    no_cache: true
     jobs:
       - test:
           name: test_with_go_<< matrix.go_version >>
