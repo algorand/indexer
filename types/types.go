@@ -5,11 +5,14 @@ import (
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
+// TODO: should these types be defined in the SDK? In the future there could be automation to keep certain
+// types in go-algorand and go-algorand-sdk synchronized.
+
 // A ValidatedBlock represents an Block that has been successfully validated
 // and can now be recorded in the ledger.
 type ValidatedBlock struct {
 	Block sdk.Block
-	// todo: replace when statedelta endpoint is available
+	// TODO: replace when state delta endpoint is available
 	Delta ledgercore.StateDelta
 }
 

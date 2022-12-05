@@ -6,10 +6,8 @@ import (
 
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	models "github.com/algorand/indexer/api/generated/v2"
-	"github.com/algorand/indexer/types"
-	"github.com/algorand/indexer/util"
-
 	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/types"
 )
 
 // ConsistencyError is returned when the database returns inconsistent (stale) results.
@@ -78,7 +76,7 @@ func AccountAtRound(ctx context.Context, account models.Account, round uint64, d
 
 	acct = account
 	var addr sdk.Address
-	addr, err = util.UnmarshalChecksumAddress(account.Address)
+	addr, err = sdk.DecodeAddress(account.Address)
 	if err != nil {
 		return
 	}

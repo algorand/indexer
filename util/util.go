@@ -3,7 +3,6 @@ package util
 import (
 	"bytes"
 	"compress/gzip"
-	"crypto/sha512"
 	"encoding/base32"
 	"fmt"
 	"io"
@@ -205,46 +204,6 @@ func EncodeSignedTxn(bh sdk.BlockHeader, st sdk.SignedTxn, ad sdk.ApplyData) (sd
 	stb.SignedTxn = st
 	stb.ApplyData = ad
 	return stb, nil
-}
-
-// UnmarshalChecksumAddress tries to unmarshal the checksummed address string.
-// Algorand strings addresses ( base32 encoded ) have a postamble which serves as the checksum of the address.
-// When converted to an Address object representation, that checksum is dropped (after validation).
-func UnmarshalChecksumAddress(address string) (sdk.Address, error) {
-	decoded, err := base32Encoder.DecodeString(address)
-
-	if err != nil {
-		return sdk.Address{}, fmt.Errorf("failed to decode address %s to base 32", address)
-	}
-	var short sdk.Address
-	if len(decoded) < len(short) {
-		return sdk.Address{}, fmt.Errorf("decoded bad addr: %s", address)
-	}
-
-	copy(short[:], decoded[:len(short)])
-	incomingchecksum := decoded[len(decoded)-checksumLength:]
-
-	calculatedchecksum := getChecksum(short[:])
-	isValid := bytes.Equal(incomingchecksum, calculatedchecksum)
-
-	if !isValid {
-		return sdk.Address{}, fmt.Errorf("address %s is malformed, checksum verification failed", address)
-	}
-
-	// Validate that we had a canonical string representation
-	if short.String() != address {
-		return sdk.Address{}, fmt.Errorf("address %s is non-canonical", address)
-	}
-
-	return short, nil
-}
-
-// getChecksum returns the checksum as []byte
-// Checksum in Algorand are the last 4 bytes of the shortAddress Hash. H(Address)[28:]
-func getChecksum(addr []byte) []byte {
-	shortAddressHash := sha512.Sum512_256(addr[:])
-	checksum := shortAddressHash[len(shortAddressHash)-checksumLength:]
-	return checksum
 }
 
 func init() {

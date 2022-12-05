@@ -13,6 +13,8 @@ import (
 	"github.com/algorand/indexer/types"
 )
 
+// TODO: remove this file once all types have been converted to sdk types.
+
 // ConvertParams converts basics.AssetParams to sdk.AssetParams
 func ConvertParams(params basics.AssetParams) sdk.AssetParams {
 	return sdk.AssetParams{
