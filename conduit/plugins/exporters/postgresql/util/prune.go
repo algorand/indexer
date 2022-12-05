@@ -5,8 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/algorand/indexer/idb"
 	"github.com/sirupsen/logrus"
+
+	"github.com/algorand/indexer/idb"
 )
 
 // Interval determines how often to delete data

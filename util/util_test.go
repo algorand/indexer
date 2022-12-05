@@ -7,8 +7,9 @@ import (
 	"path"
 	"testing"
 
-	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/stretchr/testify/require"
+
+	sdk "github.com/algorand/go-algorand-sdk/types"
 )
 
 func TestEncodeToAndFromFile(t *testing.T) {

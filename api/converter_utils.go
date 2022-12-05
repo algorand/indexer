@@ -686,7 +686,7 @@ func (si *ServerImplementation) transactionParamsToTransactionFilter(params gene
 	filter.Round = params.Round
 
 	// String
-	filter.AddressRole, errorArr = decodeAddressRole(params.AddressRole, params.ExcludeCloseTo, errorArr)
+	filter.AddressRole, errorArr = decodeAddressRole((*string)(params.AddressRole), params.ExcludeCloseTo, errorArr)
 	filter.NextToken = strOrDefault(params.Next)
 
 	// Address
@@ -705,8 +705,8 @@ func (si *ServerImplementation) transactionParamsToTransactionFilter(params gene
 	}
 
 	// Enum
-	filter.SigType, errorArr = decodeSigType(params.SigType, errorArr)
-	filter.TypeEnum, errorArr = decodeType(params.TxType, errorArr)
+	filter.SigType, errorArr = decodeSigType((*string)(params.SigType), errorArr)
+	filter.TypeEnum, errorArr = decodeType((*string)(params.TxType), errorArr)
 
 	// Boolean
 	filter.RekeyTo = params.RekeyTo

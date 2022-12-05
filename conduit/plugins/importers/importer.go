@@ -10,6 +10,7 @@ import (
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/data"
+
 )
 
 // Importer defines the interface for importer plugins

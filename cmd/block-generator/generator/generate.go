@@ -12,7 +12,7 @@ import (
 	"github.com/algorand/go-algorand/agreement"
 	cconfig "github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/crypto"
-	"github.com/algorand/go-algorand/daemon/algod/api/server/v2/generated"
+	"github.com/algorand/go-algorand/daemon/algod/api/server/v2/generated/model"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/committee"
@@ -249,7 +249,7 @@ func (g *generator) WriteReport(output io.Writer) error {
 }
 
 func (g *generator) WriteStatus(output io.Writer) error {
-	response := generated.NodeStatusResponse{
+	response := model.NodeStatusResponse{
 		LastRound: g.round,
 	}
 	_, err := output.Write(protocol.EncodeJSON(response))
@@ -682,23 +682,23 @@ func (g *generator) WriteAccount(output io.Writer, accountString string) error {
 	idx := accountToIndex(addr)
 
 	// Asset Holdings
-	assets := make([]generated.AssetHolding, 0)
-	createdAssets := make([]generated.Asset, 0)
+	assets := make([]model.AssetHolding, 0)
+	createdAssets := make([]model.Asset, 0)
 	for _, a := range g.assets {
 		// holdings
 		if holding := a.holders[idx]; holding != nil {
-			assets = append(assets, generated.AssetHolding{
+			assets = append(assets, model.AssetHolding{
 				Amount:   holding.balance,
-				AssetId:  a.assetID,
+				AssetID:  a.assetID,
 				IsFrozen: false,
 			})
 		}
 		// creator
 		if len(a.holdings) > 0 && a.holdings[0].acctIndex == idx {
 			nameBytes := []byte(a.name)
-			asset := generated.Asset{
+			asset := model.Asset{
 				Index: a.assetID,
-				Params: generated.AssetParams{
+				Params: model.AssetParams{
 					Creator:  accountString,
 					Decimals: 0,
 					Clawback: &accountString,
@@ -716,7 +716,7 @@ func (g *generator) WriteAccount(output io.Writer, accountString string) error {
 		}
 	}
 
-	data := generated.Account{
+	data := model.Account{
 		Address:                     accountString,
 		Amount:                      g.balances[idx],
 		AmountWithoutPendingRewards: g.balances[idx],

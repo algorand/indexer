@@ -17,10 +17,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"gopkg.in/yaml.v3"
+
 
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
-	"gopkg.in/yaml.v3"
 
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/plugins"
@@ -319,7 +320,7 @@ func (p *pipelineImpl) Init() error {
 		for _, cb := range p.metricsCallback {
 			collectors := cb()
 			for _, c := range collectors {
-				prometheus.Register(c)
+				_ = prometheus.Register(c)
 			}
 		}
 		go p.startMetricsServer()
@@ -429,7 +430,7 @@ func (p *pipelineImpl) Start() {
 
 					// Increment Round, update metadata
 					p.pipelineMetadata.NextRound++
-					p.encodeMetadataToFile()
+					_ = p.encodeMetadataToFile()
 
 					// Callback Processors
 					for _, cb := range p.completeCallback {
@@ -518,7 +519,7 @@ func (p *pipelineImpl) initializeOrLoadBlockMetadata() (state, error) {
 // start a http server serving /metrics
 func (p *pipelineImpl) startMetricsServer() {
 	http.Handle("/metrics", promhttp.Handler())
-	http.ListenAndServe(p.cfg.Metrics.Addr, nil)
+	_ = http.ListenAndServe(p.cfg.Metrics.Addr, nil)
 	p.logger.Infof("conduit metrics serving on %s", p.cfg.Metrics.Addr)
 }
 

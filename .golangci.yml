@@ -7,11 +7,11 @@ linters:
   enable:
     - errcheck
     - gofmt
-    - golint
     - govet
     - ineffassign
     - misspell
     - gci
+    - revive
 
 linters-settings:
   gci:
@@ -30,11 +30,11 @@ severity:
     - linters:
         - errcheck
         - gofmt
-        - golint
         - govet
         - ineffassign
         - misspell
         - gci
+        - revive
       severity: error
 
 issues:

@@ -55,7 +55,7 @@ func checkTagExistsAndHasCorrectFunction(expressionType expression.FilterType, t
 		// actually reach inside the if conditional unless we intentionally panic.
 		// However, having this function gives additional safety to a critical function
 		if r := recover(); r != nil {
-			outError = fmt.Errorf("error occured regarding tag %s - %v", tag, r)
+			outError = fmt.Errorf("error occurred regarding tag %s - %v", tag, r)
 		}
 	}()
 

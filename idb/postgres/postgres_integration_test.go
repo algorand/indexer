@@ -930,7 +930,7 @@ func TestAppExtraPages(t *testing.T) {
 	require.Equal(t, uint64(extraPages), *app.Params.ExtraProgramPages)
 }
 
-func assertKeytype(t *testing.T, db *IndexerDb, address basics.Address, keytype *string) {
+func assertKeytype(t *testing.T, db *IndexerDb, address basics.Address, keytype *generated.AccountSigType) {
 	opts := idb.AccountQueryOptions{
 		EqualToAddress: address[:],
 		IncludeDeleted: true,
@@ -961,7 +961,7 @@ func TestKeytypeBasic(t *testing.T) {
 	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
-	keytype := "sig"
+	keytype := generated.AccountSigTypeSig
 	assertKeytype(t, db, test.AccountA, &keytype)
 
 	// Msig
@@ -1286,7 +1286,7 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
-	keytype := "sig"
+	keytype := generated.AccountSigTypeSig
 	assertKeytype(t, db, test.AccountA, &keytype)
 
 	// Rekey.
@@ -1312,7 +1312,7 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
-	keytype = "msig"
+	keytype = generated.AccountSigTypeMsig
 	assertKeytype(t, db, test.AccountA, &keytype)
 }
 
@@ -1334,7 +1334,7 @@ func TestKeytypeDeletedAccount(t *testing.T) {
 	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
-	keytype := "sig"
+	keytype := generated.AccountSigTypeSig
 	assertKeytype(t, db, test.AccountA, &keytype)
 }
 
@@ -2011,7 +2011,7 @@ func TestKeytypeDoNotResetReceiver(t *testing.T) {
 	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
-	keytype := "sig"
+	keytype := generated.AccountSigTypeSig
 	assertKeytype(t, db, test.AccountA, &keytype)
 	assertKeytype(t, db, test.AccountB, &keytype)
 }
@@ -2389,6 +2389,79 @@ func TestDeleteTransactions(t *testing.T) {
 		expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txns[i]))
 		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
 		assert.Equal(t, expected, actual)
+		i++
+	}
+
+	deleteStatus, err = db.getMetastate(context.Background(), nil, schema.DeleteStatusKey)
+	assert.NoError(t, err)
+	status, err = encoding.DecodeDeleteStatus([]byte(deleteStatus))
+	assert.NoError(t, err)
+	assert.Equal(t, uint64(5), status.OldestRound)
+}
+
+func TestDeleteTransactions(t *testing.T) {
+	block := test.MakeGenesisBlock()
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+	defer l.Close()
+
+	txnA := test.MakeCreateAppTxn(test.AccountA)
+	txnB := test.MakeCreateAppTxn(test.AccountB)
+	txnC := test.MakeCreateAppTxn(test.AccountC)
+	txnD := test.MakeCreateAppTxn(test.AccountD)
+
+	txns := []transactions.SignedTxnWithAD{txnA, txnB, txnC, txnD}
+
+	// add 4 rounds of txns
+	for i := 1; i <= 4; i++ {
+		block, err := test.MakeBlockForTxns(block.BlockHeader, &txns[i-1])
+		block.BlockHeader.Round = basics.Round(i)
+		require.NoError(t, err)
+		err = proc(&rpcs.EncodedBlockCert{Block: block})
+		require.NoError(t, err)
+	}
+
+	// keep rounds >= 2
+	err := db.DeleteTransactions(context.Background(), 2)
+	assert.NoError(t, err)
+
+	// query txns
+	rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
+
+	// check remaining transactions are correct
+	i := 1
+	for row := range rowsCh {
+		require.NoError(t, row.Error)
+		require.NotNil(t, row.Txn)
+		assert.Equal(t, txns[i], *row.Txn)
+		i++
+	}
+
+	// verify metastate
+	deleteStatus, err := db.getMetastate(context.Background(), nil, schema.DeleteStatusKey)
+	assert.NoError(t, err)
+	status, err := encoding.DecodeDeleteStatus([]byte(deleteStatus))
+	assert.NoError(t, err)
+	assert.Equal(t, uint64(2), status.OldestRound)
+
+	// add 2 txns for round 5
+	block, err = test.MakeBlockForTxns(block.BlockHeader, &txnA, &txnB)
+	block.BlockHeader.Round = basics.Round(5)
+	require.NoError(t, err)
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
+
+	// keep round 5
+	err = db.DeleteTransactions(context.Background(), 5)
+	assert.NoError(t, err)
+
+	// 2 txns in round 5
+	rowsCh, _ = db.Transactions(context.Background(), idb.TransactionFilter{})
+	i = 0
+	for row := range rowsCh {
+		require.NoError(t, row.Error)
+		require.NotNil(t, row.Txn)
+		assert.Equal(t, txns[i], *row.Txn)
 		i++
 	}
 

@@ -29,6 +29,8 @@ import (
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
 	iutil "github.com/algorand/indexer/util"
+
+	"github.com/algorand/go-algorand/util"
 )
 
 // GetConfigFromDataDir Given the data directory, configuration filename and a list of types, see if
