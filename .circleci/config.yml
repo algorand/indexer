@@ -19,6 +19,8 @@ workflows:
           matrix: &go-version-matrix
             parameters:
               go_version: ["1.17.9"]
+      - indexer_vs_algod_nightly_TESTING123TESTING:
+          name: indexer_vs_algod_nightly_TESTING123TESTING
 
   circleci_build_and_test_nightly:
     triggers:
@@ -103,6 +105,12 @@ jobs:
                 }
               ]
             }
+  indexer_vs_algod_nightly_TESTING123TESTING:
+    machine:
+      image: << pipeline.parameters.ubuntu_image >>
+    steps:
+      - install_dependencies
+      - run_indexer_vs_algod
 
 commands:
   install_dependencies:
