@@ -1312,7 +1312,7 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
-	keytype = generated.AccountSigTypeMsig
+	keytype = "msig"
 	assertKeytype(t, db, test.AccountA, &keytype)
 }
 
@@ -2356,7 +2356,9 @@ func TestDeleteTransactions(t *testing.T) {
 	for row := range rowsCh {
 		require.NoError(t, row.Error)
 		require.NotNil(t, row.Txn)
-		assert.Equal(t, txns[i], *row.Txn)
+		expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txns[i]))
+		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
+		assert.Equal(t, expected, actual)
 		i++
 	}
 
@@ -2384,7 +2386,9 @@ func TestDeleteTransactions(t *testing.T) {
 	for row := range rowsCh {
 		require.NoError(t, row.Error)
 		require.NotNil(t, row.Txn)
-		assert.Equal(t, txns[i], *row.Txn)
+		expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txns[i]))
+		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
+		assert.Equal(t, expected, actual)
 		i++
 	}
 
