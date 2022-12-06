@@ -30,7 +30,7 @@ func InitializeLedger(ctx context.Context, logger *log.Logger, nextDbRound uint6
 			if uint64(round) >= nextDbRound {
 				return fmt.Errorf("invalid catchpoint: catchpoint round %d should not be ahead of target round %d", uint64(round), nextDbRound-1)
 			}
-			err = InitializeLedgerFastCatchup(ctx, logger, config.Catchpoint, config.IndexerDatadir, genesis)
+			err = InitializeLedgerFastCatchup(ctx, logger, config.Catchpoint, config.LedgerDir, genesis)
 			if err != nil {
 				return fmt.Errorf("InitializeLedger() fast catchup err: %w", err)
 			}
@@ -63,7 +63,7 @@ func InitializeLedgerSimple(ctx context.Context, logger *log.Logger, round uint6
 	defer cf()
 	var bot fetcher.Fetcher
 	var err error
-	if config.IndexerDatadir == "" {
+	if config.LedgerDir == "" {
 		return fmt.Errorf("InitializeLedgerSimple() err: indexer data directory missing")
 	}
 	// create algod client
@@ -73,7 +73,7 @@ func InitializeLedgerSimple(ctx context.Context, logger *log.Logger, round uint6
 	}
 	logger.Info("initializing ledger")
 
-	proc, err := MakeBlockProcessor(logger, genesis, round, config.IndexerDatadir, nil)
+	proc, err := MakeBlockProcessor(logger, genesis, round, config.LedgerDir, nil)
 	if err != nil {
 		return fmt.Errorf("RunMigration() err: %w", err)
 	}

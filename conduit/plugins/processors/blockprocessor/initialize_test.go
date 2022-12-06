@@ -61,16 +61,16 @@ func TestRunMigration(t *testing.T) {
 	dname, err := os.MkdirTemp("", "indexer")
 	defer os.RemoveAll(dname)
 	config := Config{
-		IndexerDatadir: dname,
-		AlgodAddr:      "localhost",
-		AlgodToken:     "AAAAA",
+		LedgerDir:  dname,
+		AlgodAddr:  "localhost",
+		AlgodToken: "AAAAA",
 	}
 
 	// migrate 3 rounds
 	log, _ := test2.NewNullLogger()
 	err = InitializeLedgerSimple(context.Background(), log, 3, &genesis, &config)
 	assert.NoError(t, err)
-	l, err := util.MakeLedger(log, false, &genesis, config.IndexerDatadir)
+	l, err := util.MakeLedger(log, false, &genesis, config.LedgerDir)
 	assert.NoError(t, err)
 	// check 3 rounds written to ledger
 	assert.Equal(t, uint64(3), uint64(l.Latest()))
@@ -80,7 +80,7 @@ func TestRunMigration(t *testing.T) {
 	err = InitializeLedgerSimple(context.Background(), log, 6, &genesis, &config)
 	assert.NoError(t, err)
 
-	l, err = util.MakeLedger(log, false, &genesis, config.IndexerDatadir)
+	l, err = util.MakeLedger(log, false, &genesis, config.LedgerDir)
 	assert.NoError(t, err)
 	assert.Equal(t, uint64(6), uint64(l.Latest()))
 	l.Close()
