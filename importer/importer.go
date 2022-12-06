@@ -3,10 +3,11 @@ package importer
 import (
 	"fmt"
 
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/protocol"
 	"github.com/algorand/indexer/protocol/config"
+
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
 // Importer is used to import blocks into an idb.IndexerDb object.

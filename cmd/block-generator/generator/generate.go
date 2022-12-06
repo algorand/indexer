@@ -9,6 +9,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/algorand/indexer/helpers"
+	"github.com/algorand/indexer/protocol"
+	cconfig "github.com/algorand/indexer/protocol/config"
+
 	sdk "github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/crypto"
@@ -18,9 +22,6 @@ import (
 	"github.com/algorand/go-algorand/data/committee"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/rpcs"
-	"github.com/algorand/indexer/helpers"
-	"github.com/algorand/indexer/protocol"
-	cconfig "github.com/algorand/indexer/protocol/config"
 )
 
 // TxTypeID is the transaction type.
