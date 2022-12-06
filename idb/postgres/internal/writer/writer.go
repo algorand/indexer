@@ -8,16 +8,16 @@ import (
 
 	"github.com/jackc/pgx/v4"
 
-	sdk "github.com/algorand/go-algorand-sdk/types"
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/transactions/logic"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
-
 	"github.com/algorand/indexer/helpers"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
 	"github.com/algorand/indexer/types"
+
+	sdk "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/transactions/logic"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
 const (

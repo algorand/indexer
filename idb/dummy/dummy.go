@@ -5,13 +5,13 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/types"
+
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
-
-	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/types"
 )
 
 type dummyIndexerDb struct {

@@ -19,9 +19,6 @@ import (
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 
-	"github.com/algorand/go-algorand/crypto"
-	"github.com/algorand/go-algorand/data/basics"
-
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/exporters"
@@ -30,6 +27,9 @@ import (
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/metrics"
+
+	"github.com/algorand/go-algorand/crypto"
+	"github.com/algorand/go-algorand/data/basics"
 )
 
 func init() {

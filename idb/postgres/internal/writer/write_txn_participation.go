@@ -6,8 +6,9 @@ import (
 
 	"github.com/jackc/pgx/v4"
 
-	"github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/indexer/accounting"
+
+	"github.com/algorand/go-algorand-sdk/types"
 )
 
 // getTransactionParticipants returns referenced addresses from the txn and all inner txns

@@ -7,7 +7,6 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/algorand/go-algorand/data/bookkeeping"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/indexer/idb"

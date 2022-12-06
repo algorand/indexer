@@ -9,12 +9,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/algorand/go-algorand-sdk/crypto"
-	sdk "github.com/algorand/go-algorand-sdk/types"
-	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/util"
+
+	"github.com/algorand/go-algorand-sdk/crypto"
+	sdk "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand/data/basics"
 )
 
 //////////////////////////////////////////////////////////////////////
