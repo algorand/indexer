@@ -14,7 +14,6 @@ import (
 	"sync"
 	"time"
 
-
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v4"

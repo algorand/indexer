@@ -17,7 +17,6 @@ import (
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-codec/codec"
-
 )
 
 const (
