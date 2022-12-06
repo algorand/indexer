@@ -14,7 +14,7 @@ import (
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/processors"
-	indexerledger "github.com/algorand/indexer/conduit/plugins/processors/eval"
+	indexerledger "github.com/algorand/indexer/conduit/plugins/processors/blockprocessor/internal/eval"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/util"
 
