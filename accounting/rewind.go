@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	sdk "github.com/algorand/go-algorand-sdk/types"
 	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/types"
+
+	sdk "github.com/algorand/go-algorand-sdk/types"
 )
 
 // ConsistencyError is returned when the database returns inconsistent (stale) results.

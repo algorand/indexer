@@ -9,14 +9,14 @@ import (
 	"strconv"
 	"time"
 
+	models "github.com/algorand/indexer/api/generated/v2"
+	"github.com/algorand/indexer/types"
+
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
-	"github.com/algorand/indexer/types"
-
-	models "github.com/algorand/indexer/api/generated/v2"
 )
 
 // TxnRow is metadata relating to one transaction in a transaction query.

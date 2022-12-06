@@ -14,13 +14,12 @@ import (
 	"github.com/algorand/indexer/cmd/conduit/internal/list"
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/pipeline"
-	"github.com/algorand/indexer/loggers"
-	"github.com/algorand/indexer/util/metrics"
-
 	// We need to import these so that the package wide init() function gets called
 	_ "github.com/algorand/indexer/conduit/plugins/exporters/all"
 	_ "github.com/algorand/indexer/conduit/plugins/importers/all"
 	_ "github.com/algorand/indexer/conduit/plugins/processors/all"
+	"github.com/algorand/indexer/loggers"
+	"github.com/algorand/indexer/util/metrics"
 )
 
 var (
@@ -156,7 +155,7 @@ func runConduitInit(path string) error {
 	}
 	defer f.Close()
 
-	f.WriteString(sampleConfig)
+	_, _ = f.WriteString(sampleConfig)
 	if err != nil {
 		return fmt.Errorf("runConduitInit(): failed to write sample config: %w", err)
 	}

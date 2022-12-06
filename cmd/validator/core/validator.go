@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
-	sdk_types "github.com/algorand/go-algorand-sdk/types"
-
 	"github.com/algorand/indexer/api"
+
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
 )
 
 // Params are the program arguments which need to be passed between objects.

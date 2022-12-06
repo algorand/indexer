@@ -9,12 +9,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/algorand/go-algorand-sdk/crypto"
-	sdk "github.com/algorand/go-algorand-sdk/types"
-	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/util"
+
+	"github.com/algorand/go-algorand-sdk/crypto"
+	sdk "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand/data/basics"
 )
 
 //////////////////////////////////////////////////////////////////////
@@ -598,7 +599,7 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 		ReceiverRewards:          uint64Ptr(uint64(stxn.ReceiverRewards)),
 		CloseRewards:             uint64Ptr(uint64(stxn.CloseRewards)),
 		SenderRewards:            uint64Ptr(uint64(stxn.SenderRewards)),
-		TxType:                   string(stxn.Txn.Type),
+		TxType:                   generated.TransactionTxType(stxn.Txn.Type),
 		RekeyTo:                  addrPtr(stxn.Txn.RekeyTo),
 		GlobalStateDelta:         stateDeltaToStateDelta(stxn.EvalDelta.GlobalDelta),
 		LocalStateDelta:          localStateDelta,
@@ -686,7 +687,7 @@ func (si *ServerImplementation) transactionParamsToTransactionFilter(params gene
 	filter.Round = params.Round
 
 	// String
-	filter.AddressRole, errorArr = decodeAddressRole(params.AddressRole, params.ExcludeCloseTo, errorArr)
+	filter.AddressRole, errorArr = decodeAddressRole((*string)(params.AddressRole), params.ExcludeCloseTo, errorArr)
 	filter.NextToken = strOrDefault(params.Next)
 
 	// Address
@@ -705,8 +706,8 @@ func (si *ServerImplementation) transactionParamsToTransactionFilter(params gene
 	}
 
 	// Enum
-	filter.SigType, errorArr = decodeSigType(params.SigType, errorArr)
-	filter.TypeEnum, errorArr = decodeType(params.TxType, errorArr)
+	filter.SigType, errorArr = decodeSigType((*string)(params.SigType), errorArr)
+	filter.TypeEnum, errorArr = decodeType((*string)(params.TxType), errorArr)
 
 	// Boolean
 	filter.RekeyTo = params.RekeyTo

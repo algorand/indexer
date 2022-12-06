@@ -9,14 +9,14 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
-	"github.com/algorand/go-algorand/data/transactions"
-
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/processors"
 	"github.com/algorand/indexer/conduit/plugins/processors/filterprocessor/expression"
 	"github.com/algorand/indexer/conduit/plugins/processors/filterprocessor/fields"
 	"github.com/algorand/indexer/data"
+
+	"github.com/algorand/go-algorand/data/transactions"
 )
 
 const implementationName = "filter_processor"

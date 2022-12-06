@@ -5,11 +5,11 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/algorand/go-algorand/data/bookkeeping"
-
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/data"
+
+	"github.com/algorand/go-algorand/data/bookkeeping"
 )
 
 // Importer defines the interface for importer plugins

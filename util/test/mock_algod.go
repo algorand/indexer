@@ -1,17 +1,18 @@
 package test
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"path"
+	"strconv"
+	"strings"
+
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
 	"github.com/algorand/go-algorand-sdk/client/v2/common/models"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
-	"net/http"
-	"net/http/httptest"
-	"path"
-	"strconv"
-	"strings"
 )
 
 // AlgodHandler is used to handle http requests to a mock algod server
@@ -52,7 +53,7 @@ func BlockResponder(reqPath string, w http.ResponseWriter) bool {
 		blk := rpcs.EncodedBlockCert{Block: bookkeeping.Block{BlockHeader: bookkeeping.BlockHeader{Round: basics.Round(rnd)}}}
 		blockbytes := protocol.Encode(&blk)
 		w.WriteHeader(http.StatusOK)
-		w.Write(blockbytes)
+		_, _ = w.Write(blockbytes)
 		return true
 	}
 	return false
@@ -64,7 +65,7 @@ func GenesisResponder(reqPath string, w http.ResponseWriter) bool {
 		w.WriteHeader(http.StatusOK)
 		genesis := &bookkeeping.Genesis{}
 		blockbytes := protocol.EncodeJSON(*genesis)
-		w.Write(blockbytes)
+		_, _ = w.Write(blockbytes)
 		return true
 	}
 	return false
@@ -75,7 +76,7 @@ func BlockAfterResponder(reqPath string, w http.ResponseWriter) bool {
 	if strings.Contains(reqPath, "/wait-for-block-after") {
 		w.WriteHeader(http.StatusOK)
 		nStatus := models.NodeStatus{}
-		w.Write(protocol.EncodeJSON(nStatus))
+		_, _ = w.Write(protocol.EncodeJSON(nStatus))
 		return true
 	}
 	return false

@@ -933,7 +933,7 @@ func TestAppExtraPages(t *testing.T) {
 	require.Equal(t, uint64(extraPages), *app.Params.ExtraProgramPages)
 }
 
-func assertKeytype(t *testing.T, db *IndexerDb, address basics.Address, keytype *string) {
+func assertKeytype(t *testing.T, db *IndexerDb, address basics.Address, keytype *generated.AccountSigType) {
 	opts := idb.AccountQueryOptions{
 		EqualToAddress: address[:],
 		IncludeDeleted: true,
@@ -964,7 +964,7 @@ func TestKeytypeBasic(t *testing.T) {
 	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
-	keytype := "sig"
+	keytype := generated.AccountSigTypeSig
 	assertKeytype(t, db, test.AccountA, &keytype)
 
 	// Msig
@@ -1289,7 +1289,7 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
-	keytype := "sig"
+	keytype := generated.AccountSigTypeSig
 	assertKeytype(t, db, test.AccountA, &keytype)
 
 	// Rekey.
@@ -1337,7 +1337,7 @@ func TestKeytypeDeletedAccount(t *testing.T) {
 	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
-	keytype := "sig"
+	keytype := generated.AccountSigTypeSig
 	assertKeytype(t, db, test.AccountA, &keytype)
 }
 
@@ -2014,7 +2014,7 @@ func TestKeytypeDoNotResetReceiver(t *testing.T) {
 	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
-	keytype := "sig"
+	keytype := generated.AccountSigTypeSig
 	assertKeytype(t, db, test.AccountA, &keytype)
 	assertKeytype(t, db, test.AccountB, &keytype)
 }

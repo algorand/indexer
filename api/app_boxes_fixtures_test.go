@@ -6,13 +6,15 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/rpcs"
+
 	"github.com/algorand/indexer/util/test"
-	"github.com/stretchr/testify/require"
 )
 
 func goalEncode(t *testing.T, s string) string {

@@ -3,8 +3,9 @@ package fields
 import (
 	"fmt"
 
-	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/indexer/data"
+
+	"github.com/algorand/go-algorand/data/transactions"
 )
 
 // Operation an operation like "any" or "all" for boolean logic

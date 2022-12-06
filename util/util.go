@@ -16,8 +16,8 @@ import (
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	sdk "github.com/algorand/go-algorand-sdk/types"
-	"github.com/algorand/indexer/protocol"
-	"github.com/algorand/indexer/protocol/config"
+	"github.com/algorand/go-algorand/config"
+	"github.com/algorand/go-algorand/protocol"
 )
 
 const (

@@ -4,13 +4,15 @@ import (
 	"encoding/base64"
 	"fmt"
 
+	"github.com/algorand/indexer/types"
+	"github.com/algorand/indexer/protocol"
+
+
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	protocol2 "github.com/algorand/go-algorand/protocol"
-	"github.com/algorand/indexer/protocol"
-	"github.com/algorand/indexer/types"
 )
 
 // TODO: remove this file once all types have been converted to sdk types.
