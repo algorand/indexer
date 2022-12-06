@@ -4,9 +4,8 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/protocol"
-
+	"github.com/algorand/indexer/types"
 
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/types"
