@@ -23,7 +23,7 @@ type Exporter interface {
 
 	// Config returns the configuration options used to create an Exporter.
 	// Initialized during Connect, it should return nil until the Exporter has been Connected.
-	Config() plugins.PluginConfig
+	Config() string
 
 	// Close will be called during termination of the Indexer process.
 	// There is no guarantee that plugin lifecycle hooks will be invoked in any specific order in relation to one another.

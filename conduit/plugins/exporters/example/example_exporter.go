@@ -38,7 +38,7 @@ func (exp *exampleExporter) Init(_ context.Context, _ data.InitProvider, _ plugi
 }
 
 // Config returns the unmarshaled config object
-func (exp *exampleExporter) Config() plugins.PluginConfig {
+func (exp *exampleExporter) Config() string {
 	panic("not implemented")
 }
 
