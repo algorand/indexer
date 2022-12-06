@@ -50,7 +50,7 @@ type blockProcessor struct {
 	ledger  *ledger.Ledger
 	logger  *log.Logger
 
-	cfg plugins.PluginConfig
+	cfg Config
 	ctx context.Context
 
 	// lastValidatedBlock is the last validated block that was made via the Process() function
@@ -73,31 +73,29 @@ func (proc *blockProcessor) Metadata() conduit.Metadata {
 	}
 }
 
-func (proc *blockProcessor) Config() plugins.PluginConfig {
-	return proc.cfg
+func (proc *blockProcessor) Config() string {
+	s, _ := yaml.Marshal(proc.cfg)
+	return string(s)
 }
 
 func (proc *blockProcessor) Init(ctx context.Context, initProvider data.InitProvider, cfg plugins.PluginConfig, logger *log.Logger) error {
 	proc.ctx = ctx
 	proc.logger = logger
 
-	// First get the configuration from the string
-	var pCfg Config
-	err := yaml.Unmarshal([]byte(cfg), &pCfg)
+	err := cfg.UnmarshalConfig(&proc.cfg)
 	if err != nil {
 		return fmt.Errorf("blockprocessor init error: %w", err)
 	}
-	proc.cfg = cfg
 
 	genesis := initProvider.GetGenesis()
 	round := uint64(initProvider.NextDBRound())
 
-	err = InitializeLedger(ctx, proc.logger, round, *genesis, &pCfg)
+	err = InitializeLedger(ctx, proc.logger, round, *genesis, &proc.cfg)
 	if err != nil {
 		return fmt.Errorf("could not initialize ledger: %w", err)
 	}
 
-	l, err := util.MakeLedger(proc.logger, false, genesis, pCfg.IndexerDatadir)
+	l, err := util.MakeLedger(proc.logger, false, genesis, proc.cfg.IndexerDatadir)
 	if err != nil {
 		return fmt.Errorf("could not make ledger: %w", err)
 	}

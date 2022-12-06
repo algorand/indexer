@@ -211,6 +211,19 @@ func (p *pipelineImpl) registerPluginMetricsCallbacks() {
 	}
 }
 
+func (p *pipelineImpl) makeConfig(pluginType, pluginName string, cfg []byte) (config plugins.PluginConfig) {
+	config.Config = string(cfg)
+	if p.cfg != nil && p.cfg.ConduitConfig != nil {
+		config.DataDir = path.Join(p.cfg.ConduitConfig.ConduitDataDir, fmt.Sprintf("%s_%s", pluginType, pluginName))
+		err := os.MkdirAll(config.DataDir, os.ModePerm)
+		if err != nil {
+			p.logger.Errorf("Unable to create plugin data directory: %s", err)
+			config.DataDir = ""
+		}
+	}
+	return
+}
+
 // Init prepares the pipeline for processing block data
 func (p *pipelineImpl) Init() error {
 	p.logger.Infof("Starting Pipeline Initialization")
@@ -257,7 +270,7 @@ func (p *pipelineImpl) Init() error {
 	if err != nil {
 		return fmt.Errorf("Pipeline.Start(): could not serialize Importer.Config: %w", err)
 	}
-	genesis, err := (*p.importer).Init(p.ctx, plugins.PluginConfig(configs), importerLogger)
+	genesis, err := (*p.importer).Init(p.ctx, p.makeConfig("importer", importerName, configs), importerLogger)
 	if err != nil {
 		return fmt.Errorf("Pipeline.Start(): could not initialize importer (%s): %w", importerName, err)
 	}
@@ -296,8 +309,8 @@ func (p *pipelineImpl) Init() error {
 		if err != nil {
 			return fmt.Errorf("Pipeline.Start(): could not serialize Processors[%d].Config : %w", idx, err)
 		}
-		err := (*processor).Init(p.ctx, *p.initProvider, plugins.PluginConfig(configs), processorLogger)
 		processorName := (*processor).Metadata().Name
+		err := (*processor).Init(p.ctx, *p.initProvider, p.makeConfig("processor", processorName, configs), processorLogger)
 		if err != nil {
 			return fmt.Errorf("Pipeline.Init(): could not initialize processor (%s): %w", processorName, err)
 		}
@@ -314,8 +327,8 @@ func (p *pipelineImpl) Init() error {
 	if err != nil {
 		return fmt.Errorf("Pipeline.Start(): could not serialize Exporter.Config : %w", err)
 	}
-	err = (*p.exporter).Init(p.ctx, *p.initProvider, plugins.PluginConfig(configs), exporterLogger)
 	exporterName := (*p.exporter).Metadata().Name
+	err = (*p.exporter).Init(p.ctx, *p.initProvider, p.makeConfig("exporter", exporterName, configs), exporterLogger)
 	if err != nil {
 		return fmt.Errorf("Pipeline.Start(): could not initialize Exporter (%s): %w", exporterName, err)
 	}
@@ -491,8 +504,6 @@ func (p *pipelineImpl) encodeMetadataToFile() error {
 func (p *pipelineImpl) initializeOrLoadBlockMetadata() (state, error) {
 	pipelineMetadataFilePath := metadataPath(p.cfg.ConduitConfig.ConduitDataDir)
 	if stat, err := os.Stat(pipelineMetadataFilePath); errors.Is(err, os.ErrNotExist) || (stat != nil && stat.Size() == 0) {
-		fmt.Println(err)
-		fmt.Println(stat)
 		if stat != nil && stat.Size() == 0 {
 			err = os.Remove(pipelineMetadataFilePath)
 			if err != nil {

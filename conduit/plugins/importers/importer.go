@@ -23,7 +23,7 @@ type Importer interface {
 	Init(ctx context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) (*bookkeeping.Genesis, error)
 
 	// Config returns the configuration options used to create an Importer. Initialized during Init.
-	Config() plugins.PluginConfig
+	Config() string
 
 	// Close function is used for closing network connections, files, flushing buffers etc.
 	Close() error

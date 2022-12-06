@@ -46,8 +46,7 @@ func (exp *fileExporter) Metadata() conduit.Metadata {
 
 func (exp *fileExporter) Init(_ context.Context, initProvider data.InitProvider, cfg plugins.PluginConfig, logger *logrus.Logger) error {
 	exp.logger = logger
-	var err error
-	exp.cfg, err = unmarshalConfig(string(cfg))
+	err := cfg.UnmarshalConfig(&exp.cfg)
 	if err != nil {
 		return fmt.Errorf("connect failure in unmarshalConfig: %w", err)
 	}
@@ -66,9 +65,9 @@ func (exp *fileExporter) Init(_ context.Context, initProvider data.InitProvider,
 	return err
 }
 
-func (exp *fileExporter) Config() plugins.PluginConfig {
+func (exp *fileExporter) Config() string {
 	ret, _ := yaml.Marshal(exp.cfg)
-	return plugins.PluginConfig(ret)
+	return string(ret)
 }
 
 func (exp *fileExporter) Close() error {

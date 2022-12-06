@@ -36,7 +36,7 @@ func TestExporterMetadata(t *testing.T) {
 }
 
 func TestExporterInit(t *testing.T) {
-	assert.NoError(t, ne.Init(context.Background(), testutil.MockedInitProvider(nil), "", nil))
+	assert.NoError(t, ne.Init(context.Background(), testutil.MockedInitProvider(nil), plugins.MakePluginConfig(""), nil))
 }
 
 func TestExporterConfig(t *testing.T) {
@@ -45,8 +45,8 @@ func TestExporterConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unable to Marshal default noop.ExporterConfig: %v", err)
 	}
-	assert.NoError(t, ne.Init(context.Background(), testutil.MockedInitProvider(nil), "", nil))
-	assert.Equal(t, plugins.PluginConfig(expected), ne.Config())
+	assert.NoError(t, ne.Init(context.Background(), testutil.MockedInitProvider(nil), plugins.MakePluginConfig(""), nil))
+	assert.Equal(t, string(expected), ne.Config())
 }
 
 func TestExporterClose(t *testing.T) {
