@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	protocol2 "github.com/algorand/indexer/protocol"
 	config2 "github.com/algorand/indexer/protocol/config"
 	"github.com/algorand/indexer/util"
 
+	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/crypto"
@@ -44,7 +44,7 @@ var (
 	// Proto is a fake protocol version.
 	Proto = protocol.ConsensusFuture
 
-	//	HashID
+	// PaysetFlat is the payset HashID defined in go-algorand/protocol/hash.go
 	PaysetFlat = "PF"
 )
 
