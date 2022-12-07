@@ -1828,7 +1828,7 @@ func compareAppBoxesAgainstHandler(t *testing.T, db *postgres.IndexerDb,
 			msg := fmt.Sprintf("caseNum=%d, appIdx=%d, key=%#v", caseNum, appIdx, key)
 			expectedAppIdx, boxName, err := logic.SplitBoxKey(key)
 			require.NoError(t, err, msg)
-			require.Equal(t, appIdx, expectedAppIdx, msg)
+			require.Equal(t, appIdx, basics.AppIndex(expectedAppIdx), msg)
 			numRequests++
 
 			boxDeleted := false
