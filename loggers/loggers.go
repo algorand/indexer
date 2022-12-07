@@ -5,6 +5,8 @@ import (
 	"sync"
 
 	log "github.com/sirupsen/logrus"
+
+	"github.com/algorand/indexer/conduit/pipeline"
 )
 
 // LoggerManager a manager that can produce loggers that are synchronized internally
@@ -17,9 +19,19 @@ func AdaptLogger(log *log.Logger) *LoggerManager {
 	return MakeLoggerManager(log.Out)
 }
 
-// MakeLogger returns a logger that is synchronized with the internal mutex
-func (l *LoggerManager) MakeLogger() *log.Logger {
+// MakeRootLogger returns a logger that is synchronized with the internal mutex
+func (l *LoggerManager) MakeRootLogger(level log.Level) *log.Logger {
+	formatter := pipeline.PluginLogFormatter{
+		Formatter: &log.JSONFormatter{
+			DisableHTMLEscape: true,
+		},
+		Type: "Conduit",
+		Name: "main",
+	}
+
 	logger := log.New()
+	logger.SetFormatter(&formatter)
+	logger.SetLevel(level)
 	logger.SetOutput(l.internalWriter)
 	return logger
 }

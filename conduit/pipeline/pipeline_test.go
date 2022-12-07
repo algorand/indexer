@@ -37,7 +37,7 @@ func TestPipelineConfigValidity(t *testing.T) {
 		errContains string
 	}{
 		{"valid", Config{
-			ConduitConfig:    &conduit.Config{ConduitDataDir: ""},
+			ConduitArgs:      &conduit.Args{ConduitDataDir: ""},
 			PipelineLogLevel: "info",
 			Importer:         NameConfigPair{"test", map[string]interface{}{"a": "a"}},
 			Processors:       nil,
@@ -45,30 +45,30 @@ func TestPipelineConfigValidity(t *testing.T) {
 		}, ""},
 
 		{"valid 2", Config{
-			ConduitConfig:    &conduit.Config{ConduitDataDir: ""},
+			ConduitArgs:      &conduit.Args{ConduitDataDir: ""},
 			PipelineLogLevel: "info",
 			Importer:         NameConfigPair{"test", map[string]interface{}{"a": "a"}},
 			Processors:       []NameConfigPair{{"test", map[string]interface{}{"a": "a"}}},
 			Exporter:         NameConfigPair{"test", map[string]interface{}{"a": "a"}},
 		}, ""},
 
-		{"empty config", Config{ConduitConfig: nil}, "Config.Valid(): conduit configuration was nil"},
-		{"invalid log level", Config{ConduitConfig: &conduit.Config{ConduitDataDir: ""}, PipelineLogLevel: "asdf"}, "Config.Valid(): pipeline log level (asdf) was invalid:"},
+		{"empty config", Config{ConduitArgs: nil}, "Args.Valid(): conduit args were nil"},
+		{"invalid log level", Config{ConduitArgs: &conduit.Args{ConduitDataDir: ""}, PipelineLogLevel: "asdf"}, "Args.Valid(): pipeline log level (asdf) was invalid:"},
 		{"importer config was 0",
 			Config{
-				ConduitConfig:    &conduit.Config{ConduitDataDir: ""},
+				ConduitArgs:      &conduit.Args{ConduitDataDir: ""},
 				PipelineLogLevel: "info",
 				Importer:         NameConfigPair{"test", map[string]interface{}{}},
-			}, "Config.Valid(): importer configuration was empty"},
+			}, "Args.Valid(): importer configuration was empty"},
 
 		{"exporter config was 0",
 			Config{
-				ConduitConfig:    &conduit.Config{ConduitDataDir: ""},
+				ConduitArgs:      &conduit.Args{ConduitDataDir: ""},
 				PipelineLogLevel: "info",
 				Importer:         NameConfigPair{"test", map[string]interface{}{"a": "a"}},
 				Processors:       []NameConfigPair{{"test", map[string]interface{}{"a": "a"}}},
 				Exporter:         NameConfigPair{"test", map[string]interface{}{}},
-			}, "Config.Valid(): exporter configuration was empty"},
+			}, "Args.Valid(): exporter configuration was empty"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -87,9 +87,7 @@ func TestPipelineConfigValidity(t *testing.T) {
 // TestMakePipelineConfig tests making the pipeline configuration
 func TestMakePipelineConfig(t *testing.T) {
 
-	l, _ := test.NewNullLogger()
-
-	_, err := MakePipelineConfig(l, nil)
+	_, err := MakePipelineConfig(nil)
 	assert.Equal(t, fmt.Errorf("MakePipelineConfig(): empty conduit config"), err)
 
 	dataDir := t.TempDir()
@@ -113,9 +111,9 @@ exporter:
 	err = os.WriteFile(filepath.Join(dataDir, conduit.DefaultConfigName), []byte(validConfigFile), 0777)
 	assert.Nil(t, err)
 
-	cfg := &conduit.Config{ConduitDataDir: dataDir}
+	cfg := &conduit.Args{ConduitDataDir: dataDir}
 
-	pCfg, err := MakePipelineConfig(l, cfg)
+	pCfg, err := MakePipelineConfig(cfg)
 	assert.Nil(t, err)
 	assert.Equal(t, pCfg.PipelineLogLevel, "info")
 	assert.Equal(t, pCfg.Valid(), nil)
@@ -130,8 +128,8 @@ exporter:
 	invalidDataDir := t.TempDir()
 	assert.Nil(t, err)
 
-	cfgBad := &conduit.Config{ConduitDataDir: invalidDataDir}
-	_, err = MakePipelineConfig(l, cfgBad)
+	cfgBad := &conduit.Args{ConduitDataDir: invalidDataDir}
+	_, err = MakePipelineConfig(cfgBad)
 	assert.Equal(t, err,
 		fmt.Errorf("MakePipelineConfig(): could not find %s in data directory (%s)", conduit.DefaultConfigName, cfgBad.ConduitDataDir))
 
@@ -316,7 +314,7 @@ func TestPipelineRun(t *testing.T) {
 			GenesisHash: "",
 		},
 		cfg: &Config{
-			ConduitConfig: &conduit.Config{
+			ConduitArgs: &conduit.Args{
 				ConduitDataDir: t.TempDir(),
 			},
 		},
@@ -351,8 +349,7 @@ func TestPipelineCpuPidFiles(t *testing.T) {
 	l, _ := test.NewNullLogger()
 	pImpl := pipelineImpl{
 		cfg: &Config{
-			ConduitConfig: &conduit.Config{
-				Flags:          nil,
+			ConduitArgs: &conduit.Args{
 				ConduitDataDir: tempDir,
 			},
 			Importer: NameConfigPair{
@@ -433,7 +430,7 @@ func TestPipelineErrors(t *testing.T) {
 		ctx: ctx,
 		cf:  cf,
 		cfg: &Config{
-			ConduitConfig: &conduit.Config{
+			ConduitArgs: &conduit.Args{
 				ConduitDataDir: tempDir,
 			},
 		},
@@ -534,8 +531,7 @@ func TestPluginConfigDataDir(t *testing.T) {
 	l, _ := test.NewNullLogger()
 	pImpl := pipelineImpl{
 		cfg: &Config{
-			ConduitConfig: &conduit.Config{
-				Flags:          nil,
+			ConduitArgs: &conduit.Args{
 				ConduitDataDir: datadir,
 			},
 			Importer: NameConfigPair{
@@ -585,8 +581,7 @@ func TestBlockMetaDataFile(t *testing.T) {
 	l, _ := test.NewNullLogger()
 	pImpl := pipelineImpl{
 		cfg: &Config{
-			ConduitConfig: &conduit.Config{
-				Flags:          nil,
+			ConduitArgs: &conduit.Args{
 				ConduitDataDir: datadir,
 			},
 			Importer: NameConfigPair{
@@ -641,7 +636,7 @@ func TestBlockMetaDataFile(t *testing.T) {
 	assert.Equal(t, pImpl.pipelineMetadata.Network, metaData.Network)
 
 	// invalid file directory
-	pImpl.cfg.ConduitConfig.ConduitDataDir = "datadir"
+	pImpl.cfg.ConduitArgs.ConduitDataDir = "datadir"
 	metaData, err = pImpl.initializeOrLoadBlockMetadata()
 	assert.Contains(t, err.Error(), "Init(): error creating file")
 	err = pImpl.encodeMetadataToFile()
@@ -656,8 +651,7 @@ func TestGenesisHash(t *testing.T) {
 	l, _ := test.NewNullLogger()
 	pImpl := pipelineImpl{
 		cfg: &Config{
-			ConduitConfig: &conduit.Config{
-				Flags:          nil,
+			ConduitArgs: &conduit.Args{
 				ConduitDataDir: datadir,
 			},
 			Importer: NameConfigPair{
@@ -712,8 +706,7 @@ func TestPipelineMetricsConfigs(t *testing.T) {
 	l, _ := test.NewNullLogger()
 	pImpl := pipelineImpl{
 		cfg: &Config{
-			ConduitConfig: &conduit.Config{
-				Flags:          nil,
+			ConduitArgs: &conduit.Args{
 				ConduitDataDir: t.TempDir(),
 			},
 			Importer: NameConfigPair{
@@ -791,8 +784,7 @@ func TestPipelineLogFile(t *testing.T) {
 	tempDir := t.TempDir()
 	logfilePath := path.Join(tempDir, "conduit.log")
 	configs := &Config{
-		ConduitConfig: &conduit.Config{
-			Flags:          nil,
+		ConduitArgs: &conduit.Args{
 			ConduitDataDir: tempDir,
 		},
 		Importer: NameConfigPair{
@@ -831,8 +823,7 @@ func TestRoundOverwrite(t *testing.T) {
 	l, _ := test.NewNullLogger()
 	pImpl := pipelineImpl{
 		cfg: &Config{
-			ConduitConfig: &conduit.Config{
-				Flags:             nil,
+			ConduitArgs: &conduit.Args{
 				ConduitDataDir:    t.TempDir(),
 				NextRoundOverride: 0,
 			},
@@ -869,7 +860,7 @@ func TestRoundOverwrite(t *testing.T) {
 
 	// override NextRound
 	for i := 1; i < 10; i++ {
-		pImpl.cfg.ConduitConfig.NextRoundOverride = uint64(i)
+		pImpl.cfg.ConduitArgs.NextRoundOverride = uint64(i)
 		err = pImpl.Init()
 		assert.Nil(t, err)
 		assert.Equal(t, uint64(i), pImpl.pipelineMetadata.NextRound)
