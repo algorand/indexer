@@ -27,6 +27,8 @@ var (
 	conduitCmd           = makeConduitCmd()
 	initCmd              = makeInitCmd()
 	defaultDataDirectory = "data"
+	//go:embed banner.txt
+	banner string
 )
 
 // init() function for main package
@@ -56,6 +58,10 @@ func runConduitCmdWithConfig(args *conduit.Args) error {
 
 	logger.Infof("Using data directory: %s", args.ConduitDataDir)
 	logger.Info("Conduit configuration is valid")
+
+	if !pCfg.HideBanner {
+		fmt.Printf(banner)
+	}
 
 	if pCfg.LogFile != "" {
 		logger.Infof("Conduit log file: %s", pCfg.LogFile)

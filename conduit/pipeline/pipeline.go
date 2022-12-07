@@ -49,6 +49,7 @@ type Config struct {
 
 	CPUProfile  string `yaml:"cpu-profile"`
 	PIDFilePath string `yaml:"pid-filepath"`
+	HideBanner  bool   `yaml:"hide-banner"`
 
 	LogFile          string `yaml:"log-file"`
 	PipelineLogLevel string `yaml:"log-level"`
