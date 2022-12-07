@@ -3,7 +3,6 @@ package blockprocessor
 import (
 	"context"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -58,17 +57,15 @@ func TestRunMigration(t *testing.T) {
 	httpmock.RegisterResponder("GET", `=~^http://localhost/v2/status/wait-for-block-after/\d+\z`,
 		httpmock.NewStringResponder(200, string(json.Encode(algod.Status{}))))
 
-	dname, err := os.MkdirTemp("", "indexer")
-	defer os.RemoveAll(dname)
 	config := Config{
-		LedgerDir:  dname,
+		LedgerDir:  t.TempDir(),
 		AlgodAddr:  "localhost",
 		AlgodToken: "AAAAA",
 	}
 
 	// migrate 3 rounds
 	log, _ := test2.NewNullLogger()
-	err = InitializeLedgerSimple(context.Background(), log, 3, &genesis, &config)
+	err := InitializeLedgerSimple(context.Background(), log, 3, &genesis, &config)
 	assert.NoError(t, err)
 	l, err := util.MakeLedger(log, false, &genesis, config.LedgerDir)
 	assert.NoError(t, err)
