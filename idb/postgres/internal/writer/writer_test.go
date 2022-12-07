@@ -144,8 +144,7 @@ func TestWriterSpecialAccounts(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	block, err := test.MakeGenesisBlockV2()
-	require.NoError(t, err)
+	block := test.MakeGenesisBlockV2()
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -157,7 +156,7 @@ func TestWriterSpecialAccounts(t *testing.T) {
 		w.Close()
 		return nil
 	}
-	err = pgutil.TxWithRetry(db, serializable, f, nil)
+	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
 
 	j, err := pgutil.GetMetastate(
@@ -1329,8 +1328,7 @@ func TestAddBlockInvalidInnerAsset(t *testing.T) {
 		},
 	}
 
-	genesisBlock, err := test.MakeGenesisBlockV2()
-	require.NoError(t, err)
+	genesisBlock := test.MakeGenesisBlockV2()
 	block, err := test.MakeBlockForTxnsV2(genesisBlock.BlockHeader, &callWithBadInner)
 	require.NoError(t, err)
 
@@ -1353,8 +1351,7 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	assetCreate := test.MakeAssetConfigTxnV2(
 		0, 100, 1, false, "ma", "myasset", "myasset.com", sdk.Address(test.AccountD))
 
-	genesisBlock, err := test.MakeGenesisBlockV2()
-	require.NoError(t, err)
+	genesisBlock := test.MakeGenesisBlockV2()
 	block, err := test.MakeBlockForTxnsV2(genesisBlock.BlockHeader, &appCall, &assetCreate)
 	require.NoError(t, err)
 
@@ -1488,7 +1485,7 @@ func TestWriterAccountTotals(t *testing.T) {
 	err := pgutil.SetMetastate(db, nil, schema.AccountTotals, "{}")
 	require.NoError(t, err)
 
-	block, _ := test.MakeGenesisBlockV2()
+	block := test.MakeGenesisBlockV2()
 
 	accountTotals := ledgercore.AccountTotals{
 		Online: ledgercore.AlgoCount{
@@ -1522,7 +1519,7 @@ func TestWriterAddBlock0(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	block, _ := test.MakeGenesisBlockV2()
+	block := test.MakeGenesisBlockV2()
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)

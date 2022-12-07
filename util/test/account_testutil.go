@@ -1,13 +1,12 @@
 package test
 
 import (
-	"encoding/base64"
 	"fmt"
 	"math/rand"
 
+	"github.com/algorand/go-algorand/data/committee"
 	"github.com/algorand/indexer/util"
 
-	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/crypto"
@@ -937,13 +936,29 @@ func MakeBlockForTxnsV2(prevHeader sdk.BlockHeader, inputs ...*sdk.SignedTxnWith
 }
 
 // MakeGenesisBlockV2 makes a genesis block.
-func MakeGenesisBlockV2() (sdk.Block, error) {
-	var genesisBlock sdk.Block
-	block := MakeGenesisBlock()
-	b64data := base64.StdEncoding.EncodeToString(msgpack.Encode(block))
-	err := genesisBlock.FromBase64String(b64data)
-	if err != nil {
-		return genesisBlock, err
+func MakeGenesisBlockV2() sdk.Block {
+	blk := sdk.Block{
+		BlockHeader: sdk.BlockHeader{
+			Round:  0,
+			Branch: sdk.BlockHash{},
+			Seed:   committee.Seed([32]byte{99}),
+			TxnCommitments: sdk.TxnCommitments{
+				NativeSha512_256Commitment: sdk.Digest{},
+				Sha256Commitment:           sdk.Digest{},
+			},
+			TimeStamp:   1,
+			GenesisID:   "test",
+			GenesisHash: sdk.Digest(GenesisHash),
+			RewardsState: sdk.RewardsState{
+				FeeSink:     sdk.Address(FeeAddr),
+				RewardsPool: sdk.Address(RewardAddr),
+			},
+			UpgradeState: sdk.UpgradeState{
+				CurrentProtocol: "future",
+			},
+			UpgradeVote: sdk.UpgradeVote{},
+		},
 	}
-	return genesisBlock, nil
+
+	return blk
 }
