@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/algorand/go-algorand/data/committee"
 	"github.com/algorand/indexer/util"
 
 	sdk "github.com/algorand/go-algorand-sdk/types"
@@ -941,7 +940,7 @@ func MakeGenesisBlockV2() sdk.Block {
 		BlockHeader: sdk.BlockHeader{
 			Round:  0,
 			Branch: sdk.BlockHash{},
-			Seed:   committee.Seed([32]byte{99}),
+			Seed:   sdk.Seed([32]byte{99}),
 			TxnCommitments: sdk.TxnCommitments{
 				NativeSha512_256Commitment: sdk.Digest{},
 				Sha256Commitment:           sdk.Digest{},
