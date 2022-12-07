@@ -1,9 +1,13 @@
 package test
 
 import (
+	"crypto/sha512"
 	"fmt"
 	"math/rand"
 
+	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
+	protocol2 "github.com/algorand/indexer/protocol"
+	config2 "github.com/algorand/indexer/protocol/config"
 	"github.com/algorand/indexer/util"
 
 	sdk "github.com/algorand/go-algorand-sdk/types"
@@ -39,6 +43,9 @@ var (
 
 	// Proto is a fake protocol version.
 	Proto = protocol.ConsensusFuture
+
+	//	HashID
+	PaysetFlat = "PF"
 )
 
 // DecodeAddressOrPanic is a helper to ensure addresses are initialized.
@@ -936,21 +943,29 @@ func MakeBlockForTxnsV2(prevHeader sdk.BlockHeader, inputs ...*sdk.SignedTxnWith
 
 // MakeGenesisBlockV2 makes a genesis block.
 func MakeGenesisBlockV2() sdk.Block {
+	params := config2.Consensus[protocol2.ConsensusVersion(Proto)]
+	genesis := MakeGenesis()
+	// payset hashRep
+	data := msgpack.Encode(sdk.Payset{})
+	hashRep := []byte(PaysetFlat)
+	hashRep = append(hashRep, data...)
+
 	blk := sdk.Block{
 		BlockHeader: sdk.BlockHeader{
 			Round:  0,
 			Branch: sdk.BlockHash{},
-			Seed:   sdk.Seed([32]byte{99}),
+			Seed:   sdk.Seed(GenesisHash),
 			TxnCommitments: sdk.TxnCommitments{
-				NativeSha512_256Commitment: sdk.Digest{},
+				NativeSha512_256Commitment: sdk.Digest(sha512.Sum512_256(hashRep)),
 				Sha256Commitment:           sdk.Digest{},
 			},
-			TimeStamp:   1,
-			GenesisID:   "test",
+			TimeStamp:   genesis.Timestamp,
+			GenesisID:   genesis.ID(),
 			GenesisHash: sdk.Digest(GenesisHash),
 			RewardsState: sdk.RewardsState{
-				FeeSink:     sdk.Address(FeeAddr),
-				RewardsPool: sdk.Address(RewardAddr),
+				FeeSink:                   sdk.Address(FeeAddr),
+				RewardsPool:               sdk.Address(RewardAddr),
+				RewardsRecalculationRound: sdk.Round(params.RewardsRateRefreshInterval),
 			},
 			UpgradeState: sdk.UpgradeState{
 				CurrentProtocol: "future",
