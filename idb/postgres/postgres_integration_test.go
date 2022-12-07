@@ -1353,7 +1353,7 @@ func TestAddBlockGenesis(t *testing.T) {
 	blockHeaderRet, txns, err := db.GetBlock(context.Background(), 0, opts)
 	require.NoError(t, err)
 	assert.Empty(t, txns)
-	genesisBlock, err := test.MakeGenesisBlockV2()
+	genesisBlock := test.MakeGenesisBlockV2()
 	require.NoError(t, err)
 	assert.Equal(t, genesisBlock.BlockHeader, blockHeaderRet)
 
