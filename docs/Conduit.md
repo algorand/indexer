@@ -36,7 +36,7 @@ See the [Development](conduit/Development.md) page for building a plugin.
 # Features
 
 # Plugin System
-A Conduit pipeline is composed of 3 components, [Importers](../conduit/plugins/importers/README.md), [Processors](../conduit/plugins/processors/README.md), and [Exporters](../conduit/plugins/exporters/README.md).
+A Conduit pipeline is composed of 3 components, [Importers](../conduit/plugins/importers/), [Processors](../conduit/plugins/processors/), and [Exporters](../conduit/plugins/exporters/).
 Every pipeline must define exactly 1 Importer, 1 Exporter, and can optionally define a series of 0 or more Processors.
 
 The original Algorand Indexer has been defined as a Conduit pipeline via the [algorand-indexer](../cmd/algorand-indexer/daemon.go) executable, see [Migrating from Indexer](#migrating-from-indexer)
@@ -48,13 +48,13 @@ Contributions welcome! Please refer to our [CONTRIBUTING](https://github.com/alg
 ## RFCs
 If you have an idea for how to improve Conduit that would require significant changes, open a [Feature Request Issue](https://github.com/algorand/indexer/issues/new/choose) to begin discussion. If the proposal is accepted, the next step is to define the technical direction and answer implementation questions via a PR containing an [RFC](./rfc/template.md).  
 
-You do _not_ need to open an RFC for adding a new plugin--follow the development guide for the corresponding plugin type.
+You do _not_ need to open an RFC for adding a new plugin--you can open an initial PR requesting feedback on your plugin idea to discuss before implementation if you want.
 
 <!-- USAGE_START_MARKER -->
 
 # Common Setups
 
-The most common usage of Conduit is expecting to be getting validated blocks from a local `algod` Algorand node, adding them to a database (such as [PostgreSQL](https://www.postgresql.org/)), and serving an API to make available a variety of prepared queries. Some users may wish to directly write SQL queries of the database.
+The most common usage of Conduit is to get validated blocks from a local `algod` Algorand node, adding them to a database (such as [PostgreSQL](https://www.postgresql.org/)), and serving an API to make available a variety of prepared queries. Some users may wish to directly write SQL queries of the database.
 
 Conduit works by fetching blocks one at a time via the configured Importer, sending the block data through the configured Processors, and terminating block handling via an Exporter (traditionally a database).
 
