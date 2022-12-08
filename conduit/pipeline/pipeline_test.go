@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/http"
 	"os"
 	"path"
@@ -315,6 +316,8 @@ func TestPipelineRun(t *testing.T) {
 			GenesisHash: "",
 		},
 		cfg: &Config{
+			RetryDelay: 0 * time.Second,
+			RetryCount: math.MaxUint64,
 			ConduitArgs: &conduit.Args{
 				ConduitDataDir: t.TempDir(),
 			},
@@ -431,6 +434,8 @@ func TestPipelineErrors(t *testing.T) {
 		ctx: ctx,
 		cf:  cf,
 		cfg: &Config{
+			RetryDelay: 0 * time.Second,
+			RetryCount: math.MaxUint64,
 			ConduitArgs: &conduit.Args{
 				ConduitDataDir: tempDir,
 			},
