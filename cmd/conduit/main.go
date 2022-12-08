@@ -55,7 +55,11 @@ func runConduitCmdWithConfig(args *conduit.Args) error {
 	if err != nil {
 		return fmt.Errorf("runConduitCmdWithConfig(): invalid log level: %s", err)
 	}
-	logger = loggerManager.MakeRootLogger(level)
+
+	logger, err = loggerManager.MakeRootLogger(level, pCfg.LogFile)
+	if err != nil {
+		return fmt.Errorf("runConduitCmdWithConfig(): failed to create logger: %w", err)
+	}
 
 	logger.Infof("Using data directory: %s", args.ConduitDataDir)
 	logger.Info("Conduit configuration is valid")

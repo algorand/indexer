@@ -566,21 +566,6 @@ func MakePipeline(ctx context.Context, cfg *Config, logger *log.Logger) (Pipelin
 		return nil, fmt.Errorf("MakePipeline(): logger was empty")
 	}
 
-	if cfg.LogFile != "" {
-		f, err := os.OpenFile(cfg.LogFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
-		if err != nil {
-			return nil, fmt.Errorf("MakePipeline(): %w", err)
-		}
-		logger.SetOutput(f)
-	}
-
-	logLevel, err := log.ParseLevel(cfg.PipelineLogLevel)
-	if err != nil {
-		// Belt and suspenders.  Valid() should have caught this
-		return nil, fmt.Errorf("MakePipeline(): config had mal-formed log level: %w", err)
-	}
-	logger.SetLevel(logLevel)
-
 	cancelContext, cancelFunc := context.WithCancel(ctx)
 
 	pipeline := &pipelineImpl{

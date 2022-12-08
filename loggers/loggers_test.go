@@ -10,6 +10,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type FakeIoWriter struct {
@@ -42,7 +43,8 @@ func TestThreadSafetyOfLogger(t *testing.T) {
 			// Sleep a random number of milliseconds before and after to test
 			// that creating a logger doesn't affect thread-safety
 			time.Sleep(time.Duration(rand.Intn(50)) * time.Millisecond)
-			l := lMgr.MakeRootLogger(log.InfoLevel)
+			l, err := lMgr.MakeRootLogger(log.InfoLevel, "")
+			require.NoError(t, err)
 			l.SetFormatter(&log.JSONFormatter{
 				// We want to disable timestamps to stop logrus from sorting our output
 				DisableTimestamp: true,
