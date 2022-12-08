@@ -1,7 +1,8 @@
 name: "file_writer"
 config:
-  # BlocksDir is the path to a directory where block data should be stored.
-  # The directory is created if it doesn't exist.
+  # BlocksDir is an optional path to a directory where block data will be
+  # stored. The directory is created if it doesn't exist. If not present the
+  # plugin data directory is used.
   block-dir: "/path/to/block/files"
   # FilenamePattern is the format used to write block files. It uses go
   # string formatting and should accept one number for the round.

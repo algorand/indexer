@@ -2,8 +2,9 @@ package filewriter
 
 // Config specific to the file exporter
 type Config struct {
-	// BlocksDir is the path to a directory where block data should be stored.
-	// The directory is created if it doesn't exist.
+	// BlocksDir is an optional path to a directory where block data should be
+	// stored. The directory is created if it doesn't exist. If no directory is
+	// provided the default plugin data directory is used.
 	BlocksDir string `yaml:"block-dir"`
 	// FilenamePattern is the format used to write block files. It uses go
 	// string formatting and should accept one number for the round.

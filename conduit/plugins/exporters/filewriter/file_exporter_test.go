@@ -3,6 +3,7 @@ package filewriter
 import (
 	"context"
 	"fmt"
+	"path"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -46,6 +47,48 @@ func TestExporterMetadata(t *testing.T) {
 	assert.Equal(t, metadata.Name, meta.Name)
 	assert.Equal(t, metadata.Description, meta.Description)
 	assert.Equal(t, metadata.Deprecated, meta.Deprecated)
+}
+
+func TestExporterInitDefaults(t *testing.T) {
+	tempdir := t.TempDir()
+	override := path.Join(tempdir, "override")
+
+	testcases := []struct {
+		blockdir string
+		expected string
+	}{
+		{
+			blockdir: "",
+			expected: tempdir,
+		},
+		{
+			blockdir: "''",
+			expected: tempdir,
+		},
+		{
+			blockdir: override,
+			expected: override,
+		},
+		{
+			blockdir: fmt.Sprintf("'%s'", override),
+			expected: override,
+		},
+	}
+
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(fmt.Sprintf("blockdir=%s", tc.blockdir), func(t *testing.T) {
+			t.Parallel()
+			fileExp := fileCons.New()
+			defer fileExp.Close()
+			pcfg := plugins.MakePluginConfig(fmt.Sprintf("block-dir: %s", tc.blockdir))
+			pcfg.DataDir = tempdir
+			err := fileExp.Init(context.Background(), testutil.MockedInitProvider(&round), pcfg, logger)
+			require.NoError(t, err)
+			pluginConfig := fileExp.Config()
+			assert.Contains(t, pluginConfig, fmt.Sprintf("block-dir: %s", tc.expected))
+		})
+	}
 }
 
 func TestExporterInit(t *testing.T) {
