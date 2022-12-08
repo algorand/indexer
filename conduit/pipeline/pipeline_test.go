@@ -908,14 +908,14 @@ func (e errorImporter) GetBlock(_ uint64) (data.BlockData, error) {
 // TestPipelineRetryVariables tests that modifying the retry variables results in longer time taken for a pipeline to run
 func TestPipelineRetryVariables(t *testing.T) {
 	tests := []struct {
-		name             string
-		retryDelayString string
-		retryCount       uint64
-		totalDuration    time.Duration
-		epsilon          time.Duration
+		name          string
+		retryDelay    time.Duration
+		retryCount    uint64
+		totalDuration time.Duration
+		epsilon       time.Duration
 	}{
-		{"2 seconds", "2s", 1, 2 * time.Second, 1 * time.Second},
-		{"10 seconds", "2s", 5, 10 * time.Second, 1 * time.Second},
+		{"2 seconds", 2 * time.Second, 1, 2 * time.Second, 1 * time.Second},
+		{"10 seconds", 2 * time.Second, 5, 10 * time.Second, 1 * time.Second},
 	}
 	for _, testCase := range tests {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -924,14 +924,11 @@ func TestPipelineRetryVariables(t *testing.T) {
 			var pProcessor processors.Processor = &mockProcessor{}
 			var pExporter exporters.Exporter = &mockExporter{}
 			l, _ := test.NewNullLogger()
-			retryDelay, err := time.ParseDuration(testCase.retryDelayString)
-			assert.NoError(t, err)
 			pImpl := pipelineImpl{
 				ctx: context.Background(),
 				cfg: &Config{
-					RetryCount:       testCase.retryCount,
-					RetryDelayString: testCase.retryDelayString,
-					RetryDelay:       retryDelay,
+					RetryCount: testCase.retryCount,
+					RetryDelay: testCase.retryDelay,
 					ConduitArgs: &conduit.Args{
 						ConduitDataDir:    t.TempDir(),
 						NextRoundOverride: 0,
@@ -965,7 +962,7 @@ func TestPipelineRetryVariables(t *testing.T) {
 			}
 
 			// pipeline should initialize if NextRoundOverride is not set
-			err = pImpl.Init()
+			err := pImpl.Init()
 			assert.Nil(t, err)
 			before := time.Now()
 			pImpl.Start()
