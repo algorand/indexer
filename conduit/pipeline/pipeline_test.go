@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -145,13 +146,13 @@ var uniqueBlockData = data.BlockData{
 type mockImporter struct {
 	mock.Mock
 	importers.Importer
-	genesis         bookkeeping.Genesis
+	genesis         sdk.Genesis
 	finalRound      basics.Round
 	returnError     bool
 	onCompleteError bool
 }
 
-func (m *mockImporter) Init(_ context.Context, _ plugins.PluginConfig, _ *log.Logger) (*bookkeeping.Genesis, error) {
+func (m *mockImporter) Init(_ context.Context, _ plugins.PluginConfig, _ *log.Logger) (*sdk.Genesis, error) {
 	return &m.genesis, nil
 }
 
@@ -582,7 +583,7 @@ func TestBlockMetaDataFile(t *testing.T) {
 }
 
 func TestGenesisHash(t *testing.T) {
-	var pImporter importers.Importer = &mockImporter{genesis: bookkeeping.Genesis{Network: "test"}}
+	var pImporter importers.Importer = &mockImporter{genesis: sdk.Genesis{Network: "test"}}
 	var pProcessor processors.Processor = &mockProcessor{}
 	var pExporter exporters.Exporter = &mockExporter{}
 	datadir := t.TempDir()
@@ -630,14 +631,14 @@ func TestGenesisHash(t *testing.T) {
 	assert.Equal(t, blockmetaData.Network, "test")
 
 	// mock a different genesis hash
-	pImporter = &mockImporter{genesis: bookkeeping.Genesis{Network: "dev"}}
+	pImporter = &mockImporter{genesis: sdk.Genesis{Network: "dev"}}
 	pImpl.importer = &pImporter
 	err = pImpl.Init()
 	assert.Contains(t, err.Error(), "genesis hash in metadata does not match")
 }
 
 func TestInitError(t *testing.T) {
-	var pImporter importers.Importer = &mockImporter{genesis: bookkeeping.Genesis{Network: "test"}}
+	var pImporter importers.Importer = &mockImporter{genesis: sdk.Genesis{Network: "test"}}
 	var pProcessor processors.Processor = &mockProcessor{}
 	var pExporter exporters.Exporter = &mockExporter{}
 	datadir := "data"
@@ -798,7 +799,7 @@ func TestPipelineLogFile(t *testing.T) {
 
 // TestPipelineLogFile tests that log file is created when specified
 func TestRoundOverwrite(t *testing.T) {
-	var pImporter importers.Importer = &mockImporter{genesis: bookkeeping.Genesis{Network: "test"}}
+	var pImporter importers.Importer = &mockImporter{genesis: sdk.Genesis{Network: "test"}}
 	var pProcessor processors.Processor = &mockProcessor{}
 	var pExporter exporters.Exporter = &mockExporter{}
 	pImpl := pipelineImpl{

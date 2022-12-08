@@ -36,10 +36,9 @@ import (
 
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	config2 "github.com/algorand/go-algorand/config"
-	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
+	protocol2 "github.com/algorand/go-algorand/protocol"
 )
 
 var serializable = pgx.TxOptions{IsoLevel: pgx.Serializable} // be a real ACID database
@@ -269,13 +268,13 @@ func (db *IndexerDb) AddBlock(vblk *ledgercore.ValidatedBlock) error {
 }
 
 // LoadGenesis is part of idb.IndexerDB
-func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
+func (db *IndexerDb) LoadGenesis(genesis sdk.Genesis) error {
 	f := func(tx pgx.Tx) error {
 		// check genesis hash
 		network, err := db.getNetworkState(context.Background(), tx)
 		if err == idb.ErrorNotInitialized {
 			networkState := types.NetworkState{
-				GenesisHash: crypto.HashObj(genesis),
+				GenesisHash: genesis.Hash(),
 			}
 			err = db.setNetworkState(tx, &networkState)
 			if err != nil {
@@ -284,7 +283,7 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 		} else if err != nil {
 			return fmt.Errorf("LoadGenesis() err: %w", err)
 		} else {
-			if network.GenesisHash != crypto.HashObj(genesis) {
+			if network.GenesisHash != genesis.Hash() {
 				return fmt.Errorf("LoadGenesis() genesis hash not matching")
 			}
 		}
@@ -298,7 +297,7 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 
 		// this can't be refactored since it's used in totals.AddAccount
 		// TODO: this line will be removed when removing accountTotals
-		proto, ok := config2.Consensus[genesis.Proto]
+		proto, ok := config2.Consensus[protocol2.ConsensusVersion(genesis.Proto)]
 		if !ok {
 			return fmt.Errorf("LoadGenesis() consensus version %s not found", genesis.Proto)
 		}
@@ -310,13 +309,10 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 			if err != nil {
 				return fmt.Errorf("LoadGenesis() decode address err: %w", err)
 			}
-			if len(alloc.State.AssetParams) > 0 || len(alloc.State.Assets) > 0 {
-				return fmt.Errorf("LoadGenesis() genesis account[%d] has unhandled asset", ai)
-			}
-			accountData := ledgercore.ToAccountData(alloc.State)
+			accountData := ledgercore.ToAccountData(helpers.ConvertAccountType(alloc.State))
 			_, err = tx.Exec(
 				context.Background(), setAccountStatementName,
-				addr[:], alloc.State.MicroAlgos.Raw,
+				addr[:], alloc.State.MicroAlgos,
 				encoding.EncodeTrimmedLcAccountData(encoding.TrimLcAccountData(accountData)), 0)
 			if err != nil {
 				return fmt.Errorf("LoadGenesis() error setting genesis account[%d], %w", ai, err)
@@ -2627,9 +2623,9 @@ func (db *IndexerDb) GetNetworkState() (idb.NetworkState, error) {
 }
 
 // SetNetworkState is part of idb.IndexerDB
-func (db *IndexerDb) SetNetworkState(genesis bookkeeping.Genesis) error {
+func (db *IndexerDb) SetNetworkState(gh sdk.Digest) error {
 	networkState := types.NetworkState{
-		GenesisHash: crypto.HashObj(genesis),
+		GenesisHash: gh,
 	}
 	return db.setNetworkState(nil, &networkState)
 }

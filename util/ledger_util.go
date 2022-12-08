@@ -9,6 +9,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	algodConfig "github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
@@ -19,18 +20,18 @@ import (
 )
 
 // ReadGenesis converts a reader into a Genesis file.
-func ReadGenesis(in io.Reader) (bookkeeping.Genesis, error) {
-	var genesis bookkeeping.Genesis
+func ReadGenesis(in io.Reader) (sdk.Genesis, error) {
+	var genesis sdk.Genesis
 	if in == nil {
-		return bookkeeping.Genesis{}, fmt.Errorf("ReadGenesis() err: reader is nil")
+		return sdk.Genesis{}, fmt.Errorf("ReadGenesis() err: reader is nil")
 	}
 	gbytes, err := ioutil.ReadAll(in)
 	if err != nil {
-		return bookkeeping.Genesis{}, fmt.Errorf("ReadGenesis() err: %w", err)
+		return sdk.Genesis{}, fmt.Errorf("ReadGenesis() err: %w", err)
 	}
 	err = protocol.DecodeJSON(gbytes, &genesis)
 	if err != nil {
-		return bookkeeping.Genesis{}, fmt.Errorf("ReadGenesis() decode err: %w", err)
+		return sdk.Genesis{}, fmt.Errorf("ReadGenesis() decode err: %w", err)
 	}
 	return genesis, nil
 }

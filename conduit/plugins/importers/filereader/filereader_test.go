@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -80,7 +81,7 @@ func initializeTestData(t *testing.T, dir string, numRounds int) bookkeeping.Gen
 	return genesisA
 }
 
-func initializeImporter(t *testing.T, numRounds int) (importer importers.Importer, tempdir string, genesis *bookkeeping.Genesis, err error) {
+func initializeImporter(t *testing.T, numRounds int) (importer importers.Importer, tempdir string, genesis *sdk.Genesis, err error) {
 	tempdir = t.TempDir()
 	genesisExpected := initializeTestData(t, tempdir, numRounds)
 	importer = New()

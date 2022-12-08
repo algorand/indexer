@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 	test2 "github.com/sirupsen/logrus/hooks/test"
@@ -22,7 +23,6 @@ import (
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/crypto/merklesignature"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger"
@@ -67,7 +67,7 @@ func testServerImplementation(db idb.IndexerDb) *ServerImplementation {
 	return &ServerImplementation{db: db, timeout: 30 * time.Second, opts: defaultOpts}
 }
 
-func setupIdb(t *testing.T, genesis bookkeeping.Genesis) (*postgres.IndexerDb, func(), func(cert *rpcs.EncodedBlockCert) error, *ledger.Ledger) {
+func setupIdb(t *testing.T, genesis sdk.Genesis) (*postgres.IndexerDb, func(), func(cert *rpcs.EncodedBlockCert) error, *ledger.Ledger) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 
 	db, _, err := postgres.OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
@@ -93,7 +93,7 @@ func setupIdb(t *testing.T, genesis bookkeeping.Genesis) (*postgres.IndexerDb, f
 }
 
 func TestApplicationHandlers(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -236,7 +236,7 @@ func TestApplicationHandlers(t *testing.T) {
 }
 
 func TestAccountExcludeParameters(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -408,7 +408,7 @@ type accountsErrorResponse struct {
 }
 
 func TestAccountMaxResultsLimit(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -788,7 +788,7 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 }
 
 func TestBlockNotFound(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -854,7 +854,7 @@ func TestInnerTxn(t *testing.T) {
 		},
 	}
 
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -903,7 +903,7 @@ func TestInnerTxn(t *testing.T) {
 // transaction group does not allow the root transaction to be returned on both
 // pages.
 func TestPagingRootTxnDeduplication(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -1027,7 +1027,7 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 }
 
 func TestKeyregTransactionWithStateProofKeys(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -1122,7 +1122,7 @@ func TestVersion(t *testing.T) {
 	///////////
 	// Given // An API and context
 	///////////
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 	api := testServerImplementation(db)
@@ -1152,7 +1152,7 @@ func TestVersion(t *testing.T) {
 }
 
 func TestAccountClearsNonUTF8(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -1283,7 +1283,7 @@ func TestLookupInnerLogs(t *testing.T) {
 		},
 	}
 
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -1382,7 +1382,7 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 		},
 	}
 
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -1440,7 +1440,7 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 }
 
 func TestFetchBlockWithExpiredPartAccts(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -1506,7 +1506,7 @@ func TestFetchBlockWithOptions(t *testing.T) {
 		},
 	}
 
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -1557,7 +1557,7 @@ func TestFetchBlockWithOptions(t *testing.T) {
 }
 
 func TestGetBlocksTransactionsLimit(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -1800,7 +1800,7 @@ func compareAppBoxesAgainstHandler(t *testing.T, db *postgres.IndexerDb,
 func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	start := time.Now()
 
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 

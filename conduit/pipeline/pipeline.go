@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,7 +29,6 @@ import (
 	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/metrics"
 
-	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 )
 
@@ -252,14 +252,15 @@ func (p *pipelineImpl) Init() error {
 	}
 
 	// initialize or load pipeline metadata
-	gh := crypto.HashObj(genesis).String()
-	p.pipelineMetadata.GenesisHash = gh
-	p.pipelineMetadata.Network = string(genesis.Network)
+	gh := genesis.Hash()
+	ghbase64 := base64.StdEncoding.EncodeToString(gh[:])
+	p.pipelineMetadata.GenesisHash = ghbase64
+	p.pipelineMetadata.Network = genesis.Network
 	p.pipelineMetadata, err = p.initializeOrLoadBlockMetadata()
 	if err != nil {
 		return fmt.Errorf("Pipeline.Start(): could not read metadata: %w", err)
 	}
-	if p.pipelineMetadata.GenesisHash != gh {
+	if p.pipelineMetadata.GenesisHash != ghbase64 {
 		return fmt.Errorf("Pipeline.Start(): genesis hash in metadata does not match expected value: actual %s, expected %s", gh, p.pipelineMetadata.GenesisHash)
 	}
 	// overriding NextRound if NextRoundOverride is set

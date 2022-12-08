@@ -954,7 +954,7 @@ func MakeGenesisBlockV2() sdk.Block {
 		BlockHeader: sdk.BlockHeader{
 			Round:  0,
 			Branch: sdk.BlockHash{},
-			Seed:   sdk.Seed(GenesisHash),
+			Seed:   sdk.Seed(genesis.Hash()),
 			TxnCommitments: sdk.TxnCommitments{
 				NativeSha512_256Commitment: sdk.Digest(sha512.Sum512_256(hashRep)),
 				Sha256Commitment:           sdk.Digest{},
@@ -975,4 +975,49 @@ func MakeGenesisBlockV2() sdk.Block {
 	}
 
 	return blk
+}
+
+// MakeGenesisV2 creates a sample sdk.Genesis info.
+func MakeGenesisV2() sdk.Genesis {
+	return sdk.Genesis{
+		SchemaID: "main",
+		Network:  "mynet",
+		Proto:    string(Proto),
+		Allocation: []sdk.GenesisAllocation{
+			{
+				Address: RewardAddr.String(),
+				Comment: "RewardsPool",
+				State: sdk.Account{
+					MicroAlgos: 100000, // minimum balance
+					Status:     2,
+				},
+			},
+			{
+				Address: AccountA.String(),
+				State: sdk.Account{
+					MicroAlgos: 1000 * 1000 * 1000 * 1000,
+				},
+			},
+			{
+				Address: AccountB.String(),
+				State: sdk.Account{
+					MicroAlgos: 1000 * 1000 * 1000 * 1000,
+				},
+			},
+			{
+				Address: AccountC.String(),
+				State: sdk.Account{
+					MicroAlgos: 1000 * 1000 * 1000 * 1000,
+				},
+			},
+			{
+				Address: AccountD.String(),
+				State: sdk.Account{
+					MicroAlgos: 1000 * 1000 * 1000 * 1000,
+				},
+			},
+		},
+		RewardsPool: RewardAddr.String(),
+		FeeSink:     FeeAddr.String(),
+	}
 }

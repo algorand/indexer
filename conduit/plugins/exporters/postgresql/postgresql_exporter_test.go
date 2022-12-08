@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
@@ -108,7 +109,7 @@ func TestPostgresqlExporterInit(t *testing.T) {
 
 	// genesis hash mismatch
 	initProvider := testutil.MockedInitProvider(&round)
-	initProvider.Genesis = &bookkeeping.Genesis{
+	initProvider.Genesis = &sdk.Genesis{
 		Network: "test",
 	}
 	err := pgsqlExp.Init(context.Background(), initProvider, cfg, logger)

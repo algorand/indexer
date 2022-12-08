@@ -160,7 +160,7 @@ func assertAccountAsset(t *testing.T, db *pgxpool.Pool, addr basics.Address, ass
 
 // TestAssetCloseReopenTransfer tests a scenario that requires asset subround accounting
 func TestAssetCloseReopenTransfer(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -206,7 +206,7 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 
 // TestReCreateAssetHolding checks the optin value of a defunct
 func TestReCreateAssetHolding(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -251,7 +251,7 @@ func TestReCreateAssetHolding(t *testing.T) {
 
 // TestMultipleAssetOptins make sure no-op transactions don't reset the default frozen value.
 func TestNoopOptins(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -287,7 +287,7 @@ func TestNoopOptins(t *testing.T) {
 
 // TestMultipleWriters tests that accounting cannot be double committed.
 func TestMultipleWriters(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -344,7 +344,7 @@ func TestMultipleWriters(t *testing.T) {
 
 // TestBlockWithTransactions tests that the block with transactions endpoint works.
 func TestBlockWithTransactions(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -408,7 +408,7 @@ func TestBlockWithTransactions(t *testing.T) {
 }
 
 func TestRekeyBasic(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -437,7 +437,7 @@ func TestRekeyBasic(t *testing.T) {
 }
 
 func TestRekeyToItself(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -475,7 +475,7 @@ func TestRekeyToItself(t *testing.T) {
 }
 
 func TestRekeyThreeTimesInSameRound(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -512,7 +512,7 @@ func TestRekeyThreeTimesInSameRound(t *testing.T) {
 }
 
 func TestRekeyToItselfHasNotBeenRekeyed(t *testing.T) {
-	_, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	_, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -534,7 +534,7 @@ func TestRekeyToItselfHasNotBeenRekeyed(t *testing.T) {
 
 // TestIgnoreDefaultFrozenConfigUpdate the creator asset holding should ignore default-frozen = true.
 func TestIgnoreDefaultFrozenConfigUpdate(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -573,7 +573,7 @@ func TestIgnoreDefaultFrozenConfigUpdate(t *testing.T) {
 
 // TestZeroTotalAssetCreate tests that the asset holding with total of 0 is created.
 func TestZeroTotalAssetCreate(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -636,7 +636,7 @@ func assertAssetHoldingDates(t *testing.T, db *pgxpool.Pool, address basics.Addr
 }
 
 func TestDestroyAssetBasic(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -672,7 +672,7 @@ func TestDestroyAssetBasic(t *testing.T) {
 }
 
 func TestDestroyAssetZeroSupply(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -701,7 +701,7 @@ func TestDestroyAssetZeroSupply(t *testing.T) {
 }
 
 func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -763,7 +763,7 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 
 // Test that block import adds the freeze/sender accounts to txn_participation.
 func TestAssetFreezeTxnParticipation(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -808,7 +808,7 @@ func TestAssetFreezeTxnParticipation(t *testing.T) {
 
 // Test that block import adds accounts from inner txns to txn_participation.
 func TestInnerTxnParticipation(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -855,7 +855,7 @@ func TestInnerTxnParticipation(t *testing.T) {
 }
 
 func TestAppExtraPages(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -948,7 +948,7 @@ func assertKeytype(t *testing.T, db *IndexerDb, address basics.Address, keytype 
 
 func TestKeytypeBasic(t *testing.T) {
 	block := test.MakeGenesisBlock()
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -985,7 +985,7 @@ func TestKeytypeBasic(t *testing.T) {
 // Test that asset amount >= 2^63 is handled correctly. Due to the specifics of
 // postgres it might be a problem.
 func TestLargeAssetAmount(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -1128,7 +1128,7 @@ func TestNonDisplayableUTF8(t *testing.T) {
 		url := testcase.AssetURL
 
 		t.Run(testcase.Name, func(t *testing.T) {
-			db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+			db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 			defer shutdownFunc()
 
 			defer l.Close()
@@ -1212,7 +1212,7 @@ func TestNonDisplayableUTF8(t *testing.T) {
 
 // TestReconfigAsset make sure we properly handle asset param merges.
 func TestReconfigAsset(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -1275,7 +1275,7 @@ func TestReconfigAsset(t *testing.T) {
 
 func TestKeytypeResetsOnRekey(t *testing.T) {
 	block := test.MakeGenesisBlock()
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -1322,7 +1322,7 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 // Test that after closing the account, keytype will be correctly set.
 func TestKeytypeDeletedAccount(t *testing.T) {
 	block := test.MakeGenesisBlock()
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -1343,7 +1343,7 @@ func TestKeytypeDeletedAccount(t *testing.T) {
 
 // TestAddBlockGenesis tests that adding block 0 is successful.
 func TestAddBlockGenesis(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -1366,8 +1366,8 @@ func TestAddBlockGenesis(t *testing.T) {
 // amount in `txn.extra` column.
 func TestAddBlockAssetCloseAmountInTxnExtra(t *testing.T) {
 	// Use an old version of consensus parameters that have AssetCloseAmount = false.
-	genesis := test.MakeGenesis()
-	genesis.Proto = helpers.ConvertConsensusType(protocol.ConsensusV24)
+	genesis := test.MakeGenesisV2()
+	genesis.Proto = string(protocol.ConsensusV24)
 	block := test.MakeGenesisBlock()
 	block.UpgradeState.CurrentProtocol = helpers.ConvertConsensusType(protocol.ConsensusV24)
 
@@ -1423,7 +1423,7 @@ func TestAddBlockIncrementsMaxRoundAccounted(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
-	err = db.LoadGenesis(test.MakeGenesis())
+	err = db.LoadGenesis(test.MakeGenesisV2())
 	require.NoError(t, err)
 
 	round, err := db.GetNextRoundToAccount()
@@ -1466,7 +1466,7 @@ func TestAddBlockIncrementsMaxRoundAccounted(t *testing.T) {
 // Test that AddBlock makes a record of an account that gets created and deleted in
 // the same round.
 func TestAddBlockCreateDeleteAccountSameRound(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -1502,7 +1502,7 @@ func TestAddBlockCreateDeleteAccountSameRound(t *testing.T) {
 // Test that AddBlock makes a record of an asset that is created and deleted in
 // the same round.
 func TestAddBlockCreateDeleteAssetSameRound(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -1559,7 +1559,7 @@ func TestAddBlockCreateDeleteAssetSameRound(t *testing.T) {
 // Test that AddBlock makes a record of an app that is created and deleted in
 // the same round.
 func TestAddBlockCreateDeleteAppSameRound(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -1594,7 +1594,7 @@ func TestAddBlockCreateDeleteAppSameRound(t *testing.T) {
 // Test that AddBlock makes a record of an app that is created and deleted in
 // the same round.
 func TestAddBlockAppOptInOutSameRound(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -1719,7 +1719,7 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 	pdb, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
-	db := setupIdbWithConnectionString(t, connStr, test.MakeGenesis())
+	db := setupIdbWithConnectionString(t, connStr, test.MakeGenesisV2())
 	defer db.Close()
 
 	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
@@ -1809,7 +1809,7 @@ func TestNonUTF8Logs(t *testing.T) {
 		testcase := testcase
 
 		t.Run(testcase.Name, func(t *testing.T) {
-			db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+			db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 			defer shutdownFunc()
 
 			defer l.Close()
@@ -1874,7 +1874,7 @@ func TestLoadGenesisAccountTotals(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
-	err = db.LoadGenesis(test.MakeGenesis())
+	err = db.LoadGenesis(test.MakeGenesisV2())
 	require.NoError(t, err)
 
 	json, err := db.getMetastate(context.Background(), nil, schema.AccountTotals)
@@ -1888,7 +1888,7 @@ func TestLoadGenesisAccountTotals(t *testing.T) {
 }
 
 func TestTxnAssetID(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -1926,7 +1926,7 @@ func TestTxnAssetID(t *testing.T) {
 }
 
 func TestBadTxnJsonEncoding(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -1991,7 +1991,7 @@ func TestBadTxnJsonEncoding(t *testing.T) {
 
 func TestKeytypeDoNotResetReceiver(t *testing.T) {
 	block := test.MakeGenesisBlock()
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -2023,7 +2023,7 @@ func TestKeytypeDoNotResetReceiver(t *testing.T) {
 // the current round, AddBlock() still runs successfully.
 func TestAddBlockTxnTxnParticipationAhead(t *testing.T) {
 	block := test.MakeGenesisBlock()
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -2052,7 +2052,7 @@ func TestAddBlockTxnTxnParticipationAhead(t *testing.T) {
 // Test that AddBlock() writes to `txn_participation` table.
 func TestAddBlockTxnParticipationAdded(t *testing.T) {
 	block := test.MakeGenesisBlock()
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -2082,7 +2082,7 @@ func TestAddBlockTxnParticipationAdded(t *testing.T) {
 // Transactions() doesn't return the rows ahead of the state.
 func TestTransactionsTxnAhead(t *testing.T) {
 	block := test.MakeGenesisBlock()
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -2122,10 +2122,10 @@ func TestGenesisHashCheckAtDBSetup(t *testing.T) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
-	genesis := test.MakeGenesis()
+	genesis := test.MakeGenesisV2()
 	db := setupIdbWithConnectionString(t, connStr, genesis)
 	defer db.Close()
-	genesisHash := crypto.HashObj(genesis)
+	genesisHash := genesis.Hash()
 	network, err := db.getMetastate(context.Background(), nil, schema.NetworkMetaStateKey)
 	assert.NoError(t, err)
 	networkState, err := encoding.DecodeNetworkState([]byte(network))
@@ -2151,7 +2151,7 @@ func TestGenesisHashCheckAtInitialImport(t *testing.T) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
-	genesis := test.MakeGenesis()
+	genesis := test.MakeGenesisV2()
 	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	require.NoError(t, err)
 	defer db.Close()
@@ -2176,7 +2176,7 @@ func TestGenesisHashCheckAtInitialImport(t *testing.T) {
 	// network state should be set
 	networkState, err = db.getNetworkState(context.Background(), nil)
 	require.NoError(t, err)
-	require.Equal(t, networkState.GenesisHash, crypto.HashObj(genesis))
+	require.Equal(t, networkState.GenesisHash, genesis.Hash())
 
 	// change genesis value
 	genesis.Network = "testnest"
@@ -2205,7 +2205,7 @@ func getResults(ctx context.Context, rows <-chan idb.AccountRow) (result []idb.A
 }
 
 func TestIndexerDb_GetAccounts(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -2274,7 +2274,7 @@ func TestIndexerDb_GetAccounts(t *testing.T) {
 // Test that AddBlock() writes to `txn_participation` table.
 func TestTransactionFilterAssetAmount(t *testing.T) {
 	block := test.MakeGenesisBlock()
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -2327,7 +2327,7 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 
 func TestDeleteTransactions(t *testing.T) {
 	block := test.MakeGenesisBlock()
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
