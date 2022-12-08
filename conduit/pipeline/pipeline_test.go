@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"os"
@@ -16,7 +17,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 
@@ -627,7 +627,9 @@ func TestGenesisHash(t *testing.T) {
 	// read genesis hash from metadata.json
 	blockmetaData, err := pImpl.initializeOrLoadBlockMetadata()
 	assert.NoError(t, err)
-	assert.Equal(t, blockmetaData.GenesisHash, crypto.HashObj(&bookkeeping.Genesis{Network: "test"}).String())
+	genesis := &sdk.Genesis{Network: "test"}
+	gh := genesis.Hash()
+	assert.Equal(t, blockmetaData.GenesisHash, base64.StdEncoding.EncodeToString(gh[:]))
 	assert.Equal(t, blockmetaData.Network, "test")
 
 	// mock a different genesis hash
