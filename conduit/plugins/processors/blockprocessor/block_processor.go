@@ -87,6 +87,10 @@ func (proc *blockProcessor) Init(ctx context.Context, initProvider data.InitProv
 		return fmt.Errorf("blockprocessor init error: %w", err)
 	}
 
+	if proc.cfg.LedgerDir == "" {
+		proc.cfg.LedgerDir = cfg.DataDir
+	}
+
 	genesis := initProvider.GetGenesis()
 	round := uint64(initProvider.NextDBRound())
 
@@ -95,7 +99,7 @@ func (proc *blockProcessor) Init(ctx context.Context, initProvider data.InitProv
 		return fmt.Errorf("could not initialize ledger: %w", err)
 	}
 
-	l, err := util.MakeLedger(proc.logger, false, genesis, proc.cfg.IndexerDatadir)
+	l, err := util.MakeLedger(proc.logger, false, genesis, proc.cfg.LedgerDir)
 	if err != nil {
 		return fmt.Errorf("could not make ledger: %w", err)
 	}
@@ -197,7 +201,7 @@ func MakeBlockProcessorWithLedgerInit(ctx context.Context, logger *log.Logger, n
 	if err != nil {
 		return nil, fmt.Errorf("MakeBlockProcessorWithLedgerInit() err: %w", err)
 	}
-	return MakeBlockProcessor(logger, genesis, nextDbRound, config.IndexerDatadir, handler)
+	return MakeBlockProcessor(logger, genesis, nextDbRound, config.LedgerDir, handler)
 }
 
 // MakeBlockProcessor creates a block processor

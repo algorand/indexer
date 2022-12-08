@@ -53,6 +53,10 @@ func (exp *fileExporter) Init(_ context.Context, initProvider data.InitProvider,
 	if exp.cfg.FilenamePattern == "" {
 		exp.cfg.FilenamePattern = FilePattern
 	}
+	// default to the data directory if no override provided.
+	if exp.cfg.BlocksDir == "" {
+		exp.cfg.BlocksDir = cfg.DataDir
+	}
 	// create block directory
 	err = os.Mkdir(exp.cfg.BlocksDir, 0755)
 	if err != nil && errors.Is(err, os.ErrExist) {
