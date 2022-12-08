@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 
 from e2e_conduit.fixtures.importers.importer_plugin import ImporterPlugin
