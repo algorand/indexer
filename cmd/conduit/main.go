@@ -33,6 +33,7 @@ var (
 
 // init() function for main package
 func init() {
+	loggerManager = loggers.MakeLoggerManager(os.Stdout)
 	conduitCmd.AddCommand(initCmd)
 }
 
@@ -49,7 +50,7 @@ func runConduitCmdWithConfig(args *conduit.Args) error {
 		return err
 	}
 
-	loggerManager = loggers.MakeLoggerManager(os.Stdout)
+	// Initialize logger
 	level, err := log.ParseLevel(pCfg.PipelineLogLevel)
 	if err != nil {
 		return fmt.Errorf("runConduitCmdWithConfig(): invalid log level: %s", err)
