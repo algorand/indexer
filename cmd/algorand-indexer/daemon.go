@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"runtime/pprof"
 	"strings"
 	"syscall"
@@ -27,35 +26,7 @@ import (
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
 	iutil "github.com/algorand/indexer/util"
-
-	"github.com/algorand/go-algorand/util"
 )
-
-// GetConfigFromDataDir Given the data directory, configuration filename and a list of types, see if
-// a configuration file that matches was located there.  If no configuration file was there then an
-// empty string is returned.  If more than one filetype was matched, an error is returned.
-func GetConfigFromDataDir(dataDirectory string, configFilename string, configFileTypes []string) (string, error) {
-	count := 0
-	fullPath := ""
-	var err error
-
-	for _, configFileType := range configFileTypes {
-		autoloadParamConfigPath := filepath.Join(dataDirectory, configFilename+"."+configFileType)
-		if util.FileExists(autoloadParamConfigPath) {
-			count++
-			fullPath = autoloadParamConfigPath
-		}
-	}
-
-	if count > 1 {
-		return "", fmt.Errorf("config filename (%s) in data directory (%s) matched more than one filetype: %v",
-			configFilename, dataDirectory, configFileTypes)
-	}
-
-	// if count == 0 then the fullpath will be set to "" and error will be nil
-	// if count == 1 then it fullpath will be correct
-	return fullPath, err
-}
 
 type daemonConfig struct {
 	flags                     *pflag.FlagSet
@@ -171,7 +142,7 @@ func configureIndexerDataDir(indexerDataDir string) error {
 
 func resolveConfigFile(indexerDataDir string, configFile string) (string, error) {
 	var err error
-	potentialIndexerConfigPath, err := GetConfigFromDataDir(indexerDataDir, autoLoadIndexerConfigFileName, config.FileTypes[:])
+	potentialIndexerConfigPath, err := iutil.GetConfigFromDataDir(indexerDataDir, autoLoadIndexerConfigFileName, config.FileTypes[:])
 	if err != nil {
 		return "", err
 	}
@@ -220,7 +191,7 @@ func loadIndexerParamConfig(cfg *daemonConfig) error {
 		logger.WithError(err).Errorf("API Parameter Error: %v", err)
 		return err
 	}
-	potentialParamConfigPath, err := GetConfigFromDataDir(cfg.indexerDataDir, autoLoadParameterConfigFileName, config.FileTypes[:])
+	potentialParamConfigPath, err := iutil.GetConfigFromDataDir(cfg.indexerDataDir, autoLoadParameterConfigFileName, config.FileTypes[:])
 	if err != nil {
 		logger.Error(err)
 		return err
@@ -386,7 +357,7 @@ func runDaemon(daemonConfig *daemonConfig) error {
 
 func makeConduitConfig(dCfg *daemonConfig) pipeline.Config {
 	return pipeline.Config{
-		ConduitConfig: &conduit.Config{
+		ConduitArgs: &conduit.Args{
 			ConduitDataDir: dCfg.indexerDataDir,
 		},
 		PipelineLogLevel: logger.GetLevel().String(),

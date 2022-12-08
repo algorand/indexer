@@ -37,7 +37,6 @@ func TestConfigDeserialize(t *testing.T) {
 	require.Equal(t, processorConfig.AlgodDataDir, "algod_data_dir")
 	require.Equal(t, processorConfig.AlgodToken, "algod_token")
 	require.Equal(t, processorConfig.AlgodAddr, "algod_addr")
-
 }
 
 var cons = processors.ProcessorConstructorFunc(func() processors.Processor {
