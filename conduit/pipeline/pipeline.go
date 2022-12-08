@@ -57,6 +57,14 @@ type Config struct {
 	Processors []NameConfigPair `yaml:"processors"`
 	Exporter   NameConfigPair   `yaml:"exporter"`
 	Metrics    Metrics          `yaml:"metrics"`
+	// RetryCount is the number of retries to perform for an error in the pipeline
+	RetryCount uint64 `yaml:"retry-count"`
+	// RetryDelayString is the string that is converted into RetryDelay.  The format should follow the
+	// documentation laid out in the time.ParseDuration package
+	// As an example: retry-delay: 32ms would mean 32 milliseconds while 84h would mean 84 hours
+	RetryDelayString string `yaml:"retry-delay"`
+	// RetryDelay is a duration amount interpreted from RetryDelayString
+	RetryDelay time.Duration
 }
 
 // Valid validates pipeline config
@@ -76,6 +84,16 @@ func (cfg *Config) Valid() error {
 
 	if len(cfg.Exporter.Config) == 0 {
 		return fmt.Errorf("Args.Valid(): exporter configuration was empty")
+	}
+
+	timeDuration, err := time.ParseDuration(cfg.RetryDelayString)
+	if err != nil {
+		return fmt.Errorf("Args.Valid(): invalid retry delay string (%s) - %w", cfg.RetryDelayString, err)
+	}
+
+	// If it is a negative time, it is an error
+	if timeDuration < 0 {
+		return fmt.Errorf("Args.Valid(): invalid retry delay string (%s) - time duration was negative", cfg.RetryDelayString)
 	}
 
 	return nil
@@ -103,6 +121,11 @@ func MakePipelineConfig(args *conduit.Args) (*Config, error) {
 	}
 
 	var pCfg Config
+
+	// Set default value for retry variables
+	pCfg.RetryDelayString = "1s"
+	pCfg.RetryCount = 10
+
 	err = yaml.Unmarshal(file, &pCfg)
 	if err != nil {
 		return nil, fmt.Errorf("MakePipelineConfig(): config file (%s) was mal-formed yaml: %w", autoloadParamConfigPath, err)
@@ -113,6 +136,14 @@ func MakePipelineConfig(args *conduit.Args) (*Config, error) {
 	if err := pCfg.Valid(); err != nil {
 		return nil, fmt.Errorf("MakePipelineConfig(): config file (%s) had mal-formed schema: %w", autoloadParamConfigPath, err)
 	}
+
+	retryDuration, err := time.ParseDuration(pCfg.RetryDelayString)
+	// belt and suspenders, Valid() should have caught this
+	if err != nil {
+		return nil, fmt.Errorf("MakePipelineConfig(): config file (%s) had mal-formed retry duration string (%s): %w", autoloadParamConfigPath, pCfg.RetryDelayString, err)
+	}
+
+	pCfg.RetryDelay = retryDuration
 
 	return &pCfg, nil
 }
@@ -394,6 +425,10 @@ func (p *pipelineImpl) Start() {
 		for {
 		pipelineRun:
 			metrics.PipelineRetryCount.Observe(float64(retry))
+			if uint64(retry) >= p.cfg.RetryCount {
+				p.logger.Errorf("Pipeline has reached maximum retry count (%d) - stopping...", p.cfg.RetryCount)
+				return
+			}
 			select {
 			case <-p.ctx.Done():
 				return
@@ -407,6 +442,7 @@ func (p *pipelineImpl) Start() {
 						p.logger.Errorf("%v", err)
 						p.setError(err)
 						retry++
+						time.Sleep(p.cfg.RetryDelay)
 						goto pipelineRun
 					}
 					metrics.ImporterTimeSeconds.Observe(time.Since(importStart).Seconds())
@@ -421,6 +457,7 @@ func (p *pipelineImpl) Start() {
 							p.logger.Errorf("%v", err)
 							p.setError(err)
 							retry++
+							time.Sleep(p.cfg.RetryDelay)
 							goto pipelineRun
 						}
 						metrics.ProcessorTimeSeconds.WithLabelValues((*proc).Metadata().Name).Observe(time.Since(processorStart).Seconds())
@@ -432,6 +469,7 @@ func (p *pipelineImpl) Start() {
 						p.logger.Errorf("%v", err)
 						p.setError(err)
 						retry++
+						time.Sleep(p.cfg.RetryDelay)
 						goto pipelineRun
 					}
 
@@ -446,6 +484,7 @@ func (p *pipelineImpl) Start() {
 							p.logger.Errorf("%v", err)
 							p.setError(err)
 							retry++
+							time.Sleep(p.cfg.RetryDelay)
 							goto pipelineRun
 						}
 					}
