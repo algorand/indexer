@@ -48,8 +48,8 @@ func TestImporterorterMetadata(t *testing.T) {
 }
 
 // initializeTestData fills a data directory with some dummy data for the importer to read.
-func initializeTestData(t *testing.T, dir string, numRounds int) bookkeeping.Genesis {
-	genesisA := bookkeeping.Genesis{
+func initializeTestData(t *testing.T, dir string, numRounds int) sdk.Genesis {
+	genesisA := sdk.Genesis{
 		SchemaID:    "test",
 		Network:     "test",
 		Proto:       "test",
@@ -57,8 +57,6 @@ func initializeTestData(t *testing.T, dir string, numRounds int) bookkeeping.Gen
 		RewardsPool: "AAAAAAA",
 		FeeSink:     "AAAAAAA",
 		Timestamp:   1234,
-		Comment:     "",
-		DevMode:     true,
 	}
 
 	err := util.EncodeToFile(path.Join(dir, "genesis.json"), genesisA, true)
