@@ -137,15 +137,13 @@ func MakePipelineConfig(args *conduit.Args) (*Config, error) {
 		return nil, fmt.Errorf("MakePipelineConfig(): config file (%s) had mal-formed schema: %w", autoloadParamConfigPath, err)
 	}
 
-	if pCfg.RetryDelayString != "" {
-		retryDuration, err := time.ParseDuration(pCfg.RetryDelayString)
-		// belt and suspenders, Valid() should have caught this
-		if err != nil {
-			return nil, fmt.Errorf("MakePipelineConfig(): config file (%s) had mal-formed retry duration string (%s): %w", autoloadParamConfigPath, pCfg.RetryDelayString, err)
-		}
-
-		pCfg.RetryDelay = retryDuration
+	retryDuration, err := time.ParseDuration(pCfg.RetryDelayString)
+	// belt and suspenders, Valid() should have caught this
+	if err != nil {
+		return nil, fmt.Errorf("MakePipelineConfig(): config file (%s) had mal-formed retry duration string (%s): %w", autoloadParamConfigPath, pCfg.RetryDelayString, err)
 	}
+
+	pCfg.RetryDelay = retryDuration
 
 	return &pCfg, nil
 }
