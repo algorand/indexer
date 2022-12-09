@@ -875,7 +875,6 @@ func TestRoundOverwrite(t *testing.T) {
 
 // an importer that simply errors out when GetBlock() is called
 type errorImporter struct {
-	mock.Mock
 	genesis       *bookkeeping.Genesis
 	GetBlockCount uint64
 }
@@ -930,9 +929,8 @@ func TestPipelineRetryVariables(t *testing.T) {
 	for _, testCase := range tests {
 		t.Run(testCase.name, func(t *testing.T) {
 
-			mockImporter := &errorImporter{genesis: &bookkeeping.Genesis{Network: "test"}}
-			mockImporter.On("GetBlock", mock.Anything).Return(data.BlockData{}, fmt.Errorf("error maker"))
-			var pImporter importers.Importer = mockImporter
+			errImporter := &errorImporter{genesis: &bookkeeping.Genesis{Network: "test"}}
+			var pImporter importers.Importer = errImporter
 			var pProcessor processors.Processor = &mockProcessor{}
 			var pExporter exporters.Exporter = &mockExporter{}
 			l, _ := test.NewNullLogger()
@@ -984,7 +982,7 @@ func TestPipelineRetryVariables(t *testing.T) {
 
 			msg := fmt.Sprintf("seconds taken: %s, expected duration seconds: %s, epsilon: %s", timeTaken.String(), testCase.totalDuration.String(), testCase.epsilon.String())
 			assert.WithinDurationf(t, before.Add(testCase.totalDuration), after, testCase.epsilon, msg)
-			assert.Equal(t, mockImporter.GetBlockCount, testCase.retryCount+1)
+			assert.Equal(t, errImporter.GetBlockCount, testCase.retryCount+1)
 
 		})
 	}
