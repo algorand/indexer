@@ -875,12 +875,14 @@ func TestRoundOverwrite(t *testing.T) {
 
 // an importer that simply errors out when GetBlock() is called
 type errorImporter struct {
-	genesis *bookkeeping.Genesis
+	mock.Mock
+	genesis    *bookkeeping.Genesis
+	RetryCount uint64
 }
 
 var errorImporterMetadata = conduit.Metadata{
 	Name:         "error_importer",
-	Description:  "An importer than errors out whenever GetBlock() is called",
+	Description:  "An importer that errors out whenever GetBlock() is called",
 	Deprecated:   false,
 	SampleConfig: "",
 }
@@ -890,23 +892,24 @@ func New() importers.Importer {
 	return &errorImporter{}
 }
 
-func (e errorImporter) Metadata() conduit.Metadata {
+func (e *errorImporter) Metadata() conduit.Metadata {
 	return errorImporterMetadata
 }
 
-func (e errorImporter) Init(_ context.Context, _ plugins.PluginConfig, _ *log.Logger) (*bookkeeping.Genesis, error) {
+func (e *errorImporter) Init(_ context.Context, _ plugins.PluginConfig, _ *log.Logger) (*bookkeeping.Genesis, error) {
 	return e.genesis, nil
 }
 
-func (e errorImporter) Config() string {
+func (e *errorImporter) Config() string {
 	return ""
 }
 
-func (e errorImporter) Close() error {
+func (e *errorImporter) Close() error {
 	return nil
 }
 
-func (e errorImporter) GetBlock(_ uint64) (data.BlockData, error) {
+func (e *errorImporter) GetBlock(_ uint64) (data.BlockData, error) {
+	e.RetryCount++
 	return data.BlockData{}, fmt.Errorf("error maker")
 }
 
@@ -919,13 +922,15 @@ func TestPipelineRetryVariables(t *testing.T) {
 		totalDuration time.Duration
 		epsilon       time.Duration
 	}{
-		{"2 seconds", 2 * time.Second, 1, 2 * time.Second, 1 * time.Second},
+		{"4 seconds", 2 * time.Second, 2, 4 * time.Second, 1 * time.Second},
 		{"10 seconds", 2 * time.Second, 5, 10 * time.Second, 1 * time.Second},
 	}
 	for _, testCase := range tests {
 		t.Run(testCase.name, func(t *testing.T) {
 
-			var pImporter importers.Importer = &errorImporter{genesis: &bookkeeping.Genesis{Network: "test"}}
+			mockImporter := &errorImporter{genesis: &bookkeeping.Genesis{Network: "test"}}
+			mockImporter.On("GetBlock", mock.Anything).Return(data.BlockData{}, fmt.Errorf("error maker"))
+			var pImporter importers.Importer = mockImporter
 			var pProcessor processors.Processor = &mockProcessor{}
 			var pExporter exporters.Exporter = &mockExporter{}
 			l, _ := test.NewNullLogger()
@@ -972,10 +977,12 @@ func TestPipelineRetryVariables(t *testing.T) {
 			before := time.Now()
 			pImpl.Start()
 			pImpl.wg.Wait()
-			timeTaken := time.Since(before)
+			after := time.Now()
+			timeTaken := after.Sub(before)
 
 			msg := fmt.Sprintf("seconds taken: %s, expected duration seconds: %s, epsilon: %s", timeTaken.String(), testCase.totalDuration.String(), testCase.epsilon.String())
-			assert.Truef(t, timeTaken <= testCase.totalDuration+testCase.epsilon || timeTaken >= testCase.totalDuration-testCase.epsilon, msg)
+			assert.WithinDurationf(t, before.Add(testCase.totalDuration), after, testCase.epsilon, msg)
+			assert.Equal(t, mockImporter.RetryCount, testCase.retryCount)
 
 		})
 	}

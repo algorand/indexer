@@ -400,7 +400,7 @@ func (p *pipelineImpl) addMetrics(block data.BlockData, importTime time.Duration
 // Start pushes block data through the pipeline
 func (p *pipelineImpl) Start() {
 	p.wg.Add(1)
-	retry := 0
+	retry := uint64(0)
 	go func() {
 		defer p.wg.Done()
 		// We need to add a separate recover function here since it launches its own go-routine
@@ -408,12 +408,12 @@ func (p *pipelineImpl) Start() {
 		for {
 		pipelineRun:
 			metrics.PipelineRetryCount.Observe(float64(retry))
-			if uint64(retry) >= p.cfg.RetryCount {
-				p.logger.Errorf("Pipeline has reached maximum retry count (%d) - stopping...", p.cfg.RetryCount)
-				return
-			}
 			if retry > 0 {
 				time.Sleep(p.cfg.RetryDelay)
+			}
+			if retry >= p.cfg.RetryCount {
+				p.logger.Errorf("Pipeline has exceeded maximum retry count (%d) - stopping...", p.cfg.RetryCount)
+				return
 			}
 			select {
 			case <-p.ctx.Done():
