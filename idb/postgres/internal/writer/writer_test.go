@@ -180,8 +180,8 @@ func TestWriterTxnTableBasic(t *testing.T) {
 		BlockHeader: sdk.BlockHeader{
 			Round:       sdk.Round(2),
 			TimeStamp:   333,
-			GenesisID:   test.MakeGenesis().ID(),
-			GenesisHash: sdk.Digest(test.GenesisHash),
+			GenesisID:   test.MakeGenesisV2().ID(),
+			GenesisHash: test.MakeGenesisV2().Hash(),
 			RewardsState: sdk.RewardsState{
 				RewardsLevel: 111111,
 			},
@@ -267,8 +267,8 @@ func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
 
 	block := sdk.Block{
 		BlockHeader: sdk.BlockHeader{
-			GenesisID:   test.MakeGenesis().ID(),
-			GenesisHash: sdk.Digest(test.GenesisHash),
+			GenesisID:   test.MakeGenesisV2().ID(),
+			GenesisHash: test.MakeGenesisV2().Hash(),
 			UpgradeState: sdk.UpgradeState{
 				CurrentProtocol: "future",
 			},
@@ -329,8 +329,8 @@ func TestWriterTxnParticipationTable(t *testing.T) {
 		return sdk.Block{
 			BlockHeader: sdk.BlockHeader{
 				Round:       sdk.Round(2),
-				GenesisID:   test.MakeGenesis().ID(),
-				GenesisHash: sdk.Digest(test.GenesisHash),
+				GenesisID:   test.MakeGenesisV2().ID(),
+				GenesisHash: test.MakeGenesisV2().Hash(),
 				UpgradeState: sdk.UpgradeState{
 					CurrentProtocol: "future",
 				},
@@ -625,8 +625,8 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 	block := sdk.Block{
 		BlockHeader: sdk.BlockHeader{
 			Round:       sdk.Round(4),
-			GenesisID:   test.MakeGenesis().ID(),
-			GenesisHash: sdk.Digest(test.GenesisHash),
+			GenesisID:   test.MakeGenesisV2().ID(),
+			GenesisHash: test.MakeGenesisV2().Hash(),
 			UpgradeState: sdk.UpgradeState{
 				CurrentProtocol: "future",
 			},

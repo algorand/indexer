@@ -133,6 +133,7 @@ func importTar(imp Importer, tarfile io.Reader, logger *log.Logger, genesisReade
 	}
 	sort.Slice(blocks, less)
 
+	//TODO: will be refactored when changing util.MakeLedger
 	var genesis bookkeeping.Genesis
 	gbytes, err := ioutil.ReadAll(genesisReader)
 	if err != nil {

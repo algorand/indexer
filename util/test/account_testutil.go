@@ -944,7 +944,7 @@ func MakeBlockForTxnsV2(prevHeader sdk.BlockHeader, inputs ...*sdk.SignedTxnWith
 // MakeGenesisBlockV2 makes a genesis block.
 func MakeGenesisBlockV2() sdk.Block {
 	params := config2.Consensus[protocol2.ConsensusVersion(Proto)]
-	genesis := MakeGenesis()
+	genesis := MakeGenesisV2()
 	// payset hashRep
 	data := msgpack.Encode(sdk.Payset{})
 	hashRep := []byte(PaysetFlat)
