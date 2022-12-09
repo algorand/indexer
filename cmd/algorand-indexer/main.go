@@ -66,7 +66,7 @@ var rootCmd = &cobra.Command{
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		if doVersion {
 			fmt.Printf("%s\n", version.LongVersion())
-			panic(exit{0})
+			os.Exit(0)
 		}
 	},
 }

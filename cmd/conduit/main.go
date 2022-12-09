@@ -18,6 +18,7 @@ import (
 	_ "github.com/algorand/indexer/conduit/plugins/importers/all"
 	_ "github.com/algorand/indexer/conduit/plugins/processors/all"
 	"github.com/algorand/indexer/loggers"
+	"github.com/algorand/indexer/version"
 )
 
 var (
@@ -79,6 +80,7 @@ func runConduitCmdWithConfig(args *conduit.Args) error {
 // makeConduitCmd creates the main cobra command, initializes flags
 func makeConduitCmd() *cobra.Command {
 	cfg := &conduit.Args{}
+	var vFlag bool
 	cmd := &cobra.Command{
 		Use:   "conduit",
 		Short: "run the conduit framework",
@@ -87,12 +89,20 @@ func makeConduitCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConduitCmdWithConfig(cfg)
 		},
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			if vFlag {
+				fmt.Println("Conduit Pre-Release")
+				fmt.Printf("%s\n", version.LongVersion())
+				os.Exit(0)
+			}
+		},
 		SilenceUsage: true,
 		// Silence errors because our logger will catch and print any errors
 		SilenceErrors: true,
 	}
 	cmd.Flags().StringVarP(&cfg.ConduitDataDir, "data-dir", "d", "", "set the data directory for the conduit binary")
 	cmd.Flags().Uint64VarP(&cfg.NextRoundOverride, "next-round-override", "r", 0, "set the starting round. Overrides next-round in metadata.json")
+	cmd.Flags().BoolVarP(&vFlag, "version", "v", false, "print the conduit version")
 
 	cmd.AddCommand(list.Command)
 
