@@ -3,6 +3,7 @@ package loggers
 import (
 	"encoding/json"
 	"math/rand"
+	"path"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -14,13 +15,28 @@ import (
 )
 
 type FakeIoWriter struct {
-	// A list of strings that represent ints
-	ListOfInts []string
+	Entries []string
 }
 
 func (f *FakeIoWriter) Write(p []byte) (n int, err error) {
-	f.ListOfInts = append(f.ListOfInts, string(p))
+	f.Entries = append(f.Entries, string(p))
 	return len(p), nil
+}
+
+func TestLogToFile(t *testing.T) {
+	fakeWriter := FakeIoWriter{}
+	lMgr := MakeLoggerManager(&fakeWriter)
+
+	logfile := path.Join(t.TempDir(), "mylogfile.txt")
+	require.NoFileExists(t, logfile)
+	logger, err := lMgr.MakeRootLogger(log.InfoLevel, logfile)
+	require.NoError(t, err)
+
+	testString := "1234abcd"
+	logger.Infof(testString)
+	assert.FileExists(t, logfile)
+	assert.Len(t, fakeWriter.Entries, 1)
+	assert.Contains(t, fakeWriter.Entries[0], testString)
 }
 
 // TestThreadSafetyOfLogger ensures that multiple threads writing to a single source
@@ -64,7 +80,7 @@ func TestThreadSafetyOfLogger(t *testing.T) {
 	}
 	wg.Wait()
 
-	assert.Equal(t, len(fakeWriter.ListOfInts), numberOfLoggers*numberOfWritesPerLogger)
+	assert.Equal(t, len(fakeWriter.Entries), numberOfLoggers*numberOfWritesPerLogger)
 
 	// We can't assume that the writes are in order since the call to atomically update
 	// and log are not atomic *together*...just independently.  So we test that all
@@ -73,7 +89,7 @@ func TestThreadSafetyOfLogger(t *testing.T) {
 
 	for i := 0; i < numberOfLoggers*numberOfWritesPerLogger; i++ {
 		var jsonText map[string]interface{}
-		err := json.Unmarshal([]byte(fakeWriter.ListOfInts[i]), &jsonText)
+		err := json.Unmarshal([]byte(fakeWriter.Entries[i]), &jsonText)
 		assert.NoError(t, err)
 
 		sourceString := jsonText["msg"].(string)
