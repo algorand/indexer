@@ -57,6 +57,10 @@ type Config struct {
 	Processors []NameConfigPair `yaml:"processors"`
 	Exporter   NameConfigPair   `yaml:"exporter"`
 	Metrics    Metrics          `yaml:"metrics"`
+	// RetryCount is the number of retries to perform for an error in the pipeline
+	RetryCount uint64 `yaml:"retry-count"`
+	// RetryDelay is a duration amount interpreted from a string
+	RetryDelay time.Duration `yaml:"retry-delay"`
 }
 
 // Valid validates pipeline config
@@ -76,6 +80,11 @@ func (cfg *Config) Valid() error {
 
 	if len(cfg.Exporter.Config) == 0 {
 		return fmt.Errorf("Args.Valid(): exporter configuration was empty")
+	}
+
+	// If it is a negative time, it is an error
+	if cfg.RetryDelay < 0 {
+		return fmt.Errorf("Args.Valid(): invalid retry delay - time duration was negative (%s)", cfg.RetryDelay.String())
 	}
 
 	return nil
@@ -103,6 +112,11 @@ func MakePipelineConfig(args *conduit.Args) (*Config, error) {
 	}
 
 	var pCfg Config
+
+	// Set default value for retry variables
+	pCfg.RetryDelay = 1 * time.Second
+	pCfg.RetryCount = 10
+
 	err = yaml.Unmarshal(file, &pCfg)
 	if err != nil {
 		return nil, fmt.Errorf("MakePipelineConfig(): config file (%s) was mal-formed yaml: %w", autoloadParamConfigPath, err)
@@ -386,7 +400,7 @@ func (p *pipelineImpl) addMetrics(block data.BlockData, importTime time.Duration
 // Start pushes block data through the pipeline
 func (p *pipelineImpl) Start() {
 	p.wg.Add(1)
-	retry := 0
+	retry := uint64(0)
 	go func() {
 		defer p.wg.Done()
 		// We need to add a separate recover function here since it launches its own go-routine
@@ -394,6 +408,15 @@ func (p *pipelineImpl) Start() {
 		for {
 		pipelineRun:
 			metrics.PipelineRetryCount.Observe(float64(retry))
+			if retry > p.cfg.RetryCount {
+				p.logger.Errorf("Pipeline has exceeded maximum retry count (%d) - stopping...", p.cfg.RetryCount)
+				return
+			}
+
+			if retry > 0 {
+				time.Sleep(p.cfg.RetryDelay)
+			}
+
 			select {
 			case <-p.ctx.Done():
 				return

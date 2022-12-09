@@ -3,10 +3,12 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -314,6 +316,8 @@ func TestPipelineRun(t *testing.T) {
 			GenesisHash: "",
 		},
 		cfg: &Config{
+			RetryDelay: 0 * time.Second,
+			RetryCount: math.MaxUint64,
 			ConduitArgs: &conduit.Args{
 				ConduitDataDir: t.TempDir(),
 			},
@@ -430,6 +434,8 @@ func TestPipelineErrors(t *testing.T) {
 		ctx: ctx,
 		cf:  cf,
 		cfg: &Config{
+			RetryDelay: 0 * time.Second,
+			RetryCount: math.MaxUint64,
 			ConduitArgs: &conduit.Args{
 				ConduitDataDir: tempDir,
 			},
@@ -864,5 +870,120 @@ func TestRoundOverwrite(t *testing.T) {
 		err = pImpl.Init()
 		assert.Nil(t, err)
 		assert.Equal(t, uint64(i), pImpl.pipelineMetadata.NextRound)
+	}
+}
+
+// an importer that simply errors out when GetBlock() is called
+type errorImporter struct {
+	genesis       *bookkeeping.Genesis
+	GetBlockCount uint64
+}
+
+var errorImporterMetadata = conduit.Metadata{
+	Name:         "error_importer",
+	Description:  "An importer that errors out whenever GetBlock() is called",
+	Deprecated:   false,
+	SampleConfig: "",
+}
+
+// New initializes an importer
+func New() importers.Importer {
+	return &errorImporter{}
+}
+
+func (e *errorImporter) Metadata() conduit.Metadata {
+	return errorImporterMetadata
+}
+
+func (e *errorImporter) Init(_ context.Context, _ plugins.PluginConfig, _ *log.Logger) (*bookkeeping.Genesis, error) {
+	return e.genesis, nil
+}
+
+func (e *errorImporter) Config() string {
+	return ""
+}
+
+func (e *errorImporter) Close() error {
+	return nil
+}
+
+func (e *errorImporter) GetBlock(_ uint64) (data.BlockData, error) {
+	e.GetBlockCount++
+	return data.BlockData{}, fmt.Errorf("error maker")
+}
+
+// TestPipelineRetryVariables tests that modifying the retry variables results in longer time taken for a pipeline to run
+func TestPipelineRetryVariables(t *testing.T) {
+	tests := []struct {
+		name          string
+		retryDelay    time.Duration
+		retryCount    uint64
+		totalDuration time.Duration
+		epsilon       time.Duration
+	}{
+		{"0 seconds", 2 * time.Second, 0, 0 * time.Second, 1 * time.Second},
+		{"2 seconds", 2 * time.Second, 1, 2 * time.Second, 1 * time.Second},
+		{"4 seconds", 2 * time.Second, 2, 4 * time.Second, 1 * time.Second},
+		{"10 seconds", 2 * time.Second, 5, 10 * time.Second, 1 * time.Second},
+	}
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+
+			errImporter := &errorImporter{genesis: &bookkeeping.Genesis{Network: "test"}}
+			var pImporter importers.Importer = errImporter
+			var pProcessor processors.Processor = &mockProcessor{}
+			var pExporter exporters.Exporter = &mockExporter{}
+			l, _ := test.NewNullLogger()
+			pImpl := pipelineImpl{
+				ctx: context.Background(),
+				cfg: &Config{
+					RetryCount: testCase.retryCount,
+					RetryDelay: testCase.retryDelay,
+					ConduitArgs: &conduit.Args{
+						ConduitDataDir:    t.TempDir(),
+						NextRoundOverride: 0,
+					},
+					Importer: NameConfigPair{
+						Name:   "",
+						Config: map[string]interface{}{},
+					},
+					Processors: []NameConfigPair{
+						{
+							Name:   "",
+							Config: map[string]interface{}{},
+						},
+					},
+					Exporter: NameConfigPair{
+						Name:   "unknown",
+						Config: map[string]interface{}{},
+					},
+				},
+				logger:       l,
+				initProvider: nil,
+				importer:     &pImporter,
+				processors:   []*processors.Processor{&pProcessor},
+				exporter:     &pExporter,
+				pipelineMetadata: state{
+					GenesisHash: "",
+					Network:     "",
+					NextRound:   3,
+				},
+				wg: sync.WaitGroup{},
+			}
+
+			// pipeline should initialize if NextRoundOverride is not set
+			err := pImpl.Init()
+			assert.Nil(t, err)
+			before := time.Now()
+			pImpl.Start()
+			pImpl.wg.Wait()
+			after := time.Now()
+			timeTaken := after.Sub(before)
+
+			msg := fmt.Sprintf("seconds taken: %s, expected duration seconds: %s, epsilon: %s", timeTaken.String(), testCase.totalDuration.String(), testCase.epsilon.String())
+			assert.WithinDurationf(t, before.Add(testCase.totalDuration), after, testCase.epsilon, msg)
+			assert.Equal(t, errImporter.GetBlockCount, testCase.retryCount+1)
+
+		})
 	}
 }
