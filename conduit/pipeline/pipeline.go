@@ -74,14 +74,6 @@ func (cfg *Config) Valid() error {
 		}
 	}
 
-	if len(cfg.Importer.Config) == 0 {
-		return fmt.Errorf("Args.Valid(): importer configuration was empty")
-	}
-
-	if len(cfg.Exporter.Config) == 0 {
-		return fmt.Errorf("Args.Valid(): exporter configuration was empty")
-	}
-
 	// If it is a negative time, it is an error
 	if cfg.RetryDelay < 0 {
 		return fmt.Errorf("Args.Valid(): invalid retry delay - time duration was negative (%s)", cfg.RetryDelay.String())

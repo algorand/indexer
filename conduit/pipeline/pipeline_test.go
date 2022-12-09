@@ -56,21 +56,6 @@ func TestPipelineConfigValidity(t *testing.T) {
 
 		{"empty config", Config{ConduitArgs: nil}, "Args.Valid(): conduit args were nil"},
 		{"invalid log level", Config{ConduitArgs: &conduit.Args{ConduitDataDir: ""}, PipelineLogLevel: "asdf"}, "Args.Valid(): pipeline log level (asdf) was invalid:"},
-		{"importer config was 0",
-			Config{
-				ConduitArgs:      &conduit.Args{ConduitDataDir: ""},
-				PipelineLogLevel: "info",
-				Importer:         NameConfigPair{"test", map[string]interface{}{}},
-			}, "Args.Valid(): importer configuration was empty"},
-
-		{"exporter config was 0",
-			Config{
-				ConduitArgs:      &conduit.Args{ConduitDataDir: ""},
-				PipelineLogLevel: "info",
-				Importer:         NameConfigPair{"test", map[string]interface{}{"a": "a"}},
-				Processors:       []NameConfigPair{{"test", map[string]interface{}{"a": "a"}}},
-				Exporter:         NameConfigPair{"test", map[string]interface{}{}},
-			}, "Args.Valid(): exporter configuration was empty"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
