@@ -876,8 +876,8 @@ func TestRoundOverwrite(t *testing.T) {
 // an importer that simply errors out when GetBlock() is called
 type errorImporter struct {
 	mock.Mock
-	genesis    *bookkeeping.Genesis
-	RetryCount uint64
+	genesis       *bookkeeping.Genesis
+	GetBlockCount uint64
 }
 
 var errorImporterMetadata = conduit.Metadata{
@@ -909,7 +909,7 @@ func (e *errorImporter) Close() error {
 }
 
 func (e *errorImporter) GetBlock(_ uint64) (data.BlockData, error) {
-	e.RetryCount++
+	e.GetBlockCount++
 	return data.BlockData{}, fmt.Errorf("error maker")
 }
 
@@ -922,6 +922,8 @@ func TestPipelineRetryVariables(t *testing.T) {
 		totalDuration time.Duration
 		epsilon       time.Duration
 	}{
+		{"0 seconds", 2 * time.Second, 0, 0 * time.Second, 1 * time.Second},
+		{"2 seconds", 2 * time.Second, 1, 2 * time.Second, 1 * time.Second},
 		{"4 seconds", 2 * time.Second, 2, 4 * time.Second, 1 * time.Second},
 		{"10 seconds", 2 * time.Second, 5, 10 * time.Second, 1 * time.Second},
 	}
@@ -982,7 +984,7 @@ func TestPipelineRetryVariables(t *testing.T) {
 
 			msg := fmt.Sprintf("seconds taken: %s, expected duration seconds: %s, epsilon: %s", timeTaken.String(), testCase.totalDuration.String(), testCase.epsilon.String())
 			assert.WithinDurationf(t, before.Add(testCase.totalDuration), after, testCase.epsilon, msg)
-			assert.Equal(t, mockImporter.RetryCount, testCase.retryCount)
+			assert.Equal(t, mockImporter.GetBlockCount, testCase.retryCount+1)
 
 		})
 	}
