@@ -27,10 +27,13 @@ var (
 	conduitCmd           = makeConduitCmd()
 	initCmd              = makeInitCmd()
 	defaultDataDirectory = "data"
+	//go:embed banner.txt
+	banner string
 )
 
 // init() function for main package
 func init() {
+	loggerManager = loggers.MakeLoggerManager(os.Stdout)
 	conduitCmd.AddCommand(initCmd)
 }
 
@@ -47,15 +50,23 @@ func runConduitCmdWithConfig(args *conduit.Args) error {
 		return err
 	}
 
-	loggerManager = loggers.MakeLoggerManager(os.Stdout)
+	// Initialize logger
 	level, err := log.ParseLevel(pCfg.PipelineLogLevel)
 	if err != nil {
 		return fmt.Errorf("runConduitCmdWithConfig(): invalid log level: %s", err)
 	}
-	logger = loggerManager.MakeRootLogger(level)
+
+	logger, err = loggerManager.MakeRootLogger(level, pCfg.LogFile)
+	if err != nil {
+		return fmt.Errorf("runConduitCmdWithConfig(): failed to create logger: %w", err)
+	}
 
 	logger.Infof("Using data directory: %s", args.ConduitDataDir)
 	logger.Info("Conduit configuration is valid")
+
+	if !pCfg.HideBanner {
+		fmt.Printf(banner)
+	}
 
 	if pCfg.LogFile != "" {
 		logger.Infof("Conduit log file: %s", pCfg.LogFile)

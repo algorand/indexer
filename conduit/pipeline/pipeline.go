@@ -45,10 +45,12 @@ type Metrics struct {
 
 // Config stores configuration specific to the conduit pipeline
 type Config struct {
-	ConduitArgs *conduit.Args
+	// ConduitArgs are the program inputs. Should not be serialized for config.
+	ConduitArgs *conduit.Args `yaml:"-"`
 
 	CPUProfile  string `yaml:"cpu-profile"`
 	PIDFilePath string `yaml:"pid-filepath"`
+	HideBanner  bool   `yaml:"hide-banner"`
 
 	LogFile          string `yaml:"log-file"`
 	PipelineLogLevel string `yaml:"log-level"`
@@ -114,7 +116,13 @@ func MakePipelineConfig(args *conduit.Args) (*Config, error) {
 		return nil, fmt.Errorf("MakePipelineConfig(): config file (%s) was mal-formed yaml: %w", autoloadParamConfigPath, err)
 	}
 
+	// For convenience, include the command line arguments.
 	pCfg.ConduitArgs = args
+
+	// Default log level.
+	if pCfg.PipelineLogLevel == "" {
+		pCfg.PipelineLogLevel = conduit.DefaultLogLevel.String()
+	}
 
 	if err := pCfg.Valid(); err != nil {
 		return nil, fmt.Errorf("MakePipelineConfig(): config file (%s) had mal-formed schema: %w", autoloadParamConfigPath, err)
@@ -557,25 +565,6 @@ func MakePipeline(ctx context.Context, cfg *Config, logger *log.Logger) (Pipelin
 	if logger == nil {
 		return nil, fmt.Errorf("MakePipeline(): logger was empty")
 	}
-
-	if cfg.LogFile != "" {
-		f, err := os.OpenFile(cfg.LogFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
-		if err != nil {
-			return nil, fmt.Errorf("MakePipeline(): %w", err)
-		}
-		logger.SetOutput(f)
-	}
-
-	logLevel := conduit.DefaultLogLevel
-	if cfg.PipelineLogLevel != "" {
-		var err error
-		logLevel, err = log.ParseLevel(cfg.PipelineLogLevel)
-		if err != nil {
-			// Belt and suspenders.  Valid() should have caught this
-			return nil, fmt.Errorf("MakePipeline(): config had mal-formed log level: %w", err)
-		}
-	}
-	logger.SetLevel(logLevel)
 
 	cancelContext, cancelFunc := context.WithCancel(ctx)
 

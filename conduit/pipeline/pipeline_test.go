@@ -16,7 +16,6 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
@@ -764,49 +763,6 @@ func TestPipelineMetricsConfigs(t *testing.T) {
 	assert.Equal(t, 200, resp.StatusCode)
 }
 
-// TestPipelineLogFile tests that log file is created when specified
-func TestPipelineLogFile(t *testing.T) {
-
-	var mockedImpNew mockedImporterNew
-	var mockedExpNew mockedExporterNew
-	importers.Register("mockedImporter", mockedImpNew)
-	exporters.Register("mockedExporter", mockedExpNew)
-
-	tempDir := t.TempDir()
-	logfilePath := path.Join(tempDir, "conduit.log")
-	configs := &Config{
-		ConduitArgs: &conduit.Args{
-			ConduitDataDir: tempDir,
-		},
-		Importer: NameConfigPair{
-			Name:   "mockedImporter",
-			Config: map[string]interface{}{"key": "value"},
-		},
-		Exporter: NameConfigPair{
-			Name:   "mockedExporter",
-			Config: map[string]interface{}{"key": "value"},
-		},
-		PipelineLogLevel: "INFO",
-	}
-
-	l, _ := test.NewNullLogger()
-	_, err := MakePipeline(context.Background(), configs, l)
-	require.NoError(t, err)
-
-	// Test that file is not created
-	_, err = os.Stat(logfilePath)
-	assert.ErrorIs(t, err, os.ErrNotExist)
-
-	// Test that it is created
-	configs.LogFile = logfilePath
-	_, err = MakePipeline(context.Background(), configs, l)
-	require.NoError(t, err)
-
-	_, err = os.Stat(logfilePath)
-	assert.Nil(t, err)
-}
-
-// TestPipelineLogFile tests that log file is created when specified
 func TestRoundOverwrite(t *testing.T) {
 	var pImporter importers.Importer = &mockImporter{genesis: bookkeeping.Genesis{Network: "test"}}
 	var pProcessor processors.Processor = &mockProcessor{}

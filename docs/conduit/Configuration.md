@@ -9,11 +9,8 @@ There are several top level configurations for configuring behavior of the condu
 
 Here is an example configuration which shows the general format:
 ```yaml
-# optional: if present perform runtime profiling and put results in this file.
-cpu-profile: "path to cpu profile file."
-
-# optional: maintain a pidfile for the life of the conduit process.
-pid-filepath: "path to pid file."
+# optional: hide the startup banner.
+hide-banner: true|false
 
 # optional: level to use for logging.
 log-level: "INFO, WARN, ERROR"
@@ -21,10 +18,17 @@ log-level: "INFO, WARN, ERROR"
 # optional: path to log file
 log-file: "<path>"
 
+# optional: if present perform runtime profiling and put results in this file.
+cpu-profile: "path to cpu profile file."
+
+# optional: maintain a pidfile for the life of the conduit process.
+pid-filepath: "path to pid file."
+
 # optional: setting to turn on Prometheus metrics server
 metrics: 
   mode: "ON, OFF"
   addr: ":<server-port>"
+  prefix: "promtheus_metric_prefix"
 
 # Define one importer.
 importer:
