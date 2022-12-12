@@ -1004,10 +1004,6 @@ func TestPipelineRetryVariables(t *testing.T) {
 	}
 }
 
-func (e *errorImporter) ProvideMetrics(subsystem string) []prometheus.Collector {
-	return nil
-}
-
 func TestMetricPrefixApplied(t *testing.T) {
 	// Note: the default prefix is applied during `Init`, so no need to test that here.
 	prefix := "test_prefix"
