@@ -26,7 +26,7 @@ export GO_IMAGE = golang:$(shell go version | cut -d ' ' -f 3 | tail -c +3 )
 all: conduit cmd/algorand-indexer/algorand-indexer go-algorand idb/postgres/internal/schema/setup_postgres_sql.go idb/mocks/IndexerDb.go
 
 conduit: go-algorand
-	go generate ./... && cd cmd/conduit && go build
+	go generate ./... && cd cmd/conduit && go build -ldflags="${GOLDFLAGS}"
 
 cmd/algorand-indexer/algorand-indexer: idb/postgres/internal/schema/setup_postgres_sql.go go-algorand
 	cd cmd/algorand-indexer && go build -ldflags="${GOLDFLAGS}"
