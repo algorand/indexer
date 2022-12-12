@@ -20,7 +20,7 @@ type Completed interface {
 // ProvideMetricsFunc is the signature for the PluginMetrics interface.
 type ProvideMetricsFunc func() []prometheus.Collector
 
-// PluginMetrics is for defining plugin specific metrics
+// PluginMetrics is for defining plugin specific metrics.
 type PluginMetrics interface {
-	ProvideMetrics() []prometheus.Collector
+	ProvideMetrics(subsystem string) []prometheus.Collector
 }

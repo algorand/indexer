@@ -128,7 +128,7 @@ func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 		start := time.Now()
 		blockbytes, err = algodImp.aclient.BlockRaw(rnd).Do(algodImp.ctx)
 		dt := time.Since(start)
-		GetAlgodRawBlockTimeSeconds.Observe(dt.Seconds())
+		getAlgodRawBlockTimeSeconds.Observe(dt.Seconds())
 		if err != nil {
 			return blk, err
 		}
@@ -146,8 +146,14 @@ func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 	return blk, fmt.Errorf("finished retries without fetching a block")
 }
 
-func (algodImp *algodImporter) ProvideMetrics() []prometheus.Collector {
+func (algodImp *algodImporter) ProvideMetrics(subsystem string) []prometheus.Collector {
+	getAlgodRawBlockTimeSeconds = prometheus.NewSummary(
+		prometheus.SummaryOpts{
+			Subsystem: subsystem,
+			Name:      "get_algod_raw_block_time_sec",
+			Help:      "Total response time from Algod's raw block endpoint in seconds.",
+		})
 	return []prometheus.Collector{
-		GetAlgodRawBlockTimeSeconds,
+		getAlgodRawBlockTimeSeconds,
 	}
 }

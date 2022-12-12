@@ -69,12 +69,12 @@ type Completed interface {
 
 ### PluginMetrics
 
-After the pipeline has been initialized, and before it has been started, plugins may provide prometheus metric handlers.
+After the pipeline has been initialized, and before it has been started, plugins may provide prometheus metric handlers. The subsystem is a configurable value that should be passed into the Prometheus metric constructors.
 The ProvideMetrics function will only be called once.
 
 ```go
 // PluginMetrics is for defining plugin specific metrics
 type PluginMetrics interface {
-	ProvideMetrics() []prometheus.Collector
+	ProvideMetrics(subsystem string) []prometheus.Collector
 }
 ```

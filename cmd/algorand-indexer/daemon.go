@@ -361,6 +361,7 @@ func makeConduitConfig(dCfg *daemonConfig) pipeline.Config {
 			ConduitDataDir: dCfg.indexerDataDir,
 		},
 		HideBanner:       true,
+		Metrics:          pipeline.Metrics{Prefix: "conduit"},
 		PipelineLogLevel: logger.GetLevel().String(),
 		Importer: pipeline.NameConfigPair{
 			Name: "algod",

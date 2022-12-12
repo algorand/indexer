@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
@@ -248,6 +249,10 @@ type mockProcessor struct {
 	finalRound      basics.Round
 	returnError     bool
 	onCompleteError bool
+}
+
+func (m *mockProcessor) ProvideMetrics(subsystem string) []prometheus.Collector {
+	return nil
 }
 
 func (m *mockProcessor) Init(_ context.Context, _ data.InitProvider, cfg plugins.PluginConfig, _ *log.Logger) error {
@@ -897,11 +902,6 @@ var errorImporterMetadata = conduit.Metadata{
 	SampleConfig: "",
 }
 
-// New initializes an importer
-func New() importers.Importer {
-	return &errorImporter{}
-}
-
 func (e *errorImporter) Metadata() conduit.Metadata {
 	return errorImporterMetadata
 }
@@ -982,7 +982,6 @@ func TestPipelineRetryVariables(t *testing.T) {
 				wg: sync.WaitGroup{},
 			}
 
-			// pipeline should initialize if NextRoundOverride is not set
 			err := pImpl.Init()
 			assert.Nil(t, err)
 			before := time.Now()
@@ -997,4 +996,92 @@ func TestPipelineRetryVariables(t *testing.T) {
 
 		})
 	}
+}
+
+func (e *errorImporter) ProvideMetrics(subsystem string) []prometheus.Collector {
+	return nil
+}
+
+func TestMetricPrefixApplied(t *testing.T) {
+	tempDir := t.TempDir()
+
+	mImporter := mockImporter{}
+	mImporter.On("GetBlock", mock.Anything).Return(uniqueBlockData, nil)
+	mImporter.On("ProvideMetrics", "conduit").Once()
+	mProcessor := mockProcessor{}
+	processorData := uniqueBlockData
+	processorData.BlockHeader.Round++
+	mProcessor.On("Process", mock.Anything).Return(processorData)
+	mProcessor.On("OnComplete", mock.Anything).Return(nil)
+	mExporter := mockExporter{}
+	mExporter.On("Receive", mock.Anything).Return(nil)
+
+	var pImporter importers.Importer = &mImporter
+	var pProcessor processors.Processor = &mProcessor
+	var pExporter exporters.Exporter = &mExporter
+	var cbComplete conduit.Completed = &mProcessor
+
+	ctx, cf := context.WithCancel(context.Background())
+	l, _ := test.NewNullLogger()
+	pImpl := pipelineImpl{
+		ctx: ctx,
+		cf:  cf,
+		cfg: &Config{
+			RetryDelay: 0 * time.Second,
+			RetryCount: math.MaxUint64,
+			ConduitArgs: &conduit.Args{
+				ConduitDataDir: tempDir,
+			},
+		},
+		logger:           l,
+		initProvider:     nil,
+		importer:         &pImporter,
+		processors:       []*processors.Processor{&pProcessor},
+		exporter:         &pExporter,
+		completeCallback: []conduit.OnCompleteFunc{cbComplete.OnComplete},
+		pipelineMetadata: state{},
+	}
+
+	/*
+		mImporter.returnError = true
+
+		go pImpl.Start()
+		time.Sleep(time.Millisecond)
+		pImpl.cf()
+		pImpl.Wait()
+		assert.Error(t, pImpl.Error(), fmt.Errorf("importer"))
+
+		mImporter.returnError = false
+		mProcessor.returnError = true
+		pImpl.ctx, pImpl.cf = context.WithCancel(context.Background())
+		pImpl.setError(nil)
+		go pImpl.Start()
+		time.Sleep(time.Millisecond)
+		pImpl.cf()
+		pImpl.Wait()
+		assert.Error(t, pImpl.Error(), fmt.Errorf("process"))
+
+		mProcessor.returnError = false
+		mProcessor.onCompleteError = true
+		pImpl.ctx, pImpl.cf = context.WithCancel(context.Background())
+		pImpl.setError(nil)
+		go pImpl.Start()
+		time.Sleep(time.Millisecond)
+		pImpl.cf()
+		pImpl.Wait()
+		assert.Error(t, pImpl.Error(), fmt.Errorf("on complete"))
+
+		mProcessor.onCompleteError = false
+		mExporter.returnError = true
+		pImpl.ctx, pImpl.cf = context.WithCancel(context.Background())
+		pImpl.setError(nil)
+		go pImpl.Start()
+		time.Sleep(time.Millisecond)
+		pImpl.cf()
+		pImpl.Wait()
+		assert.Error(t, pImpl.Error(), fmt.Errorf("exporter"))
+	*/
+
+	pImpl.Init()
+	mock.AssertExpectationsForObjects(t, &mImporter)
 }
