@@ -207,6 +207,7 @@ type mockImporter struct {
 	finalRound      basics.Round
 	returnError     bool
 	onCompleteError bool
+	subsystem       string
 }
 
 func (m *mockImporter) Init(_ context.Context, cfg plugins.PluginConfig, _ *log.Logger) (*bookkeeping.Genesis, error) {
@@ -242,6 +243,11 @@ func (m *mockImporter) OnComplete(input data.BlockData) error {
 	return err
 }
 
+func (m *mockImporter) ProvideMetrics(subsystem string) []prometheus.Collector {
+	m.subsystem = subsystem
+	return nil
+}
+
 type mockProcessor struct {
 	mock.Mock
 	processors.Processor
@@ -249,10 +255,6 @@ type mockProcessor struct {
 	finalRound      basics.Round
 	returnError     bool
 	onCompleteError bool
-}
-
-func (m *mockProcessor) ProvideMetrics(subsystem string) []prometheus.Collector {
-	return nil
 }
 
 func (m *mockProcessor) Init(_ context.Context, _ data.InitProvider, cfg plugins.PluginConfig, _ *log.Logger) error {
@@ -816,7 +818,7 @@ func TestPipelineMetricsConfigs(t *testing.T) {
 	_, err = getMetrics()
 	assert.Error(t, err)
 
-	// metrics mode OFF
+	// metrics mode OFF, default prefix
 	pImpl.cfg.Metrics = Metrics{
 		Mode: "OFF",
 		Addr: ":8081",
@@ -825,17 +827,21 @@ func TestPipelineMetricsConfigs(t *testing.T) {
 	time.Sleep(1 * time.Second)
 	_, err = getMetrics()
 	assert.Error(t, err)
+	assert.Equal(t, pImpl.cfg.Metrics.Prefix, "conduit")
 
-	// metrics mode ON
+	// metrics mode ON, override prefix
+	prefixOverride := "asdfasdf"
 	pImpl.cfg.Metrics = Metrics{
-		Mode: "ON",
-		Addr: ":8081",
+		Mode:   "ON",
+		Addr:   ":8081",
+		Prefix: prefixOverride,
 	}
 	pImpl.Init()
 	time.Sleep(1 * time.Second)
 	resp, err := getMetrics()
 	assert.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
+	assert.Equal(t, pImpl.cfg.Metrics.Prefix, prefixOverride)
 }
 
 func TestRoundOverwrite(t *testing.T) {
@@ -1003,23 +1009,13 @@ func (e *errorImporter) ProvideMetrics(subsystem string) []prometheus.Collector 
 }
 
 func TestMetricPrefixApplied(t *testing.T) {
+	// Note: the default prefix is applied during `Init`, so no need to test that here.
+	prefix := "test_prefix"
 	tempDir := t.TempDir()
-
 	mImporter := mockImporter{}
-	mImporter.On("GetBlock", mock.Anything).Return(uniqueBlockData, nil)
-	mImporter.On("ProvideMetrics", "conduit").Once()
-	mProcessor := mockProcessor{}
-	processorData := uniqueBlockData
-	processorData.BlockHeader.Round++
-	mProcessor.On("Process", mock.Anything).Return(processorData)
-	mProcessor.On("OnComplete", mock.Anything).Return(nil)
-	mExporter := mockExporter{}
-	mExporter.On("Receive", mock.Anything).Return(nil)
 
 	var pImporter importers.Importer = &mImporter
-	var pProcessor processors.Processor = &mProcessor
-	var pExporter exporters.Exporter = &mExporter
-	var cbComplete conduit.Completed = &mProcessor
+	var pExporter exporters.Exporter = &mockExporter{}
 
 	ctx, cf := context.WithCancel(context.Background())
 	l, _ := test.NewNullLogger()
@@ -1027,61 +1023,19 @@ func TestMetricPrefixApplied(t *testing.T) {
 		ctx: ctx,
 		cf:  cf,
 		cfg: &Config{
-			RetryDelay: 0 * time.Second,
-			RetryCount: math.MaxUint64,
 			ConduitArgs: &conduit.Args{
 				ConduitDataDir: tempDir,
 			},
+			Metrics: Metrics{
+				Prefix: prefix,
+			},
 		},
-		logger:           l,
-		initProvider:     nil,
-		importer:         &pImporter,
-		processors:       []*processors.Processor{&pProcessor},
-		exporter:         &pExporter,
-		completeCallback: []conduit.OnCompleteFunc{cbComplete.OnComplete},
-		pipelineMetadata: state{},
+		logger:       l,
+		initProvider: nil,
+		importer:     &pImporter,
+		exporter:     &pExporter,
 	}
 
-	/*
-		mImporter.returnError = true
-
-		go pImpl.Start()
-		time.Sleep(time.Millisecond)
-		pImpl.cf()
-		pImpl.Wait()
-		assert.Error(t, pImpl.Error(), fmt.Errorf("importer"))
-
-		mImporter.returnError = false
-		mProcessor.returnError = true
-		pImpl.ctx, pImpl.cf = context.WithCancel(context.Background())
-		pImpl.setError(nil)
-		go pImpl.Start()
-		time.Sleep(time.Millisecond)
-		pImpl.cf()
-		pImpl.Wait()
-		assert.Error(t, pImpl.Error(), fmt.Errorf("process"))
-
-		mProcessor.returnError = false
-		mProcessor.onCompleteError = true
-		pImpl.ctx, pImpl.cf = context.WithCancel(context.Background())
-		pImpl.setError(nil)
-		go pImpl.Start()
-		time.Sleep(time.Millisecond)
-		pImpl.cf()
-		pImpl.Wait()
-		assert.Error(t, pImpl.Error(), fmt.Errorf("on complete"))
-
-		mProcessor.onCompleteError = false
-		mExporter.returnError = true
-		pImpl.ctx, pImpl.cf = context.WithCancel(context.Background())
-		pImpl.setError(nil)
-		go pImpl.Start()
-		time.Sleep(time.Millisecond)
-		pImpl.cf()
-		pImpl.Wait()
-		assert.Error(t, pImpl.Error(), fmt.Errorf("exporter"))
-	*/
-
-	pImpl.Init()
-	mock.AssertExpectationsForObjects(t, &mImporter)
+	pImpl.registerPluginMetricsCallbacks()
+	assert.Equal(t, prefix, mImporter.subsystem)
 }
