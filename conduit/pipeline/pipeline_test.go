@@ -70,6 +70,76 @@ func TestPipelineConfigValidity(t *testing.T) {
 	}
 }
 
+// TestMakePipelineConfigError tests that making the pipeline configuration with unknown fields causes an error
+func TestMakePipelineConfigErrors(t *testing.T) {
+	tests := []struct {
+		name             string
+		invalidConfigStr string
+		errorContains    string
+	}{
+		{"processors not processor", `---
+log-level: info
+importer:
+  name: "algod"
+  config:
+    netaddr: "http://127.0.0.1:8080"
+    token: "e36c01fc77e490f23e61899c0c22c6390d0fff1443af2c95d056dc5ce4e61302"
+processor:
+  - name: "noop"
+    config:
+      catchpoint: "7560000#3OUX3TLXZNOK6YJXGETKRRV2MHMILF5CCIVZUOJCT6SLY5H2WWTQ"
+exporter:
+  name: "noop"
+  config:
+    connectionstring: ""`, "field processor not found"},
+		{"exporter not exporters", `---
+log-level: info
+importer:
+  name: "algod"
+  config:
+    netaddr: "http://127.0.0.1:8080"
+    token: "e36c01fc77e490f23e61899c0c22c6390d0fff1443af2c95d056dc5ce4e61302"
+processors:
+  - name: "noop"
+    config:
+      catchpoint: "7560000#3OUX3TLXZNOK6YJXGETKRRV2MHMILF5CCIVZUOJCT6SLY5H2WWTQ"
+exporters:
+  name: "noop"
+  config:
+    connectionstring: ""`, "field exporters not found"},
+
+		{"config not configs", `---
+log-level: info
+importer:
+  name: "algod"
+  config:
+    netaddr: "http://127.0.0.1:8080"
+    token: "e36c01fc77e490f23e61899c0c22c6390d0fff1443af2c95d056dc5ce4e61302"
+processors:
+  - name: "noop"
+    config:
+      catchpoint: "7560000#3OUX3TLXZNOK6YJXGETKRRV2MHMILF5CCIVZUOJCT6SLY5H2WWTQ"
+exporter:
+  name: "noop"
+  configs:
+    connectionstring: ""`, "field configs not found"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+
+			dataDir := t.TempDir()
+
+			err := os.WriteFile(filepath.Join(dataDir, conduit.DefaultConfigName), []byte(test.invalidConfigStr), 0777)
+			assert.Nil(t, err)
+
+			cfg := &conduit.Args{ConduitDataDir: dataDir}
+
+			_, err = MakePipelineConfig(cfg)
+			assert.ErrorContains(t, err, test.errorContains)
+		})
+	}
+}
+
 // TestMakePipelineConfig tests making the pipeline configuration
 func TestMakePipelineConfig(t *testing.T) {
 

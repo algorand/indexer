@@ -100,18 +100,20 @@ func MakePipelineConfig(args *conduit.Args) (*Config, error) {
 		return nil, fmt.Errorf("MakePipelineConfig(): could not find %s in data directory (%s)", conduit.DefaultConfigName, args.ConduitDataDir)
 	}
 
-	file, err := os.ReadFile(autoloadParamConfigPath)
+	file, err := os.Open(autoloadParamConfigPath)
 	if err != nil {
 		return nil, fmt.Errorf("MakePipelineConfig(): reading config error: %w", err)
 	}
 
-	var pCfg Config
+	pCfgDecoder := yaml.NewDecoder(file)
+	// Make sure we are strict about only unmarshalling known fields
+	pCfgDecoder.KnownFields(true)
 
+	var pCfg Config
 	// Set default value for retry variables
 	pCfg.RetryDelay = 1 * time.Second
 	pCfg.RetryCount = 10
-
-	err = yaml.Unmarshal(file, &pCfg)
+	err = pCfgDecoder.Decode(&pCfg)
 	if err != nil {
 		return nil, fmt.Errorf("MakePipelineConfig(): config file (%s) was mal-formed yaml: %w", autoloadParamConfigPath, err)
 	}
