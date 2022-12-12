@@ -32,3 +32,10 @@ Once you have a valid config file, simply run `./conduit -d data` to launch cond
 # Configuration and Plugins
 Conduit comes with an initial set of plugins available for use in pipelines. For more information on the possible
 plugins and how to include these plugins in your pipeline's configuration file see [Configuration.md](Configuration.md).
+
+# Tutorials
+For more detailed guides, walkthroughs, and step by step writeups, take a look at some of our
+[Conduit tutorials](./tutorials). Here are a few of the highlights:
+* [How to write block data to the filesystem](./tutorials/WritingBlocksToFile.md)
+* [A deep dive into the filter processor](./tutorials/FilterDeepDive.md)
+* [The differences and migration paths between Indexer & Conduit](./tutorials/IndexerMigration.md)

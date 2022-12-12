@@ -1,4 +1,4 @@
-## Writing Transactions to Files Using Conduit
+## Writing Blocks to Files Using Conduit
 
 This guide will take you step by step through a specific application of some
 Conduit plugins. We will detail each of the steps necessary to solve our problem,
@@ -66,28 +66,32 @@ command. This will create a configuration directory if we don't provide one to i
 there which we will use as the starting point for our pipeline. Here is the config file we currently have:
 ```yaml
 # Generated conduit configuration file.
-
+log-level: INFO
+# When enabled prometheus metrics are available on '/metrics'
+metrics:
+  mode: OFF
+  addr: ":9999"
+  prefix: "conduit"
 # The importer is typically an algod archival instance.
 importer:
-    name: algod
-    config:
-      netaddr: "your algod address here"
-      token: "your algod token here"
-
+  name: algod
+  config:
+    netaddr: "your algod address here"
+    token: "your algod token here"
 # One or more processors may be defined to manipulate what data
 # reaches the exporter.
 processors:
-
 # An exporter is defined to do something with the data.
 # Here the filewriter is defined which writes the raw block
 # data to files.
 exporter:
-    name: file_writer
-    config:
-      block-dir: "path where data should be written"
+  name: file_writer
+  config:
+  # optionally provide a different directory to store blocks.
+  #block-dir: "path where data should be written"
 ```
 ## Setting up our Importer
-We can see the specific set of plugins defined for our pipeline--an `algod` importer, and `filewriter` exporter.
+We can see the specific set of plugins defined for our pipeline--an `algod` importer, and `file_writer` exporter.
 Now we will fill in the proper fields for these. I've got a local instance of algod running at `127.0.0.1:8080`,
 with an API token of `e36c01fc77e490f23e61899c0c22c6390d0fff1443af2c95d056dc5ce4e61302`. If you need help setting up
 algod, you can take a look at the [go-algorand docs](https://github.com/algorand/go-algorand#getting-started) or our
@@ -127,8 +131,9 @@ a look at the individual plugin documentation [here](./plugins/filter_processor.
 
 ## Setting up our Exporter
 
-For the exporter the setup is simple. I'll set the directory output of my blocks to a temporary directory,
-`block-dir: "/tmp/conduit-blocks/"`.
+For the exporter the setup is simple. No configuration is necessary because it defaults to a directory inside the
+conduit data directory. In this example I've chosen to override the default and set the directory output of my blocks
+to a temporary directory, `block-dir: "/tmp/conduit-blocks/"`. 
 
 ## Running the pipeline
 Now we should have a fully valid config, so let's try it out. Here's the full config I ended up with
@@ -162,7 +167,7 @@ block #26141781 on testnet.
 To avoid having to run algod all the way from genesis to the most recent round, you can use catchpoint catchup to
 fast-forward to a more recent block. Similarly, we want to be able to run Conduit pipelines from whichever round is
 most relevant and useful for us.
-To run conduit from a round other than 0, use the `-r` flag. Here's my command,
+To run conduit from a round other than 0, use the `--next-round-override` or `-r` flag. Here's my command,
 `>conduit -d /tmp/conduit-tmp/ -r 26141781`
 
 Once we've processed round 26141781, we should see our transaction show up!
