@@ -341,7 +341,9 @@ func runDaemon(daemonConfig *daemonConfig) error {
 		<-availableCh
 		var nextRound uint64
 		nextRound, err = db.GetNextRoundToAccount()
-		if err != nil {
+		if err == idb.ErrorNotInitialized {
+			nextRound = 0
+		} else if err != nil {
 			return err
 		}
 		pipeline := runConduitPipeline(ctx, nextRound, daemonConfig)
