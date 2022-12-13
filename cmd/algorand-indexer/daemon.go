@@ -357,6 +357,8 @@ func runDaemon(daemonConfig *daemonConfig) error {
 
 func makeConduitConfig(dCfg *daemonConfig) pipeline.Config {
 	return pipeline.Config{
+		RetryCount: 10,
+		RetryDelay: 1 * time.Second,
 		ConduitArgs: &conduit.Args{
 			ConduitDataDir: dCfg.indexerDataDir,
 		},
