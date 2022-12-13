@@ -13,7 +13,7 @@
 
 # Algorand Conduit
 
-Conduit is a framework which provides reusable components necessary for ingesting blocks from the Algorand blockchain into external applications. It is designed around a modular plugin system that allows users to configure their own data pipelines for filtering, aggregation, and storage of transactions and accounts on any Algorand network.
+Conduit is a framework for ingesting blocks from the Algorand blockchain into external applications. It is designed as modular plugin system that allows users to configure their own data pipelines for filtering, aggregation, and storage of transactions and accounts on any Algorand network.
 
 ## Building from source
 
@@ -21,7 +21,7 @@ Development is done using the [Go Programming Language](https://golang.org/), th
 
 Run `make` to build Conduit, the binary is located at `cmd/algorand-indexer/conduit`.
 
-# Quickstart
+# Getting Started
 
 See the [Getting Started](conduit/GettingStarted.md) page.
 
@@ -33,17 +33,15 @@ See the [Configuration](conduit/Configuration.md) page.
 
 See the [Development](conduit/Development.md) page for building a plugin.
 
-# Features
-
 # Plugin System
 A Conduit pipeline is composed of 3 components, [Importers](../conduit/plugins/importers/), [Processors](../conduit/plugins/processors/), and [Exporters](../conduit/plugins/exporters/).
-Every pipeline must define exactly 1 Importer, 1 Exporter, and can optionally define a series of 0 or more Processors.
+Every pipeline must define exactly 1 Importer, exactly 1 Exporter, and can optionally define a series of 0 or more Processors.
 
-The original Algorand Indexer has been defined as a Conduit pipeline via the [algorand-indexer](../cmd/algorand-indexer/daemon.go) executable, see [Migrating from Indexer](#migrating-from-indexer)
+The original Algorand Indexer has been defined as a Conduit pipeline via the [algorand-indexer](../cmd/algorand-indexer/daemon.go) executable, see [Migrating from Indexer](#migrating-from-indexer).
 
 # Contributing
 
-Contributions welcome! Please refer to our [CONTRIBUTING](https://github.com/algorand/go-algorand/blob/master/CONTRIBUTING.md) document for general contribution guidelines, and individual plugin documentation for contributing to new and existing Conduit plugins.
+Contributions are welcome! Please refer to our [CONTRIBUTING](https://github.com/algorand/go-algorand/blob/master/CONTRIBUTING.md) document for general contribution guidelines, and individual plugin documentation for contributing to new and existing Conduit plugins.
 
 ## RFCs
 If you have an idea for how to improve Conduit that would require significant changes, open a [Feature Request Issue](https://github.com/algorand/indexer/issues/new/choose) to begin discussion. If the proposal is accepted, the next step is to define the technical direction and answer implementation questions via a PR containing an [RFC](./rfc/template.md).  
