@@ -337,7 +337,16 @@ func runDaemon(daemonConfig *daemonConfig) error {
 	defer db.Close()
 	var dataError func() error
 	if daemonConfig.noAlgod != true {
-		pipeline := runConduitPipeline(ctx, availableCh, daemonConfig)
+		// Wait until the database is available.
+		<-availableCh
+		var nextRound uint64
+		nextRound, err = db.GetNextRoundToAccount()
+		if err == idb.ErrorNotInitialized {
+			nextRound = 0
+		} else if err != nil {
+			return err
+		}
+		pipeline := runConduitPipeline(ctx, nextRound, daemonConfig)
 		if pipeline != nil {
 			dataError = pipeline.Error
 			defer pipeline.Stop()
@@ -355,10 +364,13 @@ func runDaemon(daemonConfig *daemonConfig) error {
 	return err
 }
 
-func makeConduitConfig(dCfg *daemonConfig) pipeline.Config {
+func makeConduitConfig(dCfg *daemonConfig, nextRound uint64) pipeline.Config {
 	return pipeline.Config{
+		RetryCount: 10,
+		RetryDelay: 1 * time.Second,
 		ConduitArgs: &conduit.Args{
-			ConduitDataDir: dCfg.indexerDataDir,
+			ConduitDataDir:    dCfg.indexerDataDir,
+			NextRoundOverride: nextRound,
 		},
 		HideBanner:       true,
 		PipelineLogLevel: logger.GetLevel().String(),
@@ -393,16 +405,13 @@ func makeConduitConfig(dCfg *daemonConfig) pipeline.Config {
 
 }
 
-func runConduitPipeline(ctx context.Context, dbAvailable chan struct{}, dCfg *daemonConfig) pipeline.Pipeline {
+func runConduitPipeline(ctx context.Context, nextRound uint64, dCfg *daemonConfig) pipeline.Pipeline {
 	// Need to redefine exitHandler() for every go-routine
 	defer exitHandler()
 
-	// Wait until the database is available.
-	<-dbAvailable
-
 	var conduit pipeline.Pipeline
 	var err error
-	pcfg := makeConduitConfig(dCfg)
+	pcfg := makeConduitConfig(dCfg, nextRound)
 	if conduit, err = pipeline.MakePipeline(ctx, &pcfg, logger); err != nil {
 		logger.Errorf("%v", err)
 		panic(exit{1})
