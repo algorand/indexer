@@ -18,15 +18,16 @@ go-algorand submodule.
 There is ongoing work to remove go-algorand entirely as a dependency of indexer/conduit. Once
 that work is complete users should be able to use `go install` to install binaries for this project.
 
-## Quick Start
+## Getting Started
 
-Conduit requires a configuration file to setup and run a data pipeline. To generate an initial skeleton for a conduit
-config file, you can run `./conduit init`. This will setup a sample data directory with a config located at
+Conduit requires a configuration file to set up and run a data pipeline. To generate an initial skeleton for a conduit
+config file, you can run `./conduit init`. This will set up a sample data directory with a config located at
 `data/conduit.yml`.
 
-You will need to manually edit the data in the config file, filling in correct values, to get conduit running properly.
+You will need to manually edit the data in the config file, filling in a valid configuration for conduit to run.  
+You can find a valid config file in [Configuration.md](Configuration.md) or via the `conduit init` command.
 
-Once you have a valid config file, simply run `./conduit -d data` to launch conduit with the `data` directory.
+Once you have a valid config file in a directory, `config_directory`, launch conduit with `./conduit -d config_directory`.
 
 
 # Configuration and Plugins

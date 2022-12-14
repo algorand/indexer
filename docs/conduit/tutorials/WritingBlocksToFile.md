@@ -1,14 +1,16 @@
 ## Writing Blocks to Files Using Conduit
 
 This guide will take you step by step through a specific application of some
-Conduit plugins. We will detail each of the steps necessary to solve our problem,
-and identify the sources of documentation useful for both building and debugging conduit pipelines.
+Conduit plugins. We will detail each of the steps necessary to solve our problem, and point out documentation and tools
+useful for both building and debugging conduit pipelines.
 
 ## Our Problem Statement
 
-For this example, our task is to ingest blocks from an Algorand network (we'll use testnet for this),
-and write blocks to files. The blocks we write should exclusively contain transactions which are payment
-transactions sending money to our account.
+For this example, our task is to ingest blocks from an Algorand network (we'll use Testnet for this),
+and write blocks to files. 
+
+Additionally, we don't care to see data about transactions which aren't sent to us, so we'll filter out all transactions
+which are not sending either algos or some other asset to our account.
 
 ## Getting Started
 
@@ -21,7 +23,10 @@ make conduit
 alias conduit=$HOME/indexer/cmd/conduit/conduit
 ```
 
-Now that we have Conduit installed we can take a look at the options for supported plugins with `conduit list`.
+Now that we have Conduit installed we can take a look at the options for supported plugins with 
+```
+conduit list
+```
 The current list ends up being 
 ```
 importers:
@@ -42,7 +47,11 @@ exporters:
 For our conduit pipeline we're going to use the `algod` importer, a `filter_processor`, and of course the
 `file_writer` exporter.  
 To get more details about each of these individually, and the configuration variables required and available for them, 
-we can again use the list command. For example, `conduit list exporters file_writer` returns
+we can again use the list command. For example, 
+```
+conduit list exporters file_writer
+```
+Returns the following:
 ```
 name: "file_writer"
 config:
@@ -61,9 +70,13 @@ config:
 
 ## Setting Up Our Pipeline
 
-Let's start assembling a configuration file which describes our conduit pipeline. For that we'll use the `conduit init`
-command. This will create a configuration directory if we don't provide one to it, and write a skeleton config file
-there which we will use as the starting point for our pipeline. Here is the config file we currently have:
+Let's start assembling a configuration file which describes our conduit pipeline. For that we'll run 
+```
+conduit init
+```
+This will create a configuration directory if we don't provide one to it, and write a skeleton config file
+there which we will use as the starting point for our pipeline. Here is the config file which the `init` subcommand has
+written for us:
 ```yaml
 # Generated conduit configuration file.
 log-level: INFO
@@ -91,7 +104,7 @@ exporter:
   #block-dir: "path where data should be written"
 ```
 ## Setting up our Importer
-We can see the specific set of plugins defined for our pipeline--an `algod` importer, and `file_writer` exporter.
+We can see the specific set of plugins defined for our pipeline--an `algod` importer and `file_writer` exporter.
 Now we will fill in the proper fields for these. I've got a local instance of algod running at `127.0.0.1:8080`,
 with an API token of `e36c01fc77e490f23e61899c0c22c6390d0fff1443af2c95d056dc5ce4e61302`. If you need help setting up
 algod, you can take a look at the [go-algorand docs](https://github.com/algorand/go-algorand#getting-started) or our
@@ -110,7 +123,8 @@ importer:
 
 The processor section in our generated config is empty, so we'll need to fill in that section with the proper data
 for the filter processor. We can paste in the output of our list command for that.
-```yaml
+```bash
+> conduit list processors filter_processor
 name: filter_processor
 config:
   # Filters is a list of boolean expressions that can search the payset transactions.
@@ -121,13 +135,12 @@ config:
         expression-type: exact
         expression: "ADDRESS"
 ```
-Since conduit allows us to have multiple processors, we need to ensure that this is part of a list under the processors
-key. The filter processor uses the tag of a property and allows us to specify an exact value to match or a regex.
+The filter processor uses the tag of a property and allows us to specify an exact value to match or a regex.
 For our use case we'll grab the address of a wallet I've created on testnet, `NVCAFYNKJL2NGAIZHWLIKI6HGMTLYXL7BXPBO7NXX4A7GMMWKNFKFKDKP4`.
 
 That should give us exactly what we want, a filter that only allows transaction through for which the receiver is my
 account. However, there is a lot more you can do with the filter processor. To learn more about the possible uses, take
-a look at the individual plugin documentation [here](./plugins/filter_processor.md).
+a look at the individual plugin documentation [here](../plugins/filter_processor.md).
 
 ## Setting up our Exporter
 
@@ -161,14 +174,20 @@ exporter:
 
 There are two things to address before our example becomes useful.
 1. We need to get a payment transaction to our account.
+
 For me, it's easiest to use the testnet dispenser, so I've done that. You can look at my transaction for yourself,
 block #26141781 on testnet.
 2. Skip rounds
+
 To avoid having to run algod all the way from genesis to the most recent round, you can use catchpoint catchup to
 fast-forward to a more recent block. Similarly, we want to be able to run Conduit pipelines from whichever round is
 most relevant and useful for us.
-To run conduit from a round other than 0, use the `--next-round-override` or `-r` flag. Here's my command,
-`>conduit -d /tmp/conduit-tmp/ -r 26141781`
+To run conduit from a round other than 0, use the `--next-round-override` or `-r` flag. 
+
+Now let's run the command!
+```bash
+> conduit -d /tmp/conduit-tmp/ --next-round-override 26141781
+```
 
 Once we've processed round 26141781, we should see our transaction show up!
 
