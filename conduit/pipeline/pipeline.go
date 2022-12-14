@@ -462,7 +462,10 @@ func (p *pipelineImpl) Start() {
 
 					// Increment Round, update metadata
 					p.pipelineMetadata.NextRound++
-					_ = p.encodeMetadataToFile()
+					err = p.encodeMetadataToFile()
+					if err != nil {
+						p.logger.Errorf("%v", err)
+					}
 
 					// Callback Processors
 					for _, cb := range p.completeCallback {
