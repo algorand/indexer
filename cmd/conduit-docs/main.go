@@ -40,7 +40,7 @@ func generateMd(configPath string, outputDir string) error {
 			continue
 		}
 
-		md = md + processConfig(structType, typeTok.Name.Name)
+		md = md + processConfig(structType, typeTok.Name.Name, bytes)
 	}
 	err = os.MkdirAll(outputDir, os.ModePerm)
 	if err != nil {
@@ -57,33 +57,30 @@ type tableEntry struct {
 }
 
 func (t tableEntry) renderMd() string {
-	return "| " + t.key + " | " + t.valueType + " | " + t.description + " |"
+	return "<tr><td>" + t.key + "</td><td>" + t.valueType + "</td><td>" + t.description + "</td></tr>\n"
 }
 
 func renderConfigTable(typeName string, entries []tableEntry) string {
-	header := "| key | type | description |\n|---|---|---|"
+	header := "\n### " + typeName + "\n<table>\n<tr>\n<th>key</th><th>type</th><th>description</th>\n"
 	table := []string{header}
 	for _, entry := range entries {
 		table = append(table, entry.renderMd())
 	}
-	return strings.Join(table, "\n")
+	return strings.Join(table, "\n") + "</table>\n"
 }
 
-func processConfig(configStruct *ast.StructType, structName string) string {
+func processConfig(configStruct *ast.StructType, structName string, fileBytes []byte) string {
 	var tableEntries []tableEntry
 	for _, field := range configStruct.Fields.List {
 		// TODO We don't handle embedded structs
-		comment := strings.ReplaceAll(field.Doc.Text(), "\n", " ")
+		comment := field.Doc.Text()
+		// Strip `yaml:"foobar"` down to foobar
 		tag := field.Tag.Value
+		tag = tag[7:]
+		tag = tag[:len(tag)-2]
 		var valueType string
-		ident, ok := field.Type.(*ast.Ident)
-		if ok {
-			valueType = ident.Name
-		}
-		selExpr, ok := field.Type.(*ast.SelectorExpr)
-		if ok {
-			valueType = selExpr.X.(*ast.Ident).Name + "." + selExpr.Sel.Name
-		}
+		valueType = string(fileBytes[field.Type.Pos()-1 : field.Type.End()-1])
+		valueType = strings.ReplaceAll(valueType, "*", `\*`)
 		tableEntries = append(tableEntries, tableEntry{
 			key:         tag,
 			valueType:   valueType,

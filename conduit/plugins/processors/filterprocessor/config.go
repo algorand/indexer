@@ -1,4 +1,7 @@
+// Package filterprocessor docs
 package filterprocessor
+
+//go:generate conduit-docs ../../../../conduit-docs/
 
 import (
 	"github.com/algorand/indexer/conduit/plugins/processors/filterprocessor/expression"
@@ -16,6 +19,13 @@ type SubConfig struct {
 
 // Config configuration for the filter processor
 type Config struct {
-	// Filters are a list of SubConfig objects with an operation acting as the string key in the map
+	/* Filters are a list of SubConfig objects with an operation acting as the string key in the map
+
+	filters:
+		- [any,all,none]:
+			expression: ""
+			expression-type: ""
+			tag: ""
+	*/
 	Filters []map[string][]SubConfig `yaml:"filters"`
 }

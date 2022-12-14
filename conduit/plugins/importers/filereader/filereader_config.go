@@ -1,5 +1,7 @@
 package fileimporter
 
+//go:generate conduit-docs ../../../../conduit-docs/
+
 import "time"
 
 // Config specific to the file importer

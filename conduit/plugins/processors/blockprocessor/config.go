@@ -1,12 +1,18 @@
 package blockprocessor
 
+//go:generate conduit-docs ../../../../conduit-docs/
+
 // Config configuration for a block processor
 type Config struct {
 	// Catchpoint to initialize the local ledger to
 	Catchpoint string `yaml:"catchpoint"`
 
-	LedgerDir    string `yaml:"ledger-dir"`
+	// Ledger directory
+	LedgerDir string `yaml:"ledger-dir"`
+	// Algod data directory
 	AlgodDataDir string `yaml:"algod-data-dir"`
-	AlgodToken   string `yaml:"algod-token"`
-	AlgodAddr    string `yaml:"algod-addr"`
+	// Algod token
+	AlgodToken string `yaml:"algod-token"`
+	// Algod address
+	AlgodAddr string `yaml:"algod-addr"`
 }

@@ -1,5 +1,7 @@
 package postgresql
 
+//go:generate conduit-docs ../../../../conduit-docs/
+
 import (
 	"github.com/algorand/indexer/conduit/plugins/exporters/postgresql/util"
 )
