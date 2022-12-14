@@ -4,12 +4,16 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"math"
 	"sync"
 	"testing"
 	"time"
 
+	crypto2 "github.com/algorand/go-algorand-sdk/crypto"
+	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	test2 "github.com/sirupsen/logrus/hooks/test"
@@ -391,8 +395,12 @@ func TestBlockWithTransactions(t *testing.T) {
 	assert.Len(t, txnRows0, len(txns))
 	assert.Len(t, txnRows1, len(txns))
 	for i := 0; i < len(txnRows0); i++ {
-		assert.Equal(t, txns[i], txnRows0[i].Txn)
-		assert.Equal(t, txns[i], txnRows1[i].Txn)
+		expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txns[i]))
+		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(txnRows0[i].Txn))
+		assert.Equal(t, expected, actual)
+
+		actual = base64.StdEncoding.EncodeToString(msgpack.Encode(txnRows1[i].Txn))
+		assert.Equal(t, expected, actual)
 	}
 }
 
@@ -1156,7 +1164,7 @@ func TestNonDisplayableUTF8(t *testing.T) {
 			for row := range txnRows {
 				require.NoError(t, row.Error)
 				// The inner txns will have a RootTxn instead of a Txn row
-				var rowTxn *transactions.SignedTxnWithAD
+				var rowTxn *sdk.SignedTxnWithAD
 				if row.Txn != nil {
 					rowTxn = row.Txn
 				} else {
@@ -1252,11 +1260,11 @@ func TestReconfigAsset(t *testing.T) {
 		require.Equal(t, unit, asset.Params.UnitName)
 		require.Equal(t, url, asset.Params.URL)
 
-		require.Equal(t, basics.Address{}, asset.Params.Manager, "Manager should have been cleared.")
-		require.Equal(t, basics.Address{}, asset.Params.Reserve, "Reserve should have been cleared.")
+		require.Equal(t, sdk.Address{}, asset.Params.Manager, "Manager should have been cleared.")
+		require.Equal(t, sdk.Address{}, asset.Params.Reserve, "Reserve should have been cleared.")
 		// These were updated
-		require.Equal(t, test.AccountB, asset.Params.Freeze)
-		require.Equal(t, test.AccountC, asset.Params.Clawback)
+		require.Equal(t, sdk.Address(test.AccountB), asset.Params.Freeze)
+		require.Equal(t, sdk.Address(test.AccountC), asset.Params.Clawback)
 		num++
 	}
 	require.Equal(t, 1, num)
@@ -1304,7 +1312,7 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
-	keytype = generated.AccountSigTypeMsig
+	keytype = "msig"
 	assertKeytype(t, db, test.AccountA, &keytype)
 }
 
@@ -1342,7 +1350,9 @@ func TestAddBlockGenesis(t *testing.T) {
 	blockHeaderRet, txns, err := db.GetBlock(context.Background(), 0, opts)
 	require.NoError(t, err)
 	assert.Empty(t, txns)
-	assert.Equal(t, test.MakeGenesisBlock().BlockHeader, blockHeaderRet)
+	genesisBlock, err := test.MakeGenesisBlockV2()
+	require.NoError(t, err)
+	assert.Equal(t, genesisBlock.BlockHeader, blockHeaderRet)
 
 	nextRound, err := db.GetNextRoundToAccount()
 	require.NoError(t, err)
@@ -1745,7 +1755,7 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 					require.True(t, (result.Txn != nil) && (result.RootTxn == nil))
 				} else {
 					// Make sure the root txn is returned.
-					var stxn *transactions.SignedTxnWithAD
+					var stxn *sdk.SignedTxnWithAD
 
 					// Exactly one of Txn and RootTxn must be present.
 					require.True(t, (result.Txn == nil) != (result.RootTxn == nil))
@@ -1757,7 +1767,7 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 					if result.RootTxn != nil {
 						stxn = result.RootTxn
 					}
-					require.Equal(t, rootTxid, stxn.Txn.ID())
+					require.Equal(t, rootTxid.String(), crypto2.TransactionIDString(stxn.Txn))
 				}
 			}
 
@@ -1838,7 +1848,7 @@ func TestNonUTF8Logs(t *testing.T) {
 			// Test 2: transaction results properly serialized
 			txnRows, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
 			for row := range txnRows {
-				var rowTxn *transactions.SignedTxnWithAD
+				var rowTxn *sdk.SignedTxnWithAD
 				if row.Txn != nil {
 					rowTxn = row.Txn
 				} else {
@@ -2060,7 +2070,9 @@ func TestAddBlockTxnParticipationAdded(t *testing.T) {
 	require.True(t, ok)
 	require.NoError(t, row.Error)
 	require.NotNil(t, row.Txn)
-	assert.Equal(t, txn, *row.Txn)
+	expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txn))
+	actual := base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
+	assert.Equal(t, expected, actual)
 }
 
 // Test that if information in the `txn` table is ahead of the current round,
@@ -2281,7 +2293,9 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 	require.True(t, ok)
 	require.NoError(t, row.Error)
 	require.NotNil(t, row.Txn)
-	assert.Equal(t, txnC, *row.Txn)
+	expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txnC))
+	actual := base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
+	assert.Equal(t, expected, actual)
 
 	// AssetAmountGT
 	txnD := test.MakeAssetConfigTxn(0, math.MaxUint64, 0, false, "test2", "test2", "", test.AccountA)
@@ -2301,7 +2315,10 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 	require.True(t, ok)
 	require.NoError(t, row.Error)
 	require.NotNil(t, row.Txn)
-	assert.Equal(t, txnF, *row.Txn)
+
+	expected = base64.StdEncoding.EncodeToString(msgpack.Encode(txnF))
+	actual = base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
+	assert.Equal(t, expected, actual)
 
 }
 
@@ -2339,7 +2356,9 @@ func TestDeleteTransactions(t *testing.T) {
 	for row := range rowsCh {
 		require.NoError(t, row.Error)
 		require.NotNil(t, row.Txn)
-		assert.Equal(t, txns[i], *row.Txn)
+		expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txns[i]))
+		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
+		assert.Equal(t, expected, actual)
 		i++
 	}
 
@@ -2367,7 +2386,9 @@ func TestDeleteTransactions(t *testing.T) {
 	for row := range rowsCh {
 		require.NoError(t, row.Error)
 		require.NotNil(t, row.Txn)
-		assert.Equal(t, txns[i], *row.Txn)
+		expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txns[i]))
+		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
+		assert.Equal(t, expected, actual)
 		i++
 	}
 
