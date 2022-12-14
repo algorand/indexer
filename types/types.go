@@ -2,6 +2,7 @@ package types
 
 import (
 	sdk "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
@@ -28,4 +29,10 @@ type EncodedBlockCert struct {
 type SpecialAddresses struct {
 	FeeSink     sdk.Address
 	RewardsPool sdk.Address
+}
+
+// LegercoreValidatedBlock for serialization
+type LegercoreValidatedBlock struct {
+	Blk   bookkeeping.Block     `codec:"block"`
+	Delta ledgercore.StateDelta `codec:"delta"`
 }

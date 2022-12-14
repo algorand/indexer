@@ -7,11 +7,14 @@ import (
 	"encoding/base64"
 	"fmt"
 	"math"
+	"os"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-codec/codec"
+	"github.com/algorand/indexer/types"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	test2 "github.com/sirupsen/logrus/hooks/test"
@@ -160,9 +163,9 @@ func assertAccountAsset(t *testing.T, db *pgxpool.Pool, addr basics.Address, ass
 
 // TestAssetCloseReopenTransfer tests a scenario that requires asset subround accounting
 func TestAssetCloseReopenTransfer(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc, _, _ := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
+	//defer l.Close()
 
 	assetid := uint64(1)
 	amt := uint64(10000)
@@ -171,24 +174,32 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	///////////
 	// Given // A round scenario requiring subround accounting: AccountA is funded, closed, opts back, and funded again.
 	///////////
-	createAsset := test.MakeAssetConfigTxn(0, total, uint64(6), false, "mcn", "my coin", "http://antarctica.com", test.AccountD)
-	optInA1 := test.MakeAssetOptInTxn(assetid, test.AccountA)
-	optInA2 := test.MakeAssetOptInTxn(assetid, test.AccountA)
-	fundA := test.MakeAssetTransferTxn(assetid, amt, test.AccountD, test.AccountA, basics.Address{})
-	optInB := test.MakeAssetOptInTxn(assetid, test.AccountB)
-	optInC := test.MakeAssetOptInTxn(assetid, test.AccountC)
-	closeA := test.MakeAssetTransferTxn(assetid, 1000, test.AccountA, test.AccountB, test.AccountC)
-	payMain := test.MakeAssetTransferTxn(assetid, amt, test.AccountD, test.AccountA, basics.Address{})
+	//createAsset := test.MakeAssetConfigTxn(0, total, uint64(6), false, "mcn", "my coin", "http://antarctica.com", test.AccountD)
+	//optInA1 := test.MakeAssetOptInTxn(assetid, test.AccountA)
+	//optInA2 := test.MakeAssetOptInTxn(assetid, test.AccountA)
+	//fundA := test.MakeAssetTransferTxn(assetid, amt, test.AccountD, test.AccountA, basics.Address{})
+	//optInB := test.MakeAssetOptInTxn(assetid, test.AccountB)
+	//optInC := test.MakeAssetOptInTxn(assetid, test.AccountC)
+	//closeA := test.MakeAssetTransferTxn(assetid, 1000, test.AccountA, test.AccountB, test.AccountC)
+	//payMain := test.MakeAssetTransferTxn(assetid, amt, test.AccountD, test.AccountA, basics.Address{})
+	//
+	//block, err := test.MakeBlockForTxns(
+	//	test.MakeGenesisBlock().BlockHeader, &createAsset, &optInA1, &fundA, &optInB,
+	//	&optInC, &closeA, &optInA2, &payMain)
+	//require.NoError(t, err)
+	//
+	//////////////
+	////// When // We commit the block to the database
+	//////////////
+	//err = proc(&rpcs.EncodedBlockCert{Block: block})
+	//require.NoError(t, err)
 
-	block, err := test.MakeBlockForTxns(
-		test.MakeGenesisBlock().BlockHeader, &createAsset, &optInA1, &fundA, &optInB,
-		&optInC, &closeA, &optInA2, &payMain)
+	var vb types.LegercoreValidatedBlock
+	dat, _ := os.ReadFile("test_resources/validated_blocks/AssetCloseReopenTransfer.vb")
+	err := msgpack.Decode(dat, &vb)
 	require.NoError(t, err)
-
-	//////////
-	// When // We commit the block to the database
-	//////////
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&blk)
 	require.NoError(t, err)
 
 	//////////
@@ -206,9 +217,9 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 
 // TestReCreateAssetHolding checks the optin value of a defunct
 func TestReCreateAssetHolding(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc, _, _ := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
+	//defer l.Close()
 
 	total := uint64(1000000)
 
@@ -239,8 +250,8 @@ func TestReCreateAssetHolding(t *testing.T) {
 		//////////
 		// When // We commit the round accounting to the database.
 		//////////
-		err = proc(&rpcs.EncodedBlockCert{Block: block})
-		require.NoError(t, err)
+		//err = proc(&rpcs.EncodedBlockCert{Block: block})
+		//require.NoError(t, err)
 
 		//////////
 		// Then // AccountB should have its frozen state set back to the default value
