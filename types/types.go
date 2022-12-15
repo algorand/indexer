@@ -33,6 +33,6 @@ type SpecialAddresses struct {
 
 // LegercoreValidatedBlock for serialization
 type LegercoreValidatedBlock struct {
-	Blk   bookkeeping.Block     `codec:"block"`
-	Delta ledgercore.StateDelta `codec:"delta"`
+	Blk   bookkeeping.Block
+	Delta ledgercore.StateDelta
 }
