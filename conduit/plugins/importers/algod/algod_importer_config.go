@@ -4,8 +4,8 @@ package algodimporter
 
 // Config specific to the algod importer
 type Config struct {
-	// Algod netaddr string
+	// <code>netaddr</code> is the Algod network address. It must be either an <code>http</code> or <code>https</code> URL.
 	NetAddr string `yaml:"netaddr"`
-	// Algod rest endpoint token
+	// <code>token</code> is the Algod API endpoint token.
 	Token string `yaml:"token"`
 }

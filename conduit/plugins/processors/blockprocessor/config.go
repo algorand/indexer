@@ -4,15 +4,18 @@ package blockprocessor
 
 // Config configuration for a block processor
 type Config struct {
-	// Catchpoint to initialize the local ledger to
+	/* <code>catchpoint</code> to initialize the local ledger to.<br/>
+	For more data on ledger catchpoints, see the
+	<a hre=https://developer.algorand.org/docs/run-a-node/operations/catchup/>Algorand developer docs</a>
+	*/
 	Catchpoint string `yaml:"catchpoint"`
 
-	// Ledger directory
+	// <code>ledger-dir</code> is the directory which contains the ledger.
 	LedgerDir string `yaml:"ledger-dir"`
-	// Algod data directory
+	// <code>algod-data-dir</code> is the algod data directory.
 	AlgodDataDir string `yaml:"algod-data-dir"`
-	// Algod token
+	// <code>algod-token</code> is the API token for Algod usage.
 	AlgodToken string `yaml:"algod-token"`
-	// Algod address
+	// <code>algod-addr</code> is the address of the Algod server
 	AlgodAddr string `yaml:"algod-addr"`
 }
