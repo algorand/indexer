@@ -4,7 +4,7 @@ cmd/conduit/conduit
 api/.3tmp.json
 api/generate
 tmp/
-conduit-docs/
+./conduit-docs/
 
 # Binaries for programs and plugins
 *.exe

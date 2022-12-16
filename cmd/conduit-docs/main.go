@@ -11,6 +11,9 @@ import (
 	"strings"
 )
 
+const headerPrefix = "Header\n"
+const footerPrefix = "Footer\n"
+
 // generateMd takes the path of a file containing a struct definition named "Config", and an output directory,
 // and writes a markdown file to the outputDir containing mkdocs-style documentation for the Config struct
 func generateMd(configPath string, outputDir string) error {
@@ -21,11 +24,23 @@ func generateMd(configPath string, outputDir string) error {
 	}
 	fset := token.NewFileSet()
 	pf, err := parser.ParseFile(fset, configPath, bytes, parser.ParseComments)
-	// _ = ast.Print(fset, pf)
+	_ = ast.Print(fset, pf)
 	if err != nil {
 		return err
 	}
-	md := ""
+	var body string
+	var title string
+	var examples string
+	// Process freestanding comments into docs sections
+	for _, comm := range pf.Comments {
+		if strings.HasPrefix(comm.Text(), headerPrefix) {
+			title = strings.TrimPrefix(comm.Text(), headerPrefix)
+		}
+		if strings.HasPrefix(comm.Text(), footerPrefix) {
+			examples = strings.TrimPrefix(comm.Text(), footerPrefix)
+		}
+	}
+	// Process struct decls into tables describing their fields
 	for _, decl := range pf.Decls {
 		genDecl, ok := decl.(*ast.GenDecl)
 		if !ok {
@@ -40,14 +55,14 @@ func generateMd(configPath string, outputDir string) error {
 			continue
 		}
 
-		md = md + processConfig(structType, typeTok.Name.Name, bytes)
+		body = body + processConfig(structType, typeTok.Name.Name, bytes)
 	}
 	err = os.MkdirAll(outputDir, os.ModePerm)
 	if err != nil {
 		return err
 	}
 	docPath := path.Join(outputDir, pf.Name.Name+".md")
-	return os.WriteFile(docPath, []byte(md), os.ModePerm)
+	return os.WriteFile(docPath, []byte(title+body+examples), os.ModePerm)
 }
 
 type tableEntry struct {
@@ -66,7 +81,7 @@ func renderConfigTable(typeName string, entries []tableEntry) string {
 	for _, entry := range entries {
 		table = append(table, entry.renderMd())
 	}
-	return strings.Join(table, "\n") + "</table>\n"
+	return strings.Join(table, "\n") + "</table>\n\n"
 }
 
 func processConfig(configStruct *ast.StructType, structName string, fileBytes []byte) string {
