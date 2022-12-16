@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
-	"encoding/base64"
 	"fmt"
 	"math"
 	"os"
@@ -306,53 +305,53 @@ func TestMultipleWriters(t *testing.T) {
 	assert.Equal(t, amt, balance)
 }
 
-//TestBlockWithTransactions tests that the block with transactions endpoint works.
-func TestBlockWithTransactions(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
-	defer shutdownFunc()
-	defer l.Close()
-
-	round := uint64(1)
-
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/BlockWithTransactions.vb")
-	err := msgpack.Decode(dat, &vb)
-	require.NoError(t, err)
-	vb.Blk.BlockHeader.GenesisHash = [32]byte{1}
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
-	require.NoError(t, err)
-
-	//////////
-	// When // We call GetBlock and Transactions
-	//////////
-	_, txnRows0, err := db.GetBlock(context.Background(), round, idb.GetBlockOptions{Transactions: true, MaxTransactionsLimit: 100})
-	require.NoError(t, err)
-
-	rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{Round: &round})
-	txnRows1 := make([]idb.TxnRow, 0)
-	for row := range rowsCh {
-		require.NoError(t, row.Error)
-		txnRows1 = append(txnRows1, row)
-	}
-
-	//////////
-	// Then // They should have the correct transactions
-	//////////
-	txns := vb.Blk.Payset
-	assert.Len(t, txnRows0, len(txns))
-	assert.Len(t, txnRows1, len(txns))
-	for i := 0; i < len(txnRows0); i++ {
-		// todo: maybe this needs to be fixed. AddBlock seems to add genesisHash
-		txnRows0[i].Txn.Txn.Header.GenesisHash = sdk.Digest{}
-		expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txns[i]))
-		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(txnRows0[i].Txn))
-		assert.Equal(t, expected, actual)
-
-		actual = base64.StdEncoding.EncodeToString(msgpack.Encode(txnRows1[i].Txn))
-		assert.Equal(t, expected, actual)
-	}
-}
+////TestBlockWithTransactions tests that the block with transactions endpoint works.
+//func TestBlockWithTransactions(t *testing.T) {
+//	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+//	defer shutdownFunc()
+//	defer l.Close()
+//
+//	round := uint64(1)
+//
+//	var vb types.LegercoreValidatedBlock
+//	dat, _ := os.ReadFile("test_resources/validated_blocks/BlockWithTransactions.vb")
+//	err := msgpack.Decode(dat, &vb)
+//	require.NoError(t, err)
+//	vb.Blk.BlockHeader.GenesisHash = [32]byte{1}
+//	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+//	err = db.AddBlock(&block)
+//	require.NoError(t, err)
+//
+//	//////////
+//	// When // We call GetBlock and Transactions
+//	//////////
+//	_, txnRows0, err := db.GetBlock(context.Background(), round, idb.GetBlockOptions{Transactions: true, MaxTransactionsLimit: 100})
+//	require.NoError(t, err)
+//
+//	rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{Round: &round})
+//	txnRows1 := make([]idb.TxnRow, 0)
+//	for row := range rowsCh {
+//		require.NoError(t, row.Error)
+//		txnRows1 = append(txnRows1, row)
+//	}
+//
+//	//////////
+//	// Then // They should have the correct transactions
+//	//////////
+//	txns := vb.Blk.Payset
+//	assert.Len(t, txnRows0, len(txns))
+//	assert.Len(t, txnRows1, len(txns))
+//	for i := 0; i < len(txnRows0); i++ {
+//		// todo: maybe this needs to be fixed. AddBlock seems to add genesisHash
+//		txnRows0[i].Txn.Txn.Header.GenesisHash = sdk.Digest{}
+//		expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txns[i]))
+//		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(txnRows0[i].Txn))
+//		assert.Equal(t, expected, actual)
+//
+//		actual = base64.StdEncoding.EncodeToString(msgpack.Encode(txnRows1[i].Txn))
+//		assert.Equal(t, expected, actual)
+//	}
+//}
 
 func TestRekeyToItself(t *testing.T) {
 	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
@@ -559,42 +558,44 @@ func assertAssetHoldingDates(t *testing.T, db *pgxpool.Pool, address basics.Addr
 	assert.Equal(t, closedAt, retClosedAt)
 }
 
-// todo
-//func TestDestroyAssetBasic(t *testing.T) {
-//	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
-//	defer shutdownFunc()
-//	defer l.Close()
-//
-//	assetID := uint64(1)
-//
-//	// Create an asset.
-//	txn := test.MakeAssetConfigTxn(0, 4, 0, false, "uu", "aa", "", test.AccountA)
-//	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
-//	require.NoError(t, err)
-//
-//	err = proc(&rpcs.EncodedBlockCert{Block: block})
-//	require.NoError(t, err)
-//
-//	// Destroy an asset.
-//	txn = test.MakeAssetDestroyTxn(assetID, test.AccountA)
-//	block, err = test.MakeBlockForTxns(block.BlockHeader, &txn)
-//	require.NoError(t, err)
-//
-//	err = proc(&rpcs.EncodedBlockCert{Block: block})
-//	require.NoError(t, err)
-//
-//	// Check that the asset is deleted.
-//	assertAssetDates(t, db.db, assetID,
-//		sql.NullBool{Valid: true, Bool: true},
-//		sql.NullInt64{Valid: true, Int64: 1},
-//		sql.NullInt64{Valid: true, Int64: 2})
-//
-//	// Check that the account's asset holding is deleted.
-//	assertAssetHoldingDates(t, db.db, test.AccountA, assetID,
-//		sql.NullBool{Valid: true, Bool: true},
-//		sql.NullInt64{Valid: true, Int64: 1},
-//		sql.NullInt64{Valid: true, Int64: 2})
-//}
+func TestDestroyAssetBasic(t *testing.T) {
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	defer shutdownFunc()
+	defer l.Close()
+
+	assetID := uint64(1)
+
+	// Create an asset.
+	var vb types.LegercoreValidatedBlock
+	dat, _ := os.ReadFile("test_resources/validated_blocks/DestroyAssetBasicCreate.vb")
+	err := msgpack.Decode(dat, &vb)
+	require.NoError(t, err)
+	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+
+	// Destroy an asset.
+	var vb2 types.LegercoreValidatedBlock
+	dat2, _ := os.ReadFile("test_resources/validated_blocks/DestroyAssetBasicDelete.vb")
+	err = msgpack.Decode(dat2, &vb2)
+	require.NoError(t, err)
+	vb2.Blk.BlockHeader.Round = basics.Round(2)
+	block = ledgercore.MakeValidatedBlock(vb2.Blk, vb2.Delta)
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+
+	// Check that the asset is deleted.
+	assertAssetDates(t, db.db, assetID,
+		sql.NullBool{Valid: true, Bool: true},
+		sql.NullInt64{Valid: true, Int64: 1},
+		sql.NullInt64{Valid: true, Int64: 2})
+
+	// Check that the account's asset holding is deleted.
+	assertAssetHoldingDates(t, db.db, test.AccountA, assetID,
+		sql.NullBool{Valid: true, Bool: true},
+		sql.NullInt64{Valid: true, Int64: 1},
+		sql.NullInt64{Valid: true, Int64: 2})
+}
 
 func TestDestroyAssetZeroSupply(t *testing.T) {
 	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
@@ -625,39 +626,38 @@ func TestDestroyAssetZeroSupply(t *testing.T) {
 		sql.NullInt64{Valid: true, Int64: 1})
 }
 
-// todo
-//func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
-//	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
-//	defer shutdownFunc()
-//	defer l.Close()
-//
-//	assetID := uint64(1)
-//
-//	var vb types.LegercoreValidatedBlock
-//	dat, _ := os.ReadFile("test_resources/validated_blocks/DestroyAssetDeleteCreatorsHolding.vb")
-//	err := msgpack.Decode(dat, &vb)
-//	require.NoError(t, err)
-//	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-//	err = db.AddBlock(&block)
-//	require.NoError(t, err)
-//
-//	// Check that the creator's asset holding is deleted.
-//	assertAssetHoldingDates(t, db.db, test.AccountA, assetID,
-//		sql.NullBool{Valid: true, Bool: true},
-//		sql.NullInt64{Valid: true, Int64: 1},
-//		sql.NullInt64{Valid: true, Int64: 1})
-//
-//	// Check that other account's asset holding was not deleted.
-//	assertAssetHoldingDates(t, db.db, test.AccountC, assetID,
-//		sql.NullBool{Valid: true, Bool: false},
-//		sql.NullInt64{Valid: true, Int64: 1},
-//		sql.NullInt64{Valid: false, Int64: 0})
-//
-//	// Check that the manager does not have an asset holding.
-//	count := queryInt(
-//		db.db, "SELECT COUNT(*) FROM account_asset WHERE addr = $1", test.AccountB[:])
-//	assert.Equal(t, 0, count)
-//}
+func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	defer shutdownFunc()
+	defer l.Close()
+
+	assetID := uint64(1)
+
+	var vb types.LegercoreValidatedBlock
+	dat, _ := os.ReadFile("test_resources/validated_blocks/DestroyAssetDeleteCreatorsHolding.vb")
+	err := msgpack.Decode(dat, &vb)
+	require.NoError(t, err)
+	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+
+	// Check that the creator's asset holding is deleted.
+	assertAssetHoldingDates(t, db.db, test.AccountA, assetID,
+		sql.NullBool{Valid: true, Bool: true},
+		sql.NullInt64{Valid: true, Int64: 1},
+		sql.NullInt64{Valid: true, Int64: 1})
+
+	// Check that other account's asset holding was not deleted.
+	assertAssetHoldingDates(t, db.db, test.AccountC, assetID,
+		sql.NullBool{Valid: true, Bool: false},
+		sql.NullInt64{Valid: true, Int64: 1},
+		sql.NullInt64{Valid: false, Int64: 0})
+
+	// Check that the manager does not have an asset holding.
+	count := queryInt(
+		db.db, "SELECT COUNT(*) FROM account_asset WHERE addr = $1", test.AccountB[:])
+	assert.Equal(t, 0, count)
+}
 
 // Test that block import adds the freeze/sender accounts to txn_participation.
 func TestAssetFreezeTxnParticipation(t *testing.T) {
@@ -823,42 +823,38 @@ func assertKeytype(t *testing.T, db *IndexerDb, address basics.Address, keytype 
 	assert.Equal(t, keytype, row.Account.SigType)
 }
 
-// todo
-//func TestKeytypeBasic(t *testing.T) {
-//	block := test.MakeGenesisBlock()
-//	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
-//	defer shutdownFunc()
-//
-//	defer l.Close()
-//
-//	assertKeytype(t, db, test.AccountA, nil)
-//
-//	// Sig
-//	txn := test.MakePaymentTxn(
-//		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
-//
-//	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
-//	require.NoError(t, err)
-//	err = proc(&rpcs.EncodedBlockCert{Block: block})
-//	require.NoError(t, err)
-//
-//	keytype := generated.AccountSigTypeSig
-//	assertKeytype(t, db, test.AccountA, &keytype)
-//
-//	// Msig
-//	txn = test.MakePaymentTxn(
-//		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
-//	txn.Sig = crypto.Signature{}
-//	txn.Msig.Subsigs = append(txn.Msig.Subsigs, crypto.MultisigSubsig{})
-//
-//	block, err = test.MakeBlockForTxns(block.BlockHeader, &txn)
-//	require.NoError(t, err)
-//	err = proc(&rpcs.EncodedBlockCert{Block: block})
-//	require.NoError(t, err)
-//
-//	keytype = "msig"
-//	assertKeytype(t, db, test.AccountA, &keytype)
-//}
+func TestKeytypeBasic(t *testing.T) {
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	defer shutdownFunc()
+
+	defer l.Close()
+
+	assertKeytype(t, db, test.AccountA, nil)
+
+	// Sig
+	var vb types.LegercoreValidatedBlock
+	dat, _ := os.ReadFile("test_resources/validated_blocks/KeytypeBasicSig.vb")
+	err := msgpack.Decode(dat, &vb)
+	require.NoError(t, err)
+	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+
+	keytype := generated.AccountSigTypeSig
+	assertKeytype(t, db, test.AccountA, &keytype)
+
+	// Msig
+	var vb2 types.LegercoreValidatedBlock
+	dat2, _ := os.ReadFile("test_resources/validated_blocks/KeytypeBasicMsig.vb")
+	err = msgpack.Decode(dat2, &vb2)
+	require.NoError(t, err)
+	block = ledgercore.MakeValidatedBlock(vb2.Blk, vb2.Delta)
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+
+	keytype = "msig"
+	assertKeytype(t, db, test.AccountA, &keytype)
+}
 
 // Test that asset amount >= 2^63 is handled correctly. Due to the specifics of
 // postgres it might be a problem.
@@ -947,257 +943,225 @@ func requireNilOrEqual(t *testing.T, expected string, actual *string) {
 	}
 }
 
-// todo
-//// TestNonDisplayableUTF8 make sure we're able to import cheeky assets.
-//func TestNonDisplayableUTF8(t *testing.T) {
-//	tests := []struct {
-//		Name              string
-//		AssetName         string
-//		AssetUnit         string
-//		AssetURL          string
-//		ExpectedAssetName string
-//		ExpectedAssetUnit string
-//		ExpectedAssetURL  string
-//	}{
-//		{
-//			Name:              "Normal",
-//			AssetName:         "asset-name",
-//			AssetUnit:         "au",
-//			AssetURL:          "https://algorand.com",
-//			ExpectedAssetName: "asset-name",
-//			ExpectedAssetUnit: "au",
-//			ExpectedAssetURL:  "https://algorand.com",
-//		},
-//		{
-//			Name:              "Embedded Null",
-//			AssetName:         "asset\000name",
-//			AssetUnit:         "a\000u",
-//			AssetURL:          "https:\000//algorand.com",
-//			ExpectedAssetName: "",
-//			ExpectedAssetUnit: "",
-//			ExpectedAssetURL:  "",
-//		},
-//		{
-//			Name:              "Invalid UTF8",
-//			AssetName:         "asset\x8cname",
-//			AssetUnit:         "a\x8cu",
-//			AssetURL:          "https:\x8c//algorand.com",
-//			ExpectedAssetName: "",
-//			ExpectedAssetUnit: "",
-//			ExpectedAssetURL:  "",
-//		},
-//		{
-//			Name:              "Emoji",
-//			AssetName:         "💩",
-//			AssetUnit:         "💰",
-//			AssetURL:          "🌐",
-//			ExpectedAssetName: "💩",
-//			ExpectedAssetUnit: "💰",
-//			ExpectedAssetURL:  "🌐",
-//		},
-//	}
-//
-//	assetID := uint64(1)
-//	innerAssetID := uint64(999)
-//
-//	for _, testcase := range tests {
-//		testcase := testcase
-//		name := testcase.AssetName
-//		unit := testcase.AssetUnit
-//		url := testcase.AssetURL
-//
-//		t.Run(testcase.Name, func(t *testing.T) {
-//			db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
-//			defer shutdownFunc()
-//
-//			defer l.Close()
-//
-//			txn := test.MakeAssetConfigTxn(
-//				0, math.MaxUint64, 0, false, unit, name, url, test.AccountA)
-//			// Try to add cheeky inner txns lazily by adding an AD to the acfg txn
-//			txn.ApplyData.EvalDelta.InnerTxns = []transactions.SignedTxnWithAD{
-//				test.MakeAssetConfigTxn(
-//					0, math.MaxUint64, 0, false, unit, name, url, test.AccountA),
-//			}
-//			txn.ApplyData.EvalDelta.InnerTxns[0].ConfigAsset = basics.AssetIndex(innerAssetID)
-//			block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
-//			require.NoError(t, err)
-//
-//			// Test 1: import/accounting should work.
-//			err = proc(&rpcs.EncodedBlockCert{Block: block})
-//			require.NoError(t, err)
-//
-//			// Test 2: asset results properly serialized
-//			assets, _ := db.Assets(context.Background(), idb.AssetsQuery{AssetID: assetID})
-//			num := 0
-//			for asset := range assets {
-//				require.NoError(t, asset.Error)
-//				require.Equal(t, name, asset.Params.AssetName)
-//				require.Equal(t, unit, asset.Params.UnitName)
-//				require.Equal(t, url, asset.Params.URL)
-//				num++
-//			}
-//			require.Equal(t, 1, num)
-//
-//			// Test 3: transaction results properly serialized
-//			// Transaction results also return the inner txn acfg
-//			txnRows, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
-//			num = 0
-//			for row := range txnRows {
-//				require.NoError(t, row.Error)
-//				// The inner txns will have a RootTxn instead of a Txn row
-//				var rowTxn *sdk.SignedTxnWithAD
-//				if row.Txn != nil {
-//					rowTxn = row.Txn
-//				} else {
-//					rowTxn = row.RootTxn
-//				}
-//
-//				// Note: These are created from the TxnBytes, so they have the exact name with embedded null.
-//				require.NotNil(t, rowTxn)
-//				require.Equal(t, name, rowTxn.Txn.AssetParams.AssetName)
-//				require.Equal(t, unit, rowTxn.Txn.AssetParams.UnitName)
-//				require.Equal(t, url, rowTxn.Txn.AssetParams.URL)
-//				num++
-//			}
-//			// Check that the root and inner asset is matched
-//			require.Equal(t, 2, num)
-//
-//			// Test 4: account results should have the correct asset
-//			accounts, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: test.AccountA[:], IncludeAssetParams: true})
-//			num = 0
-//			for acct := range accounts {
-//				require.NoError(t, acct.Error)
-//				require.NotNil(t, acct.Account.CreatedAssets)
-//				require.Len(t, *acct.Account.CreatedAssets, 1)
-//				require.Equal(t, uint64(1), acct.Account.TotalCreatedAssets)
-//
-//				asset := (*acct.Account.CreatedAssets)[0]
-//				if testcase.ExpectedAssetName == "" {
-//					require.Nil(t, asset.Params.Name)
-//				}
-//				requireNilOrEqual(t, testcase.ExpectedAssetName, asset.Params.Name)
-//				requireNilOrEqual(t, testcase.ExpectedAssetUnit, asset.Params.UnitName)
-//				requireNilOrEqual(t, testcase.ExpectedAssetURL, asset.Params.Url)
-//				require.Equal(t, []byte(name), *asset.Params.NameB64)
-//				require.Equal(t, []byte(unit), *asset.Params.UnitNameB64)
-//				require.Equal(t, []byte(url), *asset.Params.UrlB64)
-//				num++
-//			}
-//			require.Equal(t, 1, num)
-//		})
-//	}
-//}
-// todo
-//// TestReconfigAsset make sure we properly handle asset param merges.
-//func TestReconfigAsset(t *testing.T) {
-//	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
-//	defer shutdownFunc()
-//
-//	defer l.Close()
-//
-//	unit := "co\000in"
-//	name := "algo"
-//	url := "https://algorand.com"
-//	assetID := uint64(1)
-//
-//	txn := test.MakeAssetConfigTxn(
-//		0, math.MaxUint64, 0, false, unit, name, url, test.AccountA)
-//	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
-//	require.NoError(t, err)
-//	err = proc(&rpcs.EncodedBlockCert{Block: block})
-//	require.NoError(t, err)
-//
-//	txn = transactions.SignedTxnWithAD{
-//		SignedTxn: transactions.SignedTxn{
-//			Txn: transactions.Transaction{
-//				Type: "acfg",
-//				Header: transactions.Header{
-//					Sender:      test.AccountA,
-//					Fee:         basics.MicroAlgos{Raw: 1000},
-//					GenesisHash: test.GenesisHash,
-//				},
-//				AssetConfigTxnFields: transactions.AssetConfigTxnFields{
-//					ConfigAsset: basics.AssetIndex(assetID),
-//					AssetParams: basics.AssetParams{
-//						Freeze:   test.AccountB,
-//						Clawback: test.AccountC,
-//					},
-//				},
-//			},
-//			Sig: test.Signature,
-//		},
-//	}
-//	block, err = test.MakeBlockForTxns(block.BlockHeader, &txn)
-//	require.NoError(t, err)
-//	err = proc(&rpcs.EncodedBlockCert{Block: block})
-//	require.NoError(t, err)
-//
-//	// Test 2: asset results properly serialized
-//	assets, _ := db.Assets(context.Background(), idb.AssetsQuery{AssetID: assetID})
-//	num := 0
-//	for asset := range assets {
-//		require.NoError(t, asset.Error)
-//		require.Equal(t, name, asset.Params.AssetName)
-//		require.Equal(t, unit, asset.Params.UnitName)
-//		require.Equal(t, url, asset.Params.URL)
-//
-//		require.Equal(t, sdk.Address{}, asset.Params.Manager, "Manager should have been cleared.")
-//		require.Equal(t, sdk.Address{}, asset.Params.Reserve, "Reserve should have been cleared.")
-//		// These were updated
-//		require.Equal(t, sdk.Address(test.AccountB), asset.Params.Freeze)
-//		require.Equal(t, sdk.Address(test.AccountC), asset.Params.Clawback)
-//		num++
-//	}
-//	require.Equal(t, 1, num)
-//}
-// // todo
-//func TestKeytypeResetsOnRekey(t *testing.T) {
-//	block := test.MakeGenesisBlock()
-//	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
-//	defer shutdownFunc()
-//
-//	defer l.Close()
-//
-//	// Sig
-//	txn := test.MakePaymentTxn(
-//		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
-//
-//	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
-//	require.NoError(t, err)
-//	err = proc(&rpcs.EncodedBlockCert{Block: block})
-//	require.NoError(t, err)
-//
-//	keytype := generated.AccountSigTypeSig
-//	assertKeytype(t, db, test.AccountA, &keytype)
-//
-//	// Rekey.
-//	txn = test.MakePaymentTxn(
-//		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountB)
-//
-//	block, err = test.MakeBlockForTxns(block.BlockHeader, &txn)
-//	require.NoError(t, err)
-//	err = proc(&rpcs.EncodedBlockCert{Block: block})
-//	require.NoError(t, err)
-//
-//	assertKeytype(t, db, test.AccountA, nil)
-//
-//	// Msig
-//	txn = test.MakePaymentTxn(
-//		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
-//	txn.Sig = crypto.Signature{}
-//	txn.Msig.Subsigs = append(txn.Msig.Subsigs, crypto.MultisigSubsig{})
-//	txn.AuthAddr = test.AccountB
-//
-//	block, err = test.MakeBlockForTxns(block.BlockHeader, &txn)
-//	require.NoError(t, err)
-//	err = proc(&rpcs.EncodedBlockCert{Block: block})
-//	require.NoError(t, err)
-//
-//	keytype = "msig"
-//	assertKeytype(t, db, test.AccountA, &keytype)
-//}
-//
+// TestNonDisplayableUTF8 make sure we're able to import cheeky assets.
+func TestNonDisplayableUTF8(t *testing.T) {
+	tests := []struct {
+		Name                   string
+		AssetName              string
+		AssetUnit              string
+		AssetURL               string
+		ExpectedAssetName      string
+		ExpectedAssetUnit      string
+		ExpectedAssetURL       string
+		ValidatedBlockFilePath string
+	}{
+		{
+			Name:                   "Normal",
+			AssetName:              "asset-name",
+			AssetUnit:              "au",
+			AssetURL:               "https://algorand.com",
+			ExpectedAssetName:      "asset-name",
+			ExpectedAssetUnit:      "au",
+			ExpectedAssetURL:       "https://algorand.com",
+			ValidatedBlockFilePath: "test_resources/validated_blocks/NonDisplayableUTF8Normal.vb",
+		},
+		{
+			Name:                   "Embedded Null",
+			AssetName:              "asset\000name",
+			AssetUnit:              "a\000u",
+			AssetURL:               "https:\000//algorand.com",
+			ExpectedAssetName:      "",
+			ExpectedAssetUnit:      "",
+			ExpectedAssetURL:       "",
+			ValidatedBlockFilePath: "test_resources/validated_blocks/NonDisplayableUTF8EmbeddedNull.vb",
+		},
+		{
+			Name:                   "Invalid UTF8",
+			AssetName:              "asset\x8cname",
+			AssetUnit:              "a\x8cu",
+			AssetURL:               "https:\x8c//algorand.com",
+			ExpectedAssetName:      "",
+			ExpectedAssetUnit:      "",
+			ExpectedAssetURL:       "",
+			ValidatedBlockFilePath: "test_resources/validated_blocks/NonDisplayableUTF8InvalidUTF8.vb",
+		},
+		{
+			Name:                   "Emoji",
+			AssetName:              "💩",
+			AssetUnit:              "💰",
+			AssetURL:               "🌐",
+			ExpectedAssetName:      "💩",
+			ExpectedAssetUnit:      "💰",
+			ExpectedAssetURL:       "🌐",
+			ValidatedBlockFilePath: "test_resources/validated_blocks/NonDisplayableUTF8Emoji.vb",
+		},
+	}
+
+	assetID := uint64(1)
+	//innerAssetID := uint64(999)
+
+	for _, testcase := range tests {
+		testcase := testcase
+		name := testcase.AssetName
+		unit := testcase.AssetUnit
+		url := testcase.AssetURL
+
+		t.Run(testcase.Name, func(t *testing.T) {
+			db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+			defer shutdownFunc()
+
+			defer l.Close()
+
+			var vb types.LegercoreValidatedBlock
+			dat, _ := os.ReadFile(testcase.ValidatedBlockFilePath)
+			err := msgpack.Decode(dat, &vb)
+			require.NoError(t, err)
+			block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+			err = db.AddBlock(&block)
+			require.NoError(t, err)
+
+			// Test 2: asset results properly serialized
+			assets, _ := db.Assets(context.Background(), idb.AssetsQuery{AssetID: assetID})
+			num := 0
+			for asset := range assets {
+				require.NoError(t, asset.Error)
+				require.Equal(t, name, asset.Params.AssetName)
+				require.Equal(t, unit, asset.Params.UnitName)
+				require.Equal(t, url, asset.Params.URL)
+				num++
+			}
+			require.Equal(t, 1, num)
+
+			// Test 3: transaction results properly serialized
+			// Transaction results also return the inner txn acfg
+			txnRows, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
+			num = 0
+			for row := range txnRows {
+				require.NoError(t, row.Error)
+				// The inner txns will have a RootTxn instead of a Txn row
+				var rowTxn *sdk.SignedTxnWithAD
+				if row.Txn != nil {
+					rowTxn = row.Txn
+				} else {
+					rowTxn = row.RootTxn
+				}
+
+				// Note: These are created from the TxnBytes, so they have the exact name with embedded null.
+				require.NotNil(t, rowTxn)
+				require.Equal(t, name, rowTxn.Txn.AssetParams.AssetName)
+				require.Equal(t, unit, rowTxn.Txn.AssetParams.UnitName)
+				require.Equal(t, url, rowTxn.Txn.AssetParams.URL)
+				num++
+			}
+			// Check that the root and inner asset is matched
+			require.Equal(t, 2, num)
+
+			// Test 4: account results should have the correct asset
+			accounts, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: test.AccountA[:], IncludeAssetParams: true})
+			num = 0
+			for acct := range accounts {
+				require.NoError(t, acct.Error)
+				require.NotNil(t, acct.Account.CreatedAssets)
+				require.Len(t, *acct.Account.CreatedAssets, 1)
+				require.Equal(t, uint64(1), acct.Account.TotalCreatedAssets)
+
+				asset := (*acct.Account.CreatedAssets)[0]
+				if testcase.ExpectedAssetName == "" {
+					require.Nil(t, asset.Params.Name)
+				}
+				requireNilOrEqual(t, testcase.ExpectedAssetName, asset.Params.Name)
+				requireNilOrEqual(t, testcase.ExpectedAssetUnit, asset.Params.UnitName)
+				requireNilOrEqual(t, testcase.ExpectedAssetURL, asset.Params.Url)
+				require.Equal(t, []byte(name), *asset.Params.NameB64)
+				require.Equal(t, []byte(unit), *asset.Params.UnitNameB64)
+				require.Equal(t, []byte(url), *asset.Params.UrlB64)
+				num++
+			}
+			require.Equal(t, 1, num)
+		})
+	}
+}
+
+// TestReconfigAsset make sure we properly handle asset param merges.
+func TestReconfigAsset(t *testing.T) {
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	defer shutdownFunc()
+
+	defer l.Close()
+
+	unit := "co\000in"
+	name := "algo"
+	url := "https://algorand.com"
+	assetID := uint64(1)
+
+	var vb types.LegercoreValidatedBlock
+	dat, _ := os.ReadFile("test_resources/validated_blocks/ReconfigAsset.vb")
+	err := msgpack.Decode(dat, &vb)
+	require.NoError(t, err)
+	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+
+	// Test 2: asset results properly serialized
+	assets, _ := db.Assets(context.Background(), idb.AssetsQuery{AssetID: assetID})
+	num := 0
+	for asset := range assets {
+		require.NoError(t, asset.Error)
+		require.Equal(t, name, asset.Params.AssetName)
+		require.Equal(t, unit, asset.Params.UnitName)
+		require.Equal(t, url, asset.Params.URL)
+
+		require.Equal(t, sdk.Address{}, asset.Params.Manager, "Manager should have been cleared.")
+		require.Equal(t, sdk.Address{}, asset.Params.Reserve, "Reserve should have been cleared.")
+		// These were updated
+		require.Equal(t, sdk.Address(test.AccountB), asset.Params.Freeze)
+		require.Equal(t, sdk.Address(test.AccountC), asset.Params.Clawback)
+		num++
+	}
+	require.Equal(t, 1, num)
+}
+
+func TestKeytypeResetsOnRekey(t *testing.T) {
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	defer shutdownFunc()
+	defer l.Close()
+
+	// Sig
+	var vb types.LegercoreValidatedBlock
+	dat, _ := os.ReadFile("test_resources/validated_blocks/KeytypeResetsOnRekeySig.vb")
+	err := msgpack.Decode(dat, &vb)
+	require.NoError(t, err)
+	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+
+	keytype := generated.AccountSigTypeSig
+	assertKeytype(t, db, test.AccountA, &keytype)
+
+	// Rekey.
+	var vb2 types.LegercoreValidatedBlock
+	dat2, _ := os.ReadFile("test_resources/validated_blocks/KeytypeResetsOnRekeyRekey.vb")
+	err = msgpack.Decode(dat2, &vb2)
+	require.NoError(t, err)
+	block = ledgercore.MakeValidatedBlock(vb2.Blk, vb2.Delta)
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+
+	assertKeytype(t, db, test.AccountA, nil)
+
+	// Msig
+	var vb3 types.LegercoreValidatedBlock
+	dat3, _ := os.ReadFile("test_resources/validated_blocks/KeytypeResetsOnRekeyMsig.vb")
+	err = msgpack.Decode(dat3, &vb3)
+	require.NoError(t, err)
+	block = ledgercore.MakeValidatedBlock(vb3.Blk, vb3.Delta)
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+
+	keytype = "msig"
+	assertKeytype(t, db, test.AccountA, &keytype)
+}
+
 // Test that after closing the account, keytype will be correctly set.
 func TestKeytypeDeletedAccount(t *testing.T) {
 	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
@@ -1298,33 +1262,27 @@ func TestAddBlockAssetCloseAmountInTxnExtra(t *testing.T) {
 //	l, err := test.MakeTestLedger(logger)
 //	require.NoError(t, err)
 //	defer l.Close()
-//	pr, err := blockprocessor.MakeBlockProcessorWithLedger(logger, l, db.AddBlock)
-//	require.NoError(t, err, "failed to open ledger")
-//	proc := blockprocessor.MakeBlockProcessorHandlerAdapter(&pr, db.AddBlock)
+//
+//	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader)
+//	require.NoError(t, err)
+//	block.BlockHeader.Round = 1
+//	vb := ledgercore.MakeValidatedBlock(block, ledgercore.StateDelta{})
+//	db.AddBlock(&vb)
+//	require.NoError(t, err)
 //
 //	round, err = db.GetNextRoundToAccount()
 //	require.NoError(t, err)
 //	assert.Equal(t, uint64(1), round)
 //
-//	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader)
+//	block, err = test.MakeBlockForTxns(block.BlockHeader)
 //	require.NoError(t, err)
-//	blockCert := rpcs.EncodedBlockCert{Block: block}
-//	err = proc(&blockCert)
-//	require.NoError(t, err)
+//	block.BlockHeader.Round = 2
+//	vb = ledgercore.MakeValidatedBlock(block, ledgercore.StateDelta{})
+//	db.AddBlock(&vb)
 //
 //	round, err = db.GetNextRoundToAccount()
 //	require.NoError(t, err)
 //	assert.Equal(t, uint64(2), round)
-//
-//	block, err = test.MakeBlockForTxns(block.BlockHeader)
-//	require.NoError(t, err)
-//	blockCert = rpcs.EncodedBlockCert{Block: block}
-//	err = proc(&rpcs.EncodedBlockCert{Block: block})
-//	require.NoError(t, err)
-//
-//	round, err = db.GetNextRoundToAccount()
-//	require.NoError(t, err)
-//	assert.Equal(t, uint64(3), round)
 //}
 
 // Test that AddBlock makes a record of an account that gets created and deleted in
