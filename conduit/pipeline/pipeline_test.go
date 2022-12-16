@@ -509,7 +509,7 @@ func TestPipelineErrors(t *testing.T) {
 		exporter:         &pExporter,
 		completeCallback: []conduit.OnCompleteFunc{cbComplete.OnComplete},
 		pipelineMetadata: state{},
-		preConfigQueue: getStringQueue(),
+		preConfigQueue:   getStringQueue(),
 	}
 
 	mImporter.returnError = true
@@ -569,14 +569,14 @@ func Test_pipelineImpl_registerLifecycleCallbacks(t *testing.T) {
 	ctx, cf := context.WithCancel(context.Background())
 	l, _ := test.NewNullLogger()
 	pImpl := pipelineImpl{
-		ctx:          ctx,
-		cf:           cf,
-		cfg:          &Config{},
-		logger:       l,
-		initProvider: nil,
-		importer:     &pImporter,
-		processors:   []*processors.Processor{&pProcessor, &pProcessor},
-		exporter:     &pExporter,
+		ctx:            ctx,
+		cf:             cf,
+		cfg:            &Config{},
+		logger:         l,
+		initProvider:   nil,
+		importer:       &pImporter,
+		processors:     []*processors.Processor{&pProcessor, &pProcessor},
+		exporter:       &pExporter,
 		preConfigQueue: getStringQueue(),
 	}
 
@@ -996,7 +996,7 @@ func TestPipelineRetryVariables(t *testing.T) {
 					Network:     "",
 					NextRound:   3,
 				},
-				wg: sync.WaitGroup{},
+				wg:             sync.WaitGroup{},
 				preConfigQueue: getStringQueue(),
 			}
 
