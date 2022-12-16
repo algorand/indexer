@@ -164,6 +164,14 @@ type pipelineImpl struct {
 	pipelineMetadata state
 
 	metricsCallback []conduit.ProvideMetricsFunc
+
+	// preConfigQueue is a pointer to a list of strings that should only be logged
+	// after all configuration of the pipeline is complete (i.e. after init() is successfully called).
+	// The main function of conduit will amass logging strings that will only be output once
+	// everything has been configured.  This is to make it so that the end user sees the direct
+	// error first when launching from the command line. Only after the pipeline has been successfully
+	// configured will log messages be recorded.
+	preConfigQueue *[]string
 }
 
 // state contains the pipeline state.
@@ -232,7 +240,7 @@ func (p *pipelineImpl) makeConfig(pluginType, pluginName string, cfg []byte) (co
 
 // Init prepares the pipeline for processing block data
 func (p *pipelineImpl) Init() error {
-	p.logger.Infof("Starting Pipeline Initialization")
+	*p.preConfigQueue = append(*p.preConfigQueue, "Starting Pipeline Initialization")
 
 	prefix := p.cfg.Metrics.Prefix
 	if prefix == "" {
@@ -241,18 +249,16 @@ func (p *pipelineImpl) Init() error {
 	metrics.RegisterPrometheusMetrics(prefix)
 
 	if p.cfg.CPUProfile != "" {
-		p.logger.Infof("Creating CPU Profile file at %s", p.cfg.CPUProfile)
+		*p.preConfigQueue = append(*p.preConfigQueue, fmt.Sprintf("Creating CPU Profile file at %s", p.cfg.CPUProfile))
 		var err error
 		profFile, err := os.Create(p.cfg.CPUProfile)
 		if err != nil {
-			p.logger.WithError(err).Errorf("%s: create, %v", p.cfg.CPUProfile, err)
-			return err
+			return fmt.Errorf("Pipeline.Init(): %s: create, %v", p.cfg.CPUProfile, err)
 		}
 		p.profFile = profFile
 		err = pprof.StartCPUProfile(profFile)
 		if err != nil {
-			p.logger.WithError(err).Errorf("%s: start pprof, %v", p.cfg.CPUProfile, err)
-			return err
+			return fmt.Errorf("Pipeline.Init(): %s: start pprof, %v", p.cfg.CPUProfile, err)
 		}
 	}
 
@@ -274,11 +280,11 @@ func (p *pipelineImpl) Init() error {
 
 	configs, err := yaml.Marshal(p.cfg.Importer.Config)
 	if err != nil {
-		return fmt.Errorf("Pipeline.Start(): could not serialize Importer.Args: %w", err)
+		return fmt.Errorf("Pipeline.Init(): could not serialize Importer.Args: %w", err)
 	}
 	genesis, err := (*p.importer).Init(p.ctx, p.makeConfig("importer", importerName, configs), importerLogger)
 	if err != nil {
-		return fmt.Errorf("Pipeline.Start(): could not initialize importer (%s): %w", importerName, err)
+		return fmt.Errorf("Pipeline.Init(): could not initialize importer (%s): %w", importerName, err)
 	}
 
 	// initialize or load pipeline metadata
@@ -288,18 +294,18 @@ func (p *pipelineImpl) Init() error {
 	p.pipelineMetadata.Network = genesis.Network
 	p.pipelineMetadata, err = p.initializeOrLoadBlockMetadata()
 	if err != nil {
-		return fmt.Errorf("Pipeline.Start(): could not read metadata: %w", err)
+		return fmt.Errorf("Pipeline.Init(): could not read metadata: %w", err)
 	}
 	if p.pipelineMetadata.GenesisHash != ghbase64 {
-		return fmt.Errorf("Pipeline.Start(): genesis hash in metadata does not match expected value: actual %s, expected %s", gh, p.pipelineMetadata.GenesisHash)
+		return fmt.Errorf("Pipeline.Init(): genesis hash in metadata does not match expected value: actual %s, expected %s", gh, p.pipelineMetadata.GenesisHash)
 	}
 	// overriding NextRound if NextRoundOverride is set
 	if p.cfg.ConduitArgs.NextRoundOverride > 0 {
-		p.logger.Infof("Overriding default next round from %d to %d.", p.pipelineMetadata.NextRound, p.cfg.ConduitArgs.NextRoundOverride)
+		*p.preConfigQueue = append(*p.preConfigQueue, fmt.Sprintf("Overriding default next round from %d to %d.", p.pipelineMetadata.NextRound, p.cfg.ConduitArgs.NextRoundOverride))
 		p.pipelineMetadata.NextRound = p.cfg.ConduitArgs.NextRoundOverride
 	}
 
-	p.logger.Infof("Initialized Importer: %s", importerName)
+	*p.preConfigQueue = append(*p.preConfigQueue, fmt.Sprintf("Initialized Importer: %s", importerName))
 
 	// InitProvider
 	round := basics.Round(p.pipelineMetadata.NextRound)
@@ -314,14 +320,14 @@ func (p *pipelineImpl) Init() error {
 		processorLogger.SetFormatter(makePluginLogFormatter(plugins.Processor, (*processor).Metadata().Name))
 		configs, err = yaml.Marshal(p.cfg.Processors[idx].Config)
 		if err != nil {
-			return fmt.Errorf("Pipeline.Start(): could not serialize Processors[%d].Args : %w", idx, err)
+			return fmt.Errorf("Pipeline.Init(): could not serialize Processors[%d].Args : %w", idx, err)
 		}
 		processorName := (*processor).Metadata().Name
 		err := (*processor).Init(p.ctx, *p.initProvider, p.makeConfig("processor", processorName, configs), processorLogger)
 		if err != nil {
 			return fmt.Errorf("Pipeline.Init(): could not initialize processor (%s): %w", processorName, err)
 		}
-		p.logger.Infof("Initialized Processor: %s", processorName)
+		*p.preConfigQueue = append(*p.preConfigQueue, fmt.Sprintf("Initialized Processor: %s", processorName))
 	}
 
 	// Initialize Exporter
@@ -332,14 +338,14 @@ func (p *pipelineImpl) Init() error {
 
 	configs, err = yaml.Marshal(p.cfg.Exporter.Config)
 	if err != nil {
-		return fmt.Errorf("Pipeline.Start(): could not serialize Exporter.Args : %w", err)
+		return fmt.Errorf("Pipeline.Init(): could not serialize Exporter.Args : %w", err)
 	}
 	exporterName := (*p.exporter).Metadata().Name
 	err = (*p.exporter).Init(p.ctx, *p.initProvider, p.makeConfig("exporter", exporterName, configs), exporterLogger)
 	if err != nil {
-		return fmt.Errorf("Pipeline.Start(): could not initialize Exporter (%s): %w", exporterName, err)
+		return fmt.Errorf("Pipeline.Init(): could not initialize Exporter (%s): %w", exporterName, err)
 	}
-	p.logger.Infof("Initialized Exporter: %s", exporterName)
+	*p.preConfigQueue = append(*p.preConfigQueue, fmt.Sprintf("Initialized Exporter: %s", exporterName))
 
 	// Register callbacks.
 	p.registerLifecycleCallbacks()
@@ -558,7 +564,7 @@ func (p *pipelineImpl) startMetricsServer() {
 }
 
 // MakePipeline creates a Pipeline
-func MakePipeline(ctx context.Context, cfg *Config, logger *log.Logger) (Pipeline, error) {
+func MakePipeline(ctx context.Context, cfg *Config, logger *log.Logger, preConfigQueue *[]string) (Pipeline, error) {
 
 	if cfg == nil {
 		return nil, fmt.Errorf("MakePipeline(): pipeline config was empty")
@@ -575,14 +581,15 @@ func MakePipeline(ctx context.Context, cfg *Config, logger *log.Logger) (Pipelin
 	cancelContext, cancelFunc := context.WithCancel(ctx)
 
 	pipeline := &pipelineImpl{
-		ctx:          cancelContext,
-		cf:           cancelFunc,
-		cfg:          cfg,
-		logger:       logger,
-		initProvider: nil,
-		importer:     nil,
-		processors:   []*processors.Processor{},
-		exporter:     nil,
+		ctx:            cancelContext,
+		cf:             cancelFunc,
+		cfg:            cfg,
+		logger:         logger,
+		initProvider:   nil,
+		importer:       nil,
+		processors:     []*processors.Processor{},
+		exporter:       nil,
+		preConfigQueue: preConfigQueue,
 	}
 
 	importerName := cfg.Importer.Name
@@ -594,7 +601,7 @@ func MakePipeline(ctx context.Context, cfg *Config, logger *log.Logger) (Pipelin
 
 	importer := importerBuilder.New()
 	pipeline.importer = &importer
-	logger.Infof("Found Importer: %s", importerName)
+	*preConfigQueue = append(*preConfigQueue, fmt.Sprintf("Found Importer: %s", importerName))
 
 	// ---
 
@@ -608,7 +615,7 @@ func MakePipeline(ctx context.Context, cfg *Config, logger *log.Logger) (Pipelin
 
 		processor := processorBuilder.New()
 		pipeline.processors = append(pipeline.processors, &processor)
-		logger.Infof("Found Processor: %s", processorName)
+		*preConfigQueue = append(*preConfigQueue, fmt.Sprintf("Found Processor: %s", processorName))
 	}
 
 	// ---
@@ -622,7 +629,7 @@ func MakePipeline(ctx context.Context, cfg *Config, logger *log.Logger) (Pipelin
 
 	exporter := exporterBuilder.New()
 	pipeline.exporter = &exporter
-	logger.Infof("Found Exporter: %s", exporterName)
+	*preConfigQueue = append(*preConfigQueue, fmt.Sprintf("Found Exporter: %s", exporterName))
 
 	return pipeline, nil
 }

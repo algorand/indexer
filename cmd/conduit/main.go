@@ -42,6 +42,8 @@ func init() {
 func runConduitCmdWithConfig(args *conduit.Args) error {
 	defer pipeline.HandlePanic(logger)
 
+	preConfigQueue := make([]string, 2)
+
 	if args.ConduitDataDir == "" {
 		args.ConduitDataDir = os.Getenv("CONDUIT_DATA_DIR")
 	}
@@ -62,8 +64,8 @@ func runConduitCmdWithConfig(args *conduit.Args) error {
 		return fmt.Errorf("runConduitCmdWithConfig(): failed to create logger: %w", err)
 	}
 
-	logger.Infof("Using data directory: %s", args.ConduitDataDir)
-	logger.Info("Conduit configuration is valid")
+	preConfigQueue = append(preConfigQueue, fmt.Sprintf("Using data directory: %s", args.ConduitDataDir))
+	preConfigQueue = append(preConfigQueue, fmt.Sprintf("Conduit configuration is valid"))
 
 	if !pCfg.HideBanner {
 		fmt.Printf(banner)
@@ -74,7 +76,7 @@ func runConduitCmdWithConfig(args *conduit.Args) error {
 	}
 
 	ctx := context.Background()
-	pipeline, err := pipeline.MakePipeline(ctx, pCfg, logger)
+	pipeline, err := pipeline.MakePipeline(ctx, pCfg, logger, &preConfigQueue)
 	if err != nil {
 		return fmt.Errorf("pipeline creation error: %w", err)
 	}
@@ -83,6 +85,12 @@ func runConduitCmdWithConfig(args *conduit.Args) error {
 	if err != nil {
 		return fmt.Errorf("pipeline init error: %w", err)
 	}
+
+	// No more configuration before start...dump all strings
+	for _, s := range preConfigQueue {
+		logger.Infof(s)
+	}
+
 	pipeline.Start()
 	defer pipeline.Stop()
 	pipeline.Wait()
