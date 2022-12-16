@@ -4,11 +4,8 @@ import (
 	"context"
 	_ "embed" // used to embed config
 	"fmt"
-	"os"
 	"time"
 
-	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	"github.com/algorand/indexer/types"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
@@ -367,15 +364,6 @@ func MakeBlockProcessorHandlerAdapter(proc *BlockProcessor, handler func(block *
 		}
 
 		vb := blockData.ValidatedBlock()
-
-		out := types.LegercoreValidatedBlock{
-			vb.Block(),
-			vb.Delta(),
-		}
-
-		b := msgpack.Encode(out)
-		f, _ := os.Open("/Users/shiqi/projects/indexer/idb/postgres/test_resources/validated_blocks/AddBlockTxnTxnParticipationAhead.vb")
-		f.Write(b)
 
 		if handler != nil {
 			err = handler(&vb)
