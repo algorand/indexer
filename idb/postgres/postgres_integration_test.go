@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"math"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-codec/codec"
 	"github.com/algorand/indexer/api/generated/v2"
@@ -259,12 +261,6 @@ func TestMultipleWriters(t *testing.T) {
 	///////////
 	// Given // Send amt to AccountE
 	///////////
-	//payAccountE := test.MakePaymentTxn(
-	//	1000, amt, 0, 0, 0, 0, test.AccountD, test.AccountE, basics.Address{},
-	//	basics.Address{})
-	//
-	//block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &payAccountE)
-	//require.NoError(t, err)
 	var vb types.LegercoreValidatedBlock
 	dat, _ := os.ReadFile("test_resources/validated_blocks/MultipleWriters.vb")
 	err := msgpack.Decode(dat, &vb)
@@ -310,116 +306,84 @@ func TestMultipleWriters(t *testing.T) {
 	assert.Equal(t, amt, balance)
 }
 
-// todo
-// TestBlockWithTransactions tests that the block with transactions endpoint works.
-//func TestBlockWithTransactions(t *testing.T) {
-//	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
-//	defer shutdownFunc()
-//	defer l.Close()
-//
-//	round := uint64(1)
-//	assetid := uint64(1)
-//	amt := uint64(10000)
-//	total := uint64(1000000)
-//
-//	///////////
-//	// Given // A block at round `round` with 5 transactions.
-//	///////////
-//	txn1 := test.MakeAssetConfigTxn(
-//		0, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com",
-//		test.AccountD)
-//	txn2 := test.MakeAssetOptInTxn(assetid, test.AccountA)
-//	txn3 := test.MakeAssetTransferTxn(
-//		assetid, amt, test.AccountD, test.AccountA, basics.Address{})
-//	txn4 := test.MakeAssetOptInTxn(assetid, test.AccountB)
-//	txn5 := test.MakeAssetOptInTxn(assetid, test.AccountC)
-//	txn6 := test.MakeAssetTransferTxn(
-//		assetid, 1000, test.AccountA, test.AccountB, test.AccountC)
-//	txn7 := test.MakeAssetTransferTxn(
-//		assetid, 0, test.AccountA, test.AccountA, basics.Address{})
-//	txn8 := test.MakeAssetTransferTxn(
-//		assetid, amt, test.AccountD, test.AccountA, basics.Address{})
-//	txns := []*transactions.SignedTxnWithAD{
-//		&txn1, &txn2, &txn3, &txn4, &txn5, &txn6, &txn7, &txn8}
-//
-//	//block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, txns...)
-//	//require.NoError(t, err)
-//	//
-//	//err = proc(&rpcs.EncodedBlockCert{Block: block})
-//	//require.NoError(t, err)
-//	var vb types.LegercoreValidatedBlock
-//	dat, _ := os.ReadFile("test_resources/validated_blocks/BlockWithTransactions.vb")
-//	err := msgpack.Decode(dat, &vb)
-//	require.NoError(t, err)
-//	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-//	err = db.AddBlock(&block)
-//	require.NoError(t, err)
-//
-//	//////////
-//	// When // We call GetBlock and Transactions
-//	//////////
-//	_, txnRows0, err := db.GetBlock(context.Background(), round, idb.GetBlockOptions{Transactions: true, MaxTransactionsLimit: 100})
-//	require.NoError(t, err)
-//
-//	rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{Round: &round})
-//	txnRows1 := make([]idb.TxnRow, 0)
-//	for row := range rowsCh {
-//		require.NoError(t, row.Error)
-//		txnRows1 = append(txnRows1, row)
-//	}
-//
-//	//////////
-//	// Then // They should have the correct transactions
-//	//////////
-//	assert.Len(t, txnRows0, len(txns))
-//	assert.Len(t, txnRows1, len(txns))
-//	for i := 0; i < len(txnRows0); i++ {
-//		expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txns[i]))
-//		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(txnRows0[i].Txn))
-//		assert.Equal(t, expected, actual)
-//
-//		actual = base64.StdEncoding.EncodeToString(msgpack.Encode(txnRows1[i].Txn))
-//		assert.Equal(t, expected, actual)
-//	}
-//}
-// todo
-//func TestRekeyToItself(t *testing.T) {
-//	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
-//	defer shutdownFunc()
-//	defer l.Close()
-//
-//	///////////
-//	// Given // Send rekey transactions
-//	///////////
-//	txn := test.MakePaymentTxn(
-//		1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountB)
-//	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
-//	require.NoError(t, err)
-//
-//	err = proc(&rpcs.EncodedBlockCert{Block: block})
-//	require.NoError(t, err)
-//
-//	txn = test.MakePaymentTxn(
-//		1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{},
-//		test.AccountA)
-//	block, err = test.MakeBlockForTxns(block.BlockHeader, &txn)
-//	require.NoError(t, err)
-//
-//	err = proc(&rpcs.EncodedBlockCert{Block: block})
-//	require.NoError(t, err)
-//
-//	//////////
-//	// Then // Account's A auth-address is not recorded
-//	//////////
-//	var accountDataStr []byte
-//	row := db.db.QueryRow(context.Background(), `SELECT account_data FROM account WHERE account.addr = $1`, test.AccountA[:])
-//	err = row.Scan(&accountDataStr)
-//	assert.NoError(t, err, "querying account data")
-//
-//	ad, err := encoding.DecodeTrimmedLcAccountData(accountDataStr)
-//	require.NoError(t, err, "failed to parse account data json")
-//	assert.Equal(t, basics.Address{}, ad.AuthAddr)
-//}
+//TestBlockWithTransactions tests that the block with transactions endpoint works.
+func TestBlockWithTransactions(t *testing.T) {
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	defer shutdownFunc()
+	defer l.Close()
+
+	round := uint64(1)
+
+	var vb types.LegercoreValidatedBlock
+	dat, _ := os.ReadFile("test_resources/validated_blocks/BlockWithTransactions.vb")
+	err := msgpack.Decode(dat, &vb)
+	require.NoError(t, err)
+	vb.Blk.BlockHeader.GenesisHash = [32]byte{1}
+	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+
+	//////////
+	// When // We call GetBlock and Transactions
+	//////////
+	_, txnRows0, err := db.GetBlock(context.Background(), round, idb.GetBlockOptions{Transactions: true, MaxTransactionsLimit: 100})
+	require.NoError(t, err)
+
+	rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{Round: &round})
+	txnRows1 := make([]idb.TxnRow, 0)
+	for row := range rowsCh {
+		require.NoError(t, row.Error)
+		txnRows1 = append(txnRows1, row)
+	}
+
+	//////////
+	// Then // They should have the correct transactions
+	//////////
+	txns := vb.Blk.Payset
+	assert.Len(t, txnRows0, len(txns))
+	assert.Len(t, txnRows1, len(txns))
+	for i := 0; i < len(txnRows0); i++ {
+		// todo: maybe this needs to be fixed. AddBlock seems to add genesisHash
+		txnRows0[i].Txn.Txn.Header.GenesisHash = sdk.Digest{}
+		expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txns[i]))
+		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(txnRows0[i].Txn))
+		assert.Equal(t, expected, actual)
+
+		actual = base64.StdEncoding.EncodeToString(msgpack.Encode(txnRows1[i].Txn))
+		assert.Equal(t, expected, actual)
+	}
+}
+
+func TestRekeyToItself(t *testing.T) {
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	defer shutdownFunc()
+	defer l.Close()
+
+	///////////
+	// Given // Send rekey transactions
+	///////////
+
+	var vb types.LegercoreValidatedBlock
+	dat, _ := os.ReadFile("test_resources/validated_blocks/RekeyToItself.vb")
+	err := msgpack.Decode(dat, &vb)
+	require.NoError(t, err)
+	vb.Blk.BlockHeader.GenesisHash = [32]byte{1}
+	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+
+	//////////
+	// Then // Account's A auth-address is not recorded
+	//////////
+	var accountDataStr []byte
+	row := db.db.QueryRow(context.Background(), `SELECT account_data FROM account WHERE account.addr = $1`, test.AccountA[:])
+	err = row.Scan(&accountDataStr)
+	assert.NoError(t, err, "querying account data")
+
+	ad, err := encoding.DecodeTrimmedLcAccountData(accountDataStr)
+	require.NoError(t, err, "failed to parse account data json")
+	assert.Equal(t, basics.Address{}, ad.AuthAddr)
+}
 
 func TestRekeyBasic(t *testing.T) {
 	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
