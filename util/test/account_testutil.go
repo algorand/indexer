@@ -1,10 +1,12 @@
 package test
 
 import (
-	"encoding/base64"
+	"crypto/sha512"
 	"fmt"
 	"math/rand"
 
+	protocol2 "github.com/algorand/indexer/protocol"
+	config2 "github.com/algorand/indexer/protocol/config"
 	"github.com/algorand/indexer/util"
 
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
@@ -41,6 +43,9 @@ var (
 
 	// Proto is a fake protocol version.
 	Proto = protocol.ConsensusFuture
+
+	// PaysetFlat is the payset HashID defined in go-algorand/protocol/hash.go
+	PaysetFlat = "PF"
 )
 
 // DecodeAddressOrPanic is a helper to ensure addresses are initialized.
@@ -937,13 +942,82 @@ func MakeBlockForTxnsV2(prevHeader sdk.BlockHeader, inputs ...*sdk.SignedTxnWith
 }
 
 // MakeGenesisBlockV2 makes a genesis block.
-func MakeGenesisBlockV2() (sdk.Block, error) {
-	var genesisBlock sdk.Block
-	block := MakeGenesisBlock()
-	b64data := base64.StdEncoding.EncodeToString(msgpack.Encode(block))
-	err := genesisBlock.FromBase64String(b64data)
-	if err != nil {
-		return genesisBlock, err
+func MakeGenesisBlockV2() sdk.Block {
+	params := config2.Consensus[protocol2.ConsensusVersion(Proto)]
+	genesis := MakeGenesisV2()
+	// payset hashRep
+	data := msgpack.Encode(sdk.Payset{})
+	hashRep := []byte(PaysetFlat)
+	hashRep = append(hashRep, data...)
+
+	blk := sdk.Block{
+		BlockHeader: sdk.BlockHeader{
+			Round:  0,
+			Branch: sdk.BlockHash{},
+			Seed:   sdk.Seed(genesis.Hash()),
+			TxnCommitments: sdk.TxnCommitments{
+				NativeSha512_256Commitment: sdk.Digest(sha512.Sum512_256(hashRep)),
+				Sha256Commitment:           sdk.Digest{},
+			},
+			TimeStamp:   genesis.Timestamp,
+			GenesisID:   genesis.ID(),
+			GenesisHash: sdk.Digest(GenesisHash),
+			RewardsState: sdk.RewardsState{
+				FeeSink:                   sdk.Address(FeeAddr),
+				RewardsPool:               sdk.Address(RewardAddr),
+				RewardsRecalculationRound: sdk.Round(params.RewardsRateRefreshInterval),
+			},
+			UpgradeState: sdk.UpgradeState{
+				CurrentProtocol: "future",
+			},
+			UpgradeVote: sdk.UpgradeVote{},
+		},
 	}
-	return genesisBlock, nil
+
+	return blk
+}
+
+// MakeGenesisV2 creates a sample sdk.Genesis info.
+func MakeGenesisV2() sdk.Genesis {
+	return sdk.Genesis{
+		SchemaID: "main",
+		Network:  "mynet",
+		Proto:    string(Proto),
+		Allocation: []sdk.GenesisAllocation{
+			{
+				Address: RewardAddr.String(),
+				Comment: "RewardsPool",
+				State: sdk.Account{
+					MicroAlgos: 100000, // minimum balance
+					Status:     2,
+				},
+			},
+			{
+				Address: AccountA.String(),
+				State: sdk.Account{
+					MicroAlgos: 1000 * 1000 * 1000 * 1000,
+				},
+			},
+			{
+				Address: AccountB.String(),
+				State: sdk.Account{
+					MicroAlgos: 1000 * 1000 * 1000 * 1000,
+				},
+			},
+			{
+				Address: AccountC.String(),
+				State: sdk.Account{
+					MicroAlgos: 1000 * 1000 * 1000 * 1000,
+				},
+			},
+			{
+				Address: AccountD.String(),
+				State: sdk.Account{
+					MicroAlgos: 1000 * 1000 * 1000 * 1000,
+				},
+			},
+		},
+		RewardsPool: RewardAddr.String(),
+		FeeSink:     FeeAddr.String(),
+	}
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/algorand/indexer/conduit/plugins/processors"
 	indexerledger "github.com/algorand/indexer/conduit/plugins/processors/eval"
 	"github.com/algorand/indexer/data"
+	"github.com/algorand/indexer/helpers"
 	"github.com/algorand/indexer/util"
 
 	"github.com/algorand/go-algorand/agreement"
@@ -89,7 +90,11 @@ func (proc *blockProcessor) Init(ctx context.Context, initProvider data.InitProv
 	}
 	proc.cfg = cfg
 
-	genesis := initProvider.GetGenesis()
+	sdkgenesis := initProvider.GetGenesis()
+	genesis, err := helpers.ConvertGenesis(sdkgenesis)
+	if err != nil {
+		return fmt.Errorf("could not initialize ledger: %w", err)
+	}
 	round := uint64(initProvider.NextDBRound())
 
 	err = InitializeLedger(ctx, proc.logger, round, *genesis, &pCfg)

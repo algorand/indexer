@@ -5,10 +5,7 @@ package mocks
 import (
 	context "context"
 
-	bookkeeping "github.com/algorand/go-algorand/data/bookkeeping"
-
 	idb "github.com/algorand/indexer/idb"
-
 	indexertypes "github.com/algorand/indexer/types"
 
 	ledgercore "github.com/algorand/go-algorand/ledger/ledgercore"
@@ -311,11 +308,11 @@ func (_m *IndexerDb) Health(ctx context.Context) (idb.Health, error) {
 }
 
 // LoadGenesis provides a mock function with given fields: genesis
-func (_m *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
+func (_m *IndexerDb) LoadGenesis(genesis types.Genesis) error {
 	ret := _m.Called(genesis)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(bookkeeping.Genesis) error); ok {
+	if rf, ok := ret.Get(0).(func(types.Genesis) error); ok {
 		r0 = rf(genesis)
 	} else {
 		r0 = ret.Error(0)
@@ -325,11 +322,11 @@ func (_m *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 }
 
 // SetNetworkState provides a mock function with given fields: genesis
-func (_m *IndexerDb) SetNetworkState(genesis bookkeeping.Genesis) error {
+func (_m *IndexerDb) SetNetworkState(genesis types.Digest) error {
 	ret := _m.Called(genesis)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(bookkeeping.Genesis) error); ok {
+	if rf, ok := ret.Get(0).(func(types.Digest) error); ok {
 		r0 = rf(genesis)
 	} else {
 		r0 = ret.Error(0)

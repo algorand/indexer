@@ -1,7 +1,7 @@
 package types
 
 import (
-	"github.com/algorand/go-algorand/crypto"
+	sdk "github.com/algorand/go-algorand-sdk/types"
 )
 
 // ImportState encodes an import round counter.
@@ -26,7 +26,7 @@ type MigrationState struct {
 
 // NetworkState encodes network metastate.
 type NetworkState struct {
-	GenesisHash crypto.Digest `codec:"genesis-hash"`
+	GenesisHash sdk.Digest `codec:"genesis-hash"`
 }
 
 // DeleteStatus encodes pruned metastate.

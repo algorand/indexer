@@ -13,9 +13,7 @@ import (
 	"github.com/algorand/indexer/types"
 
 	sdk "github.com/algorand/go-algorand-sdk/types"
-	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
@@ -165,13 +163,13 @@ type IndexerDb interface {
 	// Import a block and do the accounting.
 	AddBlock(block *ledgercore.ValidatedBlock) error
 
-	LoadGenesis(genesis bookkeeping.Genesis) (err error)
+	LoadGenesis(genesis sdk.Genesis) (err error)
 
 	// GetNextRoundToAccount returns ErrorNotInitialized if genesis is not loaded.
 	GetNextRoundToAccount() (uint64, error)
 	GetSpecialAccounts(ctx context.Context) (types.SpecialAddresses, error)
 	GetNetworkState() (NetworkState, error)
-	SetNetworkState(genesis bookkeeping.Genesis) error
+	SetNetworkState(genesis sdk.Digest) error
 
 	GetBlock(ctx context.Context, round uint64, options GetBlockOptions) (blockHeader sdk.BlockHeader, transactions []TxnRow, err error)
 
@@ -427,7 +425,7 @@ type Health struct {
 
 // NetworkState encodes network metastate.
 type NetworkState struct {
-	GenesisHash crypto.Digest `codec:"genesis-hash"`
+	GenesisHash sdk.Digest `codec:"genesis-hash"`
 }
 
 // MaxTransactionsError records the error when transaction counts exceeds MaxTransactionsLimit.

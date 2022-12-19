@@ -1,18 +1,18 @@
 package conduit
 
 import (
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
 )
 
 // PipelineInitProvider algod based init provider
 type PipelineInitProvider struct {
 	currentRound *basics.Round
-	genesis      *bookkeeping.Genesis
+	genesis      *sdk.Genesis
 }
 
 // MakePipelineInitProvider constructs an init provider.
-func MakePipelineInitProvider(currentRound *basics.Round, genesis *bookkeeping.Genesis) *PipelineInitProvider {
+func MakePipelineInitProvider(currentRound *basics.Round, genesis *sdk.Genesis) *PipelineInitProvider {
 	return &PipelineInitProvider{
 		currentRound: currentRound,
 		genesis:      genesis,
@@ -20,7 +20,7 @@ func MakePipelineInitProvider(currentRound *basics.Round, genesis *bookkeeping.G
 }
 
 // GetGenesis produces genesis pointer
-func (a *PipelineInitProvider) GetGenesis() *bookkeeping.Genesis {
+func (a *PipelineInitProvider) GetGenesis() *sdk.Genesis {
 	return a.genesis
 }
 

@@ -106,7 +106,7 @@ func compareAppBoxesAgainstDB(t *testing.T, db *IndexerDb,
 func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	start := time.Now()
 
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -443,7 +443,7 @@ func TestBoxCreateMutateDeleteAgainstDB(t *testing.T) {
 func TestRandomWriteReadBoxes(t *testing.T) {
 	start := time.Now()
 
-	db, shutdownFunc, _, ld := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, _, ld := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer ld.Close()
 

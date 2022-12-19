@@ -9,8 +9,6 @@ import (
 	"github.com/algorand/indexer/types"
 
 	sdk "github.com/algorand/go-algorand-sdk/types"
-	"github.com/algorand/go-algorand/crypto"
-	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
@@ -32,7 +30,7 @@ func (db *dummyIndexerDb) AddBlock(block *ledgercore.ValidatedBlock) error {
 }
 
 // LoadGenesis is part of idb.IndexerDB
-func (db *dummyIndexerDb) LoadGenesis(genesis bookkeeping.Genesis) (err error) {
+func (db *dummyIndexerDb) LoadGenesis(genesis sdk.Genesis) (err error) {
 	return nil
 }
 
@@ -98,11 +96,11 @@ func (db *dummyIndexerDb) Health(ctx context.Context) (state idb.Health, err err
 
 // GetNetworkState is part of idb.IndexerDB
 func (db *dummyIndexerDb) GetNetworkState() (state idb.NetworkState, err error) {
-	return idb.NetworkState{GenesisHash: crypto.HashObj(bookkeeping.Genesis{})}, nil
+	return idb.NetworkState{GenesisHash: sdk.Genesis{}.Hash()}, nil
 }
 
 // SetNetworkState is part of idb.IndexerDB
-func (db *dummyIndexerDb) SetNetworkState(genesis bookkeeping.Genesis) error {
+func (db *dummyIndexerDb) SetNetworkState(genesis sdk.Digest) error {
 	return nil
 }
 
