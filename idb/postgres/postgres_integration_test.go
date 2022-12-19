@@ -15,6 +15,7 @@ import (
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
+	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/go-codec/codec"
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
@@ -1387,19 +1388,19 @@ func TestAddBlockCreateDeleteAssetSameRound(t *testing.T) {
 //Test that AddBlock makes a record of an app that is created and deleted in
 //the same round.
 func TestAddBlockCreateDeleteAppSameRound(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
 
 	appid := uint64(1)
-
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/AddBlockCreateDeleteAppSameRound.vb")
-	err := msgpack.Decode(dat, &vb)
+	createTxn := test.MakeCreateAppTxn(test.AccountA)
+	deleteTxn := test.MakeAppDestroyTxn(appid, test.AccountA)
+	block, err := test.MakeBlockForTxns(
+		test.MakeGenesisBlock().BlockHeader, &createTxn, &deleteTxn)
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	opts := idb.ApplicationQuery{
@@ -1417,6 +1418,36 @@ func TestAddBlockCreateDeleteAppSameRound(t *testing.T) {
 	assert.Equal(t, uint64(1), *row.Application.CreatedAtRound)
 	require.NotNil(t, row.Application.DeletedAtRound)
 	assert.Equal(t, uint64(1), *row.Application.DeletedAtRound)
+	//db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	//defer shutdownFunc()
+	//
+	//defer l.Close()
+	//
+	//appid := uint64(1)
+	//
+	//var vb types.LegercoreValidatedBlock
+	//dat, _ := os.ReadFile("test_resources/validated_blocks/AddBlockCreateDeleteAppSameRound.vb")
+	//err := msgpack.Decode(dat, &vb)
+	//require.NoError(t, err)
+	//block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	//err = db.AddBlock(&block)
+	//require.NoError(t, err)
+	//
+	//opts := idb.ApplicationQuery{
+	//	ApplicationID:  appid,
+	//	IncludeDeleted: true,
+	//}
+	//rowsCh, _ := db.Applications(context.Background(), opts)
+	//
+	//row, ok := <-rowsCh
+	//require.True(t, ok)
+	//require.NoError(t, row.Error)
+	//require.NotNil(t, row.Application.Deleted)
+	//assert.True(t, *row.Application.Deleted)
+	//require.NotNil(t, row.Application.CreatedAtRound)
+	//assert.Equal(t, uint64(1), *row.Application.CreatedAtRound)
+	//require.NotNil(t, row.Application.DeletedAtRound)
+	//assert.Equal(t, uint64(1), *row.Application.DeletedAtRound)
 }
 
 // Test that AddBlock makes a record of an app that is created and deleted in
