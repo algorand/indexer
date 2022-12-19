@@ -6,14 +6,13 @@ import (
 	"path"
 	"testing"
 
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
-
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/processors"
 	testutil "github.com/algorand/indexer/util/test"
@@ -49,7 +48,7 @@ func TestInitDefaults(t *testing.T) {
 	var round = basics.Round(0)
 	ip := testutil.MockedInitProvider(&round)
 	var addr basics.Address
-	ip.Genesis = &bookkeeping.Genesis{
+	ip.Genesis = &sdk.Genesis{
 		SchemaID:    "test",
 		Network:     "test",
 		Proto:       "future",
@@ -57,8 +56,6 @@ func TestInitDefaults(t *testing.T) {
 		RewardsPool: addr.String(),
 		FeeSink:     addr.String(),
 		Timestamp:   1234,
-		Comment:     "",
-		DevMode:     true,
 	}
 	logger, _ := test.NewNullLogger()
 
