@@ -542,7 +542,7 @@ func TestTxnExtra(t *testing.T) {
 // same object.
 func TestNetworkStateEncoding(t *testing.T) {
 	network := types.NetworkState{
-		GenesisHash: crypto.Digest{77},
+		GenesisHash: sdk.Digest{77},
 	}
 
 	buf := EncodeNetworkState(&network)

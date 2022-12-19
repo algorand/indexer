@@ -1,6 +1,7 @@
 package data
 
 import (
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
@@ -18,7 +19,7 @@ type RoundProvider interface {
 // InitProvider is the interface that can be used when initializing to get common algod related
 // variables
 type InitProvider interface {
-	GetGenesis() *bookkeeping.Genesis
+	GetGenesis() *sdk.Genesis
 	NextDBRound() basics.Round
 }
 

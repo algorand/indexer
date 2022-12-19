@@ -269,7 +269,7 @@ func getProof(path string) (route string, proof prover, err error) {
 
 // WARNING: receiver should not call l.Close()
 func setupIdbAndReturnShutdownFunc(t *testing.T) (db *postgres.IndexerDb, proc func(cert *rpcs.EncodedBlockCert) error, l *ledger.Ledger, shutdown func()) {
-	db, dbShutdown, proc, l := setupIdb(t, test.MakeGenesis())
+	db, dbShutdown, proc, l := setupIdb(t, test.MakeGenesisV2())
 
 	shutdown = func() {
 		dbShutdown()

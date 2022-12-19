@@ -4,12 +4,16 @@ import (
 	"encoding/base64"
 	"fmt"
 
+	"github.com/algorand/indexer/protocol"
 	"github.com/algorand/indexer/types"
 
+	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
+	protocol2 "github.com/algorand/go-algorand/protocol"
 )
 
 // TODO: remove this file once all types have been converted to sdk types.
@@ -41,4 +45,32 @@ func ConvertValidatedBlock(vb ledgercore.ValidatedBlock) (types.ValidatedBlock, 
 	}
 	ret.Delta = vb.Delta()
 	return ret, nil
+}
+
+// ConvertConsensusType returns a go-algorand/protocol.ConsensusVersion type
+func ConvertConsensusType(v protocol.ConsensusVersion) protocol2.ConsensusVersion {
+	return protocol2.ConsensusVersion(v)
+}
+
+// ConvertAccountType returns a basics.AccountData type
+func ConvertAccountType(account sdk.Account) basics.AccountData {
+	return basics.AccountData{
+		Status:          basics.Status(account.Status),
+		MicroAlgos:      basics.MicroAlgos{Raw: account.MicroAlgos},
+		VoteID:          account.VoteID,
+		SelectionID:     account.SelectionID,
+		VoteLastValid:   basics.Round(account.VoteLastValid),
+		VoteKeyDilution: account.VoteKeyDilution,
+	}
+}
+
+// ConvertGenesis returns bookkeeping.Genesis
+func ConvertGenesis(genesis *sdk.Genesis) (*bookkeeping.Genesis, error) {
+	var ret bookkeeping.Genesis
+	b := json.Encode(genesis)
+	err := json.Decode(b, &ret)
+	if err != nil {
+		return &ret, fmt.Errorf("ConvertGenesis err: %v", err)
+	}
+	return &ret, nil
 }

@@ -19,7 +19,7 @@ import (
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/util"
 
-	"github.com/algorand/go-algorand/data/bookkeeping"
+	sdk "github.com/algorand/go-algorand-sdk/types"
 )
 
 const importerName = "file_reader"
@@ -57,7 +57,7 @@ func init() {
 	}))
 }
 
-func (r *fileReader) Init(ctx context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) (*bookkeeping.Genesis, error) {
+func (r *fileReader) Init(ctx context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) (*sdk.Genesis, error) {
 	r.ctx, r.cancel = context.WithCancel(ctx)
 	r.logger = logger
 	var err error
@@ -71,7 +71,7 @@ func (r *fileReader) Init(ctx context.Context, cfg plugins.PluginConfig, logger 
 	}
 
 	genesisFile := path.Join(r.cfg.BlocksDir, "genesis.json")
-	var genesis bookkeeping.Genesis
+	var genesis sdk.Genesis
 	err = util.DecodeFromFile(genesisFile, &genesis)
 	if err != nil {
 		return nil, fmt.Errorf("Init(): failed to process genesis file: %w", err)

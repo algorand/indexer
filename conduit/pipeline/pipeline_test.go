@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"math"
 	"net/http"
@@ -12,12 +13,12 @@ import (
 	"testing"
 	"time"
 
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	log "github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 
@@ -202,13 +203,13 @@ type mockImporter struct {
 	mock.Mock
 	importers.Importer
 	cfg             plugins.PluginConfig
-	genesis         bookkeeping.Genesis
+	genesis         sdk.Genesis
 	finalRound      basics.Round
 	returnError     bool
 	onCompleteError bool
 }
 
-func (m *mockImporter) Init(_ context.Context, cfg plugins.PluginConfig, _ *log.Logger) (*bookkeeping.Genesis, error) {
+func (m *mockImporter) Init(_ context.Context, cfg plugins.PluginConfig, _ *log.Logger) (*sdk.Genesis, error) {
 	m.cfg = cfg
 	return &m.genesis, nil
 }
@@ -704,7 +705,7 @@ func TestBlockMetaDataFile(t *testing.T) {
 }
 
 func TestGenesisHash(t *testing.T) {
-	var pImporter importers.Importer = &mockImporter{genesis: bookkeeping.Genesis{Network: "test"}}
+	var pImporter importers.Importer = &mockImporter{genesis: sdk.Genesis{Network: "test"}}
 	var pProcessor processors.Processor = &mockProcessor{}
 	var pExporter exporters.Exporter = &mockExporter{}
 	datadir := t.TempDir()
@@ -748,11 +749,13 @@ func TestGenesisHash(t *testing.T) {
 	// read genesis hash from metadata.json
 	blockmetaData, err := pImpl.initializeOrLoadBlockMetadata()
 	assert.NoError(t, err)
-	assert.Equal(t, blockmetaData.GenesisHash, crypto.HashObj(&bookkeeping.Genesis{Network: "test"}).String())
+	genesis := &sdk.Genesis{Network: "test"}
+	gh := genesis.Hash()
+	assert.Equal(t, blockmetaData.GenesisHash, base64.StdEncoding.EncodeToString(gh[:]))
 	assert.Equal(t, blockmetaData.Network, "test")
 
 	// mock a different genesis hash
-	pImporter = &mockImporter{genesis: bookkeeping.Genesis{Network: "dev"}}
+	pImporter = &mockImporter{genesis: sdk.Genesis{Network: "dev"}}
 	pImpl.importer = &pImporter
 	err = pImpl.Init()
 	assert.Contains(t, err.Error(), "genesis hash in metadata does not match")
@@ -834,7 +837,7 @@ func TestPipelineMetricsConfigs(t *testing.T) {
 }
 
 func TestRoundOverwrite(t *testing.T) {
-	var pImporter importers.Importer = &mockImporter{genesis: bookkeeping.Genesis{Network: "test"}}
+	var pImporter importers.Importer = &mockImporter{genesis: sdk.Genesis{Network: "test"}}
 	var pProcessor processors.Processor = &mockProcessor{}
 	var pExporter exporters.Exporter = &mockExporter{}
 	l, _ := test.NewNullLogger()
@@ -886,7 +889,7 @@ func TestRoundOverwrite(t *testing.T) {
 
 // an importer that simply errors out when GetBlock() is called
 type errorImporter struct {
-	genesis       *bookkeeping.Genesis
+	genesis       *sdk.Genesis
 	GetBlockCount uint64
 }
 
@@ -906,7 +909,7 @@ func (e *errorImporter) Metadata() conduit.Metadata {
 	return errorImporterMetadata
 }
 
-func (e *errorImporter) Init(_ context.Context, _ plugins.PluginConfig, _ *log.Logger) (*bookkeeping.Genesis, error) {
+func (e *errorImporter) Init(_ context.Context, _ plugins.PluginConfig, _ *log.Logger) (*sdk.Genesis, error) {
 	return e.genesis, nil
 }
 
@@ -940,7 +943,7 @@ func TestPipelineRetryVariables(t *testing.T) {
 	for _, testCase := range tests {
 		t.Run(testCase.name, func(t *testing.T) {
 
-			errImporter := &errorImporter{genesis: &bookkeeping.Genesis{Network: "test"}}
+			errImporter := &errorImporter{genesis: &sdk.Genesis{Network: "test"}}
 			var pImporter importers.Importer = errImporter
 			var pProcessor processors.Processor = &mockProcessor{}
 			var pExporter exporters.Exporter = &mockExporter{}
