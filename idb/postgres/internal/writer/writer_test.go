@@ -12,13 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	crypto2 "github.com/algorand/go-algorand-sdk/crypto"
-	sdk "github.com/algorand/go-algorand-sdk/types"
-	"github.com/algorand/go-algorand/crypto"
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/transactions/logic"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
-
 	"github.com/algorand/indexer/helpers"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
@@ -29,6 +22,13 @@ import (
 	"github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/test"
+
+	crypto2 "github.com/algorand/go-algorand-sdk/crypto"
+	sdk "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand/crypto"
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/transactions/logic"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
 var serializable = pgx.TxOptions{IsoLevel: pgx.Serializable}

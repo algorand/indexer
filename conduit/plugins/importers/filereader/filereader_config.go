@@ -4,8 +4,7 @@ import "time"
 
 // Config specific to the file importer
 type Config struct {
-	// BlocksDir is the path to a directory where block data should be stored.
-	// The directory is created if it doesn't exist.
+	// BlocksDir is the path to a directory where block data is stored.
 	BlocksDir string `yaml:"block-dir"`
 	// RetryDuration controls the delay between checks when the importer has
 	// caught up and is waiting for new blocks to appear.

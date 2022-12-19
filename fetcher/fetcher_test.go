@@ -3,8 +3,6 @@ package fetcher
 import (
 	"context"
 	"fmt"
-	"github.com/algorand/indexer/util/test"
-	"github.com/stretchr/testify/assert"
 	"io/fs"
 	"net/http"
 	"os"
@@ -13,12 +11,15 @@ import (
 	"testing"
 
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
+
+	"github.com/algorand/indexer/util/test"
 )
 
 type BlockHandler struct {

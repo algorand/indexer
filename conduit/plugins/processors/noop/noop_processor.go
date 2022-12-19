@@ -38,7 +38,7 @@ func (p *Processor) Metadata() conduit.Metadata {
 }
 
 // Config noop
-func (p *Processor) Config() plugins.PluginConfig {
+func (p *Processor) Config() string {
 	return ""
 }
 

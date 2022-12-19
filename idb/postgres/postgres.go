@@ -29,16 +29,16 @@ import (
 	"github.com/algorand/indexer/idb/postgres/internal/types"
 	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
 	"github.com/algorand/indexer/idb/postgres/internal/writer"
-	"github.com/algorand/indexer/protocol"
-	"github.com/algorand/indexer/protocol/config"
 	itypes "github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/util"
 
 	sdk "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand/config"
 	config2 "github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	protocol2 "github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/go-algorand/protocol"
 )
 
 var serializable = pgx.TxOptions{IsoLevel: pgx.Serializable} // be a real ACID database

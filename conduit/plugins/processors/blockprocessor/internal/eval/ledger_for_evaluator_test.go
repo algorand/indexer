@@ -18,7 +18,7 @@ import (
 	"github.com/algorand/go-algorand/rpcs"
 
 	block_processor "github.com/algorand/indexer/conduit/plugins/processors/blockprocessor"
-	indxLedger "github.com/algorand/indexer/conduit/plugins/processors/eval"
+	indxLedger "github.com/algorand/indexer/conduit/plugins/processors/blockprocessor/internal/eval"
 	"github.com/algorand/indexer/util/test"
 )
 

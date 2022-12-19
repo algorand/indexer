@@ -61,7 +61,7 @@ func (r *fileReader) Init(ctx context.Context, cfg plugins.PluginConfig, logger 
 	r.ctx, r.cancel = context.WithCancel(ctx)
 	r.logger = logger
 	var err error
-	r.cfg, err = unmarshalConfig(string(cfg))
+	err = cfg.UnmarshalConfig(&r.cfg)
 	if err != nil {
 		return nil, fmt.Errorf("invalid configuration: %v", err)
 	}
@@ -80,9 +80,9 @@ func (r *fileReader) Init(ctx context.Context, cfg plugins.PluginConfig, logger 
 	return &genesis, err
 }
 
-func (r *fileReader) Config() plugins.PluginConfig {
+func (r *fileReader) Config() string {
 	s, _ := yaml.Marshal(r.cfg)
-	return plugins.PluginConfig(s)
+	return string(s)
 }
 
 func (r *fileReader) Close() error {
@@ -120,10 +120,4 @@ func (r *fileReader) GetBlock(rnd uint64) (data.BlockData, error) {
 			return blockData, nil
 		}
 	}
-}
-
-func unmarshalConfig(cfg string) (Config, error) {
-	var config Config
-	err := yaml.Unmarshal([]byte(cfg), &config)
-	return config, err
 }

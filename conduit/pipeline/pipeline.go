@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"path/filepath"
 	"runtime/pprof"
 	"sync"
 	"time"
@@ -17,7 +16,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 
 	"github.com/algorand/indexer/conduit"
@@ -32,10 +30,6 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 )
 
-func init() {
-	viper.SetConfigType("yaml")
-}
-
 // NameConfigPair is a generic structure used across plugin configuration ser/de
 type NameConfigPair struct {
 	Name   string                 `yaml:"name"`
@@ -44,16 +38,19 @@ type NameConfigPair struct {
 
 // Metrics configs for turning on Prometheus endpoint /metrics
 type Metrics struct {
-	Mode string `yaml:"mode"`
-	Addr string `yaml:"addr"`
+	Mode   string `yaml:"mode"`
+	Addr   string `yaml:"addr"`
+	Prefix string `yaml:"prefix"`
 }
 
 // Config stores configuration specific to the conduit pipeline
 type Config struct {
-	ConduitConfig *conduit.Config
+	// ConduitArgs are the program inputs. Should not be serialized for config.
+	ConduitArgs *conduit.Args `yaml:"-"`
 
 	CPUProfile  string `yaml:"cpu-profile"`
 	PIDFilePath string `yaml:"pid-filepath"`
+	HideBanner  bool   `yaml:"hide-banner"`
 
 	LogFile          string `yaml:"log-file"`
 	PipelineLogLevel string `yaml:"log-level"`
@@ -62,60 +59,71 @@ type Config struct {
 	Processors []NameConfigPair `yaml:"processors"`
 	Exporter   NameConfigPair   `yaml:"exporter"`
 	Metrics    Metrics          `yaml:"metrics"`
+	// RetryCount is the number of retries to perform for an error in the pipeline
+	RetryCount uint64 `yaml:"retry-count"`
+	// RetryDelay is a duration amount interpreted from a string
+	RetryDelay time.Duration `yaml:"retry-delay"`
 }
 
 // Valid validates pipeline config
 func (cfg *Config) Valid() error {
-	if cfg.ConduitConfig == nil {
-		return fmt.Errorf("Config.Valid(): conduit configuration was nil")
+	if cfg.ConduitArgs == nil {
+		return fmt.Errorf("Args.Valid(): conduit args were nil")
+	}
+	if cfg.PipelineLogLevel != "" {
+		if _, err := log.ParseLevel(cfg.PipelineLogLevel); err != nil {
+			return fmt.Errorf("Args.Valid(): pipeline log level (%s) was invalid: %w", cfg.PipelineLogLevel, err)
+		}
 	}
 
-	if _, err := log.ParseLevel(cfg.PipelineLogLevel); err != nil {
-		return fmt.Errorf("Config.Valid(): pipeline log level (%s) was invalid: %w", cfg.PipelineLogLevel, err)
-	}
-
-	if len(cfg.Importer.Config) == 0 {
-		return fmt.Errorf("Config.Valid(): importer configuration was empty")
-	}
-
-	if len(cfg.Exporter.Config) == 0 {
-		return fmt.Errorf("Config.Valid(): exporter configuration was empty")
+	// If it is a negative time, it is an error
+	if cfg.RetryDelay < 0 {
+		return fmt.Errorf("Args.Valid(): invalid retry delay - time duration was negative (%s)", cfg.RetryDelay.String())
 	}
 
 	return nil
 }
 
 // MakePipelineConfig creates a pipeline configuration
-func MakePipelineConfig(logger *log.Logger, cfg *conduit.Config) (*Config, error) {
-	if cfg == nil {
+func MakePipelineConfig(args *conduit.Args) (*Config, error) {
+	if args == nil {
 		return nil, fmt.Errorf("MakePipelineConfig(): empty conduit config")
 	}
 
-	// double check that it is valid
-	if err := cfg.Valid(); err != nil {
-		return nil, fmt.Errorf("MakePipelineConfig(): %w", err)
+	if !util.IsDir(args.ConduitDataDir) {
+		return nil, fmt.Errorf("MakePipelineConfig(): invalid data dir")
 	}
-	pCfg := Config{PipelineLogLevel: logger.Level.String(), ConduitConfig: cfg}
 
 	// Search for pipeline configuration in data directory
-	autoloadParamConfigPath := filepath.Join(cfg.ConduitDataDir, conduit.DefaultConfigName)
-
-	_, err := os.Stat(autoloadParamConfigPath)
-	paramConfigFound := err == nil
-
-	if !paramConfigFound {
-		return nil, fmt.Errorf("MakePipelineConfig(): could not find %s in data directory (%s)", conduit.DefaultConfigName, cfg.ConduitDataDir)
+	autoloadParamConfigPath, err := util.GetConfigFromDataDir(args.ConduitDataDir, conduit.DefaultConfigBaseName, []string{"yml", "yaml"})
+	if err != nil || autoloadParamConfigPath == "" {
+		return nil, fmt.Errorf("MakePipelineConfig(): could not find %s in data directory (%s)", conduit.DefaultConfigName, args.ConduitDataDir)
 	}
 
-	logger.Infof("Auto-loading Conduit Configuration: %s", autoloadParamConfigPath)
-
-	file, err := os.ReadFile(autoloadParamConfigPath)
+	file, err := os.Open(autoloadParamConfigPath)
 	if err != nil {
 		return nil, fmt.Errorf("MakePipelineConfig(): reading config error: %w", err)
 	}
-	err = yaml.Unmarshal(file, &pCfg)
+
+	pCfgDecoder := yaml.NewDecoder(file)
+	// Make sure we are strict about only unmarshalling known fields
+	pCfgDecoder.KnownFields(true)
+
+	var pCfg Config
+	// Set default value for retry variables
+	pCfg.RetryDelay = 1 * time.Second
+	pCfg.RetryCount = 10
+	err = pCfgDecoder.Decode(&pCfg)
 	if err != nil {
 		return nil, fmt.Errorf("MakePipelineConfig(): config file (%s) was mal-formed yaml: %w", autoloadParamConfigPath, err)
+	}
+
+	// For convenience, include the command line arguments.
+	pCfg.ConduitArgs = args
+
+	// Default log level.
+	if pCfg.PipelineLogLevel == "" {
+		pCfg.PipelineLogLevel = conduit.DefaultLogLevel.String()
 	}
 
 	if err := pCfg.Valid(); err != nil {
@@ -123,7 +131,6 @@ func MakePipelineConfig(logger *log.Logger, cfg *conduit.Config) (*Config, error
 	}
 
 	return &pCfg, nil
-
 }
 
 // Pipeline is a struct that orchestrates the entire
@@ -193,22 +200,45 @@ func (p *pipelineImpl) registerLifecycleCallbacks() {
 }
 
 func (p *pipelineImpl) registerPluginMetricsCallbacks() {
+	var collectors []prometheus.Collector
 	if v, ok := (*p.importer).(conduit.PluginMetrics); ok {
-		p.metricsCallback = append(p.metricsCallback, v.ProvideMetrics)
+		collectors = append(collectors, v.ProvideMetrics()...)
 	}
 	for _, processor := range p.processors {
 		if v, ok := (*processor).(conduit.PluginMetrics); ok {
-			p.metricsCallback = append(p.metricsCallback, v.ProvideMetrics)
+			collectors = append(collectors, v.ProvideMetrics()...)
 		}
 	}
 	if v, ok := (*p.exporter).(conduit.PluginMetrics); ok {
-		p.metricsCallback = append(p.metricsCallback, v.ProvideMetrics)
+		collectors = append(collectors, v.ProvideMetrics()...)
 	}
+	for _, c := range collectors {
+		_ = prometheus.Register(c)
+	}
+}
+
+func (p *pipelineImpl) makeConfig(pluginType, pluginName string, cfg []byte) (config plugins.PluginConfig) {
+	config.Config = string(cfg)
+	if p.cfg != nil && p.cfg.ConduitArgs != nil {
+		config.DataDir = path.Join(p.cfg.ConduitArgs.ConduitDataDir, fmt.Sprintf("%s_%s", pluginType, pluginName))
+		err := os.MkdirAll(config.DataDir, os.ModePerm)
+		if err != nil {
+			p.logger.Errorf("Unable to create plugin data directory: %s", err)
+			config.DataDir = ""
+		}
+	}
+	return
 }
 
 // Init prepares the pipeline for processing block data
 func (p *pipelineImpl) Init() error {
 	p.logger.Infof("Starting Pipeline Initialization")
+
+	prefix := p.cfg.Metrics.Prefix
+	if prefix == "" {
+		prefix = "conduit"
+	}
+	metrics.RegisterPrometheusMetrics(prefix)
 
 	if p.cfg.CPUProfile != "" {
 		p.logger.Infof("Creating CPU Profile file at %s", p.cfg.CPUProfile)
@@ -244,9 +274,9 @@ func (p *pipelineImpl) Init() error {
 
 	configs, err := yaml.Marshal(p.cfg.Importer.Config)
 	if err != nil {
-		return fmt.Errorf("Pipeline.Start(): could not serialize Importer.Config: %w", err)
+		return fmt.Errorf("Pipeline.Start(): could not serialize Importer.Args: %w", err)
 	}
-	genesis, err := (*p.importer).Init(p.ctx, plugins.PluginConfig(configs), importerLogger)
+	genesis, err := (*p.importer).Init(p.ctx, p.makeConfig("importer", importerName, configs), importerLogger)
 	if err != nil {
 		return fmt.Errorf("Pipeline.Start(): could not initialize importer (%s): %w", importerName, err)
 	}
@@ -264,9 +294,9 @@ func (p *pipelineImpl) Init() error {
 		return fmt.Errorf("Pipeline.Start(): genesis hash in metadata does not match expected value: actual %s, expected %s", gh, p.pipelineMetadata.GenesisHash)
 	}
 	// overriding NextRound if NextRoundOverride is set
-	if p.cfg.ConduitConfig.NextRoundOverride > 0 {
-		p.logger.Infof("Overriding default next round from %d to %d.", p.pipelineMetadata.NextRound, p.cfg.ConduitConfig.NextRoundOverride)
-		p.pipelineMetadata.NextRound = p.cfg.ConduitConfig.NextRoundOverride
+	if p.cfg.ConduitArgs.NextRoundOverride > 0 {
+		p.logger.Infof("Overriding default next round from %d to %d.", p.pipelineMetadata.NextRound, p.cfg.ConduitArgs.NextRoundOverride)
+		p.pipelineMetadata.NextRound = p.cfg.ConduitArgs.NextRoundOverride
 	}
 
 	p.logger.Infof("Initialized Importer: %s", importerName)
@@ -284,10 +314,10 @@ func (p *pipelineImpl) Init() error {
 		processorLogger.SetFormatter(makePluginLogFormatter(plugins.Processor, (*processor).Metadata().Name))
 		configs, err = yaml.Marshal(p.cfg.Processors[idx].Config)
 		if err != nil {
-			return fmt.Errorf("Pipeline.Start(): could not serialize Processors[%d].Config : %w", idx, err)
+			return fmt.Errorf("Pipeline.Start(): could not serialize Processors[%d].Args : %w", idx, err)
 		}
-		err := (*processor).Init(p.ctx, *p.initProvider, plugins.PluginConfig(configs), processorLogger)
 		processorName := (*processor).Metadata().Name
+		err := (*processor).Init(p.ctx, *p.initProvider, p.makeConfig("processor", processorName, configs), processorLogger)
 		if err != nil {
 			return fmt.Errorf("Pipeline.Init(): could not initialize processor (%s): %w", processorName, err)
 		}
@@ -302,10 +332,10 @@ func (p *pipelineImpl) Init() error {
 
 	configs, err = yaml.Marshal(p.cfg.Exporter.Config)
 	if err != nil {
-		return fmt.Errorf("Pipeline.Start(): could not serialize Exporter.Config : %w", err)
+		return fmt.Errorf("Pipeline.Start(): could not serialize Exporter.Args : %w", err)
 	}
-	err = (*p.exporter).Init(p.ctx, *p.initProvider, plugins.PluginConfig(configs), exporterLogger)
 	exporterName := (*p.exporter).Metadata().Name
+	err = (*p.exporter).Init(p.ctx, *p.initProvider, p.makeConfig("exporter", exporterName, configs), exporterLogger)
 	if err != nil {
 		return fmt.Errorf("Pipeline.Start(): could not initialize Exporter (%s): %w", exporterName, err)
 	}
@@ -317,12 +347,6 @@ func (p *pipelineImpl) Init() error {
 	// start metrics server
 	if p.cfg.Metrics.Mode == "ON" {
 		p.registerPluginMetricsCallbacks()
-		for _, cb := range p.metricsCallback {
-			collectors := cb()
-			for _, c := range collectors {
-				_ = prometheus.Register(c)
-			}
-		}
 		go p.startMetricsServer()
 	}
 
@@ -379,7 +403,7 @@ func (p *pipelineImpl) addMetrics(block data.BlockData, importTime time.Duration
 // Start pushes block data through the pipeline
 func (p *pipelineImpl) Start() {
 	p.wg.Add(1)
-	retry := 0
+	retry := uint64(0)
 	go func() {
 		defer p.wg.Done()
 		// We need to add a separate recover function here since it launches its own go-routine
@@ -387,6 +411,15 @@ func (p *pipelineImpl) Start() {
 		for {
 		pipelineRun:
 			metrics.PipelineRetryCount.Observe(float64(retry))
+			if retry > p.cfg.RetryCount {
+				p.logger.Errorf("Pipeline has exceeded maximum retry count (%d) - stopping...", p.cfg.RetryCount)
+				return
+			}
+
+			if retry > 0 {
+				time.Sleep(p.cfg.RetryDelay)
+			}
+
 			select {
 			case <-p.ctx.Done():
 				return
@@ -430,7 +463,10 @@ func (p *pipelineImpl) Start() {
 
 					// Increment Round, update metadata
 					p.pipelineMetadata.NextRound++
-					_ = p.encodeMetadataToFile()
+					err = p.encodeMetadataToFile()
+					if err != nil {
+						p.logger.Errorf("%v", err)
+					}
 
 					// Callback Processors
 					for _, cb := range p.completeCallback {
@@ -465,7 +501,7 @@ func metadataPath(dataDir string) string {
 }
 
 func (p *pipelineImpl) encodeMetadataToFile() error {
-	pipelineMetadataFilePath := metadataPath(p.cfg.ConduitConfig.ConduitDataDir)
+	pipelineMetadataFilePath := metadataPath(p.cfg.ConduitArgs.ConduitDataDir)
 	tempFilename := fmt.Sprintf("%s.temp", pipelineMetadataFilePath)
 	file, err := os.Create(tempFilename)
 	if err != nil {
@@ -485,10 +521,8 @@ func (p *pipelineImpl) encodeMetadataToFile() error {
 }
 
 func (p *pipelineImpl) initializeOrLoadBlockMetadata() (state, error) {
-	pipelineMetadataFilePath := metadataPath(p.cfg.ConduitConfig.ConduitDataDir)
+	pipelineMetadataFilePath := metadataPath(p.cfg.ConduitArgs.ConduitDataDir)
 	if stat, err := os.Stat(pipelineMetadataFilePath); errors.Is(err, os.ErrNotExist) || (stat != nil && stat.Size() == 0) {
-		fmt.Println(err)
-		fmt.Println(stat)
 		if stat != nil && stat.Size() == 0 {
 			err = os.Remove(pipelineMetadataFilePath)
 			if err != nil {
@@ -537,21 +571,6 @@ func MakePipeline(ctx context.Context, cfg *Config, logger *log.Logger) (Pipelin
 	if logger == nil {
 		return nil, fmt.Errorf("MakePipeline(): logger was empty")
 	}
-
-	if cfg.LogFile != "" {
-		f, err := os.OpenFile(cfg.LogFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
-		if err != nil {
-			return nil, fmt.Errorf("MakePipeline(): %w", err)
-		}
-		logger.SetOutput(f)
-	}
-
-	logLevel, err := log.ParseLevel(cfg.PipelineLogLevel)
-	if err != nil {
-		// Belt and suspenders.  Valid() should have caught this
-		return nil, fmt.Errorf("MakePipeline(): config had mal-formed log level: %w", err)
-	}
-	logger.SetLevel(logLevel)
 
 	cancelContext, cancelFunc := context.WithCancel(ctx)
 

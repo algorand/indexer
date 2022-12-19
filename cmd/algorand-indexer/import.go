@@ -23,7 +23,11 @@ var importCmd = &cobra.Command{
 			panic(exit{1})
 		}
 
-		db, availableCh := indexerDbFromFlags(idb.IndexerDbOptions{})
+		db, availableCh, err := indexerDbFromFlags(idb.IndexerDbOptions{})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, err.Error())
+			return
+		}
 		defer db.Close()
 		<-availableCh
 

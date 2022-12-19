@@ -2,9 +2,10 @@
 
 Enrich raw block data with a "State Delta" object which contains new account values. For example: new account balances, new application states, which assets have been created or deleted, etc.
 
-The block evaluator computes the delta by maintaining a local ledger and evaluating each block locally.
+The block evaluator computes the delta by maintaining a local ledger and evaluating each block locally. By default this data is written to the block evaluator plugin directory inside the indexer data directory.
 
 State Delta's are required by some exporters.
+
 
 ## algod requirement
 
@@ -29,7 +30,7 @@ For example, if you want to get **Mainnet** round `22212765`, you would refer to
 processors:
   - name: block_evaluator
     config:
-      - data-dir: "location where the local ledger will be stored."
+      - ledger-dir: "override default local ledger location."
         algod-data-dir: "local algod data directory"
         algod-addr: "algod URL"
         algod-token: "algod token"

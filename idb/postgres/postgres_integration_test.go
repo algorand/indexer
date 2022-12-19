@@ -18,16 +18,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	crypto2 "github.com/algorand/go-algorand-sdk/crypto"
-	"github.com/algorand/go-algorand-sdk/encoding/json"
-	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	sdk "github.com/algorand/go-algorand-sdk/types"
-	"github.com/algorand/go-algorand/crypto"
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/transactions"
-	protocol2 "github.com/algorand/go-algorand/protocol"
-	"github.com/algorand/go-algorand/rpcs"
-
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/conduit/plugins/processors/blockprocessor"
 	"github.com/algorand/indexer/helpers"
@@ -40,6 +30,17 @@ import (
 	"github.com/algorand/indexer/protocol"
 	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/test"
+
+	crypto2 "github.com/algorand/go-algorand-sdk/crypto"
+	"github.com/algorand/go-algorand-sdk/encoding/json"
+	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
+	sdk "github.com/algorand/go-algorand-sdk/types"
+
+	"github.com/algorand/go-algorand/crypto"
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/transactions"
+	protocol2 "github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/go-algorand/rpcs"
 )
 
 // TestMaxRoundOnUninitializedDB makes sure we return 0 when getting the max round on a new DB.

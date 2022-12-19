@@ -15,8 +15,8 @@ type Processor interface {
 	// PluginMetadata implement this interface.
 	conduit.PluginMetadata
 
-	// Config returns the configuration options used to create an Processor.
-	Config() plugins.PluginConfig
+	// Config returns the configuration options used to create the Processor.
+	Config() string
 
 	// Init will be called during initialization, before block data starts going through the pipeline.
 	// Typically, used for things like initializing network connections.

@@ -25,7 +25,7 @@ func TestFilterProcessorSampleConfigInit(t *testing.T) {
 	assert.NoError(t, err)
 
 	fp := fpBuilder.New()
-	err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.PluginConfig(sampleConfigStr), logrus.New())
+	err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(string(sampleConfigStr)), logrus.New())
 	assert.NoError(t, err)
 }
 
