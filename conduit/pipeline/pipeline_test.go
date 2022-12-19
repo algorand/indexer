@@ -209,7 +209,8 @@ type mockImporter struct {
 	onCompleteError bool
 }
 
-func (m *mockImporter) Init(_ context.Context, _ plugins.PluginConfig, _ *log.Logger) (*sdk.Genesis, error) {
+func (m *mockImporter) Init(_ context.Context, cfg plugins.PluginConfig, _ *log.Logger) (*sdk.Genesis, error) {
+	m.cfg = cfg
 	return &m.genesis, nil
 }
 
