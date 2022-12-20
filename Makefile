@@ -55,7 +55,7 @@ package: go-algorand
 	misc/release.py --host-only --outdir $(PKG_DIR)
 
 # used in travis test builds; doesn't verify that tag and .version match
-fakepackage: go-algorand
+fakepackage: go-algorand conduit-docs
 	rm -rf $(PKG_DIR)
 	mkdir -p $(PKG_DIR)
 	misc/release.py --host-only --outdir $(PKG_DIR) --fake-release

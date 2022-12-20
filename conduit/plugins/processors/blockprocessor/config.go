@@ -2,6 +2,12 @@ package blockprocessor
 
 //go:generate conduit-docs ../../../../conduit-docs/
 
+/*Header
+## The <code>block_processor</code> Plugin
+This plugin runs a local ledger, processing blocks passed to it, and adding
+
+*/
+
 // Config configuration for a block processor
 type Config struct {
 	/* <code>catchpoint</code> to initialize the local ledger to.<br/>
@@ -19,3 +25,17 @@ type Config struct {
 	// <code>algod-addr</code> is the address of the Algod server
 	AlgodAddr string `yaml:"algod-addr"`
 }
+
+/*Footer
+
+### Example Configs
+
+
+```yaml
+config:
+  - any:
+    - tag: ""
+	  expression: ""
+	  expression-type: ""
+```
+*/

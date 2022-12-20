@@ -24,7 +24,7 @@ func generateMd(configPath string, outputDir string) error {
 	}
 	fset := token.NewFileSet()
 	pf, err := parser.ParseFile(fset, configPath, bytes, parser.ParseComments)
-	_ = ast.Print(fset, pf)
+	// _ = ast.Print(fset, pf)
 	if err != nil {
 		return err
 	}
