@@ -2,6 +2,8 @@ package filewriter
 
 //go:generate conduit-docs ../../../../conduit-docs/
 
+//Name: conduit_exporters_filewriter
+
 // Config specific to the file exporter
 type Config struct {
 	/* <code>blocks-dir</code> is an optional path to a directory where block data should be

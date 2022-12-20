@@ -4,6 +4,8 @@ package fileimporter
 
 import "time"
 
+//Name: conduit_importers_filereader
+
 // Config specific to the file importer
 type Config struct {
 	// <code>block-dir</code> is the path to a directory where block data is stored.

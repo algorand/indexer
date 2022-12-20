@@ -7,6 +7,8 @@ import (
 	"github.com/algorand/indexer/conduit/plugins/processors/filterprocessor/expression"
 )
 
+//Name: conduit_processors_filter
+
 // SubConfig is the configuration needed for each additional filter
 type SubConfig struct {
 	/* <code>tag</code> is the tag of the struct to analyze.<br/>

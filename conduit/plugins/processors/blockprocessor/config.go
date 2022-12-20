@@ -2,6 +2,8 @@ package blockprocessor
 
 //go:generate conduit-docs ../../../../conduit-docs/
 
+//Name: conduit_processors_blockevaluator
+
 /*Header
 ## The <code>block_processor</code> Plugin
 This plugin runs a local ledger, processing blocks passed to it, and adding

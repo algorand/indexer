@@ -6,6 +6,8 @@ import (
 	"github.com/algorand/indexer/conduit/plugins/exporters/postgresql/util"
 )
 
+//Name: conduit_exporters_postgresql
+
 // serde for converting an ExporterConfig to/from a PostgresqlExporterConfig
 
 // ExporterConfig specific to the postgresql exporter

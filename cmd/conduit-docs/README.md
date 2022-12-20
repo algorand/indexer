@@ -3,6 +3,12 @@
 `conduit-docts` is a utility used to generate markdown files from Conduit plugin config structs.  
 It's usage is designed around `//go:generate`, which should be run on each plugin's `*.go` config file.
 
+### File Names
+The output file name will be the go package name suffixed with `.md`
+
+To override the output filename, use a comment beginning with `//Name: ` The remaining portion of the comment will be
+suffixed with `.md` and used as the file name.
+
 ### Converting structs to graphs
 The structs within the file will be turned into a graph listing the yaml key, the type of the entry, and
 using the comment above each field as a description.

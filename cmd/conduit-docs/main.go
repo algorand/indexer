@@ -11,6 +11,7 @@ import (
 	"strings"
 )
 
+const namePrefix = "Name: "
 const headerPrefix = "Header\n"
 const footerPrefix = "Footer\n"
 
@@ -31,6 +32,7 @@ func generateMd(configPath string, outputDir string) error {
 	var body string
 	var title string
 	var examples string
+	var fileName string
 	// Process freestanding comments into docs sections
 	for _, comm := range pf.Comments {
 		if strings.HasPrefix(comm.Text(), headerPrefix) {
@@ -38,6 +40,10 @@ func generateMd(configPath string, outputDir string) error {
 		}
 		if strings.HasPrefix(comm.Text(), footerPrefix) {
 			examples = strings.TrimPrefix(comm.Text(), footerPrefix)
+		}
+		if strings.HasPrefix(comm.Text(), namePrefix) {
+			fileName = strings.TrimSuffix(strings.TrimPrefix(comm.Text(), namePrefix), "\n")
+			fmt.Println(fileName)
 		}
 	}
 	// Process struct decls into tables describing their fields
@@ -61,7 +67,10 @@ func generateMd(configPath string, outputDir string) error {
 	if err != nil {
 		return err
 	}
-	docPath := path.Join(outputDir, pf.Name.Name+".md")
+	if fileName == "" {
+		fileName = pf.Name.Name
+	}
+	docPath := path.Join(outputDir, fileName+".md")
 	return os.WriteFile(docPath, []byte(title+body+examples), os.ModePerm)
 }
 
