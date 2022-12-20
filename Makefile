@@ -25,11 +25,8 @@ export GO_IMAGE = golang:$(shell go version | cut -d ' ' -f 3 | tail -c +3 )
 # This is the default target, build everything:
 all: conduit cmd/algorand-indexer/algorand-indexer go-algorand idb/postgres/internal/schema/setup_postgres_sql.go idb/mocks/IndexerDb.go
 
-conduit: go-algorand generate conduit-docs
-	cd cmd/conduit && go build -ldflags="${GOLDFLAGS}"
-
-generate: conduit-docs
-	go generate ./...
+conduit: go-algorand conduit-docs
+	go generate ./... && cd cmd/conduit && go build -ldflags="${GOLDFLAGS}"
 
 conduit-docs:
 	go install ./cmd/conduit-docs/
