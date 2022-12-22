@@ -63,7 +63,10 @@ func BlockResponder(reqPath string, w http.ResponseWriter) bool {
 func GenesisResponder(reqPath string, w http.ResponseWriter) bool {
 	if strings.Contains(reqPath, "/genesis") {
 		w.WriteHeader(http.StatusOK)
-		genesis := &bookkeeping.Genesis{}
+		genesis := &bookkeeping.Genesis{
+			Comment: "",
+			DevMode: true,
+		}
 		blockbytes := protocol.EncodeJSON(*genesis)
 		_, _ = w.Write(blockbytes)
 		return true

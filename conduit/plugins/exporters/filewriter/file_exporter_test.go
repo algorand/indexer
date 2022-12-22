@@ -168,7 +168,7 @@ func TestExporterReceive(t *testing.T) {
 		assert.FileExists(t, path)
 
 		var blockData data.BlockData
-		err := util.DecodeFromFile(path, &blockData)
+		err := util.DecodeFromFile(path, &blockData, true)
 		require.Equal(t, basics.Round(i), blockData.BlockHeader.Round)
 		require.NoError(t, err)
 		require.NotNil(t, blockData.Certificate)
@@ -200,7 +200,7 @@ func TestPatternOverride(t *testing.T) {
 		assert.FileExists(t, path)
 
 		var blockData data.BlockData
-		err := util.DecodeFromFile(path, &blockData)
+		err := util.DecodeFromFile(path, &blockData, true)
 		require.Equal(t, basics.Round(i), blockData.BlockHeader.Round)
 		require.NoError(t, err)
 		require.NotNil(t, blockData.Certificate)
@@ -226,7 +226,7 @@ func TestDropCertificate(t *testing.T) {
 		path := fmt.Sprintf("%s/%s", tempdir, filename)
 		assert.FileExists(t, path)
 		var blockData data.BlockData
-		err := util.DecodeFromFile(path, &blockData)
+		err := util.DecodeFromFile(path, &blockData, true)
 		assert.NoError(t, err)
 		assert.Nil(t, blockData.Certificate)
 	}
