@@ -9,6 +9,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/cobra/doc"
 
 	"github.com/algorand/indexer/cmd/conduit/internal/list"
 	"github.com/algorand/indexer/conduit"
@@ -177,6 +178,17 @@ func makeInitCmd() *cobra.Command {
 }
 
 func main() {
+	// Hidden command to generate docs in a given directory
+	// conduit generate-docs [path]
+	if len(os.Args) == 3 && os.Args[1] == "generate-docs" {
+		err := doc.GenMarkdownTree(conduitCmd, os.Args[2])
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
 	if err := conduitCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
