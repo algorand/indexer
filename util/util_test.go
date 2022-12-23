@@ -30,7 +30,7 @@ func TestEncodeToAndFromFile(t *testing.T) {
 		require.NoError(t, err)
 		require.FileExists(t, pretty)
 		var testDecode test
-		err = DecodeFromFile(pretty, &testDecode)
+		err = DecodeFromFile(pretty, &testDecode, false)
 		require.Equal(t, data, testDecode)
 
 		// Check the pretty printing
@@ -45,7 +45,7 @@ func TestEncodeToAndFromFile(t *testing.T) {
 		require.NoError(t, err)
 		require.FileExists(t, small)
 		var testDecode test
-		err = DecodeFromFile(small, &testDecode)
+		err = DecodeFromFile(small, &testDecode, false)
 		require.Equal(t, data, testDecode)
 	}
 
@@ -56,7 +56,7 @@ func TestEncodeToAndFromFile(t *testing.T) {
 		require.NoError(t, err)
 		require.FileExists(t, small)
 		var testDecode test
-		err = DecodeFromFile(small, &testDecode)
+		err = DecodeFromFile(small, &testDecode, false)
 		require.Equal(t, data, testDecode)
 	}
 }

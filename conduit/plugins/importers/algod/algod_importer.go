@@ -89,7 +89,8 @@ func (algodImp *algodImporter) Init(ctx context.Context, cfg plugins.PluginConfi
 
 	genesis := sdk.Genesis{}
 
-	err = json.Decode([]byte(genesisResponse), &genesis)
+	// Don't fail on unknown properties here since the go-algorand and SDK genesis types differ slightly
+	err = json.LenientDecode([]byte(genesisResponse), &genesis)
 	if err != nil {
 		return nil, err
 	}

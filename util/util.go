@@ -57,7 +57,7 @@ func EncodeToFile(filename string, v interface{}, pretty bool) error {
 }
 
 // DecodeFromFile is used to decode a file to an object.
-func DecodeFromFile(filename string, v interface{}) error {
+func DecodeFromFile(filename string, v interface{}, strict bool) error {
 	// Streaming into the decoder was slow.
 	fileBytes, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -74,8 +74,12 @@ func DecodeFromFile(filename string, v interface{}) error {
 		}
 		reader = gz
 	}
+	var handle *codec.JsonHandle = json.LenientCodecHandle
+	if strict {
+		handle = json.CodecHandle
+	}
 
-	enc := codec.NewDecoder(reader, json.CodecHandle)
+	enc := codec.NewDecoder(reader, handle)
 	return enc.Decode(v)
 }
 
