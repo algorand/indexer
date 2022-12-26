@@ -104,6 +104,12 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, dataError fu
 
 	e.Use(middlewares.MakeLogger(log))
 	e.Use(middleware.CORS())
+	e.Use(middleware.GzipWithConfig(middleware.GzipConfig{
+		Skipper: func(c echo.Context) bool {
+			return c.QueryParam("gzip") != "true"
+		},
+		Level: -1,
+	}))
 
 	middleware := make([]echo.MiddlewareFunc, 0)
 
