@@ -106,7 +106,7 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, dataError fu
 	e.Use(middleware.CORS())
 	e.Use(middleware.GzipWithConfig(middleware.GzipConfig{
 		Skipper: func(c echo.Context) bool {
-			return c.QueryParam("gzip") != "true"
+			return c.QueryParam("compress") != "true"
 		},
 		Level: -1,
 	}))
