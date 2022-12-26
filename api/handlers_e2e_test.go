@@ -1670,7 +1670,7 @@ func TestGetBlockWithCompression(t *testing.T) {
 	serverCtx, serverCancel := context.WithCancel(context.Background())
 	defer serverCancel()
 	opts := defaultOpts
-	listenAddr := "localhost:8888"
+	listenAddr := "localhost:8889"
 	go Serve(serverCtx, listenAddr, db, nil, logrus.New(), opts)
 
 	waitForServer(t, listenAddr)
@@ -1717,7 +1717,49 @@ func TestGetBlockWithCompression(t *testing.T) {
 	notCompressedBlock = getBlockFunc(t, true, false)
 	compressedBlock = getBlockFunc(t, true, true)
 	require.Equal(t, len(*notCompressedBlock.Transactions), 0)
+}
 
+func TestNoCompressionSupportForNonBlockAPI(t *testing.T) {
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	defer shutdownFunc()
+	defer l.Close()
+
+	//////////
+	// When // we call the health endpoint using compression flag on
+	//////////
+
+	serverCtx, serverCancel := context.WithCancel(context.Background())
+	defer serverCancel()
+	opts := defaultOpts
+	listenAddr := "localhost:8887"
+	go Serve(serverCtx, listenAddr, db, nil, logrus.New(), opts)
+
+	waitForServer(t, listenAddr)
+
+	path := "/health"
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", "http://"+listenAddr+path, nil)
+	require.NoError(t, err)
+	q := req.URL.Query()
+	q.Add("compress", "true")
+	req.URL.RawQuery = q.Encode()
+	t.Log("making HTTP request path", req.URL)
+
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+
+	//////////
+	// Then // We expect the result not to be compressed.
+	//////////
+
+	require.Equal(t, resp.Uncompressed, false)
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(body)))
+	var response generated.HealthCheckResponse
+	err = json.Decode(body, &response)
+	require.NoError(t, err)
 }
 
 func waitForServer(t *testing.T, listenAddr string) {
