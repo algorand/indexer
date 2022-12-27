@@ -192,9 +192,9 @@ type IndexerDb interface {
 type GetBlockOptions struct {
 	// setting Transactions to true suggests requesting to receive the transactions themselves from the GetBlock query
 	Transactions bool
-	// if len of the results from buildTransactionQuery is greater than MaxTransactionsLimit, return an error
+	// if len of the results from buildTransactionQuery is greater than MaxBlockTransactionsLimit, return an error
 	// indicating that the header-only flag should be enabled
-	MaxTransactionsLimit uint64
+	MaxBlockTransactionsLimit uint64
 }
 
 // TransactionFilter is a parameter object with all the transaction filter options.
@@ -428,10 +428,10 @@ type NetworkState struct {
 	GenesisHash sdk.Digest `codec:"genesis-hash"`
 }
 
-// MaxTransactionsError records the error when transaction counts exceeds MaxTransactionsLimit.
-type MaxTransactionsError struct {
+// MaxBlockTransactionsError records the error when transaction counts exceeds MaxBlockTransactionsLimit.
+type MaxBlockTransactionsError struct {
 }
 
-func (e MaxTransactionsError) Error() string {
-	return "number of transactions exceeds MaxTransactionsLimit"
+func (e MaxBlockTransactionsError) Error() string {
+	return "number of transactions exceeds MaxBlockTransactionsLimit"
 }

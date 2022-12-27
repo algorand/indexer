@@ -42,6 +42,9 @@ var defaultOpts = ExtraOptions{
 	MaxTransactionsLimit:     10000,
 	DefaultTransactionsLimit: 1000,
 
+	MaxBlockTransactionsLimit:     0,
+	DefaultBlockTransactionsLimit: 0,
+
 	MaxAccountsLimit:     1000,
 	DefaultAccountsLimit: 100,
 

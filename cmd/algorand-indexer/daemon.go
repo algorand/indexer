@@ -29,41 +29,43 @@ import (
 )
 
 type daemonConfig struct {
-	flags                     *pflag.FlagSet
-	algodDataDir              string
-	algodAddr                 string
-	algodToken                string
-	daemonServerAddr          string
-	noAlgod                   bool
-	developerMode             bool
-	allowMigration            bool
-	metricsMode               string
-	tokenString               string
-	writeTimeout              time.Duration
-	readTimeout               time.Duration
-	maxConn                   uint32
-	maxAPIResourcesPerAccount uint32
-	maxTransactionsLimit      uint32
-	defaultTransactionsLimit  uint32
-	maxAccountsLimit          uint32
-	defaultAccountsLimit      uint32
-	maxAssetsLimit            uint32
-	defaultAssetsLimit        uint32
-	maxBoxesLimit             uint32
-	defaultBoxesLimit         uint32
-	maxBalancesLimit          uint32
-	defaultBalancesLimit      uint32
-	maxApplicationsLimit      uint32
-	defaultApplicationsLimit  uint32
-	enableAllParameters       bool
-	indexerDataDir            string
-	initLedger                bool
-	catchpoint                string
-	cpuProfile                string
-	pidFilePath               string
-	configFile                string
-	suppliedAPIConfigFile     string
-	genesisJSONPath           string
+	flags                         *pflag.FlagSet
+	algodDataDir                  string
+	algodAddr                     string
+	algodToken                    string
+	daemonServerAddr              string
+	noAlgod                       bool
+	developerMode                 bool
+	allowMigration                bool
+	metricsMode                   string
+	tokenString                   string
+	writeTimeout                  time.Duration
+	readTimeout                   time.Duration
+	maxConn                       uint32
+	maxAPIResourcesPerAccount     uint32
+	maxTransactionsLimit          uint32
+	defaultTransactionsLimit      uint32
+	maxBlockTransactionsLimit     uint32
+	defaultBlockTransactionsLimit uint32
+	maxAccountsLimit              uint32
+	defaultAccountsLimit          uint32
+	maxAssetsLimit                uint32
+	defaultAssetsLimit            uint32
+	maxBoxesLimit                 uint32
+	defaultBoxesLimit             uint32
+	maxBalancesLimit              uint32
+	defaultBalancesLimit          uint32
+	maxApplicationsLimit          uint32
+	defaultApplicationsLimit      uint32
+	enableAllParameters           bool
+	indexerDataDir                string
+	initLedger                    bool
+	catchpoint                    string
+	cpuProfile                    string
+	pidFilePath                   string
+	configFile                    string
+	suppliedAPIConfigFile         string
+	genesisJSONPath               string
 }
 
 // DaemonCmd creates the main cobra command, initializes flags, and viper aliases
@@ -99,8 +101,10 @@ func DaemonCmd() *cobra.Command {
 	cfg.flags.StringVar(&cfg.suppliedAPIConfigFile, "api-config-file", "", "supply an API config file to enable/disable parameters")
 	cfg.flags.BoolVar(&cfg.enableAllParameters, "enable-all-parameters", false, "override default configuration and enable all parameters. Can't be used with --api-config-file")
 	cfg.flags.Uint32VarP(&cfg.maxAPIResourcesPerAccount, "max-api-resources-per-account", "", 1000, "set the maximum total number of resources (created assets, created apps, asset holdings, and application local state) per account that will be allowed in REST API lookupAccountByID and searchForAccounts responses before returning a 400 Bad Request. Set zero for no limit")
-	cfg.flags.Uint32VarP(&cfg.maxTransactionsLimit, "max-transactions-limit", "", 100000, "set the maximum allowed Limit parameter for querying transactions")
-	cfg.flags.Uint32VarP(&cfg.defaultTransactionsLimit, "default-transactions-limit", "", 100000, "set the default Limit parameter for querying transactions, if none is provided")
+	cfg.flags.Uint32VarP(&cfg.maxTransactionsLimit, "max-transactions-limit", "", 10000, "set the maximum allowed Limit parameter for querying transactions")
+	cfg.flags.Uint32VarP(&cfg.defaultTransactionsLimit, "default-transactions-limit", "", 1000, "set the default Limit parameter for querying transactions, if none is provided")
+	cfg.flags.Uint32VarP(&cfg.maxBlockTransactionsLimit, "max-block-transactions-limit", "", 0, "set the maximum allowed Limit parameter for transactions returned per block, defaults to unlimited (0)")
+	cfg.flags.Uint32VarP(&cfg.defaultBlockTransactionsLimit, "default-block-transactions-limit", "", 0, "set the default Limit parameter for transactions returned per block, if none is provided defaults to unlimited (0)")
 	cfg.flags.Uint32VarP(&cfg.maxAccountsLimit, "max-accounts-limit", "", 1000, "set the maximum allowed Limit parameter for querying accounts")
 	cfg.flags.Uint32VarP(&cfg.defaultAccountsLimit, "default-accounts-limit", "", 100, "set the default Limit parameter for querying accounts, if none is provided")
 	cfg.flags.Uint32VarP(&cfg.maxAssetsLimit, "max-assets-limit", "", 1000, "set the maximum allowed Limit parameter for querying assets")
@@ -449,6 +453,8 @@ func makeOptions(daemonConfig *daemonConfig) (options api.ExtraOptions) {
 	options.MaxAPIResourcesPerAccount = uint64(daemonConfig.maxAPIResourcesPerAccount)
 	options.MaxTransactionsLimit = uint64(daemonConfig.maxTransactionsLimit)
 	options.DefaultTransactionsLimit = uint64(daemonConfig.defaultTransactionsLimit)
+	options.MaxBlockTransactionsLimit = uint64(daemonConfig.maxBlockTransactionsLimit)
+	options.DefaultBlockTransactionsLimit = uint64(daemonConfig.defaultBlockTransactionsLimit)
 	options.MaxAccountsLimit = uint64(daemonConfig.maxAccountsLimit)
 	options.DefaultAccountsLimit = uint64(daemonConfig.defaultAccountsLimit)
 	options.MaxAssetsLimit = uint64(daemonConfig.maxAssetsLimit)
