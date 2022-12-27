@@ -1,6 +1,8 @@
 package api
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/base64"
 	"fmt"
@@ -1686,19 +1688,29 @@ func TestGetBlockWithCompression(t *testing.T) {
 			q.Add("header-only", "true")
 		}
 		if useCompression {
-			q.Add("compress", "true")
+			req.Header.Add(echo.HeaderAcceptEncoding, "gzip")
 		}
-
 		req.URL.RawQuery = q.Encode()
 		t.Log("making HTTP request path", req.URL)
 		resp, err := client.Do(req)
 		require.NoError(t, err)
-		require.Equal(t, resp.Uncompressed, useCompression)
+
 		defer resp.Body.Close()
 		body, err := ioutil.ReadAll(resp.Body)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(body)))
+
 		var response generated.BlockResponse
+		if useCompression {
+			require.Equal(t, resp.Header.Get(echo.HeaderContentEncoding), "gzip")
+			reader, err := gzip.NewReader(bytes.NewReader(body))
+			require.NoError(t, err)
+
+			output, e2 := ioutil.ReadAll(reader)
+			require.NoError(t, e2)
+
+			body = output
+		}
 		err = json.Decode(body, &response)
 		require.NoError(t, err)
 
@@ -1740,9 +1752,8 @@ func TestNoCompressionSupportForNonBlockAPI(t *testing.T) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", "http://"+listenAddr+path, nil)
 	require.NoError(t, err)
-	q := req.URL.Query()
-	q.Add("compress", "true")
-	req.URL.RawQuery = q.Encode()
+	req.Header.Add(echo.HeaderAcceptEncoding, "gzip")
+
 	t.Log("making HTTP request path", req.URL)
 
 	resp, err := client.Do(req)
@@ -1752,7 +1763,7 @@ func TestNoCompressionSupportForNonBlockAPI(t *testing.T) {
 	// Then // We expect the result not to be compressed.
 	//////////
 
-	require.Equal(t, resp.Uncompressed, false)
+	require.Equal(t, resp.Header.Get(echo.HeaderContentEncoding), "")
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	require.NoError(t, err)
