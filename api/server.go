@@ -54,6 +54,12 @@ type ExtraOptions struct {
 	MaxTransactionsLimit     uint64
 	DefaultTransactionsLimit uint64
 
+	// Block Transactions. This parameter specifically tunes the number of transactions returned from the /v2/blocks
+	// endpoint. We've broken this into a separate parameter to maintain backwards compatibility w/ MaxTransactionsLimit
+	// which is used in /v2/transactions, and not in /v2/blocks.
+	MaxBlockTransactionsLimit     uint64
+	DefaultBlockTransactionsLimit uint64
+
 	// Accounts
 	MaxAccountsLimit     uint64
 	DefaultAccountsLimit uint64

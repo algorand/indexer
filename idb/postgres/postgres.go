@@ -457,7 +457,11 @@ func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.Get
 
 	if options.Transactions {
 		out := make(chan idb.TxnRow, 1)
-		query, whereArgs, err := buildTransactionQuery(idb.TransactionFilter{Round: &round, Limit: options.MaxTransactionsLimit + 1})
+		filter := idb.TransactionFilter{Round: &round}
+		if options.MaxBlockTransactionsLimit != 0 {
+			filter.Limit = options.MaxBlockTransactionsLimit + 1
+		}
+		query, whereArgs, err := buildTransactionQuery(filter)
 		if err != nil {
 			err = fmt.Errorf("txn query err %v", err)
 			out <- idb.TxnRow{Error: err}
@@ -482,8 +486,8 @@ func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.Get
 		for txrow := range out {
 			results = append(results, txrow)
 		}
-		if uint64(len(results)) > options.MaxTransactionsLimit {
-			return bookkeeping.BlockHeader{}, nil, idb.MaxTransactionsError{}
+		if options.MaxBlockTransactionsLimit != 0 && uint64(len(results)) > options.MaxBlockTransactionsLimit {
+			return sdk.BlockHeader{}, nil, idb.MaxBlockTransactionsError{}
 		}
 		transactions = results
 	}

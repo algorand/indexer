@@ -927,12 +927,12 @@ func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64
 	}
 
 	options := idb.GetBlockOptions{
-		Transactions:         !(boolOrDefault(params.HeaderOnly)),
-		MaxTransactionsLimit: si.opts.MaxTransactionsLimit,
+		Transactions:              !(boolOrDefault(params.HeaderOnly)),
+		MaxBlockTransactionsLimit: si.opts.MaxTransactionsLimit,
 	}
 
 	blk, err := si.fetchBlock(ctx.Request().Context(), roundNumber, options)
-	var maxErr idb.MaxTransactionsError
+	var maxErr idb.MaxBlockTransactionsError
 	if errors.As(err, &maxErr) {
 		return badRequest(ctx, errTransactionsLimitReached)
 	}
