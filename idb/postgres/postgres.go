@@ -487,7 +487,7 @@ func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.Get
 			results = append(results, txrow)
 		}
 		if options.MaxBlockTransactionsLimit != 0 && uint64(len(results)) > options.MaxBlockTransactionsLimit {
-			return sdk.BlockHeader{}, nil, idb.MaxBlockTransactionsError{}
+			return bookkeeping.BlockHeader{}, nil, idb.MaxBlockTransactionsError{}
 		}
 		transactions = results
 	}
