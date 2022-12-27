@@ -1637,7 +1637,7 @@ func TestGetBlocksTransactionsLimit(t *testing.T) {
 }
 
 func TestGetBlockWithCompression(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -1659,7 +1659,7 @@ func TestGetBlockWithCompression(t *testing.T) {
 	block.BlockHeader.Round = basics.Round(1)
 	require.NoError(t, err)
 
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	//////////
@@ -1729,7 +1729,7 @@ func TestGetBlockWithCompression(t *testing.T) {
 }
 
 func TestNoCompressionSupportForNonBlockAPI(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 	defer l.Close()
 
