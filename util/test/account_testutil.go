@@ -379,6 +379,36 @@ func MakeAppCallTxnWithLogs(appid uint64, sender basics.Address, logs []string) 
 	return
 }
 
+// MakeAppCallWithInnerTxns creates an app call with numTxns inner txns
+func MakeAppCallWithInnerTxns(appSender, paymentSender, paymentReceiver basics.Address, numTxns int) transactions.SignedTxnWithAD {
+	createApp := MakeCreateAppTxn(appSender)
+
+	// In order to simplify the test,
+	// since db.AddBlock uses ApplyData from the block and not from the evaluator,
+	// fake ApplyData to have inner txn
+	// otherwise it requires funding the app account and other special setup
+	for i := 0; i < numTxns; i++ {
+		createApp.ApplyData.EvalDelta.InnerTxns = append(
+			createApp.ApplyData.EvalDelta.InnerTxns,
+			transactions.SignedTxnWithAD{
+				SignedTxn: transactions.SignedTxn{
+					Txn: transactions.Transaction{
+						Type: protocol.PaymentTx,
+						Header: transactions.Header{
+							Sender: paymentSender,
+							Note:   ArbitraryString(),
+						},
+						PaymentTxnFields: transactions.PaymentTxnFields{
+							Receiver: paymentReceiver,
+							Amount:   basics.MicroAlgos{Raw: 12},
+						},
+					},
+				},
+			})
+	}
+	return createApp
+}
+
 // MakeAppCallWithInnerTxn creates an app call with 3 levels of transactions:
 // application create
 // |- payment

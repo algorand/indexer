@@ -28,7 +28,7 @@ func init() {
 
 // SetupPostgres starts a gnomock postgres DB then returns the database object,
 // the connection string and a shutdown function.
-func SetupPostgres(t *testing.T) (*pgxpool.Pool, string, func()) {
+func SetupPostgres(t testing.TB) (*pgxpool.Pool, string, func()) {
 	if testpg != "" {
 		// use non-docker Postgresql
 		connStr := testpg

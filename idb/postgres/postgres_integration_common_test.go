@@ -18,7 +18,7 @@ import (
 	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
 )
 
-func setupIdbWithConnectionString(t *testing.T, connStr string, genesis sdk.Genesis) *IndexerDb {
+func setupIdbWithConnectionString(t testing.TB, connStr string, genesis sdk.Genesis) *IndexerDb {
 	idb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	require.NoError(t, err)
 
@@ -28,7 +28,7 @@ func setupIdbWithConnectionString(t *testing.T, connStr string, genesis sdk.Gene
 	return idb
 }
 
-func setupIdb(t *testing.T, genesis sdk.Genesis) (*IndexerDb, func(), func(cert *rpcs.EncodedBlockCert) error, *ledger.Ledger) {
+func setupIdb(t testing.TB, genesis sdk.Genesis) (*IndexerDb, func(), func(cert *rpcs.EncodedBlockCert) error, *ledger.Ledger) {
 
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 

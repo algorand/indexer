@@ -343,6 +343,76 @@ func TestMultipleWriters(t *testing.T) {
 	assert.Equal(t, amt, balance)
 }
 
+// BenchmarkBlockTransactionsLimit benchmarks memory usage of the block endpoint when exceeding MaxTransactionsLimit.
+func BenchmarkBlockTransactionsLimit(b *testing.B) {
+	db, shutdownFunc, proc, l := setupIdb(b, test.MakeGenesisV2())
+	b.Cleanup(func() {
+		shutdownFunc()
+		l.Close()
+	})
+
+	round := uint64(0)
+	var appAddr basics.Address
+	appAddr[1] = 99
+	type benchParams struct {
+		testTxns  uint64
+		innerTxns int
+	}
+	benchmarks := []benchParams{
+		{
+			testTxns:  10,
+			innerTxns: 0,
+		},
+		{
+			testTxns:  100,
+			innerTxns: 0,
+		},
+		{
+			testTxns:  1000,
+			innerTxns: 0,
+		},
+		{
+			testTxns:  10,
+			innerTxns: 10,
+		},
+		{
+			testTxns:  100,
+			innerTxns: 100,
+		},
+		{
+			testTxns:  1000,
+			innerTxns: 200,
+		},
+	}
+
+	b.SetParallelism(1)
+	prevBlockHeader := test.MakeGenesisBlock().BlockHeader
+	for _, benchmark := range benchmarks {
+		var txns []*transactions.SignedTxnWithAD
+		for n := uint64(0); n < benchmark.testTxns; n++ {
+			txn := test.MakeAppCallWithInnerTxns(test.AccountA, appAddr, test.AccountB, benchmark.innerTxns)
+			txns = append(txns, &txn)
+		}
+
+		block, err := test.MakeBlockForTxns(prevBlockHeader, txns...)
+		require.NoError(b, err)
+		prevBlockHeader = block.BlockHeader
+
+		err = proc(&rpcs.EncodedBlockCert{Block: block})
+		require.NoError(b, err)
+		round++
+
+		b.Run(fmt.Sprintf("/v2/blocks txns: %v innerTxns: %v", benchmark.testTxns, benchmark.innerTxns), func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				_, _, err = db.GetBlock(context.Background(), round, idb.GetBlockOptions{Transactions: true, MaxTransactionsLimit: benchmark.testTxns - 1})
+				require.Errorf(b, err, idb.MaxTransactionsError{}.Error())
+			}
+		})
+	}
+
+}
+
 // TestBlockWithTransactions tests that the block with transactions endpoint works.
 func TestBlockWithTransactions(t *testing.T) {
 	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
