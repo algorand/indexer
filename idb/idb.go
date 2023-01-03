@@ -240,6 +240,10 @@ type TransactionFilter struct {
 	// instead of the root txn.
 	ReturnInnerTxnOnly bool
 
+	// If this flag is set to true, then the query returns only root txns
+	// and no inner txns
+	ReturnRootTxnsOnly bool
+
 	// If this flag is set to true, then the query returns the block excluding
 	// the transactions
 	HeaderOnly bool

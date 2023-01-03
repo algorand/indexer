@@ -457,7 +457,7 @@ func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.Get
 
 	if options.Transactions {
 		out := make(chan idb.TxnRow, 1)
-		query, whereArgs, err := buildTransactionQuery(idb.TransactionFilter{Round: &round, Limit: options.MaxTransactionsLimit + 1})
+		query, whereArgs, err := buildTransactionQuery(idb.TransactionFilter{Round: &round, Limit: options.MaxTransactionsLimit + 1, ReturnRootTxnsOnly: true})
 		if err != nil {
 			err = fmt.Errorf("txn query err %v", err)
 			out <- idb.TxnRow{Error: err}
@@ -658,6 +658,9 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	if tf.RekeyTo != nil && (*tf.RekeyTo) {
 		whereParts = append(whereParts, "(t.txn -> 'txn' -> 'rekey') IS NOT NULL")
 	}
+	if tf.ReturnRootTxnsOnly {
+		whereParts = append(whereParts, "t.txid IS NOT NULL")
+	}
 
 	// If returnInnerTxnOnly flag is false, then return the root transaction
 	if !tf.ReturnInnerTxnOnly {
@@ -671,7 +674,7 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	}
 
 	// join in the root transaction if the returnInnerTxnOnly flag is false
-	if !tf.ReturnInnerTxnOnly {
+	if !tf.ReturnInnerTxnOnly || tf.ReturnRootTxnsOnly {
 		query += " LEFT OUTER JOIN txn root ON t.round = root.round AND (t.extra->>'root-intra')::int = root.intra"
 	}
 
