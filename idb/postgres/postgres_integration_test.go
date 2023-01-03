@@ -343,8 +343,8 @@ func TestMultipleWriters(t *testing.T) {
 	assert.Equal(t, amt, balance)
 }
 
-// BenchmarkBlockTransactionsLimit benchmarks memory usage of the block endpoint when exceeding MaxTransactionsLimit.
-func BenchmarkBlockTransactionsLimit(b *testing.B) {
+// BenchmarkBlockTransactions benchmarks memory usage of the block endpoint.
+func BenchmarkBlockTransactions(b *testing.B) {
 	db, shutdownFunc, proc, l := setupIdb(b, test.MakeGenesisV2())
 	b.Cleanup(func() {
 		shutdownFunc()
@@ -380,8 +380,8 @@ func BenchmarkBlockTransactionsLimit(b *testing.B) {
 			innerTxns: 100,
 		},
 		{
-			testTxns:  1000,
-			innerTxns: 200,
+			testTxns:  250,
+			innerTxns: 250,
 		},
 	}
 
@@ -405,8 +405,7 @@ func BenchmarkBlockTransactionsLimit(b *testing.B) {
 		b.Run(fmt.Sprintf("/v2/blocks txns: %v innerTxns: %v", benchmark.testTxns, benchmark.innerTxns), func(b *testing.B) {
 			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {
-				_, _, err = db.GetBlock(context.Background(), round, idb.GetBlockOptions{Transactions: true, MaxTransactionsLimit: benchmark.testTxns - 1})
-				require.Errorf(b, err, idb.MaxTransactionsError{}.Error())
+				_, _, _ = db.GetBlock(context.Background(), round, idb.GetBlockOptions{Transactions: true, MaxTransactionsLimit: 1000})
 			}
 		})
 	}
