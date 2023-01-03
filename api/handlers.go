@@ -1359,11 +1359,6 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64, op
 
 		results := make([]generated.Transaction, 0)
 		for _, txrow := range transactions {
-			// Do not include inner transactions.
-			if txrow.RootTxn != nil {
-				continue
-			}
-
 			tx, err := txnRowToTransaction(txrow)
 			if err != nil {
 				return err
