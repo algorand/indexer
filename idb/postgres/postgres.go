@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -719,9 +720,33 @@ func (db *IndexerDb) yieldTxns(ctx context.Context, tx pgx.Tx, tf idb.Transactio
 	db.yieldTxnsThreadSimple(rows, out, nil, nil)
 }
 
+// txnFilterOptimization checks that there are no parameters set which would
+// cause non-contiguous transaction results. As long as all transactions in a
+// range are returned, we are guaranteed to fetch the root transactions, and
+// therefore do not need to fetch inner transactions.
+func txnFilterOptimization(tf idb.TransactionFilter) idb.TransactionFilter {
+	defaults := idb.TransactionFilter{
+		Round:      tf.Round,
+		MinRound:   tf.MinRound,
+		MaxRound:   tf.MaxRound,
+		BeforeTime: tf.BeforeTime,
+		AfterTime:  tf.AfterTime,
+		Limit:      tf.Limit,
+		NextToken:  tf.NextToken,
+		Offset:     tf.Offset,
+		OffsetLT:   tf.OffsetLT,
+		OffsetGT:   tf.OffsetGT,
+	}
+	if reflect.DeepEqual(tf, defaults) {
+		tf.ReturnRootTxnsOnly = true
+	}
+	return tf
+}
+
 // Transactions is part of idb.IndexerDB
 func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter) (<-chan idb.TxnRow, uint64) {
 	out := make(chan idb.TxnRow, 1)
+	tf = txnFilterOptimization(tf)
 
 	tx, err := db.db.BeginTx(ctx, readonlyRepeatableRead)
 	if err != nil {
