@@ -1151,7 +1151,7 @@ func TestNonDisplayableUTF8(t *testing.T) {
 
 			// Test 3: transaction results properly serialized
 			// Transaction results also return the inner txn acfg
-			txnRows, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
+			txnRows, _ := db.Transactions(context.Background(), idb.TransactionFilter{SkipOptimization: true})
 			num = 0
 			for row := range txnRows {
 				require.NoError(t, row.Error)
@@ -1948,7 +1948,8 @@ func TestBadTxnJsonEncoding(t *testing.T) {
 	{
 		offset := uint64(rootIntra)
 		tf := idb.TransactionFilter{
-			Offset: &offset,
+			SkipOptimization: true,
+			Offset:           &offset,
 		}
 		rowsCh, _ := db.Transactions(context.Background(), tf)
 
@@ -1962,7 +1963,8 @@ func TestBadTxnJsonEncoding(t *testing.T) {
 	{
 		offset := uint64(rootIntra) + 1
 		tf := idb.TransactionFilter{
-			Offset: &offset,
+			SkipOptimization: true,
+			Offset:           &offset,
 		}
 		rowsCh, _ := db.Transactions(context.Background(), tf)
 
@@ -2078,7 +2080,7 @@ func TestTransactionsTxnAhead(t *testing.T) {
 		require.NoError(t, err)
 	}
 	{
-		rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
+		rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{SkipOptimization: true})
 		_, ok := <-rowsCh
 		assert.False(t, ok)
 	}
@@ -2092,7 +2094,7 @@ func TestTransactionsTxnAhead(t *testing.T) {
 		require.NoError(t, err)
 	}
 	{
-		rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
+		rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{SkipOptimization: true})
 		row, ok := <-rowsCh
 		require.True(t, ok)
 		require.NoError(t, row.Error)

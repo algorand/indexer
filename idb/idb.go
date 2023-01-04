@@ -198,6 +198,9 @@ type GetBlockOptions struct {
 
 // TransactionFilter is a parameter object with all the transaction filter options.
 type TransactionFilter struct {
+	// SkipOptimization is used for testing to ensure the parameters are not modified.
+	SkipOptimization bool
+
 	// Address filtering transactions for one Address will
 	// return transactions newest-first proceding into the
 	// past. Paging through such results can be achieved by
