@@ -1,12 +1,11 @@
 package data
 
 import (
-	"github.com/algorand/go-algorand/agreement"
+	sdk "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand-sdk/v2/client/v2/common/models"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
-	"github.com/algorand/go-algorand/rpcs"
+	"github.com/algorand/indexer/types"
 )
 
 // RoundProvider is the interface which all data types sent to Exporters should implement
@@ -26,35 +25,35 @@ type InitProvider interface {
 type BlockData struct {
 
 	// BlockHeader is the immutable header from the block
-	BlockHeader bookkeeping.BlockHeader `json:"block,omitempty"`
+	BlockHeader sdk.BlockHeader `json:"block,omitempty"`
 
 	// Payset is the set of data the block is carrying--can be modified as it is processed
-	Payset []transactions.SignedTxnInBlock `json:"payset,omitempty"`
+	Payset []sdk.SignedTxnInBlock `json:"payset,omitempty"`
 
 	// Delta contains a list of account changes resulting from the block. Processor plugins may have modify this data.
-	Delta *ledgercore.StateDelta `json:"delta,omitempty"`
+	Delta *models.LedgerStateDelta `json:"delta,omitempty"`
 
 	// Certificate contains voting data that certifies the block. The certificate is non deterministic, a node stops collecting votes once the voting threshold is reached.
-	Certificate *agreement.Certificate `json:"cert,omitempty"`
+	Certificate *types.Certificate `json:"cert,omitempty"`
 }
 
 // MakeBlockDataFromValidatedBlock makes BlockData from agreement.ValidatedBlock
-func MakeBlockDataFromValidatedBlock(input ledgercore.ValidatedBlock) BlockData {
+func MakeBlockDataFromValidatedBlock(input types.ValidatedBlock) BlockData {
 	blockData := BlockData{}
 	blockData.UpdateFromValidatedBlock(input)
 	return blockData
 }
 
 // UpdateFromValidatedBlock updates BlockData from ValidatedBlock input
-func (blkData *BlockData) UpdateFromValidatedBlock(input ledgercore.ValidatedBlock) {
-	blkData.BlockHeader = input.Block().BlockHeader
-	blkData.Payset = input.Block().Payset
-	delta := input.Delta()
+func (blkData *BlockData) UpdateFromValidatedBlock(input types.ValidatedBlock) {
+	blkData.BlockHeader = input.Block.BlockHeader
+	blkData.Payset = input.Block.Payset
+	delta := input.Delta
 	blkData.Delta = &delta
 }
 
 // UpdateFromEncodedBlockCertificate updates BlockData from EncodedBlockCert info
-func (blkData *BlockData) UpdateFromEncodedBlockCertificate(input *rpcs.EncodedBlockCert) {
+func (blkData *BlockData) UpdateFromEncodedBlockCertificate(input *types.EncodedBlockCert) {
 	if input == nil {
 		return
 	}
@@ -67,39 +66,39 @@ func (blkData *BlockData) UpdateFromEncodedBlockCertificate(input *rpcs.EncodedB
 }
 
 // MakeBlockDataFromEncodedBlockCertificate makes BlockData from rpcs.EncodedBlockCert
-func MakeBlockDataFromEncodedBlockCertificate(input *rpcs.EncodedBlockCert) BlockData {
+func MakeBlockDataFromEncodedBlockCertificate(input *types.EncodedBlockCert) BlockData {
 	blkData := BlockData{}
 	blkData.UpdateFromEncodedBlockCertificate(input)
 	return blkData
 }
 
 // ValidatedBlock returns a validated block from the BlockData object
-func (blkData BlockData) ValidatedBlock() ledgercore.ValidatedBlock {
-	tmpBlock := bookkeeping.Block{
+func (blkData BlockData) ValidatedBlock() types.ValidatedBlock {
+	tmpBlock := sdk.Block{
 		BlockHeader: blkData.BlockHeader,
 		Payset:      blkData.Payset,
 	}
 
-	tmpDelta := ledgercore.StateDelta{}
+	tmpDelta := models.LedgerStateDelta{}
 	if blkData.Delta != nil {
 		tmpDelta = *blkData.Delta
 	}
-	return ledgercore.MakeValidatedBlock(tmpBlock, tmpDelta)
+	return types.ValidatedBlock{Block: tmpBlock, Delta: tmpDelta}
 }
 
 // EncodedBlockCertificate returns an encoded block certificate from the BlockData object
-func (blkData BlockData) EncodedBlockCertificate() rpcs.EncodedBlockCert {
+func (blkData BlockData) EncodedBlockCertificate() types.EncodedBlockCert {
 
-	tmpBlock := bookkeeping.Block{
+	tmpBlock := sdk.Block{
 		BlockHeader: blkData.BlockHeader,
 		Payset:      blkData.Payset,
 	}
 
-	tmpCert := agreement.Certificate{}
+	tmpCert := types.Certificate{}
 	if blkData.Certificate != nil {
 		tmpCert = *blkData.Certificate
 	}
-	return rpcs.EncodedBlockCert{
+	return types.EncodedBlockCert{
 		Block:       tmpBlock,
 		Certificate: tmpCert,
 	}

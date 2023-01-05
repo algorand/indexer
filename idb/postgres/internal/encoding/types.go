@@ -1,6 +1,7 @@
 package encoding
 
 import (
+	"github.com/algorand/go-algorand-sdk/v2/client/v2/common/models"
 	"github.com/algorand/indexer/types"
 
 	sdk "github.com/algorand/go-algorand-sdk/types"
@@ -99,7 +100,7 @@ type appLocalState struct {
 }
 
 type appParams struct {
-	basics.AppParams
+	models.AppResourceRecord
 	GlobalStateOverride tealKeyValue `codec:"gs"`
 }
 

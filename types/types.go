@@ -2,7 +2,7 @@ package types
 
 import (
 	sdk "github.com/algorand/go-algorand-sdk/types"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
+	models "github.com/algorand/go-algorand-sdk/v2/client/v2/common/models"
 )
 
 // TODO: should these types be defined in the SDK? In the future there could be automation to keep certain
@@ -12,16 +12,17 @@ import (
 // and can now be recorded in the ledger.
 type ValidatedBlock struct {
 	Block sdk.Block
-	// TODO: replace when state delta endpoint is available
-	Delta ledgercore.StateDelta
+	Delta models.LedgerStateDelta
 }
+
+type Certificate map[string]interface{}
 
 // EncodedBlockCert contains the encoded block and the corresponding encoded certificate
 type EncodedBlockCert struct {
 	_struct struct{} `codec:""`
 
 	Block       sdk.Block              `codec:"block"`
-	Certificate map[string]interface{} `codec:"cert"`
+	Certificate Certificate `codec:"cert"`
 }
 
 // SpecialAddresses holds addresses with nonstandard properties.

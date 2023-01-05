@@ -178,12 +178,7 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 }
 
 // AddBlock is part of idb.IndexerDb.
-func (db *IndexerDb) AddBlock(vblk *ledgercore.ValidatedBlock) error {
-	// TODO: use a converter util until vblk type is changed
-	vb, err := helpers.ConvertValidatedBlock(*vblk)
-	if err != nil {
-		return fmt.Errorf("AddBlock() err: %w", err)
-	}
+func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 	block := vb.Block
 	round := block.BlockHeader.Round
 	db.log.Printf("adding block %d", round)

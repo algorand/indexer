@@ -3,6 +3,8 @@ package encoding
 import (
 	"encoding/base64"
 	"fmt"
+	"github.com/algorand/go-algorand-sdk/v2/client/v2/common/models"
+	"github.com/algorand/go-algorand/data/account"
 
 	"github.com/algorand/go-codec/codec"
 
@@ -462,10 +464,10 @@ func DecodeAppLocalState(data []byte) (basics.AppLocalState, error) {
 	return unconvertAppLocalState(state), nil
 }
 
-func convertAppParams(params basics.AppParams) appParams {
+func convertAppParams(params models.AppResourceRecord) appParams {
 	return appParams{
-		AppParams:           params,
-		GlobalStateOverride: convertTealKeyValue(params.GlobalState),
+		AppResourceRecord:           params,
+		GlobalStateOverride: params.AppParams.GlobalState,
 	}
 }
 
@@ -476,7 +478,7 @@ func unconvertAppParams(params appParams) basics.AppParams {
 }
 
 // EncodeAppParams encodes application params into json.
-func EncodeAppParams(params basics.AppParams) []byte {
+func EncodeAppParams(params models.AppResourceRecord) []byte {
 	return encodeJSON(convertAppParams(params))
 }
 
@@ -673,34 +675,45 @@ func DecodeNetworkState(data []byte) (types.NetworkState, error) {
 
 // TrimLcAccountData deletes various information from account data that we do not write
 // to `account.account_data`.
-func TrimLcAccountData(ad ledgercore.AccountData) ledgercore.AccountData {
-	ad.MicroAlgos = basics.MicroAlgos{}
-	ad.RewardsBase = 0
-	ad.RewardedMicroAlgos = basics.MicroAlgos{}
+func TrimLcAccountData(ad models.Account) models.Account {
+	ad.Amount = 0
+	ad.RewardBase = 0
+	ad.Rewards = 0
 	return ad
 }
 
-func convertTrimmedLcAccountData(ad ledgercore.AccountData) baseAccountData {
+func convertTrimmedLcAccountData(ad models.Account) (baseAccountData, error) {
+	newStatus, err := basics.UnmarshalStatus(ad.Status)
+	if err != nil {
+		return baseAccountData{}, err
+	}
+
+	totalAppSchema := basics.StateSchema{
+		NumUint:      ad.AppsTotalSchema.NumUint,
+		NumByteSlice: ad.AppsTotalSchema.NumByteSlice,
+	}
+
+
 	return baseAccountData{
-		Status:              ad.Status,
+		Status:              newStatus,
 		AuthAddr:            crypto.Digest(ad.AuthAddr),
-		TotalAppSchema:      ad.TotalAppSchema,
-		TotalExtraAppPages:  ad.TotalExtraAppPages,
-		TotalAssetParams:    ad.TotalAssetParams,
-		TotalAssets:         ad.TotalAssets,
-		TotalAppParams:      ad.TotalAppParams,
-		TotalAppLocalStates: ad.TotalAppLocalStates,
+		TotalAppSchema:      totalAppSchema,
+		TotalExtraAppPages:  uint32(ad.AppsTotalExtraPages),
+		TotalAssetParams:    ad.TotalCreatedAssets,
+		TotalAssets:         ad.TotalAssetsOptedIn,
+		TotalAppParams:      ad.TotalCreatedApps,
+		TotalAppLocalStates: ad.TotalAppsOptedIn,
 		TotalBoxes:          ad.TotalBoxes,
 		TotalBoxBytes:       ad.TotalBoxBytes,
 		baseOnlineAccountData: baseOnlineAccountData{
-			VoteID:          ad.VoteID,
-			SelectionID:     ad.SelectionID,
+			VoteID:          ad.Participation.,
+			SelectionID:     ad.Participation.SelectionParticipationKey,
 			StateProofID:    ad.StateProofID,
-			VoteFirstValid:  ad.VoteFirstValid,
-			VoteLastValid:   ad.VoteLastValid,
-			VoteKeyDilution: ad.VoteKeyDilution,
+			VoteFirstValid:  basics.Round(ad.Participation.VoteFirstValid),
+			VoteLastValid:   basics.Round(ad.Participation.VoteLastValid),
+			VoteKeyDilution: ad.Participation.VoteKeyDilution,
 		},
-	}
+	}, nil
 }
 
 func unconvertTrimmedLcAccountData(ba baseAccountData) ledgercore.AccountData {
@@ -729,7 +742,7 @@ func unconvertTrimmedLcAccountData(ba baseAccountData) ledgercore.AccountData {
 }
 
 // EncodeTrimmedLcAccountData encodes ledgercore account data into json.
-func EncodeTrimmedLcAccountData(ad ledgercore.AccountData) []byte {
+func EncodeTrimmedLcAccountData(ad models.Account) []byte {
 	return encodeJSON(convertTrimmedLcAccountData(ad))
 }
 

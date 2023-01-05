@@ -1,18 +1,44 @@
 package helpers
 
 import (
-	"encoding/base64"
-	"fmt"
-
-	"github.com/algorand/indexer/types"
-
-	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand-sdk/v2/client/v2/common/models"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
 // TODO: remove this file once all types have been converted to sdk types.
+
+func ConvertParamsTemp(params models.AssetParams) sdk.AssetParams {
+
+	metaDataHash := [32]byte{}
+	copy(metaDataHash[:],params.MetadataHash[:32])
+
+	manager := [32]byte{}
+	copy(manager[:], params.Manager[:32])
+
+	reserve := [32]byte{}
+	copy(reserve[:], params.Reserve[:32])
+
+	freeze := [32]byte{}
+	copy(freeze[:], params.Freeze[:32])
+
+	clawback := [32]byte{}
+	copy(clawback[:], params.Clawback[:32])
+
+	return sdk.AssetParams{
+		Total:         params.Total,
+		Decimals:      uint32(params.Decimals),
+		DefaultFrozen: params.DefaultFrozen,
+		UnitName:      params.UnitName,
+		AssetName:     params.Name,
+		URL:           params.Url,
+		MetadataHash:  metaDataHash,
+		Manager:       manager,
+		Reserve:       reserve,
+		Freeze:        freeze,
+		Clawback:      clawback,
+	}
+}
 
 // ConvertParams converts basics.AssetParams to sdk.AssetParams
 func ConvertParams(params basics.AssetParams) sdk.AssetParams {
@@ -29,16 +55,4 @@ func ConvertParams(params basics.AssetParams) sdk.AssetParams {
 		Freeze:        sdk.Address(params.Freeze),
 		Clawback:      sdk.Address(params.Clawback),
 	}
-}
-
-// ConvertValidatedBlock converts ledgercore.ValidatedBlock to types.ValidatedBlock
-func ConvertValidatedBlock(vb ledgercore.ValidatedBlock) (types.ValidatedBlock, error) {
-	var ret types.ValidatedBlock
-	b64data := base64.StdEncoding.EncodeToString(msgpack.Encode(vb.Block()))
-	err := ret.Block.FromBase64String(b64data)
-	if err != nil {
-		return ret, fmt.Errorf("ConvertValidatedBlock err: %v", err)
-	}
-	ret.Delta = vb.Delta()
-	return ret, nil
 }
