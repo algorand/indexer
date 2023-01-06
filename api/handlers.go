@@ -16,9 +16,7 @@ import (
 	"github.com/labstack/echo/v4"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/protocol"
-
+	"github.com/algorand/avm-abi/apps"
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/api/generated/common"
 	"github.com/algorand/indexer/api/generated/v2"
@@ -26,7 +24,8 @@ import (
 	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/version"
 
-	"github.com/algorand/avm-abi/apps"
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/protocol"
 )
 
 // ServerImplementation implements the handler interface used by the generated route definitions.

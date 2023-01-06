@@ -8,11 +8,10 @@ import (
 
 	"github.com/jackc/pgx/v4"
 
+	"github.com/algorand/avm-abi/apps"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
-
-	"github.com/algorand/avm-abi/apps"
 
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
