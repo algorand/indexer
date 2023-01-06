@@ -23,9 +23,10 @@ import (
 	"github.com/algorand/indexer/api/generated/common"
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/logic"
 	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/version"
+
+	"github.com/algorand/avm-abi/apps"
 )
 
 // ServerImplementation implements the handler interface used by the generated route definitions.
@@ -581,7 +582,7 @@ func (si *ServerImplementation) LookupApplicationBoxByIDAndName(ctx echo.Context
 	}
 
 	encodedBoxName := params.Name
-	boxNameBytes, err := logic.NewAppCallBytes(encodedBoxName)
+	boxNameBytes, err := apps.NewAppCallBytes(encodedBoxName)
 	if err != nil {
 		return badRequest(ctx, fmt.Sprintf("LookupApplicationBoxByIDAndName received illegal box name (%s): %s", encodedBoxName, err.Error()))
 	}
@@ -650,7 +651,7 @@ func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, appl
 	}
 	if params.Next != nil {
 		encodedBoxName := *params.Next
-		boxNameBytes, err := logic.NewAppCallBytes(encodedBoxName)
+		boxNameBytes, err := apps.NewAppCallBytes(encodedBoxName)
 		if err != nil {
 			return badRequest(ctx, fmt.Sprintf("SearchForApplicationBoxes received illegal next token (%s): %s", encodedBoxName, err.Error()))
 		}

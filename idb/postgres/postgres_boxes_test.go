@@ -10,7 +10,8 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/stretchr/testify/require"
 
-	"github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/avm-abi/apps"
+
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
@@ -22,7 +23,6 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/idb/postgres/internal/writer"
-	"github.com/algorand/indexer/logic"
 	"github.com/algorand/indexer/util/test"
 )
 
@@ -50,7 +50,7 @@ func compareAppBoxesAgainstDB(t *testing.T, db *IndexerDb,
 		// compare expected against db contents one box at a time
 		for key, expectedValue := range boxes {
 			msg := fmt.Sprintf("caseNum=%d, appIdx=%d, key=%#v", caseNum, appIdx, key)
-			expectedAppIdx, boxName, err := logic.SplitBoxKey(key)
+			expectedAppIdx, boxName, err := apps.SplitBoxKey(key)
 			require.NoError(t, err, msg)
 			require.Equal(t, appIdx, basics.AppIndex(expectedAppIdx), msg)
 
@@ -164,7 +164,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 	boxTxns := make([]*transactions.SignedTxnWithAD, 0)
 	for _, boxName := range boxNames {
-		expectedAppBoxes[appid][logic.MakeBoxKey(types.AppIndex(appid), boxName)] = newBoxValue
+		expectedAppBoxes[appid][apps.MakeBoxKey(uint64(appid), boxName)] = newBoxValue
 
 		args := []string{"create", boxName}
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
@@ -206,7 +206,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(types.AppIndex(appid), boxName)
+		key := apps.MakeBoxKey(uint64(appid), boxName)
 		expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
@@ -238,7 +238,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(types.AppIndex(appid), boxName)
+		key := apps.MakeBoxKey(uint64(appid), boxName)
 		delete(expectedAppBoxes[appid], key)
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
@@ -274,7 +274,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(types.AppIndex(appid), boxName)
+		key := apps.MakeBoxKey(uint64(appid), boxName)
 		expectedAppBoxes[appid][key] = newBoxValue
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
@@ -305,7 +305,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(types.AppIndex(appid), boxName)
+		key := apps.MakeBoxKey(uint64(appid), boxName)
 		expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
@@ -335,7 +335,7 @@ func generateRandomBoxes(t *testing.T, appIdx basics.AppIndex, maxBoxes int) map
 		nameBytes := make([]byte, nameLen)
 		_, err := rand.Read(nameBytes)
 		require.NoError(t, err)
-		key := logic.MakeBoxKey(types.AppIndex(appIdx), string(nameBytes))
+		key := apps.MakeBoxKey(uint64(appIdx), string(nameBytes))
 
 		require.Positive(t, len(key))
 
@@ -362,7 +362,7 @@ func createRandomBoxesWithDelta(t *testing.T, numApps, maxBoxes int) (map[basics
 		appBoxes[appIndex] = boxes
 
 		for key, value := range boxes {
-			embeddedAppIdx, _, err := logic.SplitBoxKey(key)
+			embeddedAppIdx, _, err := apps.SplitBoxKey(key)
 			require.NoError(t, err)
 			require.Equal(t, appIndex, basics.AppIndex(embeddedAppIdx))
 
