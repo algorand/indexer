@@ -1663,7 +1663,7 @@ func TestGetBlockWithCompression(t *testing.T) {
 	block.BlockHeader.Round = basics.Round(1)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	//////////

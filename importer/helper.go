@@ -17,13 +17,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-<<<<<<< HEAD
-	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/processor/blockprocessor"
-=======
 	"github.com/algorand/indexer/conduit/plugins/processors/blockprocessor"
 	"github.com/algorand/indexer/idb"
->>>>>>> 06c2943 (merge: 2.15.0 release changes (#1359))
 	"github.com/algorand/indexer/util"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
