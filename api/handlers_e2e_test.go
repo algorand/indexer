@@ -1,6 +1,8 @@
 package api
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/base64"
 	"fmt"
@@ -476,23 +478,7 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 	listenAddr := "localhost:8989"
 	go Serve(serverCtx, listenAddr, db, nil, logrus.New(), opts)
 
-	// wait at most a few seconds for server to come up
-	serverUp := false
-	for maxWait := 3 * time.Second; !serverUp && maxWait > 0; maxWait -= 50 * time.Millisecond {
-		time.Sleep(50 * time.Millisecond)
-		resp, err := http.Get("http://" + listenAddr + "/health")
-		if err != nil {
-			t.Log("waiting for server:", err)
-			continue
-		}
-		resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			t.Log("waiting for server OK:", resp.StatusCode)
-			continue
-		}
-		serverUp = true // server is up now
-	}
-	require.True(t, serverUp, "api.Serve did not start server in time")
+	waitForServer(t, listenAddr)
 
 	// make a real HTTP request (to additionally test generated param parsing logic)
 	makeReq := func(t *testing.T, path string, exclude []string, includeDeleted bool, next *string, limit *uint64) (*http.Response, []byte) {
@@ -1594,23 +1580,7 @@ func TestGetBlocksTransactionsLimit(t *testing.T) {
 	listenAddr := "localhost:8888"
 	go Serve(serverCtx, listenAddr, db, nil, logrus.New(), opts)
 
-	// wait at most a few seconds for server to come up
-	serverUp := false
-	for maxWait := 3 * time.Second; !serverUp && maxWait > 0; maxWait -= 50 * time.Millisecond {
-		time.Sleep(50 * time.Millisecond)
-		resp, err := http.Get("http://" + listenAddr + "/health")
-		if err != nil {
-			t.Log("waiting for server:", err)
-			continue
-		}
-		resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			t.Log("waiting for server OK:", resp.StatusCode)
-			continue
-		}
-		serverUp = true // server is up now
-	}
-	require.True(t, serverUp, "api.Serve did not start server in time")
+	waitForServer(t, listenAddr)
 
 	// make a real HTTP request (to additionally test generated param parsing logic)
 	makeReq := func(t *testing.T, path string, headerOnly bool) (*http.Response, []byte) {
@@ -1664,6 +1634,160 @@ func TestGetBlocksTransactionsLimit(t *testing.T) {
 			require.Equal(t, tc.ntxns, len(*response.Transactions))
 		})
 	}
+}
+
+func TestGetBlockWithCompression(t *testing.T) {
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+	defer l.Close()
+
+	///////////
+	// Given // A block containing 20 transactions at round 1
+	//       //
+	///////////
+
+	const numbOfTxns = 20
+	var txns []transactions.SignedTxnWithAD
+	for j := 0; j < numbOfTxns; j++ {
+		txns = append(txns, test.MakePaymentTxn(1, 100, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{}, basics.Address{}))
+	}
+	ptxns := make([]*transactions.SignedTxnWithAD, numbOfTxns)
+	for k := range txns {
+		ptxns[k] = &txns[k]
+	}
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, ptxns...)
+	block.BlockHeader.Round = basics.Round(1)
+	require.NoError(t, err)
+
+	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
+
+	//////////
+	// When // We look up a block using a ServerImplementation with a compression flag on/off
+	//////////
+
+	serverCtx, serverCancel := context.WithCancel(context.Background())
+	defer serverCancel()
+	opts := defaultOpts
+	listenAddr := "localhost:8889"
+	go Serve(serverCtx, listenAddr, db, nil, logrus.New(), opts)
+
+	waitForServer(t, listenAddr)
+
+	getBlockFunc := func(t *testing.T, headerOnly bool, useCompression bool) *generated.BlockResponse {
+		path := "/v2/blocks/1"
+
+		client := &http.Client{}
+		req, err := http.NewRequest("GET", "http://"+listenAddr+path, nil)
+		require.NoError(t, err)
+		q := req.URL.Query()
+		if headerOnly {
+			q.Add("header-only", "true")
+		}
+		if useCompression {
+			req.Header.Add(echo.HeaderAcceptEncoding, "gzip")
+		}
+		req.URL.RawQuery = q.Encode()
+		t.Log("making HTTP request path", req.URL)
+		resp, err := client.Do(req)
+		require.NoError(t, err)
+
+		defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(body)))
+
+		var response generated.BlockResponse
+		if useCompression {
+			require.Equal(t, resp.Header.Get(echo.HeaderContentEncoding), "gzip")
+			reader, err := gzip.NewReader(bytes.NewReader(body))
+			require.NoError(t, err)
+
+			output, e2 := ioutil.ReadAll(reader)
+			require.NoError(t, e2)
+
+			body = output
+		}
+		err = json.Decode(body, &response)
+		require.NoError(t, err)
+
+		return &response
+	}
+
+	//////////
+	// Then // Get the same block content compared to uncompress block
+	//////////
+	notCompressedBlock := getBlockFunc(t, false, false)
+	compressedBlock := getBlockFunc(t, false, true)
+	require.Equal(t, notCompressedBlock, compressedBlock)
+	require.Equal(t, len(*notCompressedBlock.Transactions), numbOfTxns)
+
+	// we now make sure that compression flag works with other flags.
+	notCompressedBlock = getBlockFunc(t, true, false)
+	compressedBlock = getBlockFunc(t, true, true)
+	require.Equal(t, len(*notCompressedBlock.Transactions), 0)
+}
+
+func TestNoCompressionSupportForNonBlockAPI(t *testing.T) {
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+	defer l.Close()
+
+	//////////
+	// When // we call the health endpoint using compression flag on
+	//////////
+
+	serverCtx, serverCancel := context.WithCancel(context.Background())
+	defer serverCancel()
+	opts := defaultOpts
+	listenAddr := "localhost:8887"
+	go Serve(serverCtx, listenAddr, db, nil, logrus.New(), opts)
+
+	waitForServer(t, listenAddr)
+
+	path := "/health"
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", "http://"+listenAddr+path, nil)
+	require.NoError(t, err)
+	req.Header.Add(echo.HeaderAcceptEncoding, "gzip")
+
+	t.Log("making HTTP request path", req.URL)
+
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+
+	//////////
+	// Then // We expect the result not to be compressed.
+	//////////
+
+	require.Equal(t, resp.Header.Get(echo.HeaderContentEncoding), "")
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(body)))
+	var response generated.HealthCheckResponse
+	err = json.Decode(body, &response)
+	require.NoError(t, err)
+}
+
+func waitForServer(t *testing.T, listenAddr string) {
+	// wait at most a few seconds for server to come up
+	serverUp := false
+	for maxWait := 3 * time.Second; !serverUp && maxWait > 0; maxWait -= 50 * time.Millisecond {
+		time.Sleep(50 * time.Millisecond)
+		resp, err := http.Get("http://" + listenAddr + "/health")
+		if err != nil {
+			t.Log("waiting for server:", err)
+			continue
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Log("waiting for server OK:", resp.StatusCode)
+			continue
+		}
+		serverUp = true // server is up now
+	}
+	require.True(t, serverUp, "api.Serve did not start server in time")
 }
 
 // compareAppBoxesAgainstHandler is of type BoxTestComparator

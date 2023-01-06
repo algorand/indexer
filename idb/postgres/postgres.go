@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -457,7 +458,7 @@ func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.Get
 
 	if options.Transactions {
 		out := make(chan idb.TxnRow, 1)
-		query, whereArgs, err := buildTransactionQuery(idb.TransactionFilter{Round: &round, Limit: options.MaxTransactionsLimit + 1})
+		query, whereArgs, err := buildTransactionQuery(idb.TransactionFilter{Round: &round, Limit: options.MaxTransactionsLimit + 1, ReturnRootTxnsOnly: true})
 		if err != nil {
 			err = fmt.Errorf("txn query err %v", err)
 			out <- idb.TxnRow{Error: err}
@@ -658,9 +659,12 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	if tf.RekeyTo != nil && (*tf.RekeyTo) {
 		whereParts = append(whereParts, "(t.txn -> 'txn' -> 'rekey') IS NOT NULL")
 	}
+	if tf.ReturnRootTxnsOnly {
+		whereParts = append(whereParts, "t.txid IS NOT NULL")
+	}
 
 	// If returnInnerTxnOnly flag is false, then return the root transaction
-	if !tf.ReturnInnerTxnOnly {
+	if !(tf.ReturnInnerTxnOnly || tf.ReturnRootTxnsOnly) {
 		query = "SELECT t.round, t.intra, t.txn, root.txn, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
 	} else {
 		query = "SELECT t.round, t.intra, t.txn, NULL, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
@@ -671,7 +675,7 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	}
 
 	// join in the root transaction if the returnInnerTxnOnly flag is false
-	if !tf.ReturnInnerTxnOnly {
+	if !(tf.ReturnInnerTxnOnly || tf.ReturnRootTxnsOnly) {
 		query += " LEFT OUTER JOIN txn root ON t.round = root.round AND (t.extra->>'root-intra')::int = root.intra"
 	}
 
@@ -716,9 +720,33 @@ func (db *IndexerDb) yieldTxns(ctx context.Context, tx pgx.Tx, tf idb.Transactio
 	db.yieldTxnsThreadSimple(rows, out, nil, nil)
 }
 
+// txnFilterOptimization checks that there are no parameters set which would
+// cause non-contiguous transaction results. As long as all transactions in a
+// range are returned, we are guaranteed to fetch the root transactions, and
+// therefore do not need to fetch inner transactions.
+func txnFilterOptimization(tf idb.TransactionFilter) idb.TransactionFilter {
+	defaults := idb.TransactionFilter{
+		Round:      tf.Round,
+		MinRound:   tf.MinRound,
+		MaxRound:   tf.MaxRound,
+		BeforeTime: tf.BeforeTime,
+		AfterTime:  tf.AfterTime,
+		Limit:      tf.Limit,
+		NextToken:  tf.NextToken,
+		Offset:     tf.Offset,
+		OffsetLT:   tf.OffsetLT,
+		OffsetGT:   tf.OffsetGT,
+	}
+	if reflect.DeepEqual(tf, defaults) {
+		tf.ReturnRootTxnsOnly = true
+	}
+	return tf
+}
+
 // Transactions is part of idb.IndexerDB
 func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter) (<-chan idb.TxnRow, uint64) {
 	out := make(chan idb.TxnRow, 1)
+	tf = txnFilterOptimization(tf)
 
 	tx, err := db.db.BeginTx(ctx, readonlyRepeatableRead)
 	if err != nil {
