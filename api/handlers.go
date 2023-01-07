@@ -16,8 +16,8 @@ import (
 	"github.com/labstack/echo/v4"
 	log "github.com/sirupsen/logrus"
 
+	"github.com/algorand/avm-abi/apps"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/protocol"
 
 	"github.com/algorand/indexer/accounting"
@@ -579,7 +579,7 @@ func (si *ServerImplementation) LookupApplicationBoxByIDAndName(ctx echo.Context
 	}
 
 	encodedBoxName := params.Name
-	boxNameBytes, err := logic.NewAppCallBytes(encodedBoxName)
+	boxNameBytes, err := apps.NewAppCallBytes(encodedBoxName)
 	if err != nil {
 		return badRequest(ctx, fmt.Sprintf("LookupApplicationBoxByIDAndName received illegal box name (%s): %s", encodedBoxName, err.Error()))
 	}
@@ -648,7 +648,7 @@ func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, appl
 	}
 	if params.Next != nil {
 		encodedBoxName := *params.Next
-		boxNameBytes, err := logic.NewAppCallBytes(encodedBoxName)
+		boxNameBytes, err := apps.NewAppCallBytes(encodedBoxName)
 		if err != nil {
 			return badRequest(ctx, fmt.Sprintf("SearchForApplicationBoxes received illegal next token (%s): %s", encodedBoxName, err.Error()))
 		}
