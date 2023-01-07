@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"github.com/algorand/avm-abi/apps"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -26,7 +27,6 @@ import (
 	"github.com/algorand/go-algorand/crypto/merklesignature"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/rpcs"
 

@@ -3,6 +3,7 @@ package writer_test
 import (
 	"context"
 	"fmt"
+	"github.com/algorand/avm-abi/apps"
 	"math"
 	"testing"
 	"time"
@@ -27,7 +28,6 @@ import (
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
@@ -1572,7 +1572,8 @@ func TestWriterAddBlock0(t *testing.T) {
 }
 func getNameAndAccountPointer(t *testing.T, value ledgercore.KvValueDelta, fullKey string, accts map[basics.Address]*ledgercore.AccountData) (basics.Address, string, *ledgercore.AccountData) {
 	require.NotNil(t, value, "cannot handle a nil value for box stats modification")
-	appIdx, name, err := apps.SplitBoxKey(fullKey)
+	appIdxUint, name, err := apps.SplitBoxKey(fullKey)
+	appIdx := basics.AppIndex(appIdxUint)
 	account := appIdx.Address()
 	require.NoError(t, err)
 	acctData, ok := accts[account]
@@ -1705,11 +1706,11 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	n4, v4 := "box4", "inserted"
 	n5, v5 := "box5", "inserted"
 
-	k1 := apps.MakeBoxKey(uint64(appid), n1)
-	k2 := apps.MakeBoxKey(uint64(appid), n2)
-	k3 := apps.MakeBoxKey(uint64(appid), n3)
-	k4 := apps.MakeBoxKey(uint64(appid), n4)
-	k5 := apps.MakeBoxKey(uint64(appid), n5)
+	k1 := apps.MakeBoxKey(uint64(appID), n1)
+	k2 := apps.MakeBoxKey(uint64(appID), n2)
+	k3 := apps.MakeBoxKey(uint64(appID), n3)
+	k4 := apps.MakeBoxKey(uint64(appID), n4)
+	k5 := apps.MakeBoxKey(uint64(appID), n5)
 
 	delta.KvMods = map[string]ledgercore.KvValueDelta{}
 	delta.KvMods[k1] = ledgercore.KvValueDelta{Data: []byte(v1)}
@@ -1776,7 +1777,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	// v5 is "deleted"
 	n6, v6 := "box6", "inserted"
 
-	k6 := apps.MakeBoxKey(uint64(appid), n6)
+	k6 := apps.MakeBoxKey(uint64(appID), n6)
 
 	delta.KvMods = map[string]ledgercore.KvValueDelta{}
 	delta.KvMods[k2] = ledgercore.KvValueDelta{Data: []byte(v2), OldData: []byte(oldV2)}
