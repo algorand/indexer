@@ -569,7 +569,7 @@ func compareAppBoxesAgainstLedger(t *testing.T, ld indxLedger.LedgerForEvaluator
 			msg := fmt.Sprintf("caseNum=%d, appIdx=%d, key=%#v", caseNum, appIdx, key)
 			expectedAppIdx, _, err := apps.SplitBoxKey(key)
 			require.NoError(t, err, msg)
-			require.Equal(t, appIdx, expectedAppIdx, msg)
+			require.Equal(t, uint64(appIdx), expectedAppIdx, msg)
 
 			boxDeleted := false
 			if deletedBoxes != nil {

@@ -51,7 +51,7 @@ func compareAppBoxesAgainstDB(t *testing.T, db *IndexerDb,
 			msg := fmt.Sprintf("caseNum=%d, appIdx=%d, key=%#v", caseNum, appIdx, key)
 			expectedAppIdx, boxName, err := apps.SplitBoxKey(key)
 			require.NoError(t, err, msg)
-			require.Equal(t, appIdx, expectedAppIdx, msg)
+			require.Equal(t, uint64(appIdx), expectedAppIdx, msg)
 
 			row := db.db.QueryRow(context.Background(), appBoxSQL, appIdx, []byte(boxName))
 			numQueries++
@@ -363,7 +363,7 @@ func createRandomBoxesWithDelta(t *testing.T, numApps, maxBoxes int) (map[basics
 		for key, value := range boxes {
 			embeddedAppIdx, _, err := apps.SplitBoxKey(key)
 			require.NoError(t, err)
-			require.Equal(t, appIndex, embeddedAppIdx)
+			require.Equal(t, uint64(appIndex), embeddedAppIdx)
 
 			val := string([]byte(value)[:])
 			delta.KvMods[key] = ledgercore.KvValueDelta{Data: []byte(val)}
