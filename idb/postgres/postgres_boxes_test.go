@@ -68,7 +68,7 @@ func compareAppBoxesAgainstDB(t *testing.T, db *IndexerDb,
 			err = row.Scan(&app, &name, &value)
 			if !boxDeleted {
 				require.NoError(t, err, msg)
-				require.Equal(t, expectedAppIdx, app, msg)
+				require.Equal(t, expectedAppIdx, uint64(app), msg)
 				require.Equal(t, boxName, string(name), msg)
 				require.Equal(t, expectedValue, string(value), msg)
 
