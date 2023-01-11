@@ -3,6 +3,7 @@ package filewriter
 import (
 	"context"
 	"fmt"
+	"path"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -48,20 +49,62 @@ func TestExporterMetadata(t *testing.T) {
 	assert.Equal(t, metadata.Deprecated, meta.Deprecated)
 }
 
+func TestExporterInitDefaults(t *testing.T) {
+	tempdir := t.TempDir()
+	override := path.Join(tempdir, "override")
+
+	testcases := []struct {
+		blockdir string
+		expected string
+	}{
+		{
+			blockdir: "",
+			expected: tempdir,
+		},
+		{
+			blockdir: "''",
+			expected: tempdir,
+		},
+		{
+			blockdir: override,
+			expected: override,
+		},
+		{
+			blockdir: fmt.Sprintf("'%s'", override),
+			expected: override,
+		},
+	}
+
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(fmt.Sprintf("blockdir=%s", tc.blockdir), func(t *testing.T) {
+			t.Parallel()
+			fileExp := fileCons.New()
+			defer fileExp.Close()
+			pcfg := plugins.MakePluginConfig(fmt.Sprintf("block-dir: %s", tc.blockdir))
+			pcfg.DataDir = tempdir
+			err := fileExp.Init(context.Background(), testutil.MockedInitProvider(&round), pcfg, logger)
+			require.NoError(t, err)
+			pluginConfig := fileExp.Config()
+			assert.Contains(t, pluginConfig, fmt.Sprintf("block-dir: %s", tc.expected))
+		})
+	}
+}
+
 func TestExporterInit(t *testing.T) {
 	config, _ := getConfig(t)
 	fileExp := fileCons.New()
 	defer fileExp.Close()
 
 	// creates a new output file
-	err := fileExp.Init(context.Background(), testutil.MockedInitProvider(&round), plugins.PluginConfig(config), logger)
+	err := fileExp.Init(context.Background(), testutil.MockedInitProvider(&round), plugins.MakePluginConfig(config), logger)
 	pluginConfig := fileExp.Config()
 	configWithDefault := config + "filename-pattern: '%[1]d_block.json'\n" + "drop-certificate: false\n"
 	assert.Equal(t, configWithDefault, string(pluginConfig))
 	fileExp.Close()
 
 	// can open existing file
-	err = fileExp.Init(context.Background(), testutil.MockedInitProvider(&round), plugins.PluginConfig(config), logger)
+	err = fileExp.Init(context.Background(), testutil.MockedInitProvider(&round), plugins.MakePluginConfig(config), logger)
 	assert.NoError(t, err)
 	fileExp.Close()
 }
@@ -82,7 +125,7 @@ func sendData(t *testing.T, fileExp exporters.Exporter, config string, numRounds
 
 	// initialize
 	rnd := basics.Round(0)
-	err = fileExp.Init(context.Background(), testutil.MockedInitProvider(&rnd), plugins.PluginConfig(config), logger)
+	err = fileExp.Init(context.Background(), testutil.MockedInitProvider(&rnd), plugins.MakePluginConfig(config), logger)
 	require.NoError(t, err)
 
 	// incorrect round
@@ -125,7 +168,7 @@ func TestExporterReceive(t *testing.T) {
 		assert.FileExists(t, path)
 
 		var blockData data.BlockData
-		err := util.DecodeFromFile(path, &blockData)
+		err := util.DecodeFromFile(path, &blockData, true)
 		require.Equal(t, basics.Round(i), blockData.BlockHeader.Round)
 		require.NoError(t, err)
 		require.NotNil(t, blockData.Certificate)
@@ -136,7 +179,7 @@ func TestExporterClose(t *testing.T) {
 	config, _ := getConfig(t)
 	fileExp := fileCons.New()
 	rnd := basics.Round(0)
-	fileExp.Init(context.Background(), testutil.MockedInitProvider(&rnd), plugins.PluginConfig(config), logger)
+	fileExp.Init(context.Background(), testutil.MockedInitProvider(&rnd), plugins.MakePluginConfig(config), logger)
 	require.NoError(t, fileExp.Close())
 }
 
@@ -157,7 +200,7 @@ func TestPatternOverride(t *testing.T) {
 		assert.FileExists(t, path)
 
 		var blockData data.BlockData
-		err := util.DecodeFromFile(path, &blockData)
+		err := util.DecodeFromFile(path, &blockData, true)
 		require.Equal(t, basics.Round(i), blockData.BlockHeader.Round)
 		require.NoError(t, err)
 		require.NotNil(t, blockData.Certificate)
@@ -183,7 +226,7 @@ func TestDropCertificate(t *testing.T) {
 		path := fmt.Sprintf("%s/%s", tempdir, filename)
 		assert.FileExists(t, path)
 		var blockData data.BlockData
-		err := util.DecodeFromFile(path, &blockData)
+		err := util.DecodeFromFile(path, &blockData, true)
 		assert.NoError(t, err)
 		assert.Nil(t, blockData.Certificate)
 	}

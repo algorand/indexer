@@ -62,8 +62,7 @@ func init() {
 func (algodImp *algodImporter) Init(ctx context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) (*sdk.Genesis, error) {
 	algodImp.ctx, algodImp.cancel = context.WithCancel(ctx)
 	algodImp.logger = logger
-	var err error
-	algodImp.cfg, err = unmarshalConfig(string(cfg))
+	err := cfg.UnmarshalConfig(&algodImp.cfg)
 	if err != nil {
 		return nil, fmt.Errorf("connect failure in unmarshalConfig: %v", err)
 	}
@@ -90,7 +89,8 @@ func (algodImp *algodImporter) Init(ctx context.Context, cfg plugins.PluginConfi
 
 	genesis := sdk.Genesis{}
 
-	err = json.Decode([]byte(genesisResponse), &genesis)
+	// Don't fail on unknown properties here since the go-algorand and SDK genesis types differ slightly
+	err = json.LenientDecode([]byte(genesisResponse), &genesis)
 	if err != nil {
 		return nil, err
 	}
@@ -98,9 +98,9 @@ func (algodImp *algodImporter) Init(ctx context.Context, cfg plugins.PluginConfi
 	return &genesis, err
 }
 
-func (algodImp *algodImporter) Config() plugins.PluginConfig {
+func (algodImp *algodImporter) Config() string {
 	s, _ := yaml.Marshal(algodImp.cfg)
-	return plugins.PluginConfig(s)
+	return string(s)
 }
 
 func (algodImp *algodImporter) Close() error {
@@ -152,9 +152,4 @@ func (algodImp *algodImporter) ProvideMetrics() []prometheus.Collector {
 	return []prometheus.Collector{
 		GetAlgodRawBlockTimeSeconds,
 	}
-}
-
-func unmarshalConfig(cfg string) (config Config, err error) {
-	err = yaml.Unmarshal([]byte(cfg), &config)
-	return
 }

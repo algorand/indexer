@@ -55,7 +55,7 @@ func (exp *postgresqlExporter) Init(ctx context.Context, initProvider data.InitP
 	exp.ctx, exp.cf = context.WithCancel(ctx)
 	dbName := "postgres"
 	exp.logger = logger
-	if err := exp.unmarhshalConfig(string(cfg)); err != nil {
+	if err := cfg.UnmarshalConfig(&exp.cfg); err != nil {
 		return fmt.Errorf("connect failure in unmarshalConfig: %v", err)
 	}
 	// Inject a dummy db for unit testing
@@ -100,9 +100,9 @@ func (exp *postgresqlExporter) Init(ctx context.Context, initProvider data.InitP
 	return nil
 }
 
-func (exp *postgresqlExporter) Config() plugins.PluginConfig {
+func (exp *postgresqlExporter) Config() string {
 	ret, _ := yaml.Marshal(exp.cfg)
-	return plugins.PluginConfig(ret)
+	return string(ret)
 }
 
 func (exp *postgresqlExporter) Close() error {

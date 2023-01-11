@@ -2,49 +2,22 @@ package conduit
 
 import (
 	"fmt"
-	"strings"
 
-	"github.com/spf13/pflag"
-
-	"github.com/algorand/go-algorand/util"
+	log "github.com/sirupsen/logrus"
 )
 
-// DefaultConfigName is the default conduit configuration filename.
-const DefaultConfigName = "conduit.yml"
+// DefaultConfigBaseName is the default conduit configuration filename without the extension.
+var DefaultConfigBaseName = "conduit"
 
-// Config configuration for conduit running.
+// DefaultConfigName is the default conduit configuration filename.
+var DefaultConfigName = fmt.Sprintf("%s.yml", DefaultConfigBaseName)
+
+// DefaultLogLevel is the default conduit log level if none is provided.
+var DefaultLogLevel = log.InfoLevel
+
+// Args configuration for conduit running.
 // This is needed to support a CONDUIT_DATA_DIR environment variable.
-type Config struct {
-	Flags             *pflag.FlagSet
+type Args struct {
 	ConduitDataDir    string `yaml:"data-dir"`
 	NextRoundOverride uint64 `yaml:"next-round-override"`
-}
-
-func (cfg *Config) String() string {
-	var sb strings.Builder
-
-	var dataDirToPrint string
-	if cfg.ConduitDataDir == "" {
-		dataDirToPrint = "[EMPTY]"
-	} else {
-		dataDirToPrint = cfg.ConduitDataDir
-	}
-
-	fmt.Fprintf(&sb, "Data Directory: %s ", dataDirToPrint)
-
-	return sb.String()
-}
-
-// Valid validates a supplied configuration
-func (cfg *Config) Valid() error {
-
-	if cfg.ConduitDataDir == "" {
-		return fmt.Errorf("supplied data directory was empty")
-	}
-
-	if !util.IsDir(cfg.ConduitDataDir) {
-		return fmt.Errorf("supplied data directory (%s) was not valid", cfg.ConduitDataDir)
-	}
-
-	return nil
 }

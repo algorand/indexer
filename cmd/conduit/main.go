@@ -9,7 +9,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
+	"github.com/spf13/cobra/doc"
 
 	"github.com/algorand/indexer/cmd/conduit/internal/list"
 	"github.com/algorand/indexer/conduit"
@@ -19,7 +19,7 @@ import (
 	_ "github.com/algorand/indexer/conduit/plugins/importers/all"
 	_ "github.com/algorand/indexer/conduit/plugins/processors/all"
 	"github.com/algorand/indexer/loggers"
-	"github.com/algorand/indexer/util/metrics"
+	"github.com/algorand/indexer/version"
 )
 
 var (
@@ -28,71 +28,52 @@ var (
 	conduitCmd           = makeConduitCmd()
 	initCmd              = makeInitCmd()
 	defaultDataDirectory = "data"
+	//go:embed banner.txt
+	banner string
 )
 
 // init() function for main package
 func init() {
-
 	loggerManager = loggers.MakeLoggerManager(os.Stdout)
-	// Setup logger
-	logger = loggerManager.MakeLogger()
-
-	formatter := pipeline.PluginLogFormatter{
-		Formatter: &log.JSONFormatter{
-			DisableHTMLEscape: true,
-		},
-		Type: "Conduit",
-		Name: "main",
-	}
-
-	logger.SetFormatter(&formatter)
-
 	conduitCmd.AddCommand(initCmd)
-	metrics.RegisterPrometheusMetrics()
 }
 
 // runConduitCmdWithConfig run the main logic with a supplied conduit config
-func runConduitCmdWithConfig(cfg *conduit.Config) error {
+func runConduitCmdWithConfig(args *conduit.Args) error {
 	defer pipeline.HandlePanic(logger)
 
-	// From docs:
-	// BindEnv takes one or more parameters. The first parameter is the key name, the rest are the name of the
-	// environment variables to bind to this key. If more than one are provided, they will take precedence in
-	// the specified order. The name of the environment variable is case sensitive. If the ENV variable name is not
-	// provided, then Viper will automatically assume that the ENV variable matches the following format:
-	// prefix + "_" + the key name in ALL CAPS. When you explicitly provide the ENV variable name (the second
-	// parameter), it does not automatically add the prefix. For example if the second parameter is "id",
-	// Viper will look for the ENV variable "ID".
-	//
-	// One important thing to recognize when working with ENV variables is that the value will be read each time
-	// it is accessed. Viper does not fix the value when the BindEnv is called.
-	err := viper.BindEnv("data-dir", "CONDUIT_DATA_DIR")
+	if args.ConduitDataDir == "" {
+		args.ConduitDataDir = os.Getenv("CONDUIT_DATA_DIR")
+	}
+
+	pCfg, err := pipeline.MakePipelineConfig(args)
 	if err != nil {
 		return err
 	}
 
-	// Changed returns true if the key was set during parse and IsSet determines if it is in the internal
-	// viper hashmap
-	if !cfg.Flags.Changed("data-dir") && viper.IsSet("data-dir") {
-		cfg.ConduitDataDir = viper.Get("data-dir").(string)
-	}
-
-	logger.Info(cfg)
-
-	pCfg, err := pipeline.MakePipelineConfig(logger, cfg)
-
+	// Initialize logger
+	level, err := log.ParseLevel(pCfg.PipelineLogLevel)
 	if err != nil {
-		return err
+		return fmt.Errorf("runConduitCmdWithConfig(): invalid log level: %s", err)
 	}
 
+	logger, err = loggerManager.MakeRootLogger(level, pCfg.LogFile)
+	if err != nil {
+		return fmt.Errorf("runConduitCmdWithConfig(): failed to create logger: %w", err)
+	}
+
+	logger.Infof("Using data directory: %s", args.ConduitDataDir)
 	logger.Info("Conduit configuration is valid")
+
+	if !pCfg.HideBanner {
+		fmt.Printf(banner)
+	}
 
 	if pCfg.LogFile != "" {
 		logger.Infof("Conduit log file: %s", pCfg.LogFile)
 	}
 
 	ctx := context.Background()
-
 	pipeline, err := pipeline.MakePipeline(ctx, pCfg, logger)
 	if err != nil {
 		return fmt.Errorf("pipeline creation error: %w", err)
@@ -108,9 +89,10 @@ func runConduitCmdWithConfig(cfg *conduit.Config) error {
 	return pipeline.Error()
 }
 
-// makeConduitCmd creates the main cobra command, initializes flags, and viper aliases
+// makeConduitCmd creates the main cobra command, initializes flags
 func makeConduitCmd() *cobra.Command {
-	cfg := &conduit.Config{}
+	cfg := &conduit.Args{}
+	var vFlag bool
 	cmd := &cobra.Command{
 		Use:   "conduit",
 		Short: "run the conduit framework",
@@ -119,13 +101,20 @@ func makeConduitCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConduitCmdWithConfig(cfg)
 		},
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			if vFlag {
+				fmt.Println("Conduit Pre-Release")
+				fmt.Printf("%s\n", version.LongVersion())
+				os.Exit(0)
+			}
+		},
 		SilenceUsage: true,
 		// Silence errors because our logger will catch and print any errors
 		SilenceErrors: true,
 	}
-	cfg.Flags = cmd.Flags()
-	cfg.Flags.StringVarP(&cfg.ConduitDataDir, "data-dir", "d", "", "set the data directory for the conduit binary")
-	cfg.Flags.Uint64VarP(&cfg.NextRoundOverride, "next-round-override", "r", 0, "set the starting round. Overrides next-round in metadata.json")
+	cmd.Flags().StringVarP(&cfg.ConduitDataDir, "data-dir", "d", "", "set the data directory for the conduit binary")
+	cmd.Flags().Uint64VarP(&cfg.NextRoundOverride, "next-round-override", "r", 0, "set the starting round. Overrides next-round in metadata.json")
+	cmd.Flags().BoolVarP(&vFlag, "version", "v", false, "print the conduit version")
 
 	cmd.AddCommand(list.Command)
 
@@ -189,6 +178,17 @@ func makeInitCmd() *cobra.Command {
 }
 
 func main() {
+	// Hidden command to generate docs in a given directory
+	// conduit generate-docs [path]
+	if len(os.Args) == 3 && os.Args[1] == "generate-docs" {
+		err := doc.GenMarkdownTree(conduitCmd, os.Args[2])
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
 	if err := conduitCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"runtime/pprof"
 	"strings"
 	"syscall"
@@ -27,35 +26,7 @@ import (
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
 	iutil "github.com/algorand/indexer/util"
-
-	"github.com/algorand/go-algorand/util"
 )
-
-// GetConfigFromDataDir Given the data directory, configuration filename and a list of types, see if
-// a configuration file that matches was located there.  If no configuration file was there then an
-// empty string is returned.  If more than one filetype was matched, an error is returned.
-func GetConfigFromDataDir(dataDirectory string, configFilename string, configFileTypes []string) (string, error) {
-	count := 0
-	fullPath := ""
-	var err error
-
-	for _, configFileType := range configFileTypes {
-		autoloadParamConfigPath := filepath.Join(dataDirectory, configFilename+"."+configFileType)
-		if util.FileExists(autoloadParamConfigPath) {
-			count++
-			fullPath = autoloadParamConfigPath
-		}
-	}
-
-	if count > 1 {
-		return "", fmt.Errorf("config filename (%s) in data directory (%s) matched more than one filetype: %v",
-			configFilename, dataDirectory, configFileTypes)
-	}
-
-	// if count == 0 then the fullpath will be set to "" and error will be nil
-	// if count == 1 then it fullpath will be correct
-	return fullPath, err
-}
 
 type daemonConfig struct {
 	flags                     *pflag.FlagSet
@@ -105,7 +76,8 @@ func DaemonCmd() *cobra.Command {
 		//Args:
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := runDaemon(cfg); err != nil {
-				panic(exit{1})
+				fmt.Fprintf(os.Stderr, "Exiting with error: %s\n", err.Error())
+				os.Exit(1)
 			}
 		},
 	}
@@ -151,34 +123,28 @@ func DaemonCmd() *cobra.Command {
 	viper.RegisterAlias("algod-net", "algod-address")
 	viper.RegisterAlias("server", "server-address")
 	viper.RegisterAlias("token", "api-token")
-	viper.RegisterAlias("data-dir", "data")
 	return daemonCmd
 }
 
 func configureIndexerDataDir(indexerDataDir string) error {
 	var err error
 	if indexerDataDir == "" {
-		err = fmt.Errorf("indexer data directory was not provided")
-		logger.WithError(err).Errorf("indexer data directory error, %v", err)
-		return err
+		return nil
 	}
 	if _, err = os.Stat(indexerDataDir); os.IsNotExist(err) {
 		err = os.Mkdir(indexerDataDir, 0755)
 		if err != nil {
-			logger.WithError(err).Errorf("indexer data directory error, %v", err)
-			return err
+			return fmt.Errorf("indexer data directory error, %v", err)
 		}
 	}
 	return err
 }
 
-func loadIndexerConfig(indexerDataDir string, configFile string) error {
+func resolveConfigFile(indexerDataDir string, configFile string) (string, error) {
 	var err error
-	var resolvedConfigPath string
-	potentialIndexerConfigPath, err := GetConfigFromDataDir(indexerDataDir, autoLoadIndexerConfigFileName, config.FileTypes[:])
+	potentialIndexerConfigPath, err := iutil.GetConfigFromDataDir(indexerDataDir, autoLoadIndexerConfigFileName, config.FileTypes[:])
 	if err != nil {
-		logger.Error(err)
-		return err
+		return "", err
 	}
 	indexerConfigFound := potentialIndexerConfigPath != ""
 
@@ -187,27 +153,31 @@ func loadIndexerConfig(indexerDataDir string, configFile string) error {
 		if configFile != "" {
 			err = fmt.Errorf("indexer configuration was found in data directory (%s) as well as supplied via command line.  Only provide one",
 				potentialIndexerConfigPath)
-			logger.Error(err)
-			return err
+			return "", err
 		}
-		resolvedConfigPath = potentialIndexerConfigPath
+		return potentialIndexerConfigPath, nil
 	} else if configFile != "" {
 		// user specified
-		resolvedConfigPath = configFile
-	} else {
-		// neither autoload nor user specified
-		return err
+		return configFile, nil
 	}
-	configs, err := os.Open(resolvedConfigPath)
+	// neither autoload nor user specified
+	return "", nil
+}
+
+// loadIndexerConfig opens the file and calls viper.ReadConfig
+func loadIndexerConfig(configFile string) error {
+	if configFile == "" {
+		return nil
+	}
+
+	configs, err := os.Open(configFile)
 	if err != nil {
-		logger.WithError(err).Errorf("File Does Not Exist Error: %v", err)
-		return err
+		return fmt.Errorf("config file does not exist: %w", err)
 	}
 	defer configs.Close()
 	err = viper.ReadConfig(configs)
 	if err != nil {
-		logger.WithError(err).Errorf("invalid config file (%s): %v", viper.ConfigFileUsed(), err)
-		return err
+		return fmt.Errorf("invalid config file (%s): %w", configFile, err)
 	}
 	return err
 }
@@ -221,7 +191,7 @@ func loadIndexerParamConfig(cfg *daemonConfig) error {
 		logger.WithError(err).Errorf("API Parameter Error: %v", err)
 		return err
 	}
-	potentialParamConfigPath, err := GetConfigFromDataDir(cfg.indexerDataDir, autoLoadParameterConfigFileName, config.FileTypes[:])
+	potentialParamConfigPath, err := iutil.GetConfigFromDataDir(cfg.indexerDataDir, autoLoadParameterConfigFileName, config.FileTypes[:])
 	if err != nil {
 		logger.Error(err)
 		return err
@@ -243,7 +213,17 @@ func loadIndexerParamConfig(cfg *daemonConfig) error {
 
 func runDaemon(daemonConfig *daemonConfig) error {
 	var err error
-	config.BindFlagSet(daemonConfig.flags)
+
+	// check for config environment variables
+	if daemonConfig.indexerDataDir == "" {
+		daemonConfig.indexerDataDir = os.Getenv("INDEXER_DATA")
+	}
+	if daemonConfig.configFile == "" {
+		daemonConfig.configFile = os.Getenv("INDEXER_CONFIGFILE")
+	}
+	if daemonConfig.algodDataDir == "" {
+		daemonConfig.algodDataDir = os.Getenv("ALGORAND_DATA")
+	}
 
 	// Create the data directory if necessary/possible
 	if err = configureIndexerDataDir(daemonConfig.indexerDataDir); err != nil {
@@ -251,25 +231,36 @@ func runDaemon(daemonConfig *daemonConfig) error {
 	}
 
 	// Detect the various auto-loading configs from data directory
-	if err = loadIndexerConfig(daemonConfig.indexerDataDir, daemonConfig.configFile); err != nil {
+	var configFile string
+	if configFile, err = resolveConfigFile(daemonConfig.indexerDataDir, daemonConfig.configFile); err != nil {
+		return err
+	}
+
+	if err = loadIndexerConfig(configFile); err != nil {
 		return err
 	}
 	// We need to re-run this because loading the config file could change these
 	config.BindFlagSet(daemonConfig.flags)
 
-	// Load the Parameter config
-	if err = loadIndexerParamConfig(daemonConfig); err != nil {
-		return err
+	if !daemonConfig.noAlgod && daemonConfig.indexerDataDir == "" {
+		return fmt.Errorf("indexer data directory was not provided")
 	}
 
-	// Configure the logger after we load all indexer configs
+	// Configure the logger as soon as we're able so that it can be used.
 	err = configureLogger()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to configure logger: %v", err)
 		return err
 	}
 
-	logger.Infof("Using configuration file: %s", viper.ConfigFileUsed())
+	if configFile != "" {
+		logger.Infof("Using configuration file: %s", configFile)
+	}
+
+	// Load the Parameter config
+	if err = loadIndexerParamConfig(daemonConfig); err != nil {
+		return err
+	}
 
 	if daemonConfig.pidFilePath != "" {
 		err = iutil.CreateIndexerPidFile(logger, daemonConfig.pidFilePath)
@@ -300,10 +291,6 @@ func runDaemon(daemonConfig *daemonConfig) error {
 		defer pprof.StopCPUProfile()
 	}
 
-	if daemonConfig.algodDataDir == "" {
-		daemonConfig.algodDataDir = os.Getenv("ALGORAND_DATA")
-	}
-
 	ctx, cf := context.WithCancel(context.Background())
 	defer cf()
 	{
@@ -320,7 +307,9 @@ func runDaemon(daemonConfig *daemonConfig) error {
 
 	if daemonConfig.algodDataDir != "" {
 		daemonConfig.algodAddr, daemonConfig.algodToken, _, err = fetcher.AlgodArgsForDataDir(daemonConfig.algodDataDir)
-		maybeFail(err, "algod data dir err, %v", err)
+		if err != nil {
+			return fmt.Errorf("algod data dir err, %v", err)
+		}
 	} else if daemonConfig.algodAddr == "" || daemonConfig.algodToken == "" {
 		// no algod was found
 		logger.Info("no algod was found, provide either --algod OR --algod-net and --algod-token to enable")
@@ -341,11 +330,23 @@ func runDaemon(daemonConfig *daemonConfig) error {
 	opts.AlgodToken = daemonConfig.algodToken
 	opts.AlgodAddr = daemonConfig.algodAddr
 
-	db, availableCh := indexerDbFromFlags(opts)
+	db, availableCh, err := indexerDbFromFlags(opts)
+	if err != nil {
+		return err
+	}
 	defer db.Close()
 	var dataError func() error
 	if daemonConfig.noAlgod != true {
-		pipeline := runConduitPipeline(ctx, availableCh, daemonConfig)
+		// Wait until the database is available.
+		<-availableCh
+		var nextRound uint64
+		nextRound, err = db.GetNextRoundToAccount()
+		if err == idb.ErrorNotInitialized {
+			nextRound = 0
+		} else if err != nil {
+			return err
+		}
+		pipeline := runConduitPipeline(ctx, nextRound, daemonConfig)
 		if pipeline != nil {
 			dataError = pipeline.Error
 			defer pipeline.Stop()
@@ -363,11 +364,15 @@ func runDaemon(daemonConfig *daemonConfig) error {
 	return err
 }
 
-func makeConduitConfig(dCfg *daemonConfig) pipeline.Config {
+func makeConduitConfig(dCfg *daemonConfig, nextRound uint64) pipeline.Config {
 	return pipeline.Config{
-		ConduitConfig: &conduit.Config{
-			ConduitDataDir: dCfg.indexerDataDir,
+		RetryCount: 10,
+		RetryDelay: 1 * time.Second,
+		ConduitArgs: &conduit.Args{
+			ConduitDataDir:    dCfg.indexerDataDir,
+			NextRoundOverride: nextRound,
 		},
+		HideBanner:       true,
 		PipelineLogLevel: logger.GetLevel().String(),
 		Importer: pipeline.NameConfigPair{
 			Name: "algod",
@@ -400,16 +405,13 @@ func makeConduitConfig(dCfg *daemonConfig) pipeline.Config {
 
 }
 
-func runConduitPipeline(ctx context.Context, dbAvailable chan struct{}, dCfg *daemonConfig) pipeline.Pipeline {
+func runConduitPipeline(ctx context.Context, nextRound uint64, dCfg *daemonConfig) pipeline.Pipeline {
 	// Need to redefine exitHandler() for every go-routine
 	defer exitHandler()
 
-	// Wait until the database is available.
-	<-dbAvailable
-
 	var conduit pipeline.Pipeline
 	var err error
-	pcfg := makeConduitConfig(dCfg)
+	pcfg := makeConduitConfig(dCfg, nextRound)
 	if conduit, err = pipeline.MakePipeline(ctx, &pcfg, logger); err != nil {
 		logger.Errorf("%v", err)
 		panic(exit{1})

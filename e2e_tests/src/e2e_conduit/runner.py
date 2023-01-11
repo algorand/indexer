@@ -36,9 +36,9 @@ class ConduitE2ETestRunner:
         for plugin in [scenario.importer, *scenario.processors, scenario.exporter]:
             plugin.setup(scenario.accumulated_config)
             plugin.resolve_config()
-            scenario.accumulated_config = (
-                scenario.accumulated_config | plugin.config_output
-            )
+            scenario.accumulated_config = {
+                **scenario.accumulated_config, **plugin.config_output
+            }
 
         # Write conduit config to data directory
         with open(

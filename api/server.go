@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	echo_contrib "github.com/labstack/echo-contrib/prometheus"
@@ -104,6 +105,13 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, dataError fu
 
 	e.Use(middlewares.MakeLogger(log))
 	e.Use(middleware.CORS())
+	e.Use(middleware.GzipWithConfig(middleware.GzipConfig{
+		// we currently support compressed result only for GET /v2/blocks/ API
+		Skipper: func(c echo.Context) bool {
+			return !strings.Contains(c.Path(), "/v2/blocks/")
+		},
+		Level: -1,
+	}))
 
 	middleware := make([]echo.MiddlewareFunc, 0)
 

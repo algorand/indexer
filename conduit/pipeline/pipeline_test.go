@@ -4,18 +4,20 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"math"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
@@ -26,6 +28,7 @@ import (
 	"github.com/algorand/indexer/conduit/plugins/importers"
 	"github.com/algorand/indexer/conduit/plugins/processors"
 	"github.com/algorand/indexer/data"
+	_ "github.com/algorand/indexer/util/metrics"
 )
 
 // TestPipelineConfigValidity tests the Valid() function for the Config
@@ -36,7 +39,7 @@ func TestPipelineConfigValidity(t *testing.T) {
 		errContains string
 	}{
 		{"valid", Config{
-			ConduitConfig:    &conduit.Config{ConduitDataDir: ""},
+			ConduitArgs:      &conduit.Args{ConduitDataDir: ""},
 			PipelineLogLevel: "info",
 			Importer:         NameConfigPair{"test", map[string]interface{}{"a": "a"}},
 			Processors:       nil,
@@ -44,30 +47,15 @@ func TestPipelineConfigValidity(t *testing.T) {
 		}, ""},
 
 		{"valid 2", Config{
-			ConduitConfig:    &conduit.Config{ConduitDataDir: ""},
+			ConduitArgs:      &conduit.Args{ConduitDataDir: ""},
 			PipelineLogLevel: "info",
 			Importer:         NameConfigPair{"test", map[string]interface{}{"a": "a"}},
 			Processors:       []NameConfigPair{{"test", map[string]interface{}{"a": "a"}}},
 			Exporter:         NameConfigPair{"test", map[string]interface{}{"a": "a"}},
 		}, ""},
 
-		{"empty config", Config{ConduitConfig: nil}, "Config.Valid(): conduit configuration was nil"},
-		{"invalid log level", Config{ConduitConfig: &conduit.Config{ConduitDataDir: ""}, PipelineLogLevel: "asdf"}, "Config.Valid(): pipeline log level (asdf) was invalid:"},
-		{"importer config was 0",
-			Config{
-				ConduitConfig:    &conduit.Config{ConduitDataDir: ""},
-				PipelineLogLevel: "info",
-				Importer:         NameConfigPair{"test", map[string]interface{}{}},
-			}, "Config.Valid(): importer configuration was empty"},
-
-		{"exporter config was 0",
-			Config{
-				ConduitConfig:    &conduit.Config{ConduitDataDir: ""},
-				PipelineLogLevel: "info",
-				Importer:         NameConfigPair{"test", map[string]interface{}{"a": "a"}},
-				Processors:       []NameConfigPair{{"test", map[string]interface{}{"a": "a"}}},
-				Exporter:         NameConfigPair{"test", map[string]interface{}{}},
-			}, "Config.Valid(): exporter configuration was empty"},
+		{"empty config", Config{ConduitArgs: nil}, "Args.Valid(): conduit args were nil"},
+		{"invalid log level", Config{ConduitArgs: &conduit.Args{ConduitDataDir: ""}, PipelineLogLevel: "asdf"}, "Args.Valid(): pipeline log level (asdf) was invalid:"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -83,12 +71,80 @@ func TestPipelineConfigValidity(t *testing.T) {
 	}
 }
 
+// TestMakePipelineConfigError tests that making the pipeline configuration with unknown fields causes an error
+func TestMakePipelineConfigErrors(t *testing.T) {
+	tests := []struct {
+		name             string
+		invalidConfigStr string
+		errorContains    string
+	}{
+		{"processors not processor", `---
+log-level: info
+importer:
+  name: "algod"
+  config:
+    netaddr: "http://127.0.0.1:8080"
+    token: "e36c01fc77e490f23e61899c0c22c6390d0fff1443af2c95d056dc5ce4e61302"
+processor:
+  - name: "noop"
+    config:
+      catchpoint: "7560000#3OUX3TLXZNOK6YJXGETKRRV2MHMILF5CCIVZUOJCT6SLY5H2WWTQ"
+exporter:
+  name: "noop"
+  config:
+    connectionstring: ""`, "field processor not found"},
+		{"exporter not exporters", `---
+log-level: info
+importer:
+  name: "algod"
+  config:
+    netaddr: "http://127.0.0.1:8080"
+    token: "e36c01fc77e490f23e61899c0c22c6390d0fff1443af2c95d056dc5ce4e61302"
+processors:
+  - name: "noop"
+    config:
+      catchpoint: "7560000#3OUX3TLXZNOK6YJXGETKRRV2MHMILF5CCIVZUOJCT6SLY5H2WWTQ"
+exporters:
+  name: "noop"
+  config:
+    connectionstring: ""`, "field exporters not found"},
+
+		{"config not configs", `---
+log-level: info
+importer:
+  name: "algod"
+  config:
+    netaddr: "http://127.0.0.1:8080"
+    token: "e36c01fc77e490f23e61899c0c22c6390d0fff1443af2c95d056dc5ce4e61302"
+processors:
+  - name: "noop"
+    config:
+      catchpoint: "7560000#3OUX3TLXZNOK6YJXGETKRRV2MHMILF5CCIVZUOJCT6SLY5H2WWTQ"
+exporter:
+  name: "noop"
+  configs:
+    connectionstring: ""`, "field configs not found"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+
+			dataDir := t.TempDir()
+
+			err := os.WriteFile(filepath.Join(dataDir, conduit.DefaultConfigName), []byte(test.invalidConfigStr), 0777)
+			assert.Nil(t, err)
+
+			cfg := &conduit.Args{ConduitDataDir: dataDir}
+
+			_, err = MakePipelineConfig(cfg)
+			assert.ErrorContains(t, err, test.errorContains)
+		})
+	}
+}
+
 // TestMakePipelineConfig tests making the pipeline configuration
 func TestMakePipelineConfig(t *testing.T) {
 
-	l := log.New()
-
-	_, err := MakePipelineConfig(l, nil)
+	_, err := MakePipelineConfig(nil)
 	assert.Equal(t, fmt.Errorf("MakePipelineConfig(): empty conduit config"), err)
 
 	dataDir := t.TempDir()
@@ -112,9 +168,9 @@ exporter:
 	err = os.WriteFile(filepath.Join(dataDir, conduit.DefaultConfigName), []byte(validConfigFile), 0777)
 	assert.Nil(t, err)
 
-	cfg := &conduit.Config{ConduitDataDir: dataDir}
+	cfg := &conduit.Args{ConduitDataDir: dataDir}
 
-	pCfg, err := MakePipelineConfig(l, cfg)
+	pCfg, err := MakePipelineConfig(cfg)
 	assert.Nil(t, err)
 	assert.Equal(t, pCfg.PipelineLogLevel, "info")
 	assert.Equal(t, pCfg.Valid(), nil)
@@ -129,8 +185,8 @@ exporter:
 	invalidDataDir := t.TempDir()
 	assert.Nil(t, err)
 
-	cfgBad := &conduit.Config{ConduitDataDir: invalidDataDir}
-	_, err = MakePipelineConfig(l, cfgBad)
+	cfgBad := &conduit.Args{ConduitDataDir: invalidDataDir}
+	_, err = MakePipelineConfig(cfgBad)
 	assert.Equal(t, err,
 		fmt.Errorf("MakePipelineConfig(): could not find %s in data directory (%s)", conduit.DefaultConfigName, cfgBad.ConduitDataDir))
 
@@ -146,13 +202,15 @@ var uniqueBlockData = data.BlockData{
 type mockImporter struct {
 	mock.Mock
 	importers.Importer
+	cfg             plugins.PluginConfig
 	genesis         sdk.Genesis
 	finalRound      basics.Round
 	returnError     bool
 	onCompleteError bool
 }
 
-func (m *mockImporter) Init(_ context.Context, _ plugins.PluginConfig, _ *log.Logger) (*sdk.Genesis, error) {
+func (m *mockImporter) Init(_ context.Context, cfg plugins.PluginConfig, _ *log.Logger) (*sdk.Genesis, error) {
+	m.cfg = cfg
 	return &m.genesis, nil
 }
 
@@ -187,12 +245,14 @@ func (m *mockImporter) OnComplete(input data.BlockData) error {
 type mockProcessor struct {
 	mock.Mock
 	processors.Processor
+	cfg             plugins.PluginConfig
 	finalRound      basics.Round
 	returnError     bool
 	onCompleteError bool
 }
 
-func (m *mockProcessor) Init(_ context.Context, _ data.InitProvider, _ plugins.PluginConfig, _ *log.Logger) error {
+func (m *mockProcessor) Init(_ context.Context, _ data.InitProvider, cfg plugins.PluginConfig, _ *log.Logger) error {
+	m.cfg = cfg
 	return nil
 }
 
@@ -229,6 +289,7 @@ func (m *mockProcessor) OnComplete(input data.BlockData) error {
 type mockExporter struct {
 	mock.Mock
 	exporters.Exporter
+	cfg             plugins.PluginConfig
 	finalRound      basics.Round
 	returnError     bool
 	onCompleteError bool
@@ -240,7 +301,8 @@ func (m *mockExporter) Metadata() conduit.Metadata {
 	}
 }
 
-func (m *mockExporter) Init(_ context.Context, _ data.InitProvider, _ plugins.PluginConfig, _ *log.Logger) error {
+func (m *mockExporter) Init(_ context.Context, _ data.InitProvider, cfg plugins.PluginConfig, _ *log.Logger) error {
+	m.cfg = cfg
 	return nil
 }
 
@@ -277,7 +339,6 @@ func (c mockedExporterNew) New() exporters.Exporter { return &mockExporter{} }
 
 // TestPipelineRun tests that running the pipeline calls the correct functions with mocking
 func TestPipelineRun(t *testing.T) {
-
 	mImporter := mockImporter{}
 	mImporter.On("GetBlock", mock.Anything).Return(uniqueBlockData, nil)
 	mProcessor := mockProcessor{}
@@ -295,10 +356,11 @@ func TestPipelineRun(t *testing.T) {
 
 	ctx, cf := context.WithCancel(context.Background())
 
+	l, _ := test.NewNullLogger()
 	pImpl := pipelineImpl{
 		ctx:              ctx,
 		cf:               cf,
-		logger:           log.New(),
+		logger:           l,
 		initProvider:     nil,
 		importer:         &pImporter,
 		processors:       []*processors.Processor{&pProcessor},
@@ -309,7 +371,9 @@ func TestPipelineRun(t *testing.T) {
 			GenesisHash: "",
 		},
 		cfg: &Config{
-			ConduitConfig: &conduit.Config{
+			RetryDelay: 0 * time.Second,
+			RetryCount: math.MaxUint64,
+			ConduitArgs: &conduit.Args{
 				ConduitDataDir: t.TempDir(),
 			},
 		},
@@ -341,10 +405,10 @@ func TestPipelineCpuPidFiles(t *testing.T) {
 	pidFilePath := filepath.Join(tempDir, "pidfile")
 	cpuFilepath := filepath.Join(tempDir, "cpufile")
 
+	l, _ := test.NewNullLogger()
 	pImpl := pipelineImpl{
 		cfg: &Config{
-			ConduitConfig: &conduit.Config{
-				Flags:          nil,
+			ConduitArgs: &conduit.Args{
 				ConduitDataDir: tempDir,
 			},
 			Importer: NameConfigPair{
@@ -362,7 +426,7 @@ func TestPipelineCpuPidFiles(t *testing.T) {
 				Config: map[string]interface{}{},
 			},
 		},
-		logger:       log.New(),
+		logger:       l,
 		initProvider: nil,
 		importer:     &pImporter,
 		processors:   []*processors.Processor{&pProcessor},
@@ -420,15 +484,18 @@ func TestPipelineErrors(t *testing.T) {
 	var cbComplete conduit.Completed = &mProcessor
 
 	ctx, cf := context.WithCancel(context.Background())
+	l, _ := test.NewNullLogger()
 	pImpl := pipelineImpl{
 		ctx: ctx,
 		cf:  cf,
 		cfg: &Config{
-			ConduitConfig: &conduit.Config{
+			RetryDelay: 0 * time.Second,
+			RetryCount: math.MaxUint64,
+			ConduitArgs: &conduit.Args{
 				ConduitDataDir: tempDir,
 			},
 		},
-		logger:           log.New(),
+		logger:           l,
 		initProvider:     nil,
 		importer:         &pImporter,
 		processors:       []*processors.Processor{&pProcessor},
@@ -492,11 +559,12 @@ func Test_pipelineImpl_registerLifecycleCallbacks(t *testing.T) {
 	var pExporter exporters.Exporter = &mExporter
 
 	ctx, cf := context.WithCancel(context.Background())
+	l, _ := test.NewNullLogger()
 	pImpl := pipelineImpl{
 		ctx:          ctx,
 		cf:           cf,
 		cfg:          &Config{},
-		logger:       log.New(),
+		logger:       l,
 		initProvider: nil,
 		importer:     &pImporter,
 		processors:   []*processors.Processor{&pProcessor, &pProcessor},
@@ -510,17 +578,21 @@ func Test_pipelineImpl_registerLifecycleCallbacks(t *testing.T) {
 }
 
 // TestBlockMetaDataFile tests that metadata.json file is created as expected
-func TestBlockMetaDataFile(t *testing.T) {
+func TestPluginConfigDataDir(t *testing.T) {
 
-	var pImporter importers.Importer = &mockImporter{}
-	var pProcessor processors.Processor = &mockProcessor{}
-	var pExporter exporters.Exporter = &mockExporter{}
+	mImporter := mockImporter{}
+	mProcessor := mockProcessor{}
+	mExporter := mockExporter{}
+
+	var pImporter importers.Importer = &mImporter
+	var pProcessor processors.Processor = &mProcessor
+	var pExporter exporters.Exporter = &mExporter
 
 	datadir := t.TempDir()
+	l, _ := test.NewNullLogger()
 	pImpl := pipelineImpl{
 		cfg: &Config{
-			ConduitConfig: &conduit.Config{
-				Flags:          nil,
+			ConduitArgs: &conduit.Args{
 				ConduitDataDir: datadir,
 			},
 			Importer: NameConfigPair{
@@ -538,7 +610,57 @@ func TestBlockMetaDataFile(t *testing.T) {
 				Config: map[string]interface{}{},
 			},
 		},
-		logger:       log.New(),
+		logger:       l,
+		initProvider: nil,
+		importer:     &pImporter,
+		processors:   []*processors.Processor{&pProcessor},
+		exporter:     &pExporter,
+		pipelineMetadata: state{
+			NextRound: 3,
+		},
+	}
+
+	err := pImpl.Init()
+	assert.NoError(t, err)
+
+	assert.Equal(t, mImporter.cfg.DataDir, path.Join(datadir, "importer_mockImporter"))
+	assert.DirExists(t, mImporter.cfg.DataDir)
+	assert.Equal(t, mProcessor.cfg.DataDir, path.Join(datadir, "processor_mockProcessor"))
+	assert.DirExists(t, mProcessor.cfg.DataDir)
+	assert.Equal(t, mExporter.cfg.DataDir, path.Join(datadir, "exporter_mockExporter"))
+	assert.DirExists(t, mExporter.cfg.DataDir)
+}
+
+// TestBlockMetaDataFile tests that metadata.json file is created as expected
+func TestBlockMetaDataFile(t *testing.T) {
+
+	var pImporter importers.Importer = &mockImporter{}
+	var pProcessor processors.Processor = &mockProcessor{}
+	var pExporter exporters.Exporter = &mockExporter{}
+
+	datadir := t.TempDir()
+	l, _ := test.NewNullLogger()
+	pImpl := pipelineImpl{
+		cfg: &Config{
+			ConduitArgs: &conduit.Args{
+				ConduitDataDir: datadir,
+			},
+			Importer: NameConfigPair{
+				Name:   "",
+				Config: map[string]interface{}{},
+			},
+			Processors: []NameConfigPair{
+				{
+					Name:   "",
+					Config: map[string]interface{}{},
+				},
+			},
+			Exporter: NameConfigPair{
+				Name:   "",
+				Config: map[string]interface{}{},
+			},
+		},
+		logger:       l,
 		initProvider: nil,
 		importer:     &pImporter,
 		processors:   []*processors.Processor{&pProcessor},
@@ -575,7 +697,7 @@ func TestBlockMetaDataFile(t *testing.T) {
 	assert.Equal(t, pImpl.pipelineMetadata.Network, metaData.Network)
 
 	// invalid file directory
-	pImpl.cfg.ConduitConfig.ConduitDataDir = "datadir"
+	pImpl.cfg.ConduitArgs.ConduitDataDir = "datadir"
 	metaData, err = pImpl.initializeOrLoadBlockMetadata()
 	assert.Contains(t, err.Error(), "Init(): error creating file")
 	err = pImpl.encodeMetadataToFile()
@@ -587,10 +709,10 @@ func TestGenesisHash(t *testing.T) {
 	var pProcessor processors.Processor = &mockProcessor{}
 	var pExporter exporters.Exporter = &mockExporter{}
 	datadir := t.TempDir()
+	l, _ := test.NewNullLogger()
 	pImpl := pipelineImpl{
 		cfg: &Config{
-			ConduitConfig: &conduit.Config{
-				Flags:          nil,
+			ConduitArgs: &conduit.Args{
 				ConduitDataDir: datadir,
 			},
 			Importer: NameConfigPair{
@@ -608,7 +730,7 @@ func TestGenesisHash(t *testing.T) {
 				Config: map[string]interface{}{},
 			},
 		},
-		logger:       log.New(),
+		logger:       l,
 		initProvider: nil,
 		importer:     &pImporter,
 		processors:   []*processors.Processor{&pProcessor},
@@ -639,58 +761,15 @@ func TestGenesisHash(t *testing.T) {
 	assert.Contains(t, err.Error(), "genesis hash in metadata does not match")
 }
 
-func TestInitError(t *testing.T) {
-	var pImporter importers.Importer = &mockImporter{genesis: sdk.Genesis{Network: "test"}}
-	var pProcessor processors.Processor = &mockProcessor{}
-	var pExporter exporters.Exporter = &mockExporter{}
-	datadir := "data"
-	pImpl := pipelineImpl{
-		cfg: &Config{
-			ConduitConfig: &conduit.Config{
-				Flags:          nil,
-				ConduitDataDir: datadir,
-			},
-			Importer: NameConfigPair{
-				Name:   "",
-				Config: map[string]interface{}{},
-			},
-			Processors: []NameConfigPair{
-				{
-					Name:   "",
-					Config: map[string]interface{}{},
-				},
-			},
-			Exporter: NameConfigPair{
-				Name:   "unknown",
-				Config: map[string]interface{}{},
-			},
-		},
-		logger:       log.New(),
-		initProvider: nil,
-		importer:     &pImporter,
-		processors:   []*processors.Processor{&pProcessor},
-		exporter:     &pExporter,
-		pipelineMetadata: state{
-			GenesisHash: "",
-			Network:     "",
-			NextRound:   3,
-		},
-	}
-
-	// could not read metadata
-	err := pImpl.Init()
-	assert.Contains(t, err.Error(), "could not read metadata")
-}
-
 func TestPipelineMetricsConfigs(t *testing.T) {
 	var pImporter importers.Importer = &mockImporter{}
 	var pProcessor processors.Processor = &mockProcessor{}
 	var pExporter exporters.Exporter = &mockExporter{}
 	ctx, cf := context.WithCancel(context.Background())
+	l, _ := test.NewNullLogger()
 	pImpl := pipelineImpl{
 		cfg: &Config{
-			ConduitConfig: &conduit.Config{
-				Flags:          nil,
+			ConduitArgs: &conduit.Args{
 				ConduitDataDir: t.TempDir(),
 			},
 			Importer: NameConfigPair{
@@ -709,7 +788,7 @@ func TestPipelineMetricsConfigs(t *testing.T) {
 			},
 			Metrics: Metrics{},
 		},
-		logger:       log.New(),
+		logger:       l,
 		initProvider: nil,
 		importer:     &pImporter,
 		processors:   []*processors.Processor{&pProcessor},
@@ -757,57 +836,14 @@ func TestPipelineMetricsConfigs(t *testing.T) {
 	assert.Equal(t, 200, resp.StatusCode)
 }
 
-// TestPipelineLogFile tests that log file is created when specified
-func TestPipelineLogFile(t *testing.T) {
-
-	var mockedImpNew mockedImporterNew
-	var mockedExpNew mockedExporterNew
-	importers.Register("mockedImporter", mockedImpNew)
-	exporters.Register("mockedExporter", mockedExpNew)
-
-	tempDir := t.TempDir()
-	logfilePath := path.Join(tempDir, "conduit.log")
-	configs := &Config{
-		ConduitConfig: &conduit.Config{
-			Flags:          nil,
-			ConduitDataDir: tempDir,
-		},
-		Importer: NameConfigPair{
-			Name:   "mockedImporter",
-			Config: map[string]interface{}{"key": "value"},
-		},
-		Exporter: NameConfigPair{
-			Name:   "mockedExporter",
-			Config: map[string]interface{}{"key": "value"},
-		},
-		PipelineLogLevel: "INFO",
-	}
-
-	_, err := MakePipeline(context.Background(), configs, log.New())
-	require.NoError(t, err)
-
-	// Test that file is not created
-	_, err = os.Stat(logfilePath)
-	assert.ErrorIs(t, err, os.ErrNotExist)
-
-	// Test that it is created
-	configs.LogFile = logfilePath
-	_, err = MakePipeline(context.Background(), configs, log.New())
-	require.NoError(t, err)
-
-	_, err = os.Stat(logfilePath)
-	assert.Nil(t, err)
-}
-
-// TestPipelineLogFile tests that log file is created when specified
 func TestRoundOverwrite(t *testing.T) {
 	var pImporter importers.Importer = &mockImporter{genesis: sdk.Genesis{Network: "test"}}
 	var pProcessor processors.Processor = &mockProcessor{}
 	var pExporter exporters.Exporter = &mockExporter{}
+	l, _ := test.NewNullLogger()
 	pImpl := pipelineImpl{
 		cfg: &Config{
-			ConduitConfig: &conduit.Config{
-				Flags:             nil,
+			ConduitArgs: &conduit.Args{
 				ConduitDataDir:    t.TempDir(),
 				NextRoundOverride: 0,
 			},
@@ -826,7 +862,7 @@ func TestRoundOverwrite(t *testing.T) {
 				Config: map[string]interface{}{},
 			},
 		},
-		logger:       log.New(),
+		logger:       l,
 		initProvider: nil,
 		importer:     &pImporter,
 		processors:   []*processors.Processor{&pProcessor},
@@ -844,9 +880,124 @@ func TestRoundOverwrite(t *testing.T) {
 
 	// override NextRound
 	for i := 1; i < 10; i++ {
-		pImpl.cfg.ConduitConfig.NextRoundOverride = uint64(i)
+		pImpl.cfg.ConduitArgs.NextRoundOverride = uint64(i)
 		err = pImpl.Init()
 		assert.Nil(t, err)
 		assert.Equal(t, uint64(i), pImpl.pipelineMetadata.NextRound)
+	}
+}
+
+// an importer that simply errors out when GetBlock() is called
+type errorImporter struct {
+	genesis       *sdk.Genesis
+	GetBlockCount uint64
+}
+
+var errorImporterMetadata = conduit.Metadata{
+	Name:         "error_importer",
+	Description:  "An importer that errors out whenever GetBlock() is called",
+	Deprecated:   false,
+	SampleConfig: "",
+}
+
+// New initializes an importer
+func New() importers.Importer {
+	return &errorImporter{}
+}
+
+func (e *errorImporter) Metadata() conduit.Metadata {
+	return errorImporterMetadata
+}
+
+func (e *errorImporter) Init(_ context.Context, _ plugins.PluginConfig, _ *log.Logger) (*sdk.Genesis, error) {
+	return e.genesis, nil
+}
+
+func (e *errorImporter) Config() string {
+	return ""
+}
+
+func (e *errorImporter) Close() error {
+	return nil
+}
+
+func (e *errorImporter) GetBlock(_ uint64) (data.BlockData, error) {
+	e.GetBlockCount++
+	return data.BlockData{}, fmt.Errorf("error maker")
+}
+
+// TestPipelineRetryVariables tests that modifying the retry variables results in longer time taken for a pipeline to run
+func TestPipelineRetryVariables(t *testing.T) {
+	tests := []struct {
+		name          string
+		retryDelay    time.Duration
+		retryCount    uint64
+		totalDuration time.Duration
+		epsilon       time.Duration
+	}{
+		{"0 seconds", 2 * time.Second, 0, 0 * time.Second, 1 * time.Second},
+		{"2 seconds", 2 * time.Second, 1, 2 * time.Second, 1 * time.Second},
+		{"4 seconds", 2 * time.Second, 2, 4 * time.Second, 1 * time.Second},
+		{"10 seconds", 2 * time.Second, 5, 10 * time.Second, 1 * time.Second},
+	}
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+
+			errImporter := &errorImporter{genesis: &sdk.Genesis{Network: "test"}}
+			var pImporter importers.Importer = errImporter
+			var pProcessor processors.Processor = &mockProcessor{}
+			var pExporter exporters.Exporter = &mockExporter{}
+			l, _ := test.NewNullLogger()
+			pImpl := pipelineImpl{
+				ctx: context.Background(),
+				cfg: &Config{
+					RetryCount: testCase.retryCount,
+					RetryDelay: testCase.retryDelay,
+					ConduitArgs: &conduit.Args{
+						ConduitDataDir:    t.TempDir(),
+						NextRoundOverride: 0,
+					},
+					Importer: NameConfigPair{
+						Name:   "",
+						Config: map[string]interface{}{},
+					},
+					Processors: []NameConfigPair{
+						{
+							Name:   "",
+							Config: map[string]interface{}{},
+						},
+					},
+					Exporter: NameConfigPair{
+						Name:   "unknown",
+						Config: map[string]interface{}{},
+					},
+				},
+				logger:       l,
+				initProvider: nil,
+				importer:     &pImporter,
+				processors:   []*processors.Processor{&pProcessor},
+				exporter:     &pExporter,
+				pipelineMetadata: state{
+					GenesisHash: "",
+					Network:     "",
+					NextRound:   3,
+				},
+				wg: sync.WaitGroup{},
+			}
+
+			// pipeline should initialize if NextRoundOverride is not set
+			err := pImpl.Init()
+			assert.Nil(t, err)
+			before := time.Now()
+			pImpl.Start()
+			pImpl.wg.Wait()
+			after := time.Now()
+			timeTaken := after.Sub(before)
+
+			msg := fmt.Sprintf("seconds taken: %s, expected duration seconds: %s, epsilon: %s", timeTaken.String(), testCase.totalDuration.String(), testCase.epsilon.String())
+			assert.WithinDurationf(t, before.Add(testCase.totalDuration), after, testCase.epsilon, msg)
+			assert.Equal(t, errImporter.GetBlockCount, testCase.retryCount+1)
+
+		})
 	}
 }
