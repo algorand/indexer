@@ -13,6 +13,7 @@ import (
 	"time"
 
 	crypto2 "github.com/algorand/go-algorand-sdk/crypto"
+	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-codec/codec"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
@@ -2153,12 +2154,7 @@ func TestDeleteTransactions(t *testing.T) {
 	defer shutdownFunc()
 	defer l.Close()
 
-	txnA := test.MakeCreateAppTxnV2(sdk.Address(test.AccountA))
-	txnB := test.MakeCreateAppTxnV2(sdk.Address(test.AccountB))
-	txnC := test.MakeCreateAppTxnV2(sdk.Address(test.AccountC))
-	txnD := test.MakeCreateAppTxnV2(sdk.Address(test.AccountD))
-
-	txns := []sdk.SignedTxnWithAD{txnA, txnB, txnC, txnD}
+	txns := []transactions.SignedTxnWithAD{}
 
 	genBlock := ledgercore.MakeValidatedBlock(test.MakeGenesisBlock(), ledgercore.StateDelta{})
 	db.AddBlock(&genBlock)
@@ -2171,6 +2167,7 @@ func TestDeleteTransactions(t *testing.T) {
 		block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 		err = db.AddBlock(&block)
 		require.NoError(t, err)
+		txns = append(txns, vb.Blk.Payset[0].SignedTxnWithAD)
 	}
 
 	// keep rounds >= 2
@@ -2188,7 +2185,7 @@ func TestDeleteTransactions(t *testing.T) {
 		retTxn := *row.Txn
 		retTxn.Txn.GenesisHash = sdk.Digest{}
 		expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txns[i]))
-		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
+		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(retTxn))
 		assert.Equal(t, expected, actual)
 		i++
 	}
@@ -2222,7 +2219,7 @@ func TestDeleteTransactions(t *testing.T) {
 		retTxn := *row.Txn
 		retTxn.Txn.GenesisHash = sdk.Digest{}
 		expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txns[i]))
-		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
+		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(retTxn))
 		assert.Equal(t, expected, actual)
 		i++
 	}
