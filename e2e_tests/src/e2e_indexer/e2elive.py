@@ -36,6 +36,8 @@ def main():
 
     ap = argparse.ArgumentParser()
     ap.add_argument("--keep-temps", default=False, action="store_true")
+    # keep alive is convenient in docker environments to prevent exiting after an error
+    ap.add_argument("--keep-alive", default=False, action="store_true")
     ap.add_argument(
         "--indexer-bin",
         default=None,
@@ -78,6 +80,9 @@ def main():
         atexit.register(shutil.rmtree, tempdir, onerror=logger.error)
     else:
         logger.info("leaving temp dir %r", tempdir)
+    if args.keep_alive:
+        # register after keep_temps so that the temp files are still there.
+        atexitrun(["sleep", "infinity"])
     if not (source_is_tar or (sourcenet and os.path.isdir(sourcenet))):
         tarname = args.s3_source_net
         if not tarname:
@@ -123,6 +128,7 @@ def main():
         xrun(["goal", "network", "start", "-r", tempnet])
     except Exception:
         logger.error("failed to start private network, looking for node.log")
+        found = False
         for root, dirs, files in os.walk(tempnet):
             for f in files:
                 if f == "node.log":
@@ -131,6 +137,8 @@ def main():
                     with open(p) as nf:
                         for line in nf:
                             logger.error("   {}".format(line))
+        if found is False:
+            logger.error("unable to find node.log")
         raise
 
     atexitrun(["goal", "network", "stop", "-r", tempnet])
