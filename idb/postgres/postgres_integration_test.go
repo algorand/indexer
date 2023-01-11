@@ -12,10 +12,12 @@ import (
 	"testing"
 	"time"
 
+	crypto2 "github.com/algorand/go-algorand-sdk/crypto"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-codec/codec"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
+	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
 	"github.com/algorand/indexer/types"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -36,7 +38,6 @@ import (
 	sdk "github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/rpcs"
 )
 
 // TestMaxRoundOnUninitializedDB makes sure we return 0 when getting the max round on a new DB.
@@ -310,53 +311,55 @@ func TestMultipleWriters(t *testing.T) {
 	assert.Equal(t, amt, balance)
 }
 
-////TestBlockWithTransactions tests that the block with transactions endpoint works.
-//func TestBlockWithTransactions(t *testing.T) {
-//	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
-//	defer shutdownFunc()
-//	defer l.Close()
-//
-//	round := uint64(1)
-//
-//	var vb types.LegercoreValidatedBlock
-//	dat, _ := os.ReadFile("test_resources/validated_blocks/BlockWithTransactions.vb")
-//	err := msgpack.Decode(dat, &vb)
-//	require.NoError(t, err)
-//	vb.Blk.BlockHeader.GenesisHash = [32]byte{1}
-//	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-//	err = db.AddBlock(&block)
-//	require.NoError(t, err)
-//
-//	//////////
-//	// When // We call GetBlock and Transactions
-//	//////////
-//	_, txnRows0, err := db.GetBlock(context.Background(), round, idb.GetBlockOptions{Transactions: true, MaxTransactionsLimit: 100})
-//	require.NoError(t, err)
-//
-//	rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{Round: &round})
-//	txnRows1 := make([]idb.TxnRow, 0)
-//	for row := range rowsCh {
-//		require.NoError(t, row.Error)
-//		txnRows1 = append(txnRows1, row)
-//	}
-//
-//	//////////
-//	// Then // They should have the correct transactions
-//	//////////
-//	txns := vb.Blk.Payset
-//	assert.Len(t, txnRows0, len(txns))
-//	assert.Len(t, txnRows1, len(txns))
-//	for i := 0; i < len(txnRows0); i++ {
-//		// todo: maybe this needs to be fixed. AddBlock seems to add genesisHash
-//		txnRows0[i].Txn.Txn.Header.GenesisHash = sdk.Digest{}
-//		expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txns[i]))
-//		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(txnRows0[i].Txn))
-//		assert.Equal(t, expected, actual)
-//
-//		actual = base64.StdEncoding.EncodeToString(msgpack.Encode(txnRows1[i].Txn))
-//		assert.Equal(t, expected, actual)
-//	}
-//}
+// todo
+// TestBlockWithTransactions tests that the block with transactions endpoint works.
+func TestBlockWithTransactions(t *testing.T) {
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	defer shutdownFunc()
+	defer l.Close()
+
+	round := uint64(1)
+
+	var vb types.LegercoreValidatedBlock
+	dat, _ := os.ReadFile("test_resources/validated_blocks/BlockWithTransactions.vb")
+	err := msgpack.Decode(dat, &vb)
+	require.NoError(t, err)
+	vb.Blk.BlockHeader.GenesisHash = [32]byte{1}
+	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+
+	//////////
+	// When // We call GetBlock and Transactions
+	//////////
+	_, txnRows0, err := db.GetBlock(context.Background(), round, idb.GetBlockOptions{Transactions: true, MaxTransactionsLimit: 100})
+	require.NoError(t, err)
+
+	rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{Round: &round})
+	txnRows1 := make([]idb.TxnRow, 0)
+	for row := range rowsCh {
+		require.NoError(t, row.Error)
+		txnRows1 = append(txnRows1, row)
+	}
+
+	//////////
+	// Then // They should have the correct transactions
+	//////////
+	txns := vb.Blk.Payset
+	assert.Len(t, txnRows0, len(txns))
+	assert.Len(t, txnRows1, len(txns))
+	for i := 0; i < len(txnRows0); i++ {
+		// todo: maybe this needs to be fixed. AddBlock seems to add genesisHash
+		txnRows0[i].Txn.Txn.Header.GenesisHash = sdk.Digest{}
+		expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txns[i]))
+		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(txnRows0[i].Txn))
+		assert.Equal(t, expected, actual)
+
+		txnRows1[i].Txn.Txn.Header.GenesisHash = sdk.Digest{}
+		actual = base64.StdEncoding.EncodeToString(msgpack.Encode(txnRows1[i].Txn))
+		assert.Equal(t, expected, actual)
+	}
+}
 
 func TestRekeyToItself(t *testing.T) {
 	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
@@ -1390,19 +1393,20 @@ func TestAddBlockCreateDeleteAssetSameRound(t *testing.T) {
 //Test that AddBlock makes a record of an app that is created and deleted in
 //the same round.
 func TestAddBlockCreateDeleteAppSameRound(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
+
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
 
 	appid := uint64(1)
-	createTxn := test.MakeCreateAppTxn(test.AccountA)
-	deleteTxn := test.MakeAppDestroyTxn(appid, test.AccountA)
-	block, err := test.MakeBlockForTxns(
-		test.MakeGenesisBlock().BlockHeader, &createTxn, &deleteTxn)
-	require.NoError(t, err)
 
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	var vb types.LegercoreValidatedBlock
+	dat, _ := os.ReadFile("test_resources/validated_blocks/AddBlockCreateDeleteAppSameRound.vb")
+	err := msgpack.Decode(dat, &vb)
+	require.NoError(t, err)
+	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&block)
 	require.NoError(t, err)
 
 	opts := idb.ApplicationQuery{
@@ -1420,36 +1424,6 @@ func TestAddBlockCreateDeleteAppSameRound(t *testing.T) {
 	assert.Equal(t, uint64(1), *row.Application.CreatedAtRound)
 	require.NotNil(t, row.Application.DeletedAtRound)
 	assert.Equal(t, uint64(1), *row.Application.DeletedAtRound)
-	//db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
-	//defer shutdownFunc()
-	//
-	//defer l.Close()
-	//
-	//appid := uint64(1)
-	//
-	//var vb types.LegercoreValidatedBlock
-	//dat, _ := os.ReadFile("test_resources/validated_blocks/AddBlockCreateDeleteAppSameRound.vb")
-	//err := msgpack.Decode(dat, &vb)
-	//require.NoError(t, err)
-	//block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	//err = db.AddBlock(&block)
-	//require.NoError(t, err)
-	//
-	//opts := idb.ApplicationQuery{
-	//	ApplicationID:  appid,
-	//	IncludeDeleted: true,
-	//}
-	//rowsCh, _ := db.Applications(context.Background(), opts)
-	//
-	//row, ok := <-rowsCh
-	//require.True(t, ok)
-	//require.NoError(t, row.Error)
-	//require.NotNil(t, row.Application.Deleted)
-	//assert.True(t, *row.Application.Deleted)
-	//require.NotNil(t, row.Application.CreatedAtRound)
-	//assert.Equal(t, uint64(1), *row.Application.CreatedAtRound)
-	//require.NotNil(t, row.Application.DeletedAtRound)
-	//assert.Equal(t, uint64(1), *row.Application.DeletedAtRound)
 }
 
 // Test that AddBlock makes a record of an app that is created and deleted in
@@ -1515,131 +1489,132 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 // transaction is returned when matching on inner transactions if the
 // ReturnInnerTxnFlag is false. If the ReturnInnerTxnFlag is true, it should
 // return the inner txn instead.
-//func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
-//	var appAddr basics.Address
-//	appAddr[1] = 99
-//
-//	tests := []struct {
-//		name        string
-//		matches     int
-//		returnInner bool
-//		filter      idb.TransactionFilter
-//	}{
-//		{
-//			name:        "match on root, inner, and inner-inners, return root",
-//			matches:     3,
-//			returnInner: false,
-//			filter:      idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumApplication},
-//		},
-//		{
-//			name:        "match on inner, return root",
-//			matches:     1,
-//			returnInner: false,
-//			filter:      idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumPay},
-//		},
-//		{
-//			name:        "match on inner-inner, return root",
-//			matches:     1,
-//			returnInner: false,
-//			filter:      idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumAssetTransfer},
-//		},
-//		{
-//			name:        "match all, return root",
-//			matches:     5,
-//			returnInner: false,
-//			filter:      idb.TransactionFilter{Address: appAddr[:]},
-//		},
-//		{
-//			name:        "match on root, inner, and inner-inners, return inners",
-//			matches:     3,
-//			returnInner: true,
-//			filter:      idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumApplication, ReturnInnerTxnOnly: true},
-//		},
-//		{
-//			name:        "match on inner, return inners",
-//			matches:     1,
-//			returnInner: true,
-//			filter:      idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumPay, ReturnInnerTxnOnly: true},
-//		},
-//		{
-//			name:        "match on inner-inner, return inners",
-//			matches:     1,
-//			returnInner: true,
-//			filter:      idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumAssetTransfer, ReturnInnerTxnOnly: true},
-//		},
-//		{
-//			name:        "match all, return inners",
-//			matches:     5,
-//			returnInner: true,
-//			filter:      idb.TransactionFilter{Address: appAddr[:], ReturnInnerTxnOnly: true},
-//		},
-//	}
-//
-//	// Given: A DB with one transaction containing inner transactions [app -> pay -> xfer]
-//	pdb, connStr, shutdownFunc := pgtest.SetupPostgres(t)
-//	defer shutdownFunc()
-//
-//	db := setupIdbWithConnectionString(t, connStr, test.MakeGenesisV2())
-//	defer db.Close()
-//
-//	//appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
-//	//
-//	//block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
-//	//require.NoError(t, err)
-//	//rootTxid := appCall.Txn.ID()
-//
-//	var vb types.LegercoreValidatedBlock
-//	dat, _ := os.ReadFile("test_resources/validated_blocks/SearchForInnerTransactionReturnsRootTransaction.vb")
-//	err := msgpack.Decode(dat, &vb)
-//	require.NoError(t, err)
-//	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-//	rootTxid := vb.Blk.Payset[0].Txn.ID()
-//
-//	err = pgutil.TxWithRetry(pdb, serializable, func(tx pgx.Tx) error {
-//		genblk := ledgercore.MakeValidatedBlock(test.MakeGenesisBlock(), ledgercore.StateDelta{})
-//		db.AddBlock(&genblk)
-//		return db.AddBlock(&block)
-//	}, nil)
-//	require.NoError(t, err)
-//
-//	for _, tc := range tests {
-//		t.Run(tc.name, func(t *testing.T) {
-//			// When: searching for a transaction that matches part of the transaction.
-//			results, _ := db.Transactions(context.Background(), tc.filter)
-//
-//			// Then: only the root transaction should be returned if the ReturnInnerTxnOnly flag is true.
-//			// Else if ReturnInnerTxnOnly is false, then the inner txn should be returned.
-//			num := 0
-//			for result := range results {
-//				num++
-//				require.NoError(t, result.Error)
-//
-//				if tc.returnInner {
-//					// Make sure that only the inner txn is returned
-//					require.True(t, (result.Txn != nil) && (result.RootTxn == nil))
-//				} else {
-//					// Make sure the root txn is returned.
-//					var stxn *sdk.SignedTxnWithAD
-//
-//					// Exactly one of Txn and RootTxn must be present.
-//					require.True(t, (result.Txn == nil) != (result.RootTxn == nil))
-//
-//					// Get Txn or RootTxn
-//					if result.Txn != nil {
-//						stxn = result.Txn
-//					}
-//					if result.RootTxn != nil {
-//						stxn = result.RootTxn
-//					}
-//					require.Equal(t, rootTxid.String(), crypto2.TransactionIDString(stxn.Txn))
-//				}
-//			}
-//
-//			// There can be multiple matches because deduplication happens in REST API.
-//			require.Equal(t, tc.matches, num)
-//		})
-//	}
-//}
+func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
+	var appAddr basics.Address
+	appAddr[1] = 99
+
+	tests := []struct {
+		name        string
+		matches     int
+		returnInner bool
+		filter      idb.TransactionFilter
+	}{
+		{
+			name:        "match on root, inner, and inner-inners, return root",
+			matches:     3,
+			returnInner: false,
+			filter:      idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumApplication},
+		},
+		{
+			name:        "match on inner, return root",
+			matches:     1,
+			returnInner: false,
+			filter:      idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumPay},
+		},
+		{
+			name:        "match on inner-inner, return root",
+			matches:     1,
+			returnInner: false,
+			filter:      idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumAssetTransfer},
+		},
+		{
+			name:        "match all, return root",
+			matches:     5,
+			returnInner: false,
+			filter:      idb.TransactionFilter{Address: appAddr[:]},
+		},
+		{
+			name:        "match on root, inner, and inner-inners, return inners",
+			matches:     3,
+			returnInner: true,
+			filter:      idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumApplication, ReturnInnerTxnOnly: true},
+		},
+		{
+			name:        "match on inner, return inners",
+			matches:     1,
+			returnInner: true,
+			filter:      idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumPay, ReturnInnerTxnOnly: true},
+		},
+		{
+			name:        "match on inner-inner, return inners",
+			matches:     1,
+			returnInner: true,
+			filter:      idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumAssetTransfer, ReturnInnerTxnOnly: true},
+		},
+		{
+			name:        "match all, return inners",
+			matches:     5,
+			returnInner: true,
+			filter:      idb.TransactionFilter{Address: appAddr[:], ReturnInnerTxnOnly: true},
+		},
+	}
+
+	// Given: A DB with one transaction containing inner transactions [app -> pay -> xfer]
+	pdb, connStr, shutdownFunc := pgtest.SetupPostgres(t)
+	defer shutdownFunc()
+
+	db := setupIdbWithConnectionString(t, connStr, test.MakeGenesisV2())
+	defer db.Close()
+
+	//appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
+	//
+	//block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
+	//require.NoError(t, err)
+	//rootTxid := appCall.Txn.ID()
+
+	var vb types.LegercoreValidatedBlock
+	dat, _ := os.ReadFile("test_resources/validated_blocks/SearchForInnerTransactionReturnsRootTransaction.vb")
+	err := msgpack.Decode(dat, &vb)
+	require.NoError(t, err)
+	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	rootTxid := vb.Blk.Payset[0].Txn.ID()
+
+	err = pgutil.TxWithRetry(pdb, serializable, func(tx pgx.Tx) error {
+		genblk := ledgercore.MakeValidatedBlock(test.MakeGenesisBlock(), ledgercore.StateDelta{})
+		db.AddBlock(&genblk)
+		return db.AddBlock(&block)
+	}, nil)
+	require.NoError(t, err)
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// When: searching for a transaction that matches part of the transaction.
+			results, _ := db.Transactions(context.Background(), tc.filter)
+
+			// Then: only the root transaction should be returned if the ReturnInnerTxnOnly flag is true.
+			// Else if ReturnInnerTxnOnly is false, then the inner txn should be returned.
+			num := 0
+			for result := range results {
+				num++
+				require.NoError(t, result.Error)
+
+				if tc.returnInner {
+					// Make sure that only the inner txn is returned
+					require.True(t, (result.Txn != nil) && (result.RootTxn == nil))
+				} else {
+					// Make sure the root txn is returned.
+					var stxn *sdk.SignedTxnWithAD
+
+					// Exactly one of Txn and RootTxn must be present.
+					require.True(t, (result.Txn == nil) != (result.RootTxn == nil))
+
+					// Get Txn or RootTxn
+					if result.Txn != nil {
+						stxn = result.Txn
+					}
+					if result.RootTxn != nil {
+						stxn = result.RootTxn
+					}
+					stxn.Txn.GenesisHash = sdk.Digest{}
+					require.Equal(t, rootTxid.String(), crypto2.TransactionIDString(stxn.Txn))
+				}
+			}
+
+			// There can be multiple matches because deduplication happens in REST API.
+			require.Equal(t, tc.matches, num)
+		})
+	}
+}
 
 // TestNonUTF8Logs makes sure we're able to import cheeky logs
 // for both the root and inner transactions.
@@ -2139,10 +2114,12 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 	require.True(t, ok)
 	require.NoError(t, row.Error)
 	require.NotNil(t, row.Txn)
-	//txnC := vb.Blk.Payset[2]
-	//expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txnC))
-	//actual := base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
-	//assert.Equal(t, expected, actual)
+	txnC := vb.Blk.Payset[2]
+	retTxn := *row.Txn
+	retTxn.Txn.GenesisHash = sdk.Digest{}
+	expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txnC))
+	actual := base64.StdEncoding.EncodeToString(msgpack.Encode(retTxn))
+	assert.Equal(t, expected, actual)
 
 	// AssetAmountGT
 	var vb2 types.LegercoreValidatedBlock
@@ -2162,11 +2139,12 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 	require.NoError(t, row.Error)
 	require.NotNil(t, row.Txn)
 
-	//txnF := vb.Blk.Payset[2]
-	//expected = base64.StdEncoding.EncodeToString(msgpack.Encode(txnF))
-	//actual = base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
-	//assert.Equal(t, expected, actual)
-
+	txnF := vb2.Blk.Payset[2]
+	retTxn2 := *row.Txn
+	retTxn2.Txn.GenesisHash = sdk.Digest{}
+	expected = base64.StdEncoding.EncodeToString(msgpack.Encode(txnF))
+	actual = base64.StdEncoding.EncodeToString(msgpack.Encode(retTxn2))
+	assert.Equal(t, expected, actual)
 }
 
 // todo: fix failing asserts
@@ -2175,12 +2153,12 @@ func TestDeleteTransactions(t *testing.T) {
 	defer shutdownFunc()
 	defer l.Close()
 
-	//txnA := test.MakeCreateAppTxn(test.AccountA)
-	//txnB := test.MakeCreateAppTxn(test.AccountB)
-	//txnC := test.MakeCreateAppTxn(test.AccountC)
-	//txnD := test.MakeCreateAppTxn(test.AccountD)
-	//
-	//txns := []transactions.SignedTxnWithAD{txnA, txnB, txnC, txnD}
+	txnA := test.MakeCreateAppTxnV2(sdk.Address(test.AccountA))
+	txnB := test.MakeCreateAppTxnV2(sdk.Address(test.AccountB))
+	txnC := test.MakeCreateAppTxnV2(sdk.Address(test.AccountC))
+	txnD := test.MakeCreateAppTxnV2(sdk.Address(test.AccountD))
+
+	txns := []sdk.SignedTxnWithAD{txnA, txnB, txnC, txnD}
 
 	genBlock := ledgercore.MakeValidatedBlock(test.MakeGenesisBlock(), ledgercore.StateDelta{})
 	db.AddBlock(&genBlock)
@@ -2200,18 +2178,20 @@ func TestDeleteTransactions(t *testing.T) {
 	assert.NoError(t, err)
 
 	// query txns
-	//rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
+	rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
 
 	//check remaining transactions are correct
-	//i := 1
-	//for row := range rowsCh {
-	//	require.NoError(t, row.Error)
-	//	require.NotNil(t, row.Txn)
-	//	expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txns[i]))
-	//	actual := base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
-	//	assert.Equal(t, expected, actual)
-	//	i++
-	//}
+	i := 1
+	for row := range rowsCh {
+		require.NoError(t, row.Error)
+		require.NotNil(t, row.Txn)
+		retTxn := *row.Txn
+		retTxn.Txn.GenesisHash = sdk.Digest{}
+		expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txns[i]))
+		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
+		assert.Equal(t, expected, actual)
+		i++
+	}
 
 	//verify metastate
 	deleteStatus, err := db.getMetastate(context.Background(), nil, schema.DeleteStatusKey)
@@ -2221,7 +2201,6 @@ func TestDeleteTransactions(t *testing.T) {
 	assert.Equal(t, uint64(2), status.OldestRound)
 
 	// add 2 txns for round 5
-
 	var vb types.LegercoreValidatedBlock
 	dat, _ := os.ReadFile("test_resources/validated_blocks/DeleteTransactions.vb")
 	err = msgpack.Decode(dat, &vb)
@@ -2235,16 +2214,18 @@ func TestDeleteTransactions(t *testing.T) {
 	assert.NoError(t, err)
 
 	// 2 txns in round 5
-	//rowsCh, _ = db.Transactions(context.Background(), idb.TransactionFilter{})
-	//i := 0
-	//for row := range rowsCh {
-	//	require.NoError(t, row.Error)
-	//	require.NotNil(t, row.Txn)
-	//	expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txns[i]))
-	//	actual := base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
-	//	assert.Equal(t, expected, actual)
-	//	i++
-	//}
+	rowsCh, _ = db.Transactions(context.Background(), idb.TransactionFilter{})
+	i = 0
+	for row := range rowsCh {
+		require.NoError(t, row.Error)
+		require.NotNil(t, row.Txn)
+		retTxn := *row.Txn
+		retTxn.Txn.GenesisHash = sdk.Digest{}
+		expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txns[i]))
+		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
+		assert.Equal(t, expected, actual)
+		i++
+	}
 
 	deleteStatus, err = db.getMetastate(context.Background(), nil, schema.DeleteStatusKey)
 	assert.NoError(t, err)
