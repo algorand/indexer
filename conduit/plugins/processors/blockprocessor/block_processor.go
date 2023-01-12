@@ -4,10 +4,8 @@ import (
 	"context"
 	_ "embed" // used to embed config
 	"fmt"
-	"io/ioutil"
 	"time"
 
-	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
@@ -369,7 +367,6 @@ func MakeBlockProcessorHandlerAdapter(proc *BlockProcessor, handler func(block *
 
 		vb := blockData.ValidatedBlock()
 
-		err = ioutil.WriteFile("/Users/shiqi/projects/indexer/idb/postgres/test_resources/SearchForInnerTransactionReturnsRootTransaction.vb", msgpack.Encode(vb), 0644)
 		if handler != nil {
 			err = handler(&vb)
 			if err != nil {
