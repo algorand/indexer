@@ -170,9 +170,7 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	///////////
 	// Given // A round scenario requiring subround accounting: AccountA is funded, closed, opts back, and funded again.
 	///////////
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/AssetCloseReopenTransfer.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AssetCloseReopenTransfer.vb")
 	require.NoError(t, err)
 	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 
@@ -195,6 +193,7 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	assertAccountAsset(t, db.db, test.AccountD, assetid, false, total-2*amt)
 }
 
+// todo
 // TestReCreateAssetHolding checks the optin value of a defunct
 func TestReCreateAssetHolding(t *testing.T) {
 	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
@@ -202,10 +201,7 @@ func TestReCreateAssetHolding(t *testing.T) {
 	defer l.Close()
 
 	{
-		var vb types.LegercoreValidatedBlock
-		dat, err := os.ReadFile("test_resources/validated_blocks/ReCreateAssetHoldingFrozen.vb")
-		require.NoError(t, err)
-		err = msgpack.Decode(dat, &vb)
+		vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/ReCreateAssetHoldingFrozen.vb")
 		require.NoError(t, err)
 		blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 		err = db.AddBlock(&blk)
@@ -213,9 +209,7 @@ func TestReCreateAssetHolding(t *testing.T) {
 		assertAccountAsset(t, db.db, test.AccountB, 1, true, 0)
 	}
 	{
-		var vb types.LegercoreValidatedBlock
-		dat, _ := os.ReadFile("test_resources/validated_blocks/ReCreateAssetHolding.vb")
-		err := msgpack.Decode(dat, &vb)
+		vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/ReCreateAssetHolding.vb")
 		require.NoError(t, err)
 		vb.Blk.BlockHeader.Round = 2
 		blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
@@ -238,9 +232,7 @@ func TestNoopOptins(t *testing.T) {
 	///////////
 	assetid := uint64(1)
 
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/NoopOptins.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/NoopOptins.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 
@@ -267,9 +259,7 @@ func TestMultipleWriters(t *testing.T) {
 	///////////
 	// Given // Send amt to AccountE
 	///////////
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/MultipleWriters.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/MultipleWriters.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 
@@ -321,9 +311,7 @@ func TestBlockWithTransactions(t *testing.T) {
 
 	round := uint64(1)
 
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/BlockWithTransactions.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BlockWithTransactions.vb")
 	require.NoError(t, err)
 	vb.Blk.BlockHeader.GenesisHash = [32]byte{1}
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
@@ -371,9 +359,7 @@ func TestRekeyToItself(t *testing.T) {
 	// Given // Send rekey transaction
 	///////////
 
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/RekeyToItself.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/RekeyToItself.vb")
 	require.NoError(t, err)
 	vb.Blk.BlockHeader.GenesisHash = [32]byte{1}
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
@@ -401,9 +387,7 @@ func TestRekeyBasic(t *testing.T) {
 	///////////
 	// Given // Send rekey transaction
 	///////////
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/RekeyBasic.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/RekeyBasic.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 	err = db.AddBlock(&block)
@@ -429,9 +413,7 @@ func TestRekeyThreeTimesInSameRound(t *testing.T) {
 	///////////
 	// Given // Send rekey transaction
 	///////////
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/RekeyThreeTimesInSameRound.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/RekeyThreeTimesInSameRound.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 	err = db.AddBlock(&block)
@@ -458,9 +440,7 @@ func TestRekeyToItselfHasNotBeenRekeyed(t *testing.T) {
 	///////////
 	// Given // Send rekey transaction
 	///////////
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/RekeyToItselfHasNotBeenRekeyed.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/RekeyToItselfHasNotBeenRekeyed.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 
@@ -483,9 +463,7 @@ func TestIgnoreDefaultFrozenConfigUpdate(t *testing.T) {
 	///////////
 	// Given // A new asset with default-frozen = true, and AccountB opting into it.
 	///////////
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/IgnoreDefaultFrozenConfigUpdate.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/IgnoreDefaultFrozenConfigUpdate.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 
@@ -515,9 +493,7 @@ func TestZeroTotalAssetCreate(t *testing.T) {
 	///////////
 	// Given // A new asset with total = 0.
 	///////////
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/ZeroTotalAssetCreate.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/ZeroTotalAssetCreate.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 
@@ -575,18 +551,14 @@ func TestDestroyAssetBasic(t *testing.T) {
 	assetID := uint64(1)
 
 	// Create an asset.
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/DestroyAssetBasicCreate.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/DestroyAssetBasicCreate.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 	err = db.AddBlock(&block)
 	require.NoError(t, err)
 
 	// Destroy an asset.
-	var vb2 types.LegercoreValidatedBlock
-	dat2, _ := os.ReadFile("test_resources/validated_blocks/DestroyAssetBasicDelete.vb")
-	err = msgpack.Decode(dat2, &vb2)
+	vb2, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/DestroyAssetBasicDelete.vb")
 	require.NoError(t, err)
 	vb2.Blk.BlockHeader.Round = basics.Round(2)
 	block = ledgercore.MakeValidatedBlock(vb2.Blk, vb2.Delta)
@@ -614,9 +586,7 @@ func TestDestroyAssetZeroSupply(t *testing.T) {
 	assetID := uint64(1)
 
 	// Create an asset. Set total supply to 0.
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/DestroyAssetZeroSupply.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/DestroyAssetZeroSupply.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 	err = db.AddBlock(&block)
@@ -642,9 +612,7 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 
 	assetID := uint64(1)
 
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/DestroyAssetDeleteCreatorsHolding.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/DestroyAssetDeleteCreatorsHolding.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 	err = db.AddBlock(&block)
@@ -680,9 +648,7 @@ func TestAssetFreezeTxnParticipation(t *testing.T) {
 	///////////
 
 	// Create a block with freeze txn
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/AssetFreezeTxnParticipation.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AssetFreezeTxnParticipation.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 
@@ -725,9 +691,7 @@ func TestInnerTxnParticipation(t *testing.T) {
 
 	var appAddr basics.Address
 	appAddr[1] = 99
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/InnerTxnParticipation.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/InnerTxnParticipation.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 
@@ -766,9 +730,7 @@ func TestAppExtraPages(t *testing.T) {
 
 	// Create a transaction with ExtraProgramPages field set to 1
 	const extraPages = 1
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/AppExtraPages.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AppExtraPages.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 	err = db.AddBlock(&block)
@@ -841,9 +803,7 @@ func TestKeytypeBasic(t *testing.T) {
 	assertKeytype(t, db, test.AccountA, nil)
 
 	// Sig
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/KeytypeBasicSig.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/KeytypeBasicSig.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 	err = db.AddBlock(&block)
@@ -853,9 +813,7 @@ func TestKeytypeBasic(t *testing.T) {
 	assertKeytype(t, db, test.AccountA, &keytype)
 
 	// Msig
-	var vb2 types.LegercoreValidatedBlock
-	dat2, _ := os.ReadFile("test_resources/validated_blocks/KeytypeBasicMsig.vb")
-	err = msgpack.Decode(dat2, &vb2)
+	vb2, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/KeytypeBasicMsig.vb")
 	require.NoError(t, err)
 	block = ledgercore.MakeValidatedBlock(vb2.Blk, vb2.Delta)
 	err = db.AddBlock(&block)
@@ -874,9 +832,7 @@ func TestLargeAssetAmount(t *testing.T) {
 	defer l.Close()
 
 	assetid := uint64(1)
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/LargeAssetAmount.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LargeAssetAmount.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 	err = db.AddBlock(&block)
@@ -1103,9 +1059,7 @@ func TestReconfigAsset(t *testing.T) {
 	url := "https://algorand.com"
 	assetID := uint64(1)
 
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/ReconfigAsset.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/ReconfigAsset.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 	err = db.AddBlock(&block)
@@ -1136,9 +1090,7 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 	defer l.Close()
 
 	// Sig
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/KeytypeResetsOnRekeySig.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/KeytypeResetsOnRekeySig.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 	err = db.AddBlock(&block)
@@ -1148,9 +1100,7 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 	assertKeytype(t, db, test.AccountA, &keytype)
 
 	// Rekey.
-	var vb2 types.LegercoreValidatedBlock
-	dat2, _ := os.ReadFile("test_resources/validated_blocks/KeytypeResetsOnRekeyRekey.vb")
-	err = msgpack.Decode(dat2, &vb2)
+	vb2, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/KeytypeResetsOnRekeyRekey.vb")
 	require.NoError(t, err)
 	block = ledgercore.MakeValidatedBlock(vb2.Blk, vb2.Delta)
 	err = db.AddBlock(&block)
@@ -1159,9 +1109,7 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 	assertKeytype(t, db, test.AccountA, nil)
 
 	// Msig
-	var vb3 types.LegercoreValidatedBlock
-	dat3, _ := os.ReadFile("test_resources/validated_blocks/KeytypeResetsOnRekeyMsig.vb")
-	err = msgpack.Decode(dat3, &vb3)
+	vb3, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/KeytypeResetsOnRekeyMsig.vb")
 	require.NoError(t, err)
 	block = ledgercore.MakeValidatedBlock(vb3.Blk, vb3.Delta)
 	err = db.AddBlock(&block)
@@ -1180,9 +1128,7 @@ func TestKeytypeDeletedAccount(t *testing.T) {
 
 	assertKeytype(t, db, test.AccountA, nil)
 
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/KeytypeDeletedAccount.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/KeytypeDeletedAccount.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 	err = db.AddBlock(&block)
@@ -1224,9 +1170,7 @@ func TestAddBlockAssetCloseAmountInTxnExtra(t *testing.T) {
 	defer shutdownFunc()
 	defer l.Close()
 
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/AddBlockAssetCloseAmountInTxnExtra.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AddBlockAssetCloseAmountInTxnExtra.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 	err = db.AddBlock(&block)
@@ -1310,9 +1254,7 @@ func TestAddBlockCreateDeleteAccountSameRound(t *testing.T) {
 
 	defer l.Close()
 
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/AddBlockCreateDeleteAccountSameRound.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AddBlockCreateDeleteAccountSameRound.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 	err = db.AddBlock(&block)
@@ -1344,9 +1286,7 @@ func TestAddBlockCreateDeleteAssetSameRound(t *testing.T) {
 	defer l.Close()
 
 	assetid := uint64(1)
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/AddBlockCreateDeleteAssetSameRound.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AddBlockCreateDeleteAssetSameRound.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 	err = db.AddBlock(&block)
@@ -1402,9 +1342,7 @@ func TestAddBlockCreateDeleteAppSameRound(t *testing.T) {
 
 	appid := uint64(1)
 
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/AddBlockCreateDeleteAppSameRound.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AddBlockCreateDeleteAppSameRound.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 	err = db.AddBlock(&block)
@@ -1436,9 +1374,7 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 	defer l.Close()
 
 	appid := uint64(1)
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/AddBlockAppOptInOutSameRound.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AddBlockAppOptInOutSameRound.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 	err = db.AddBlock(&block)
@@ -1557,15 +1493,7 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 	db := setupIdbWithConnectionString(t, connStr, test.MakeGenesisV2())
 	defer db.Close()
 
-	//appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
-	//
-	//block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
-	//require.NoError(t, err)
-	//rootTxid := appCall.Txn.ID()
-
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/SearchForInnerTransactionReturnsRootTransaction.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/SearchForInnerTransactionReturnsRootTransaction.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 	rootTxid := vb.Blk.Payset[0].Txn.ID()
@@ -1656,9 +1584,7 @@ func TestNonUTF8Logs(t *testing.T) {
 
 			defer l.Close()
 
-			var vb types.LegercoreValidatedBlock
-			dat, _ := os.ReadFile(testcase.ValidatedBlockFilePath)
-			err := msgpack.Decode(dat, &vb)
+			vb, err := test.ReadValidatedBlockFromFile(testcase.ValidatedBlockFilePath)
 			require.NoError(t, err)
 			block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 
@@ -1714,9 +1640,7 @@ func TestTxnAssetID(t *testing.T) {
 	assetid := uint64(1)
 	appid := uint64(3)
 
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/TxnAssetID.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/TxnAssetID.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 	err = db.AddBlock(&block)
@@ -1744,9 +1668,7 @@ func TestBadTxnJsonEncoding(t *testing.T) {
 	defer l.Close()
 
 	// Need to import a block header because the transactions query joins on it.
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/BadTxnJsonEncoding.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BadTxnJsonEncoding.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 	err = db.AddBlock(&block)
@@ -1813,18 +1735,14 @@ func TestKeytypeDoNotResetReceiver(t *testing.T) {
 	assertKeytype(t, db, test.AccountA, nil)
 
 	// Sigtype of account B becomes "sig".
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/KeytypeDoNotResetReceiver1.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/KeytypeDoNotResetReceiver1.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 	err = db.AddBlock(&block)
 	require.NoError(t, err)
 
 	// Sigtype of account A becomes "sig" and B remains the same.
-	var vb2 types.LegercoreValidatedBlock
-	dat2, _ := os.ReadFile("test_resources/validated_blocks/KeytypeDoNotResetReceiver2.vb")
-	err = msgpack.Decode(dat2, &vb2)
+	vb2, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/KeytypeDoNotResetReceiver2.vb")
 	require.NoError(t, err)
 	block = ledgercore.MakeValidatedBlock(vb2.Blk, vb2.Delta)
 	err = db.AddBlock(&block)
@@ -1856,9 +1774,7 @@ func TestAddBlockTxnTxnParticipationAhead(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/AddBlockTxnTxnParticipationAhead.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AddBlockTxnTxnParticipationAhead.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 	err = db.AddBlock(&block)
@@ -1872,9 +1788,7 @@ func TestAddBlockTxnParticipationAdded(t *testing.T) {
 
 	defer l.Close()
 
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/AddBlockTxnParticipationAdded.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AddBlockTxnParticipationAdded.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 	err = db.AddBlock(&block)
@@ -1920,9 +1834,7 @@ func TestTransactionsTxnAhead(t *testing.T) {
 	// Now add an empty round 1 block, and verify that Transactions() returns the
 	// fake transaction.
 	{
-		var vb types.LegercoreValidatedBlock
-		dat, _ := os.ReadFile("test_resources/validated_blocks/TransactionsTxnAhead.vb")
-		err := msgpack.Decode(dat, &vb)
+		vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/TransactionsTxnAhead.vb")
 		require.NoError(t, err)
 		block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 		err = db.AddBlock(&block)
@@ -2099,9 +2011,7 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 	defer l.Close()
 
 	// AssetAmountLT
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/TransactionFilterAssetAmount1.vb")
-	err := msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/TransactionFilterAssetAmount1.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 	err = db.AddBlock(&block)
@@ -2123,9 +2033,7 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 	assert.Equal(t, expected, actual)
 
 	// AssetAmountGT
-	var vb2 types.LegercoreValidatedBlock
-	dat2, _ := os.ReadFile("test_resources/validated_blocks/TransactionFilterAssetAmount2.vb")
-	err = msgpack.Decode(dat2, &vb2)
+	vb2, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/TransactionFilterAssetAmount2.vb")
 	require.NoError(t, err)
 	block = ledgercore.MakeValidatedBlock(vb2.Blk, vb2.Delta)
 	err = db.AddBlock(&block)
@@ -2160,9 +2068,7 @@ func TestDeleteTransactions(t *testing.T) {
 	db.AddBlock(&genBlock)
 	// add 4 rounds of txns
 	for i := 1; i <= 4; i++ {
-		var vb types.LegercoreValidatedBlock
-		dat, _ := os.ReadFile(fmt.Sprintf("test_resources/validated_blocks/DeleteTransactionsAddRound%d.vb", i))
-		err := msgpack.Decode(dat, &vb)
+		vb, err := test.ReadValidatedBlockFromFile(fmt.Sprintf("test_resources/validated_blocks/DeleteTransactionsAddRound%d.vb", i))
 		require.NoError(t, err)
 		block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 		err = db.AddBlock(&block)
@@ -2198,9 +2104,7 @@ func TestDeleteTransactions(t *testing.T) {
 	assert.Equal(t, uint64(2), status.OldestRound)
 
 	// add 2 txns for round 5
-	var vb types.LegercoreValidatedBlock
-	dat, _ := os.ReadFile("test_resources/validated_blocks/DeleteTransactions.vb")
-	err = msgpack.Decode(dat, &vb)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/DeleteTransactions.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 	err = db.AddBlock(&block)

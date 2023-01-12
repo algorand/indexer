@@ -7,10 +7,11 @@ import (
 	"os"
 	"runtime"
 
-	log "github.com/sirupsen/logrus"
-
+	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/util"
+	log "github.com/sirupsen/logrus"
 
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/data/basics"
@@ -147,4 +148,12 @@ func MockedInitProvider(round *basics.Round) *MockInitProvider {
 		CurrentRound: round,
 		Genesis:      &sdk.Genesis{},
 	}
+}
+
+// ReadValidatedBlockFromFile reads a validated block from file
+func ReadValidatedBlockFromFile(filename string) (types.LegercoreValidatedBlock, error) {
+	var vb types.LegercoreValidatedBlock
+	dat, _ := os.ReadFile(filename)
+	err := msgpack.Decode(dat, &vb)
+	return vb, err
 }
