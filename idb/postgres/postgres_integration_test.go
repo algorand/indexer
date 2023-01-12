@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"math"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -19,7 +18,6 @@ import (
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
 	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
-	"github.com/algorand/indexer/types"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	test2 "github.com/sirupsen/logrus/hooks/test"
@@ -174,9 +172,9 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	require.NoError(t, err)
 	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 
-	////////////
-	//// When // We commit the block to the database
-	////////////
+	//////////
+	// When // We commit the block to the database
+	//////////
 	err = db.AddBlock(&blk)
 	require.NoError(t, err)
 
@@ -348,35 +346,6 @@ func TestBlockWithTransactions(t *testing.T) {
 	}
 }
 
-func TestRekeyToItself(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
-	defer shutdownFunc()
-	defer l.Close()
-
-	///////////
-	// Given // Send rekey transaction
-	///////////
-
-	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/RekeyToItself.vb")
-	require.NoError(t, err)
-	vb.Blk.BlockHeader.GenesisHash = [32]byte{1}
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
-	require.NoError(t, err)
-
-	//////////
-	// Then // Account's A auth-address is not recorded
-	//////////
-	var accountDataStr []byte
-	row := db.db.QueryRow(context.Background(), `SELECT account_data FROM account WHERE account.addr = $1`, test.AccountA[:])
-	err = row.Scan(&accountDataStr)
-	assert.NoError(t, err, "querying account data")
-
-	ad, err := encoding.DecodeTrimmedLcAccountData(accountDataStr)
-	require.NoError(t, err, "failed to parse account data json")
-	assert.Equal(t, basics.Address{}, ad.AuthAddr)
-}
-
 func TestRekeyBasic(t *testing.T) {
 	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
@@ -401,6 +370,34 @@ func TestRekeyBasic(t *testing.T) {
 	ad, err := encoding.DecodeTrimmedLcAccountData(accountDataStr)
 	require.NoError(t, err, "failed to parse account data json")
 	assert.Equal(t, test.AccountB, ad.AuthAddr)
+}
+
+func TestRekeyToItself(t *testing.T) {
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	defer shutdownFunc()
+	defer l.Close()
+
+	///////////
+	// Given // Send rekey transaction
+	///////////
+
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/RekeyToItself.vb")
+	require.NoError(t, err)
+	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+
+	//////////
+	// Then // Account's A auth-address is not recorded
+	//////////
+	var accountDataStr []byte
+	row := db.db.QueryRow(context.Background(), `SELECT account_data FROM account WHERE account.addr = $1`, test.AccountA[:])
+	err = row.Scan(&accountDataStr)
+	assert.NoError(t, err, "querying account data")
+
+	ad, err := encoding.DecodeTrimmedLcAccountData(accountDataStr)
+	require.NoError(t, err, "failed to parse account data json")
+	assert.Equal(t, basics.Address{}, ad.AuthAddr)
 }
 
 func TestRekeyThreeTimesInSameRound(t *testing.T) {
@@ -975,9 +972,7 @@ func TestNonDisplayableUTF8(t *testing.T) {
 
 			defer l.Close()
 
-			var vb types.LegercoreValidatedBlock
-			dat, _ := os.ReadFile(testcase.ValidatedBlockFilePath)
-			err := msgpack.Decode(dat, &vb)
+			vb, err := test.ReadValidatedBlockFromFile(testcase.ValidatedBlockFilePath)
 			require.NoError(t, err)
 			block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 			err = db.AddBlock(&block)
@@ -1876,8 +1871,8 @@ type ImportState struct {
 	NextRoundToAccount uint64 `codec:"next_account_round"`
 }
 
-//// Test that if genesis hash at initial import is different from what is in db metastate
-//// indexer does not start.
+// Test that if genesis hash at initial import is different from what is in db metastate
+// indexer does not start.
 func TestGenesisHashCheckAtInitialImport(t *testing.T) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
@@ -2091,7 +2086,7 @@ func TestDeleteTransactions(t *testing.T) {
 		i++
 	}
 
-	//verify metastate
+	// verify metastate
 	deleteStatus, err := db.getMetastate(context.Background(), nil, schema.DeleteStatusKey)
 	assert.NoError(t, err)
 	status, err := encoding.DecodeDeleteStatus([]byte(deleteStatus))
