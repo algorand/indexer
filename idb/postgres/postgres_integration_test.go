@@ -1671,7 +1671,7 @@ func TestBadTxnJsonEncoding(t *testing.T) {
 	badJSON := `{"aaaaaaaa": 0}`
 
 	query := `INSERT INTO txn (round, intra, typeenum, asset, txid, txn, extra)
-   VALUES (1, $1, 0, 0, $2, $3, $4)`
+    VALUES (1, $1, 0, 0, $2, $3, $4)`
 
 	_, err = db.db.Exec(
 		context.Background(), query, rootIntra, rootTxid, badJSON,
@@ -1803,8 +1803,8 @@ func TestAddBlockTxnParticipationAdded(t *testing.T) {
 	assert.Equal(t, expected, actual)
 }
 
-//// Test that if information in the `txn` table is ahead of the current round,
-//// Transactions() doesn't return the rows ahead of the state.
+// Test that if information in the `txn` table is ahead of the current round,
+// Transactions() doesn't return the rows ahead of the state.
 func TestTransactionsTxnAhead(t *testing.T) {
 	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
@@ -2074,7 +2074,7 @@ func TestDeleteTransactions(t *testing.T) {
 	// query txns
 	rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
 
-	//check remaining transactions are correct
+	// check remaining transactions are correct
 	i := 1
 	for row := range rowsCh {
 		require.NoError(t, row.Error)
@@ -2110,7 +2110,7 @@ func TestDeleteTransactions(t *testing.T) {
 		require.NoError(t, row.Error)
 		require.NotNil(t, row.Txn)
 		expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txns[i]))
-		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(row.Txn))
+		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
 		assert.Equal(t, expected, actual)
 		i++
 	}
