@@ -193,14 +193,13 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	assertAccountAsset(t, db.db, test.AccountD, assetid, false, total-2*amt)
 }
 
-// todo
 // TestReCreateAssetHolding checks the optin value of a defunct
 func TestReCreateAssetHolding(t *testing.T) {
 	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
-
 	{
+
 		vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/ReCreateAssetHoldingFrozen.vb")
 		require.NoError(t, err)
 		blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
@@ -211,11 +210,10 @@ func TestReCreateAssetHolding(t *testing.T) {
 	{
 		vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/ReCreateAssetHolding.vb")
 		require.NoError(t, err)
-		vb.Blk.BlockHeader.Round = 2
 		blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 		err = db.AddBlock(&blk)
 		require.NoError(t, err)
-		assertAccountAsset(t, db.db, test.AccountB, 1, false, 0)
+		assertAccountAsset(t, db.db, test.AccountB, 6, false, 0)
 	}
 }
 
@@ -302,7 +300,6 @@ func TestMultipleWriters(t *testing.T) {
 	assert.Equal(t, amt, balance)
 }
 
-// todo
 // TestBlockWithTransactions tests that the block with transactions endpoint works.
 func TestBlockWithTransactions(t *testing.T) {
 	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
@@ -313,7 +310,6 @@ func TestBlockWithTransactions(t *testing.T) {
 
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BlockWithTransactions.vb")
 	require.NoError(t, err)
-	vb.Blk.BlockHeader.GenesisHash = [32]byte{1}
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 	err = db.AddBlock(&block)
 	require.NoError(t, err)
@@ -334,17 +330,19 @@ func TestBlockWithTransactions(t *testing.T) {
 	//////////
 	// Then // They should have the correct transactions
 	//////////
-	txns := vb.Blk.Payset
+	var txns []transactions.SignedTxn
+	for _, stxib := range vb.Blk.Payset {
+		stxn, _, err := vb.Blk.BlockHeader.DecodeSignedTxn(stxib)
+		require.NoError(t, err)
+		txns = append(txns, stxn)
+	}
 	assert.Len(t, txnRows0, len(txns))
 	assert.Len(t, txnRows1, len(txns))
 	for i := 0; i < len(txnRows0); i++ {
-		// todo: maybe this needs to be fixed. AddBlock seems to add genesisHash
-		txnRows0[i].Txn.Txn.Header.GenesisHash = sdk.Digest{}
 		expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txns[i]))
 		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(txnRows0[i].Txn))
 		assert.Equal(t, expected, actual)
 
-		txnRows1[i].Txn.Txn.Header.GenesisHash = sdk.Digest{}
 		actual = base64.StdEncoding.EncodeToString(msgpack.Encode(txnRows1[i].Txn))
 		assert.Equal(t, expected, actual)
 	}
@@ -1421,7 +1419,6 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 	assert.Equal(t, uint64(1), *ls.ClosedOutAtRound)
 }
 
-// todo
 // TestSearchForInnerTransactionReturnsRootTransaction checks that the parent
 // transaction is returned when matching on inner transactions if the
 // ReturnInnerTxnFlag is false. If the ReturnInnerTxnFlag is true, it should
@@ -1496,7 +1493,9 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/SearchForInnerTransactionReturnsRootTransaction.vb")
 	require.NoError(t, err)
 	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	rootTxid := vb.Blk.Payset[0].Txn.ID()
+	stxn, _, err := vb.Blk.BlockHeader.DecodeSignedTxn(vb.Blk.Payset[0])
+	require.NoError(t, err)
+	rootTxid := stxn.Txn.ID()
 
 	err = pgutil.TxWithRetry(pdb, serializable, func(tx pgx.Tx) error {
 		genblk := ledgercore.MakeValidatedBlock(test.MakeGenesisBlock(), ledgercore.StateDelta{})
@@ -1534,7 +1533,6 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 					if result.RootTxn != nil {
 						stxn = result.RootTxn
 					}
-					stxn.Txn.GenesisHash = sdk.Digest{}
 					require.Equal(t, rootTxid.String(), crypto2.TransactionIDString(stxn.Txn))
 				}
 			}
@@ -1804,8 +1802,9 @@ func TestAddBlockTxnParticipationAdded(t *testing.T) {
 	require.NoError(t, row.Error)
 	require.NotNil(t, row.Txn)
 
-	expected := base64.StdEncoding.EncodeToString(msgpack.Encode(vb.Blk.Payset[0]))
-	row.Txn.Txn.Header.GenesisHash = sdk.Digest{}
+	stxn, _, err := vb.Blk.BlockHeader.DecodeSignedTxn(vb.Blk.Payset[0])
+	require.NoError(t, err)
+	expected := base64.StdEncoding.EncodeToString(msgpack.Encode(stxn))
 	actual := base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
 	assert.Equal(t, expected, actual)
 }
@@ -2003,7 +2002,6 @@ func TestIndexerDb_GetAccounts(t *testing.T) {
 	}
 }
 
-// todo: fix failing asserts
 // Test that AddBlock() writes to `txn_participation` table.
 func TestTransactionFilterAssetAmount(t *testing.T) {
 	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
@@ -2025,11 +2023,10 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 	require.True(t, ok)
 	require.NoError(t, row.Error)
 	require.NotNil(t, row.Txn)
-	txnC := vb.Blk.Payset[2]
-	retTxn := *row.Txn
-	retTxn.Txn.GenesisHash = sdk.Digest{}
+	txnC, _, err := vb.Blk.BlockHeader.DecodeSignedTxn(vb.Blk.Payset[2])
+	require.NoError(t, err)
 	expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txnC))
-	actual := base64.StdEncoding.EncodeToString(msgpack.Encode(retTxn))
+	actual := base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
 	assert.Equal(t, expected, actual)
 
 	// AssetAmountGT
@@ -2048,21 +2045,19 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 	require.NoError(t, row.Error)
 	require.NotNil(t, row.Txn)
 
-	txnF := vb2.Blk.Payset[2]
-	retTxn2 := *row.Txn
-	retTxn2.Txn.GenesisHash = sdk.Digest{}
+	txnF, _, err := vb2.Blk.BlockHeader.DecodeSignedTxn(vb2.Blk.Payset[2])
+	require.NoError(t, err)
 	expected = base64.StdEncoding.EncodeToString(msgpack.Encode(txnF))
-	actual = base64.StdEncoding.EncodeToString(msgpack.Encode(retTxn2))
+	actual = base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
 	assert.Equal(t, expected, actual)
 }
 
-// todo: fix failing asserts
 func TestDeleteTransactions(t *testing.T) {
 	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
-	txns := []transactions.SignedTxnWithAD{}
+	txns := []transactions.SignedTxn{}
 
 	genBlock := ledgercore.MakeValidatedBlock(test.MakeGenesisBlock(), ledgercore.StateDelta{})
 	db.AddBlock(&genBlock)
@@ -2073,7 +2068,9 @@ func TestDeleteTransactions(t *testing.T) {
 		block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 		err = db.AddBlock(&block)
 		require.NoError(t, err)
-		txns = append(txns, vb.Blk.Payset[0].SignedTxnWithAD)
+		stxn, _, err := vb.Blk.BlockHeader.DecodeSignedTxn(vb.Blk.Payset[0])
+		require.NoError(t, err)
+		txns = append(txns, stxn)
 	}
 
 	// keep rounds >= 2
@@ -2088,10 +2085,8 @@ func TestDeleteTransactions(t *testing.T) {
 	for row := range rowsCh {
 		require.NoError(t, row.Error)
 		require.NotNil(t, row.Txn)
-		retTxn := *row.Txn
-		retTxn.Txn.GenesisHash = sdk.Digest{}
 		expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txns[i]))
-		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(retTxn))
+		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
 		assert.Equal(t, expected, actual)
 		i++
 	}
@@ -2120,10 +2115,8 @@ func TestDeleteTransactions(t *testing.T) {
 	for row := range rowsCh {
 		require.NoError(t, row.Error)
 		require.NotNil(t, row.Txn)
-		retTxn := *row.Txn
-		retTxn.Txn.GenesisHash = sdk.Digest{}
 		expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txns[i]))
-		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(retTxn))
+		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(row.Txn))
 		assert.Equal(t, expected, actual)
 		i++
 	}
