@@ -7,12 +7,13 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
+	log "github.com/sirupsen/logrus"
+
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/util"
-	log "github.com/sirupsen/logrus"
 
+	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger"
