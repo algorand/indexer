@@ -1,3 +1,4 @@
+//nolint
 package helpers
 
 import (
@@ -7,9 +8,11 @@ import (
 	"github.com/algorand/indexer/protocol"
 	"github.com/algorand/indexer/types"
 
-	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
 	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
+"github.com/algorand/go-algorand-sdk/v2/encoding/json"
+"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
+sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
