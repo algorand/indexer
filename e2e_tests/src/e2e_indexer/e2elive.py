@@ -132,6 +132,7 @@ def main():
         for root, dirs, files in os.walk(tempnet):
             for f in files:
                 if f == "node.log":
+                    found = True
                     p = os.path.join(root, f)
                     logger.error("found node.log: {}".format(p))
                     with open(p) as nf:
