@@ -4,35 +4,43 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"math"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/algorand/go-codec/codec"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	test2 "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/algorand/go-algorand/crypto"
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/protocol"
-	"github.com/algorand/go-algorand/rpcs"
-	"github.com/algorand/go-codec/codec"
-
 	"github.com/algorand/indexer/api/generated/v2"
+	"github.com/algorand/indexer/conduit/plugins/processors/blockprocessor"
+	"github.com/algorand/indexer/helpers"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
 	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
 	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
 	"github.com/algorand/indexer/importer"
-	"github.com/algorand/indexer/processor/blockprocessor"
+	"github.com/algorand/indexer/protocol"
 	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/test"
+
+	crypto2 "github.com/algorand/go-algorand-sdk/crypto"
+	"github.com/algorand/go-algorand-sdk/encoding/json"
+	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
+	sdk "github.com/algorand/go-algorand-sdk/types"
+
+	"github.com/algorand/go-algorand/crypto"
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/transactions"
+	protocol2 "github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/go-algorand/rpcs"
 )
 
 // TestMaxRoundOnUninitializedDB makes sure we return 0 when getting the max round on a new DB.
@@ -153,7 +161,7 @@ func assertAccountAsset(t *testing.T, db *pgxpool.Pool, addr basics.Address, ass
 
 // TestAssetCloseReopenTransfer tests a scenario that requires asset subround accounting
 func TestAssetCloseReopenTransfer(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -181,7 +189,7 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	//////////
 	// When // We commit the block to the database
 	//////////
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	//////////
@@ -199,7 +207,7 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 
 // TestReCreateAssetHolding checks the optin value of a defunct
 func TestReCreateAssetHolding(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -232,7 +240,7 @@ func TestReCreateAssetHolding(t *testing.T) {
 		//////////
 		// When // We commit the round accounting to the database.
 		//////////
-		err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+		err = proc(&rpcs.EncodedBlockCert{Block: block})
 		require.NoError(t, err)
 
 		//////////
@@ -244,7 +252,7 @@ func TestReCreateAssetHolding(t *testing.T) {
 
 // TestMultipleAssetOptins make sure no-op transactions don't reset the default frozen value.
 func TestNoopOptins(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -269,7 +277,7 @@ func TestNoopOptins(t *testing.T) {
 	//////////
 	// When // We commit the round accounting to the database.
 	//////////
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	//////////
@@ -280,7 +288,7 @@ func TestNoopOptins(t *testing.T) {
 
 // TestMultipleWriters tests that accounting cannot be double committed.
 func TestMultipleWriters(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -308,7 +316,7 @@ func TestMultipleWriters(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			<-start
-			errors <- proc.Process(&rpcs.EncodedBlockCert{Block: block})
+			errors <- proc(&rpcs.EncodedBlockCert{Block: block})
 		}()
 	}
 	close(start)
@@ -337,7 +345,7 @@ func TestMultipleWriters(t *testing.T) {
 
 // TestBlockWithTransactions tests that the block with transactions endpoint works.
 func TestBlockWithTransactions(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -369,7 +377,7 @@ func TestBlockWithTransactions(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, txns...)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	//////////
@@ -391,13 +399,17 @@ func TestBlockWithTransactions(t *testing.T) {
 	assert.Len(t, txnRows0, len(txns))
 	assert.Len(t, txnRows1, len(txns))
 	for i := 0; i < len(txnRows0); i++ {
-		assert.Equal(t, txns[i], txnRows0[i].Txn)
-		assert.Equal(t, txns[i], txnRows1[i].Txn)
+		expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txns[i]))
+		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(txnRows0[i].Txn))
+		assert.Equal(t, expected, actual)
+
+		actual = base64.StdEncoding.EncodeToString(msgpack.Encode(txnRows1[i].Txn))
+		assert.Equal(t, expected, actual)
 	}
 }
 
 func TestRekeyBasic(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -409,7 +421,7 @@ func TestRekeyBasic(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	//////////
@@ -426,7 +438,7 @@ func TestRekeyBasic(t *testing.T) {
 }
 
 func TestRekeyToItself(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -438,7 +450,7 @@ func TestRekeyToItself(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	txn = test.MakePaymentTxn(
@@ -447,7 +459,7 @@ func TestRekeyToItself(t *testing.T) {
 	block, err = test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	//////////
@@ -464,7 +476,7 @@ func TestRekeyToItself(t *testing.T) {
 }
 
 func TestRekeyThreeTimesInSameRound(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -484,7 +496,7 @@ func TestRekeyThreeTimesInSameRound(t *testing.T) {
 		test.MakeGenesisBlock().BlockHeader, &txn0, &txn1, &txn2)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	//////////
@@ -501,7 +513,7 @@ func TestRekeyThreeTimesInSameRound(t *testing.T) {
 }
 
 func TestRekeyToItselfHasNotBeenRekeyed(t *testing.T) {
-	_, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	_, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -517,13 +529,13 @@ func TestRekeyToItselfHasNotBeenRekeyed(t *testing.T) {
 	//////////
 	// Then // No error when committing to the DB.
 	//////////
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 }
 
 // TestIgnoreDefaultFrozenConfigUpdate the creator asset holding should ignore default-frozen = true.
 func TestIgnoreDefaultFrozenConfigUpdate(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -549,7 +561,7 @@ func TestIgnoreDefaultFrozenConfigUpdate(t *testing.T) {
 	//////////
 	// When // We commit the round accounting to the database.
 	//////////
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	//////////
@@ -562,7 +574,7 @@ func TestIgnoreDefaultFrozenConfigUpdate(t *testing.T) {
 
 // TestZeroTotalAssetCreate tests that the asset holding with total of 0 is created.
 func TestZeroTotalAssetCreate(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -581,7 +593,7 @@ func TestZeroTotalAssetCreate(t *testing.T) {
 	//////////
 	// When // We commit the round accounting to the database.
 	//////////
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	//////////
@@ -625,7 +637,7 @@ func assertAssetHoldingDates(t *testing.T, db *pgxpool.Pool, address basics.Addr
 }
 
 func TestDestroyAssetBasic(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -636,7 +648,7 @@ func TestDestroyAssetBasic(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	// Destroy an asset.
@@ -644,7 +656,7 @@ func TestDestroyAssetBasic(t *testing.T) {
 	block, err = test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	// Check that the asset is deleted.
@@ -661,7 +673,7 @@ func TestDestroyAssetBasic(t *testing.T) {
 }
 
 func TestDestroyAssetZeroSupply(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -673,7 +685,7 @@ func TestDestroyAssetZeroSupply(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn0, &txn1)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	// Check that the asset is deleted.
@@ -690,7 +702,7 @@ func TestDestroyAssetZeroSupply(t *testing.T) {
 }
 
 func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -729,7 +741,7 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 	block, err := test.MakeBlockForTxns(
 		test.MakeGenesisBlock().BlockHeader, &txn0, &txn1, &txn2)
 	require.NoError(t, err)
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	// Check that the creator's asset holding is deleted.
@@ -752,7 +764,7 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 
 // Test that block import adds the freeze/sender accounts to txn_participation.
 func TestAssetFreezeTxnParticipation(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -777,7 +789,7 @@ func TestAssetFreezeTxnParticipation(t *testing.T) {
 	//////////
 	// When // We import the block.
 	//////////
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	//////////
@@ -797,7 +809,7 @@ func TestAssetFreezeTxnParticipation(t *testing.T) {
 
 // Test that block import adds accounts from inner txns to txn_participation.
 func TestInnerTxnParticipation(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -821,7 +833,7 @@ func TestInnerTxnParticipation(t *testing.T) {
 	//////////
 	// When // We import the block.
 	//////////
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	//////////
@@ -844,7 +856,7 @@ func TestInnerTxnParticipation(t *testing.T) {
 }
 
 func TestAppExtraPages(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -874,7 +886,7 @@ func TestAppExtraPages(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	row := db.db.QueryRow(context.Background(), "SELECT index, params FROM app WHERE creator = $1", test.AccountA[:])
@@ -937,7 +949,7 @@ func assertKeytype(t *testing.T, db *IndexerDb, address basics.Address, keytype 
 
 func TestKeytypeBasic(t *testing.T) {
 	block := test.MakeGenesisBlock()
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -950,7 +962,7 @@ func TestKeytypeBasic(t *testing.T) {
 
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	keytype := generated.AccountSigTypeSig
@@ -964,7 +976,7 @@ func TestKeytypeBasic(t *testing.T) {
 
 	block, err = test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	keytype = "msig"
@@ -974,7 +986,7 @@ func TestKeytypeBasic(t *testing.T) {
 // Test that asset amount >= 2^63 is handled correctly. Due to the specifics of
 // postgres it might be a problem.
 func TestLargeAssetAmount(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -985,7 +997,7 @@ func TestLargeAssetAmount(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	{
@@ -1117,7 +1129,7 @@ func TestNonDisplayableUTF8(t *testing.T) {
 		url := testcase.AssetURL
 
 		t.Run(testcase.Name, func(t *testing.T) {
-			db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+			db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 			defer shutdownFunc()
 
 			defer l.Close()
@@ -1134,7 +1146,7 @@ func TestNonDisplayableUTF8(t *testing.T) {
 			require.NoError(t, err)
 
 			// Test 1: import/accounting should work.
-			err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+			err = proc(&rpcs.EncodedBlockCert{Block: block})
 			require.NoError(t, err)
 
 			// Test 2: asset results properly serialized
@@ -1156,7 +1168,7 @@ func TestNonDisplayableUTF8(t *testing.T) {
 			for row := range txnRows {
 				require.NoError(t, row.Error)
 				// The inner txns will have a RootTxn instead of a Txn row
-				var rowTxn *transactions.SignedTxnWithAD
+				var rowTxn *sdk.SignedTxnWithAD
 				if row.Txn != nil {
 					rowTxn = row.Txn
 				} else {
@@ -1201,7 +1213,7 @@ func TestNonDisplayableUTF8(t *testing.T) {
 
 // TestReconfigAsset make sure we properly handle asset param merges.
 func TestReconfigAsset(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -1215,7 +1227,7 @@ func TestReconfigAsset(t *testing.T) {
 		0, math.MaxUint64, 0, false, unit, name, url, test.AccountA)
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	require.NoError(t, err)
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	txn = transactions.SignedTxnWithAD{
@@ -1240,7 +1252,7 @@ func TestReconfigAsset(t *testing.T) {
 	}
 	block, err = test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	// Test 2: asset results properly serialized
@@ -1252,11 +1264,11 @@ func TestReconfigAsset(t *testing.T) {
 		require.Equal(t, unit, asset.Params.UnitName)
 		require.Equal(t, url, asset.Params.URL)
 
-		require.Equal(t, basics.Address{}, asset.Params.Manager, "Manager should have been cleared.")
-		require.Equal(t, basics.Address{}, asset.Params.Reserve, "Reserve should have been cleared.")
+		require.Equal(t, sdk.Address{}, asset.Params.Manager, "Manager should have been cleared.")
+		require.Equal(t, sdk.Address{}, asset.Params.Reserve, "Reserve should have been cleared.")
 		// These were updated
-		require.Equal(t, test.AccountB, asset.Params.Freeze)
-		require.Equal(t, test.AccountC, asset.Params.Clawback)
+		require.Equal(t, sdk.Address(test.AccountB), asset.Params.Freeze)
+		require.Equal(t, sdk.Address(test.AccountC), asset.Params.Clawback)
 		num++
 	}
 	require.Equal(t, 1, num)
@@ -1264,7 +1276,7 @@ func TestReconfigAsset(t *testing.T) {
 
 func TestKeytypeResetsOnRekey(t *testing.T) {
 	block := test.MakeGenesisBlock()
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -1275,7 +1287,7 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	keytype := generated.AccountSigTypeSig
@@ -1287,7 +1299,7 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 
 	block, err = test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	assertKeytype(t, db, test.AccountA, nil)
@@ -1301,7 +1313,7 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 
 	block, err = test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	keytype = generated.AccountSigTypeMsig
@@ -1311,7 +1323,7 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 // Test that after closing the account, keytype will be correctly set.
 func TestKeytypeDeletedAccount(t *testing.T) {
 	block := test.MakeGenesisBlock()
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -1323,7 +1335,7 @@ func TestKeytypeDeletedAccount(t *testing.T) {
 
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &closeTxn)
 	require.NoError(t, err)
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	keytype := generated.AccountSigTypeSig
@@ -1332,7 +1344,7 @@ func TestKeytypeDeletedAccount(t *testing.T) {
 
 // TestAddBlockGenesis tests that adding block 0 is successful.
 func TestAddBlockGenesis(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -1342,7 +1354,9 @@ func TestAddBlockGenesis(t *testing.T) {
 	blockHeaderRet, txns, err := db.GetBlock(context.Background(), 0, opts)
 	require.NoError(t, err)
 	assert.Empty(t, txns)
-	assert.Equal(t, test.MakeGenesisBlock().BlockHeader, blockHeaderRet)
+	genesisBlock := test.MakeGenesisBlockV2()
+	require.NoError(t, err)
+	assert.Equal(t, genesisBlock.BlockHeader, blockHeaderRet)
 
 	nextRound, err := db.GetNextRoundToAccount()
 	require.NoError(t, err)
@@ -1353,10 +1367,10 @@ func TestAddBlockGenesis(t *testing.T) {
 // amount in `txn.extra` column.
 func TestAddBlockAssetCloseAmountInTxnExtra(t *testing.T) {
 	// Use an old version of consensus parameters that have AssetCloseAmount = false.
-	genesis := test.MakeGenesis()
-	genesis.Proto = protocol.ConsensusV24
+	genesis := test.MakeGenesisV2()
+	genesis.Proto = string(protocol.ConsensusV24)
 	block := test.MakeGenesisBlock()
-	block.UpgradeState.CurrentProtocol = protocol.ConsensusV24
+	block.UpgradeState.CurrentProtocol = helpers.ConvertConsensusType(protocol.ConsensusV24)
 
 	db, shutdownFunc, proc, l := setupIdb(t, genesis)
 	defer shutdownFunc()
@@ -1380,7 +1394,7 @@ func TestAddBlockAssetCloseAmountInTxnExtra(t *testing.T) {
 		&optinC, &closeB)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	// Check asset close amount in the `closeB` transaction.
@@ -1410,7 +1424,7 @@ func TestAddBlockIncrementsMaxRoundAccounted(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
-	err = db.LoadGenesis(test.MakeGenesis())
+	err = db.LoadGenesis(test.MakeGenesisV2())
 	require.NoError(t, err)
 
 	round, err := db.GetNextRoundToAccount()
@@ -1421,8 +1435,9 @@ func TestAddBlockIncrementsMaxRoundAccounted(t *testing.T) {
 	l, err := test.MakeTestLedger(logger)
 	require.NoError(t, err)
 	defer l.Close()
-	proc, err := blockprocessor.MakeProcessorWithLedger(logger, l, db.AddBlock)
+	pr, err := blockprocessor.MakeBlockProcessorWithLedger(logger, l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
+	proc := blockprocessor.MakeBlockProcessorHandlerAdapter(&pr, db.AddBlock)
 
 	round, err = db.GetNextRoundToAccount()
 	require.NoError(t, err)
@@ -1431,7 +1446,7 @@ func TestAddBlockIncrementsMaxRoundAccounted(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader)
 	require.NoError(t, err)
 	blockCert := rpcs.EncodedBlockCert{Block: block}
-	err = proc.Process(&blockCert)
+	err = proc(&blockCert)
 	require.NoError(t, err)
 
 	round, err = db.GetNextRoundToAccount()
@@ -1441,7 +1456,7 @@ func TestAddBlockIncrementsMaxRoundAccounted(t *testing.T) {
 	block, err = test.MakeBlockForTxns(block.BlockHeader)
 	require.NoError(t, err)
 	blockCert = rpcs.EncodedBlockCert{Block: block}
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	round, err = db.GetNextRoundToAccount()
@@ -1452,7 +1467,7 @@ func TestAddBlockIncrementsMaxRoundAccounted(t *testing.T) {
 // Test that AddBlock makes a record of an account that gets created and deleted in
 // the same round.
 func TestAddBlockCreateDeleteAccountSameRound(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -1465,7 +1480,7 @@ func TestAddBlockCreateDeleteAccountSameRound(t *testing.T) {
 		test.MakeGenesisBlock().BlockHeader, &createTxn, &deleteTxn)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	opts := idb.AccountQueryOptions{
@@ -1488,7 +1503,7 @@ func TestAddBlockCreateDeleteAccountSameRound(t *testing.T) {
 // Test that AddBlock makes a record of an asset that is created and deleted in
 // the same round.
 func TestAddBlockCreateDeleteAssetSameRound(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -1500,7 +1515,7 @@ func TestAddBlockCreateDeleteAssetSameRound(t *testing.T) {
 		test.MakeGenesisBlock().BlockHeader, &createTxn, &deleteTxn)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	// Asset global state.
@@ -1545,7 +1560,7 @@ func TestAddBlockCreateDeleteAssetSameRound(t *testing.T) {
 // Test that AddBlock makes a record of an app that is created and deleted in
 // the same round.
 func TestAddBlockCreateDeleteAppSameRound(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -1557,7 +1572,7 @@ func TestAddBlockCreateDeleteAppSameRound(t *testing.T) {
 		test.MakeGenesisBlock().BlockHeader, &createTxn, &deleteTxn)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	opts := idb.ApplicationQuery{
@@ -1580,7 +1595,7 @@ func TestAddBlockCreateDeleteAppSameRound(t *testing.T) {
 // Test that AddBlock makes a record of an app that is created and deleted in
 // the same round.
 func TestAddBlockAppOptInOutSameRound(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -1593,7 +1608,7 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 		test.MakeGenesisBlock().BlockHeader, &createTxn, &optInTxn, &optOutTxn)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	opts := idb.AccountQueryOptions{
@@ -1705,7 +1720,7 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 	pdb, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
-	db := setupIdbWithConnectionString(t, connStr, test.MakeGenesis())
+	db := setupIdbWithConnectionString(t, connStr, test.MakeGenesisV2())
 	defer db.Close()
 
 	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
@@ -1719,10 +1734,11 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 		l, err := test.MakeTestLedger(logger)
 		require.NoError(t, err)
 		defer l.Close()
-		proc, err := blockprocessor.MakeProcessorWithLedger(logger, l, db.AddBlock)
+		pr, err := blockprocessor.MakeBlockProcessorWithLedger(logger, l, db.AddBlock)
 		require.NoError(t, err, "failed to open ledger")
 		blockCert := rpcs.EncodedBlockCert{Block: block}
-		return proc.Process(&blockCert)
+		proc := blockprocessor.MakeBlockProcessorHandlerAdapter(&pr, db.AddBlock)
+		return proc(&blockCert)
 	}, nil)
 	require.NoError(t, err)
 
@@ -1743,7 +1759,7 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 					require.True(t, (result.Txn != nil) && (result.RootTxn == nil))
 				} else {
 					// Make sure the root txn is returned.
-					var stxn *transactions.SignedTxnWithAD
+					var stxn *sdk.SignedTxnWithAD
 
 					// Exactly one of Txn and RootTxn must be present.
 					require.True(t, (result.Txn == nil) != (result.RootTxn == nil))
@@ -1755,7 +1771,7 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 					if result.RootTxn != nil {
 						stxn = result.RootTxn
 					}
-					require.Equal(t, rootTxid, stxn.Txn.ID())
+					require.Equal(t, rootTxid.String(), crypto2.TransactionIDString(stxn.Txn))
 				}
 			}
 
@@ -1794,7 +1810,7 @@ func TestNonUTF8Logs(t *testing.T) {
 		testcase := testcase
 
 		t.Run(testcase.Name, func(t *testing.T) {
-			db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+			db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 			defer shutdownFunc()
 
 			defer l.Close()
@@ -1807,7 +1823,7 @@ func TestNonUTF8Logs(t *testing.T) {
 					{
 						SignedTxn: transactions.SignedTxn{
 							Txn: transactions.Transaction{
-								Type: protocol.ApplicationCallTx,
+								Type: protocol2.ApplicationCallTx,
 								Header: transactions.Header{
 									Sender: test.AccountA,
 								},
@@ -1830,13 +1846,13 @@ func TestNonUTF8Logs(t *testing.T) {
 			require.NoError(t, err)
 
 			// Test 1: import/accounting should work.
-			err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+			err = proc(&rpcs.EncodedBlockCert{Block: block})
 			require.NoError(t, err)
 
 			// Test 2: transaction results properly serialized
 			txnRows, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
 			for row := range txnRows {
-				var rowTxn *transactions.SignedTxnWithAD
+				var rowTxn *sdk.SignedTxnWithAD
 				if row.Txn != nil {
 					rowTxn = row.Txn
 				} else {
@@ -1859,7 +1875,7 @@ func TestLoadGenesisAccountTotals(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
-	err = db.LoadGenesis(test.MakeGenesis())
+	err = db.LoadGenesis(test.MakeGenesisV2())
 	require.NoError(t, err)
 
 	json, err := db.getMetastate(context.Background(), nil, schema.AccountTotals)
@@ -1873,7 +1889,7 @@ func TestLoadGenesisAccountTotals(t *testing.T) {
 }
 
 func TestTxnAssetID(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -1892,7 +1908,7 @@ func TestTxnAssetID(t *testing.T) {
 		&createAppTxn, &destroyAppTxn)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	txnRowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
@@ -1911,7 +1927,7 @@ func TestTxnAssetID(t *testing.T) {
 }
 
 func TestBadTxnJsonEncoding(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -1919,7 +1935,7 @@ func TestBadTxnJsonEncoding(t *testing.T) {
 	// Need to import a block header because the transactions query joins on it.
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader)
 	require.NoError(t, err)
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	rootTxid := "abc"
@@ -1978,7 +1994,7 @@ func TestBadTxnJsonEncoding(t *testing.T) {
 
 func TestKeytypeDoNotResetReceiver(t *testing.T) {
 	block := test.MakeGenesisBlock()
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -1990,7 +2006,7 @@ func TestKeytypeDoNotResetReceiver(t *testing.T) {
 		0, 0, 0, 0, 0, 0, test.AccountB, test.AccountB, basics.Address{}, basics.Address{})
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	// Sigtype of account A becomes "sig" and B remains the same.
@@ -1998,7 +2014,7 @@ func TestKeytypeDoNotResetReceiver(t *testing.T) {
 		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{}, basics.Address{})
 	block, err = test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	keytype := generated.AccountSigTypeSig
@@ -2010,7 +2026,7 @@ func TestKeytypeDoNotResetReceiver(t *testing.T) {
 // the current round, AddBlock() still runs successfully.
 func TestAddBlockTxnTxnParticipationAhead(t *testing.T) {
 	block := test.MakeGenesisBlock()
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -2032,14 +2048,14 @@ func TestAddBlockTxnTxnParticipationAhead(t *testing.T) {
 		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 }
 
 // Test that AddBlock() writes to `txn_participation` table.
 func TestAddBlockTxnParticipationAdded(t *testing.T) {
 	block := test.MakeGenesisBlock()
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -2048,7 +2064,7 @@ func TestAddBlockTxnParticipationAdded(t *testing.T) {
 		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	tf := idb.TransactionFilter{
@@ -2060,14 +2076,16 @@ func TestAddBlockTxnParticipationAdded(t *testing.T) {
 	require.True(t, ok)
 	require.NoError(t, row.Error)
 	require.NotNil(t, row.Txn)
-	assert.Equal(t, txn, *row.Txn)
+	expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txn))
+	actual := base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
+	assert.Equal(t, expected, actual)
 }
 
 // Test that if information in the `txn` table is ahead of the current round,
 // Transactions() doesn't return the rows ahead of the state.
 func TestTransactionsTxnAhead(t *testing.T) {
 	block := test.MakeGenesisBlock()
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -2090,7 +2108,7 @@ func TestTransactionsTxnAhead(t *testing.T) {
 	{
 		block, err := test.MakeBlockForTxns(block.BlockHeader)
 		require.NoError(t, err)
-		err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+		err = proc(&rpcs.EncodedBlockCert{Block: block})
 		require.NoError(t, err)
 	}
 	{
@@ -2107,10 +2125,10 @@ func TestGenesisHashCheckAtDBSetup(t *testing.T) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
-	genesis := test.MakeGenesis()
+	genesis := test.MakeGenesisV2()
 	db := setupIdbWithConnectionString(t, connStr, genesis)
 	defer db.Close()
-	genesisHash := crypto.HashObj(genesis)
+	genesisHash := genesis.Hash()
 	network, err := db.getMetastate(context.Background(), nil, schema.NetworkMetaStateKey)
 	assert.NoError(t, err)
 	networkState, err := encoding.DecodeNetworkState([]byte(network))
@@ -2136,7 +2154,7 @@ func TestGenesisHashCheckAtInitialImport(t *testing.T) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
-	genesis := test.MakeGenesis()
+	genesis := test.MakeGenesisV2()
 	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	require.NoError(t, err)
 	defer db.Close()
@@ -2152,7 +2170,7 @@ func TestGenesisHashCheckAtInitialImport(t *testing.T) {
 	// network state not initialized
 	networkState, err := db.getNetworkState(context.Background(), nil)
 	require.ErrorIs(t, err, idb.ErrorNotInitialized)
-	genesisReader := bytes.NewReader(protocol.EncodeJSON(genesis))
+	genesisReader := bytes.NewReader(json.Encode(genesis))
 	gen, err := util.ReadGenesis(genesisReader)
 	require.NoError(t, err)
 	imported, err := importer.EnsureInitialImport(db, gen)
@@ -2161,11 +2179,11 @@ func TestGenesisHashCheckAtInitialImport(t *testing.T) {
 	// network state should be set
 	networkState, err = db.getNetworkState(context.Background(), nil)
 	require.NoError(t, err)
-	require.Equal(t, networkState.GenesisHash, crypto.HashObj(genesis))
+	require.Equal(t, networkState.GenesisHash, genesis.Hash())
 
 	// change genesis value
 	genesis.Network = "testnest"
-	genesisReader = bytes.NewReader(protocol.EncodeJSON(genesis))
+	genesisReader = bytes.NewReader(json.Encode(genesis))
 	gen, err = util.ReadGenesis(genesisReader)
 	require.NoError(t, err)
 	// different genesisHash, should fail
@@ -2190,7 +2208,7 @@ func getResults(ctx context.Context, rows <-chan idb.AccountRow) (result []idb.A
 }
 
 func TestIndexerDb_GetAccounts(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -2259,7 +2277,7 @@ func TestIndexerDb_GetAccounts(t *testing.T) {
 // Test that AddBlock() writes to `txn_participation` table.
 func TestTransactionFilterAssetAmount(t *testing.T) {
 	block := test.MakeGenesisBlock()
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -2270,7 +2288,7 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &txnA, &txnB, &txnC)
 	require.NoError(t, err)
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	// query
@@ -2281,7 +2299,9 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 	require.True(t, ok)
 	require.NoError(t, row.Error)
 	require.NotNil(t, row.Txn)
-	assert.Equal(t, txnC, *row.Txn)
+	expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txnC))
+	actual := base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
+	assert.Equal(t, expected, actual)
 
 	// AssetAmountGT
 	txnD := test.MakeAssetConfigTxn(0, math.MaxUint64, 0, false, "test2", "test2", "", test.AccountA)
@@ -2290,7 +2310,7 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 
 	block, err = test.MakeBlockForTxns(block.BlockHeader, &txnD, &txnE, &txnF)
 	require.NoError(t, err)
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	// query
@@ -2301,6 +2321,86 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 	require.True(t, ok)
 	require.NoError(t, row.Error)
 	require.NotNil(t, row.Txn)
-	assert.Equal(t, txnF, *row.Txn)
 
+	expected = base64.StdEncoding.EncodeToString(msgpack.Encode(txnF))
+	actual = base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
+	assert.Equal(t, expected, actual)
+
+}
+
+func TestDeleteTransactions(t *testing.T) {
+	block := test.MakeGenesisBlock()
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
+	defer shutdownFunc()
+	defer l.Close()
+
+	txnA := test.MakeCreateAppTxn(test.AccountA)
+	txnB := test.MakeCreateAppTxn(test.AccountB)
+	txnC := test.MakeCreateAppTxn(test.AccountC)
+	txnD := test.MakeCreateAppTxn(test.AccountD)
+
+	txns := []transactions.SignedTxnWithAD{txnA, txnB, txnC, txnD}
+
+	// add 4 rounds of txns
+	for i := 1; i <= 4; i++ {
+		block, err := test.MakeBlockForTxns(block.BlockHeader, &txns[i-1])
+		block.BlockHeader.Round = basics.Round(i)
+		require.NoError(t, err)
+		err = proc(&rpcs.EncodedBlockCert{Block: block})
+		require.NoError(t, err)
+	}
+
+	// keep rounds >= 2
+	err := db.DeleteTransactions(context.Background(), 2)
+	assert.NoError(t, err)
+
+	// query txns
+	rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
+
+	// check remaining transactions are correct
+	i := 1
+	for row := range rowsCh {
+		require.NoError(t, row.Error)
+		require.NotNil(t, row.Txn)
+		expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txns[i]))
+		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
+		assert.Equal(t, expected, actual)
+		i++
+	}
+
+	// verify metastate
+	deleteStatus, err := db.getMetastate(context.Background(), nil, schema.DeleteStatusKey)
+	assert.NoError(t, err)
+	status, err := encoding.DecodeDeleteStatus([]byte(deleteStatus))
+	assert.NoError(t, err)
+	assert.Equal(t, uint64(2), status.OldestRound)
+
+	// add 2 txns for round 5
+	block, err = test.MakeBlockForTxns(block.BlockHeader, &txnA, &txnB)
+	block.BlockHeader.Round = basics.Round(5)
+	require.NoError(t, err)
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
+
+	// keep round 5
+	err = db.DeleteTransactions(context.Background(), 5)
+	assert.NoError(t, err)
+
+	// 2 txns in round 5
+	rowsCh, _ = db.Transactions(context.Background(), idb.TransactionFilter{})
+	i = 0
+	for row := range rowsCh {
+		require.NoError(t, row.Error)
+		require.NotNil(t, row.Txn)
+		expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txns[i]))
+		actual := base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
+		assert.Equal(t, expected, actual)
+		i++
+	}
+
+	deleteStatus, err = db.getMetastate(context.Background(), nil, schema.DeleteStatusKey)
+	assert.NoError(t, err)
+	status, err = encoding.DecodeDeleteStatus([]byte(deleteStatus))
+	assert.NoError(t, err)
+	assert.Equal(t, uint64(5), status.OldestRound)
 }

@@ -1,0 +1,14 @@
+name: block_evaluator
+config:
+  # Catchpoint is the catchpoint you wish the block evaluator to use
+  catchpoint: "acatchpoint"
+  # LedgerDir is an optional path to a directory where the ledger will be
+  # written. It should be a full directory path. If not present the plugin
+  # data directory is used.
+  ledger-dir: ""
+  # AlgodDataDir is the algod data directory. It should be a full directory path.
+  algod-data-dir: "algod_data_dir"
+  # AlgodToken is the token to connect to algod.
+  algod-token: "algod_token"
+  # AlgodAddr is the address to connect to the algod instance.
+  algod-addr: "algod_addr"

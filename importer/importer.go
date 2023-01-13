@@ -3,9 +3,11 @@ package importer
 import (
 	"fmt"
 
-	"github.com/algorand/go-algorand/config"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/protocol"
+	"github.com/algorand/indexer/protocol/config"
+
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
 // Importer is used to import blocks into an idb.IndexerDb object.
@@ -21,7 +23,7 @@ type importerImpl struct {
 func (imp *importerImpl) ImportBlock(vb *ledgercore.ValidatedBlock) error {
 	block := vb.Block()
 
-	_, ok := config.Consensus[block.CurrentProtocol]
+	_, ok := config.Consensus[protocol.ConsensusVersion(block.CurrentProtocol)]
 	if !ok {
 		return fmt.Errorf("protocol %s not found", block.CurrentProtocol)
 	}

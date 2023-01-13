@@ -1,0 +1,28 @@
+# Generated conduit configuration file.
+log-level: INFO
+
+# When enabled prometheus metrics are available on '/metrics'
+metrics:
+  mode: OFF
+  addr: ":9999"
+  prefix: "conduit"
+
+# The importer is typically an algod archival instance.
+importer:
+    name: algod
+    config:
+        netaddr: "your algod address here"
+        token: "your algod token here"
+
+# One or more processors may be defined to manipulate what data
+# reaches the exporter.
+processors:
+
+# An exporter is defined to do something with the data.
+# Here the filewriter is defined which writes the raw block
+# data to files.
+exporter:
+    name: file_writer
+    config:
+        # optionally provide a different directory to store blocks.
+        #block-dir: "path where data should be written"

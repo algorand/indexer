@@ -48,11 +48,11 @@ Indexer is part of the [sandbox](https://github.com/algorand/sandbox) private ne
 - Search and filter accounts, transactions, assets, and asset balances with many different parameters.
 - Pagination of results.
 - Enriched transaction and account data:
-    - Confirmation round (block containing the transaction)
-    - Confirmation time
-    - Signature type
-    - Close amounts
-    - Create/delete rounds.
+  - Confirmation round (block containing the transaction)
+  - Confirmation time
+  - Signature type
+  - Close amounts
+  - Create/delete rounds.
 - Human readable field names instead of the space optimized protocol level names.
 
 # Contributing
@@ -73,6 +73,9 @@ There are two primary modes of operation:
 * [Read only](#read-only)
 
 In both configurations, a postgres connection string is required. Both DSN and URL formats are supported, [details are available here](https://pkg.go.dev/github.com/jackc/pgx/v4/pgxpool@v4.11.0#ParseConfig).
+
+In addition, the indexer uses a data directory that stores data needed for runtime operation and configuration.
+See the [Data Directory documentation](docs/DataDirectory.md) for how to (re-)initialize this directory in case it is lost or needs to be re-created.
 
 ### Database updater
 In this mode, the database will be populated with data fetched from an [Algorand archival node](https://developer.algorand.org/docs/run-a-node/setup/types/#archival-mode). Because every block must be fetched to bootstrap the database, the initial import for a ledger with a long history will take a while. If the daemon is terminated, it will resume processing wherever it left off.

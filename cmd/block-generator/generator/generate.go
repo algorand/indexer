@@ -9,15 +9,18 @@ import (
 	"os"
 	"time"
 
+	"github.com/algorand/indexer/helpers"
+	"github.com/algorand/indexer/protocol"
+	cconfig "github.com/algorand/indexer/protocol/config"
+
+	sdk "github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand/agreement"
-	cconfig "github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/daemon/algod/api/server/v2/generated/model"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/committee"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
 )
 
@@ -159,6 +162,7 @@ type Generator interface {
 	WriteGenesis(output io.Writer) error
 	WriteBlock(output io.Writer, round uint64) error
 	WriteAccount(output io.Writer, accountString string) error
+	WriteStatus(output io.Writer) error
 	Accounts() <-chan basics.Address
 }
 
@@ -243,7 +247,15 @@ func (g *generator) recordData(id TxTypeID, start time.Time) {
 }
 
 func (g *generator) WriteReport(output io.Writer) error {
-	_, err := output.Write(protocol.EncodeJSON(g.reportData))
+	_, err := output.Write(sdk.Encode(g.reportData))
+	return err
+}
+
+func (g *generator) WriteStatus(output io.Writer) error {
+	response := model.NodeStatusResponse{
+		LastRound: g.round,
+	}
+	_, err := output.Write(sdk.Encode(response))
 	return err
 }
 
@@ -274,14 +286,14 @@ func (g *generator) WriteGenesis(output io.Writer) error {
 	gen := bookkeeping.Genesis{
 		SchemaID:    "v1",
 		Network:     "generated-network",
-		Proto:       g.protocol,
+		Proto:       helpers.ConvertConsensusType(g.protocol),
 		Allocation:  allocations,
 		RewardsPool: g.rewardsPool.String(),
 		FeeSink:     g.feeSink.String(),
 		Timestamp:   g.timestamp,
 	}
 
-	_, err := output.Write(protocol.EncodeJSON(gen))
+	_, err := output.Write(sdk.Encode(gen))
 	return err
 }
 
@@ -350,7 +362,7 @@ func (g *generator) WriteBlock(output io.Writer, round uint64) error {
 			RewardsRecalculationRound: 0,
 		},
 		UpgradeState: bookkeeping.UpgradeState{
-			CurrentProtocol: g.protocol,
+			CurrentProtocol: helpers.ConvertConsensusType(g.protocol),
 		},
 		UpgradeVote:        bookkeeping.UpgradeVote{},
 		TxnCounter:         g.txnCounter + numTxnForBlock,
@@ -384,7 +396,7 @@ func (g *generator) WriteBlock(output io.Writer, round uint64) error {
 		Certificate: agreement.Certificate{},
 	}
 
-	_, err := output.Write(protocol.Encode(&cert))
+	_, err := output.Write(sdk.Encode(&cert))
 	if err != nil {
 		return err
 	}

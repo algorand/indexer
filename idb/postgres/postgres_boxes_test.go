@@ -10,9 +10,9 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/stretchr/testify/require"
 
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
@@ -106,7 +106,7 @@ func compareAppBoxesAgainstDB(t *testing.T, db *IndexerDb,
 func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	start := time.Now()
 
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
 	defer l.Close()
@@ -125,7 +125,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createTxn, &payNewAppTxn)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	opts := idb.ApplicationQuery{ApplicationID: uint64(appid)}
@@ -173,7 +173,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
@@ -211,7 +211,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
@@ -243,7 +243,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
@@ -279,7 +279,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
@@ -310,7 +310,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
@@ -420,7 +420,7 @@ func addAppBoxesBlock(t *testing.T, db *IndexerDb, delta ledgercore.StateDelta) 
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
 
-		err = w.AddBlock(&bookkeeping.Block{}, transactions.Payset{}, delta)
+		err = w.AddBlock(&sdk.Block{}, delta)
 		require.NoError(t, err)
 
 		w.Close()
@@ -443,7 +443,7 @@ func TestBoxCreateMutateDeleteAgainstDB(t *testing.T) {
 func TestRandomWriteReadBoxes(t *testing.T) {
 	start := time.Now()
 
-	db, shutdownFunc, _, ld := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, _, ld := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer ld.Close()
 

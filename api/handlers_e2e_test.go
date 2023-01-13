@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 	test2 "github.com/sirupsen/logrus/hooks/test"
@@ -24,18 +25,16 @@ import (
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/crypto/merklesignature"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/rpcs"
-	"github.com/algorand/indexer/processor"
 
 	"github.com/algorand/indexer/api/generated/v2"
+	"github.com/algorand/indexer/conduit/plugins/processors/blockprocessor"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres"
 	pgtest "github.com/algorand/indexer/idb/postgres/testing"
-	"github.com/algorand/indexer/processor/blockprocessor"
 	"github.com/algorand/indexer/util/test"
 )
 
@@ -70,7 +69,7 @@ func testServerImplementation(db idb.IndexerDb) *ServerImplementation {
 	return &ServerImplementation{db: db, timeout: 30 * time.Second, opts: defaultOpts}
 }
 
-func setupIdb(t *testing.T, genesis bookkeeping.Genesis) (*postgres.IndexerDb, func(), processor.Processor, *ledger.Ledger) {
+func setupIdb(t *testing.T, genesis sdk.Genesis) (*postgres.IndexerDb, func(), func(cert *rpcs.EncodedBlockCert) error, *ledger.Ledger) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 
 	db, _, err := postgres.OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
@@ -87,13 +86,16 @@ func setupIdb(t *testing.T, genesis bookkeeping.Genesis) (*postgres.IndexerDb, f
 	logger, _ := test2.NewNullLogger()
 	l, err := test.MakeTestLedger(logger)
 	require.NoError(t, err)
-	proc, err := blockprocessor.MakeProcessorWithLedger(logger, l, db.AddBlock)
+	proc, err := blockprocessor.MakeBlockProcessorWithLedger(logger, l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
-	return db, newShutdownFunc, proc, l
+
+	f := blockprocessor.MakeBlockProcessorHandlerAdapter(&proc, db.AddBlock)
+
+	return db, newShutdownFunc, f, l
 }
 
 func TestApplicationHandlers(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -129,7 +131,8 @@ func TestApplicationHandlers(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn, &optInTxnA, &optInTxnB)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
+
 	require.NoError(t, err)
 
 	//////////
@@ -235,7 +238,7 @@ func TestApplicationHandlers(t *testing.T) {
 }
 
 func TestAccountExcludeParameters(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -256,7 +259,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 		&appOptInTxnA, &appOptInTxnB, &assetOptInTxnA, &assetOptInTxnB)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	//////////
@@ -407,7 +410,7 @@ type accountsErrorResponse struct {
 }
 
 func TestAccountMaxResultsLimit(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -462,7 +465,7 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, ptxns...)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	//////////
@@ -771,7 +774,7 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 }
 
 func TestBlockNotFound(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -837,7 +840,7 @@ func TestInnerTxn(t *testing.T) {
 		},
 	}
 
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -850,7 +853,7 @@ func TestInnerTxn(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	for _, tc := range testcases {
@@ -886,7 +889,7 @@ func TestInnerTxn(t *testing.T) {
 // transaction group does not allow the root transaction to be returned on both
 // pages.
 func TestPagingRootTxnDeduplication(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -903,7 +906,7 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	testcases := []struct {
@@ -1010,7 +1013,7 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 }
 
 func TestKeyregTransactionWithStateProofKeys(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -1051,7 +1054,7 @@ func TestKeyregTransactionWithStateProofKeys(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	e := echo.New()
@@ -1105,7 +1108,7 @@ func TestVersion(t *testing.T) {
 	///////////
 	// Given // An API and context
 	///////////
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 	api := testServerImplementation(db)
@@ -1135,7 +1138,7 @@ func TestVersion(t *testing.T) {
 }
 
 func TestAccountClearsNonUTF8(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -1156,7 +1159,7 @@ func TestAccountClearsNonUTF8(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createAsset)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	verify := func(params generated.AssetParams) {
@@ -1266,7 +1269,7 @@ func TestLookupInnerLogs(t *testing.T) {
 		},
 	}
 
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -1278,7 +1281,7 @@ func TestLookupInnerLogs(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	for _, tc := range testcases {
@@ -1365,7 +1368,7 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 		},
 	}
 
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -1377,7 +1380,7 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	for _, tc := range testcases {
@@ -1423,7 +1426,7 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 }
 
 func TestFetchBlockWithExpiredPartAccts(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -1434,7 +1437,7 @@ func TestFetchBlockWithExpiredPartAccts(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCreate)
 	block.ExpiredParticipationAccounts = append(block.ExpiredParticipationAccounts, test.AccountB, test.AccountC)
 	require.NoError(t, err)
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	////////////
@@ -1489,7 +1492,7 @@ func TestFetchBlockWithOptions(t *testing.T) {
 		},
 	}
 
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -1501,7 +1504,7 @@ func TestFetchBlockWithOptions(t *testing.T) {
 	txnC := test.MakeCreateAppTxn(test.AccountC)
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txnA, &txnB, &txnC)
 	require.NoError(t, err)
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	//////////
@@ -1540,7 +1543,7 @@ func TestFetchBlockWithOptions(t *testing.T) {
 }
 
 func TestGetBlocksTransactionsLimit(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -1563,7 +1566,7 @@ func TestGetBlocksTransactionsLimit(t *testing.T) {
 		block.BlockHeader.Round = basics.Round(i + 1)
 		require.NoError(t, err)
 
-		err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+		err = proc(&rpcs.EncodedBlockCert{Block: block})
 		require.NoError(t, err)
 	}
 
@@ -1637,7 +1640,7 @@ func TestGetBlocksTransactionsLimit(t *testing.T) {
 }
 
 func TestGetBlockWithCompression(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -1659,7 +1662,7 @@ func TestGetBlockWithCompression(t *testing.T) {
 	block.BlockHeader.Round = basics.Round(1)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	//////////
@@ -1729,7 +1732,7 @@ func TestGetBlockWithCompression(t *testing.T) {
 }
 
 func TestNoCompressionSupportForNonBlockAPI(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -1921,7 +1924,7 @@ func compareAppBoxesAgainstHandler(t *testing.T, db *postgres.IndexerDb,
 func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	start := time.Now()
 
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -1939,7 +1942,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createTxn, &payNewAppTxn)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	opts := idb.ApplicationQuery{ApplicationID: uint64(appid)}
@@ -1987,7 +1990,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
@@ -2025,7 +2028,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
@@ -2057,7 +2060,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
@@ -2093,7 +2096,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
@@ -2124,7 +2127,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)

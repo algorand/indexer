@@ -12,6 +12,7 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/util"
 
+	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger"
 )
@@ -122,4 +123,28 @@ func PrintTxnQuery(db idb.IndexerDb, q idb.TransactionFilter) {
 func MakeTestLedger(logger *log.Logger) (*ledger.Ledger, error) {
 	genesis := MakeGenesis()
 	return util.MakeLedger(logger, true, &genesis, "ledger")
+}
+
+// MockInitProvider mock an init provider
+type MockInitProvider struct {
+	CurrentRound *basics.Round
+	Genesis      *sdk.Genesis
+}
+
+// GetGenesis produces genesis pointer
+func (m *MockInitProvider) GetGenesis() *sdk.Genesis {
+	return m.Genesis
+}
+
+// NextDBRound provides next database round
+func (m *MockInitProvider) NextDBRound() basics.Round {
+	return *m.CurrentRound
+}
+
+// MockedInitProvider returns an InitProvider for testing
+func MockedInitProvider(round *basics.Round) *MockInitProvider {
+	return &MockInitProvider{
+		CurrentRound: round,
+		Genesis:      &sdk.Genesis{},
+	}
 }
