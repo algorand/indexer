@@ -21,8 +21,9 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/util"
 
-	"github.com/algorand/go-algorand-sdk/client/v2/algod"
-	sdk "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand-sdk/v2/client/v2/algod"
+	"github.com/algorand/go-algorand/crypto"
+sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"

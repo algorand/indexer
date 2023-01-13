@@ -8,7 +8,7 @@ import (
 
 	"github.com/algorand/indexer/accounting"
 
-	"github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 // getTransactionParticipants returns referenced addresses from the txn and all inner txns

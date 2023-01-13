@@ -7,7 +7,7 @@ replace github.com/algorand/go-algorand => ./third_party/go-algorand
 require (
 	github.com/algorand/avm-abi v0.2.0
 	github.com/algorand/go-algorand v0.0.0-20220211161928-53b157beb10f
-	github.com/algorand/go-algorand-sdk v1.22.1-0.20221209152459-223656f08456
+    github.com/algorand/go-algorand-sdk v1.22.1-0.20221209152459-223656f08456
 	github.com/algorand/go-codec/codec v1.1.8
 	github.com/algorand/go-deadlock v0.2.2
 	github.com/algorand/oapi-codegen v1.12.0-algorand.0
@@ -35,6 +35,7 @@ require (
 	github.com/DataDog/zstd v1.5.2 // indirect
 	github.com/Microsoft/go-winio v0.4.14 // indirect
 	github.com/algorand/falcon v0.0.0-20220727072124-02a2a64c4414 // indirect
+	github.com/algorand/go-algorand-sdk/v2 v2.0.0-20230111184032-153c9ac26286 // indirect
 	github.com/algorand/go-sumhash v1.0.0 // indirect
 	github.com/algorand/msgp v1.1.53 // indirect
 	github.com/algorand/websocket v1.4.5 // indirect

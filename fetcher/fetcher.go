@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/algorand/go-algorand-sdk/client/v2/algod"
+	"github.com/algorand/go-algorand-sdk/v2/client/v2/algod"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/indexer/util/metrics"

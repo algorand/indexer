@@ -11,6 +11,9 @@ import (
 	"testing"
 	"time"
 
+	crypto2 "github.com/algorand/go-algorand-sdk/v2/crypto"
+	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	test2 "github.com/sirupsen/logrus/hooks/test"

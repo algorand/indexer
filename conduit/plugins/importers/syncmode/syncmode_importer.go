@@ -1,8 +1,8 @@
-package algodimporter
+package syncmode
 
 import (
 	"context"
-	_ "embed" // used to embed config
+	_ "embed"
 	"fmt"
 	"net/url"
 	"time"
@@ -18,15 +18,13 @@ import (
 
 	"github.com/algorand/go-algorand-sdk/v2/client/v2/algod"
 	"github.com/algorand/go-algorand/data/bookkeeping"
-    "github.com/algorand/go-algorand-sdk/encoding/json"
-    sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
 )
 
-const importerName = "algod"
+const importerName = "sync-algod"
 
-type algodImporter struct {
+type syncModeImporter struct {
 	aclient *algod.Client
 	logger  *logrus.Logger
 	cfg     Config
@@ -34,10 +32,15 @@ type algodImporter struct {
 	cancel  context.CancelFunc
 }
 
+func (sm *syncModeImporter) OnComplete(input data.BlockData) error {
+	_, err := sm.aclient.SetSyncRound(input.Round() + 1).Do(sm.ctx)
+	return err
+}
+
 //go:embed sample.yaml
 var sampleConfig string
 
-var algodImporterMetadata = conduit.Metadata{
+var syncModeImporterMetadata = conduit.Metadata{
 	Name:         importerName,
 	Description:  "Importer for fetching blocks from an algod REST API.",
 	Deprecated:   false,
@@ -46,52 +49,51 @@ var algodImporterMetadata = conduit.Metadata{
 
 // New initializes an algod importer
 func New() importers.Importer {
-	return &algodImporter{}
+	return &syncModeImporter{}
 }
 
-func (algodImp *algodImporter) Metadata() conduit.Metadata {
-	return algodImporterMetadata
+func (sm *syncModeImporter) Metadata() conduit.Metadata {
+	return syncModeImporterMetadata
 }
 
 // package-wide init function
 func init() {
 	importers.Register(importerName, importers.ImporterConstructorFunc(func() importers.Importer {
-		return &algodImporter{}
+		return &syncModeImporter{}
 	}))
 }
 
-func (algodImp *algodImporter) Init(ctx context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) (*sdk.Genesis, error) {
-	algodImp.ctx, algodImp.cancel = context.WithCancel(ctx)
-	algodImp.logger = logger
-	err := cfg.UnmarshalConfig(&algodImp.cfg)
+func (sm *syncModeImporter) Init(ctx context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) (*bookkeeping.Genesis, error) {
+	sm.ctx, sm.cancel = context.WithCancel(ctx)
+	sm.logger = logger
+	err := cfg.UnmarshalConfig(&sm.cfg)
 	if err != nil {
 		return nil, fmt.Errorf("connect failure in unmarshalConfig: %v", err)
 	}
 	var client *algod.Client
-	u, err := url.Parse(algodImp.cfg.NetAddr)
+	u, err := url.Parse(sm.cfg.NetAddr)
 	if err != nil {
 		return nil, err
 	}
 
 	if u.Scheme != "http" && u.Scheme != "https" {
-		algodImp.cfg.NetAddr = "http://" + algodImp.cfg.NetAddr
-		algodImp.logger.Infof("Algod Importer added http prefix to NetAddr: %s", algodImp.cfg.NetAddr)
+		sm.cfg.NetAddr = "http://" + sm.cfg.NetAddr
+		sm.logger.Infof("Algod Importer added http prefix to NetAddr: %s", sm.cfg.NetAddr)
 	}
-	client, err = algod.MakeClient(algodImp.cfg.NetAddr, algodImp.cfg.Token)
+	client, err = algod.MakeClient(sm.cfg.NetAddr, sm.cfg.Token)
 	if err != nil {
 		return nil, err
 	}
-	algodImp.aclient = client
+	sm.aclient = client
 
 	genesisResponse, err := client.GetGenesis().Do(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	genesis := sdk.Genesis{}
+	genesis := bookkeeping.Genesis{}
 
-	// Don't fail on unknown properties here since the go-algorand and SDK genesis types differ slightly
-	err = json.LenientDecode([]byte(genesisResponse), &genesis)
+	err = protocol.DecodeJSON([]byte(genesisResponse), &genesis)
 	if err != nil {
 		return nil, err
 	}
@@ -99,37 +101,37 @@ func (algodImp *algodImporter) Init(ctx context.Context, cfg plugins.PluginConfi
 	return &genesis, err
 }
 
-func (algodImp *algodImporter) Config() string {
-	s, _ := yaml.Marshal(algodImp.cfg)
+func (sm *syncModeImporter) Config() string {
+	s, _ := yaml.Marshal(sm.cfg)
 	return string(s)
 }
 
-func (algodImp *algodImporter) Close() error {
-	if algodImp.cancel != nil {
-		algodImp.cancel()
+func (sm *syncModeImporter) Close() error {
+	if sm.cancel != nil {
+		sm.cancel()
 	}
 	return nil
 }
 
-func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
+func (sm *syncModeImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 	var blockbytes []byte
 	var err error
 	var blk data.BlockData
 
 	for retries := 0; retries < 3; retries++ {
 		// nextRound - 1 because the endpoint waits until the subsequent block is committed to return
-		_, err = algodImp.aclient.StatusAfterBlock(rnd - 1).Do(algodImp.ctx)
+		_, err = sm.aclient.StatusAfterBlock(rnd - 1).Do(sm.ctx)
 		if err != nil {
 			// If context has expired.
-			if algodImp.ctx.Err() != nil {
+			if sm.ctx.Err() != nil {
 				return blk, fmt.Errorf("GetBlock ctx error: %w", err)
 			}
-			algodImp.logger.Errorf(
+			sm.logger.Errorf(
 				"r=%d error getting status %d", retries, rnd)
 			continue
 		}
 		start := time.Now()
-		blockbytes, err = algodImp.aclient.BlockRaw(rnd).Do(algodImp.ctx)
+		blockbytes, err = sm.aclient.BlockRaw(rnd).Do(sm.ctx)
 		dt := time.Since(start)
 		GetAlgodRawBlockTimeSeconds.Observe(dt.Seconds())
 		if err != nil {
@@ -137,6 +139,16 @@ func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 		}
 		tmpBlk := new(rpcs.EncodedBlockCert)
 		err = protocol.Decode(blockbytes, tmpBlk)
+		if err != nil {
+			return blk, err
+		}
+
+		// We aren't going to do anything with the new delta until we get everything
+		// else converted over
+		_, err = sm.aclient.GetLedgerStateDelta(rnd).Do(sm.ctx)
+		if err != nil {
+			return blk, err
+		}
 
 		blk = data.BlockData{
 			BlockHeader: tmpBlk.Block.BlockHeader,
@@ -145,11 +157,11 @@ func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 		}
 		return blk, err
 	}
-	algodImp.logger.Error("GetBlock finished retries without fetching a block.")
+	sm.logger.Error("GetBlock finished retries without fetching a block.")
 	return blk, fmt.Errorf("finished retries without fetching a block")
 }
 
-func (algodImp *algodImporter) ProvideMetrics() []prometheus.Collector {
+func (sm *syncModeImporter) ProvideMetrics() []prometheus.Collector {
 	return []prometheus.Collector{
 		GetAlgodRawBlockTimeSeconds,
 	}

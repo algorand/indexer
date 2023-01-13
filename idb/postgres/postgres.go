@@ -35,7 +35,10 @@ import (
 	itypes "github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/util"
 
-	sdk "github.com/algorand/go-algorand-sdk/types"
+	config2 "github.com/algorand/go-algorand/config"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
+	"github.com/algorand/go-algorand/config"
+	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 )

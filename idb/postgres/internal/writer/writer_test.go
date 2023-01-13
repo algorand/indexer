@@ -12,7 +12,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/algorand/avm-abi/apps"
+"github.com/algorand/avm-abi/apps"
+crypto2 "github.com/algorand/go-algorand-sdk/v2/crypto"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
+	"github.com/algorand/go-algorand/crypto"
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/transactions/logic"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
+
 	"github.com/algorand/indexer/helpers"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
