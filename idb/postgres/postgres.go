@@ -36,10 +36,8 @@ import (
 	"github.com/algorand/indexer/util"
 
 	sdk "github.com/algorand/go-algorand-sdk/types"
-	config2 "github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
-	protocol2 "github.com/algorand/go-algorand/protocol"
 )
 
 var serializable = pgx.TxOptions{IsoLevel: pgx.Serializable} // be a real ACID database
@@ -296,15 +294,6 @@ func (db *IndexerDb) LoadGenesis(genesis sdk.Genesis) error {
 		}
 		defer tx.Conn().Deallocate(context.Background(), setAccountStatementName)
 
-		// this can't be refactored since it's used in totals.AddAccount
-		// TODO: this line will be removed when removing accountTotals
-		proto, ok := config2.Consensus[protocol2.ConsensusVersion(genesis.Proto)]
-		if !ok {
-			return fmt.Errorf("LoadGenesis() consensus version %s not found", genesis.Proto)
-		}
-		// TODO: remove accountTotals
-		var ot basics.OverflowTracker
-		var totals ledgercore.AccountTotals
 		for ai, alloc := range genesis.Allocation {
 			addr, err := sdk.DecodeAddress(alloc.Address)
 			if err != nil {
@@ -319,13 +308,6 @@ func (db *IndexerDb) LoadGenesis(genesis sdk.Genesis) error {
 				return fmt.Errorf("LoadGenesis() error setting genesis account[%d], %w", ai, err)
 			}
 
-			totals.AddAccount(proto, accountData, &ot)
-		}
-
-		err = db.setMetastate(
-			tx, schema.AccountTotals, string(encoding.EncodeAccountTotals(&totals)))
-		if err != nil {
-			return fmt.Errorf("LoadGenesis() err: %w", err)
 		}
 
 		importstate := types.ImportState{
