@@ -673,7 +673,7 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	}
 
 	// If returnInnerTxnOnly flag is false, then return the root transaction
-	if tf.SkipRootTxnJoin || tf.ReturnRootTxnsOnly {
+	if tf.IncludeInnerTxns || tf.ReturnRootTxnsOnly {
 		query = "SELECT t.round, t.intra, t.txn, NULL, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
 	} else {
 		query = "SELECT t.round, t.intra, t.txn, root.txn, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
@@ -684,7 +684,7 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	}
 
 	// join in the root transaction if the returnInnerTxnOnly flag is false
-	if !(tf.SkipRootTxnJoin || tf.ReturnRootTxnsOnly) {
+	if !(tf.IncludeInnerTxns || tf.ReturnRootTxnsOnly) {
 		query += " LEFT OUTER JOIN txn root ON t.round = root.round AND (t.extra->>'root-intra')::int = root.intra"
 	}
 

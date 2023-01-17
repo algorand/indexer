@@ -732,7 +732,7 @@ func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, appl
 	filter.AddressRole = idb.AddressRoleSender
 	// If there is a match on an inner transaction, return the inner txn's logs
 	// instead of the root txn's logs.
-	filter.SkipRootTxnJoin = true
+	filter.IncludeInnerTxns = true
 
 	err = validateTransactionFilter(&filter)
 	if err != nil {
