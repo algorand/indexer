@@ -246,6 +246,7 @@ type rowData struct {
 }
 
 // txnRowToTransaction parses the idb.TxnRow and generates the appropriate generated.Transaction object.
+// If the TxnRow contains a RootTxn, the generated.Transaction object will be the root txn.
 func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 	if row.Error != nil {
 		return generated.Transaction{}, row.Error
@@ -283,12 +284,7 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		Sig:      sigToTransactionSig(stxn.Sig),
 	}
 
-	var txid string
-	if row.Extra.RootIntra.Present {
-		txid = row.Extra.RootTxid
-	} else {
-		txid = crypto.TransactionIDString(stxn.Txn)
-	}
+	txid := crypto.TransactionIDString(stxn.Txn)
 	txn.Id = &txid
 	txn.Signature = &sig
 
