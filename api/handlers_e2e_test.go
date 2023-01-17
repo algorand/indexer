@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"github.com/algorand/avm-abi/apps"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/algorand/avm-abi/apps"
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
