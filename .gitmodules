@@ -1,4 +1,4 @@
 [submodule "go-algorand"]
 	path = third_party/go-algorand
-	url = git@github.com:AlgoStephenAkiki/go-algorand.git
-	branch = 1328-remove-logic
+	url = https://github.com/algorand/go-algorand
+	branch = rel/nightly
