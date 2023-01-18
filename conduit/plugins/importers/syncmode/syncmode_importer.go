@@ -17,7 +17,7 @@ import (
 	"github.com/algorand/indexer/data"
 
 	"github.com/algorand/go-algorand-sdk/v2/client/v2/algod"
-	"github.com/algorand/go-algorand/data/bookkeeping"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
 )
@@ -63,7 +63,7 @@ func init() {
 	}))
 }
 
-func (sm *syncModeImporter) Init(ctx context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) (*bookkeeping.Genesis, error) {
+func (sm *syncModeImporter) Init(ctx context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) (*sdk.Genesis, error) {
 	sm.ctx, sm.cancel = context.WithCancel(ctx)
 	sm.logger = logger
 	err := cfg.UnmarshalConfig(&sm.cfg)
@@ -91,7 +91,7 @@ func (sm *syncModeImporter) Init(ctx context.Context, cfg plugins.PluginConfig, 
 		return nil, err
 	}
 
-	genesis := bookkeeping.Genesis{}
+	genesis := sdk.Genesis{}
 
 	err = protocol.DecodeJSON([]byte(genesisResponse), &genesis)
 	if err != nil {
