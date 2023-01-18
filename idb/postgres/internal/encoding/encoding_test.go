@@ -1,7 +1,6 @@
 package encoding
 
 import (
-	"math/rand"
 	"reflect"
 	"testing"
 
@@ -464,36 +463,6 @@ func TestSpecialAddressesEncoding(t *testing.T) {
 	specialNew, err := DecodeSpecialAddresses(buf)
 	require.NoError(t, err)
 	assert.Equal(t, special, specialNew)
-}
-
-// Test that encoding of AccountTotals is as expected and that decoding results in the
-// same object.
-func TestAccountTotalsEncoding(t *testing.T) {
-	random := rand.New(rand.NewSource(1))
-	totals := ledgercore.AccountTotals{
-		Online: ledgercore.AlgoCount{
-			Money:       basics.MicroAlgos{Raw: random.Uint64()},
-			RewardUnits: random.Uint64(),
-		},
-		Offline: ledgercore.AlgoCount{
-			Money:       basics.MicroAlgos{Raw: random.Uint64()},
-			RewardUnits: random.Uint64(),
-		},
-		NotParticipating: ledgercore.AlgoCount{
-			Money:       basics.MicroAlgos{Raw: random.Uint64()},
-			RewardUnits: random.Uint64(),
-		},
-		RewardsLevel: random.Uint64(),
-	}
-
-	buf := EncodeAccountTotals(&totals)
-
-	expectedString := `{"notpart":{"mon":3916589616287113937,"rwd":6334824724549167320},"offline":{"mon":15352856648520921629,"rwd":13260572831089785859},"online":{"mon":5577006791947779410,"rwd":8674665223082153551},"rwdlvl":9828766684487745566}`
-	assert.Equal(t, expectedString, string(buf))
-
-	totalsNew, err := DecodeAccountTotals(buf)
-	require.NoError(t, err)
-	assert.Equal(t, totals, totalsNew)
 }
 
 func TestTxnExtra(t *testing.T) {

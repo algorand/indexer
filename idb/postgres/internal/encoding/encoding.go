@@ -639,22 +639,6 @@ func DecodeMigrationState(data []byte) (types.MigrationState, error) {
 	return state, nil
 }
 
-// EncodeAccountTotals encodes account totals into json.
-func EncodeAccountTotals(totals *ledgercore.AccountTotals) []byte {
-	return encodeJSON(totals)
-}
-
-// DecodeAccountTotals decodes account totals from json.
-func DecodeAccountTotals(data []byte) (ledgercore.AccountTotals, error) {
-	var res ledgercore.AccountTotals
-	err := DecodeJSON(data, &res)
-	if err != nil {
-		return ledgercore.AccountTotals{}, err
-	}
-
-	return res, nil
-}
-
 // EncodeNetworkState encodes network metastate into json.
 func EncodeNetworkState(state *types.NetworkState) []byte {
 	return encodeJSON(state)

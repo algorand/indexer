@@ -1782,28 +1782,6 @@ func TestNonUTF8Logs(t *testing.T) {
 	}
 }
 
-// Test that LoadGenesis writes account totals.
-func TestLoadGenesisAccountTotals(t *testing.T) {
-	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
-	defer shutdownFunc()
-
-	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
-	require.NoError(t, err)
-	defer db.Close()
-
-	err = db.LoadGenesis(test.MakeGenesisV2())
-	require.NoError(t, err)
-
-	json, err := db.getMetastate(context.Background(), nil, schema.AccountTotals)
-	require.NoError(t, err)
-
-	ret, err := encoding.DecodeAccountTotals([]byte(json))
-	require.NoError(t, err)
-
-	assert.Equal(
-		t, basics.MicroAlgos{Raw: 4 * 1000 * 1000 * 1000 * 1000}, ret.Offline.Money)
-}
-
 func TestTxnAssetID(t *testing.T) {
 	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
