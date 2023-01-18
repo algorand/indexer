@@ -16,6 +16,7 @@ import (
 
 	"github.com/algorand/avm-abi/apps"
 	sdk "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 	test2 "github.com/sirupsen/logrus/hooks/test"
@@ -95,7 +96,7 @@ func setupIdb(t *testing.T, genesis sdk.Genesis) (*postgres.IndexerDb, func(), f
 }
 
 func TestApplicationHandlers(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -103,36 +104,34 @@ func TestApplicationHandlers(t *testing.T) {
 	// Given // A block containing an app call txn with ExtraProgramPages, that the creator and another account have opted into
 	///////////
 
+	//txn := transactions.SignedTxnWithAD{
+	//	SignedTxn: transactions.SignedTxn{
+	//		Txn: transactions.Transaction{
+	//			Type: "appl",
+	//			Header: transactions.Header{
+	//				Sender:      test.AccountA,
+	//				GenesisHash: test.GenesisHash,
+	//			},
+	//			ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
+	//				ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+	//				ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+	//				ExtraProgramPages: extraPages,
+	//			},
+	//		},
+	//		Sig: test.Signature,
+	//	},
+	//	ApplyData: transactions.ApplyData{
+	//		ApplicationID: expectedAppIdx,
+	//	},
+	//}
+	//optInTxnA := test.MakeAppOptInTxn(expectedAppIdx, test.AccountA)
+	//optInTxnB := test.MakeAppOptInTxn(expectedAppIdx, test.AccountB)
 	const expectedAppIdx = 1 // must be 1 since this is the first txn
 	const extraPages = 2
-	txn := transactions.SignedTxnWithAD{
-		SignedTxn: transactions.SignedTxn{
-			Txn: transactions.Transaction{
-				Type: "appl",
-				Header: transactions.Header{
-					Sender:      test.AccountA,
-					GenesisHash: test.GenesisHash,
-				},
-				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
-					ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
-					ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
-					ExtraProgramPages: extraPages,
-				},
-			},
-			Sig: test.Signature,
-		},
-		ApplyData: transactions.ApplyData{
-			ApplicationID: expectedAppIdx,
-		},
-	}
-	optInTxnA := test.MakeAppOptInTxn(expectedAppIdx, test.AccountA)
-	optInTxnB := test.MakeAppOptInTxn(expectedAppIdx, test.AccountB)
-
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn, &optInTxnA, &optInTxnB)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/ApplicationHandlers.vb")
 	require.NoError(t, err)
-
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
-
+	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&blk)
 	require.NoError(t, err)
 
 	//////////
@@ -238,7 +237,7 @@ func TestApplicationHandlers(t *testing.T) {
 }
 
 func TestAccountExcludeParameters(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -246,20 +245,19 @@ func TestAccountExcludeParameters(t *testing.T) {
 	// Given // A block containing a creator of an app, an asset, who also holds and has opted-into those apps.
 	///////////
 
-	const expectedAppIdx = 1 // must be 1 since this is the first txn
-	const expectedAssetIdx = 2
-	createAppTxn := test.MakeCreateAppTxn(test.AccountA)
-	createAssetTxn := test.MakeAssetConfigTxn(0, 100, 0, false, "UNIT", "Asset 2", "http://asset2.com", test.AccountA)
-	appOptInTxnA := test.MakeAppOptInTxn(expectedAppIdx, test.AccountA)
-	appOptInTxnB := test.MakeAppOptInTxn(expectedAppIdx, test.AccountB)
-	assetOptInTxnA := test.MakeAssetOptInTxn(expectedAssetIdx, test.AccountA)
-	assetOptInTxnB := test.MakeAssetOptInTxn(expectedAssetIdx, test.AccountB)
+	//const expectedAppIdx = 1 // must be 1 since this is the first txn
+	//const expectedAssetIdx = 2
+	//createAppTxn := test.MakeCreateAppTxn(test.AccountA)
+	//createAssetTxn := test.MakeAssetConfigTxn(0, 100, 0, false, "UNIT", "Asset 2", "http://asset2.com", test.AccountA)
+	//appOptInTxnA := test.MakeAppOptInTxn(expectedAppIdx, test.AccountA)
+	//appOptInTxnB := test.MakeAppOptInTxn(expectedAppIdx, test.AccountB)
+	//assetOptInTxnA := test.MakeAssetOptInTxn(expectedAssetIdx, test.AccountA)
+	//assetOptInTxnB := test.MakeAssetOptInTxn(expectedAssetIdx, test.AccountB)
 
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createAppTxn, &createAssetTxn,
-		&appOptInTxnA, &appOptInTxnB, &assetOptInTxnA, &assetOptInTxnB)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AccountExcludeParameters.vb")
 	require.NoError(t, err)
-
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&blk)
 	require.NoError(t, err)
 
 	//////////
@@ -410,7 +408,7 @@ type accountsErrorResponse struct {
 }
 
 func TestAccountMaxResultsLimit(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -462,10 +460,11 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 	for i := range txns {
 		ptxns[i] = &txns[i]
 	}
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, ptxns...)
-	require.NoError(t, err)
 
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AccountMaxResultsLimit.vb")
+	require.NoError(t, err)
+	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&blk)
 	require.NoError(t, err)
 
 	//////////
@@ -840,21 +839,25 @@ func TestInnerTxn(t *testing.T) {
 		},
 	}
 
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
 	///////////
 	// Given // a DB with some inner txns in it.
 	///////////
-	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
-	expectedID := appCall.Txn.ID().String()
+	// appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
+	//expectedID := appCall.Txn.ID().String()
 
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/InnerTxn.vb")
+	require.NoError(t, err)
+	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&blk)
 	require.NoError(t, err)
 
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	stxn, _, err := vb.Blk.BlockHeader.DecodeSignedTxn(vb.Blk.Payset[0])
 	require.NoError(t, err)
+	expectedID := stxn.Txn.ID().String()
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -889,7 +892,7 @@ func TestInnerTxn(t *testing.T) {
 // transaction group does not allow the root transaction to be returned on both
 // pages.
 func TestPagingRootTxnDeduplication(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -900,14 +903,18 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 	appAddr[1] = 99
 	appAddrStr := appAddr.String()
 
-	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
-	expectedID := appCall.Txn.ID().String()
+	//appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
+	//expectedID := appCall.Txn.ID().String()
 
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/PagingRootTxnDeduplication.vb")
+	require.NoError(t, err)
+	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&blk)
 	require.NoError(t, err)
 
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	stxn, _, err := vb.Blk.BlockHeader.DecodeSignedTxn(vb.Blk.Payset[0])
 	require.NoError(t, err)
+	expectedID := stxn.Txn.ID().String()
 
 	testcases := []struct {
 		name   string
@@ -994,7 +1001,7 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 		// Get first page with limit 1.
 		// Address filter causes results to return newest to oldest.
 		api := testServerImplementation(db)
-		err = api.LookupBlock(c, uint64(block.Round()), generated.LookupBlockParams{})
+		err = api.LookupBlock(c, uint64(vb.Blk.Round()), generated.LookupBlockParams{})
 		require.NoError(t, err)
 
 		//////////
@@ -1013,7 +1020,7 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 }
 
 func TestKeyregTransactionWithStateProofKeys(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -1029,32 +1036,36 @@ func TestKeyregTransactionWithStateProofKeys(t *testing.T) {
 	var stateProofPK merklesignature.Commitment
 	stateProofPK[0] = 1
 
-	txn := transactions.SignedTxnWithAD{
-		SignedTxn: transactions.SignedTxn{
-			Txn: transactions.Transaction{
-				Type: "keyreg",
-				Header: transactions.Header{
-					Sender:      test.AccountA,
-					GenesisHash: test.GenesisHash,
-				},
-				KeyregTxnFields: transactions.KeyregTxnFields{
-					VotePK:           votePK,
-					SelectionPK:      selectionPK,
-					StateProofPK:     stateProofPK,
-					VoteFirst:        basics.Round(0),
-					VoteLast:         basics.Round(100),
-					VoteKeyDilution:  1000,
-					Nonparticipation: false,
-				},
-			},
-			Sig: test.Signature,
-		},
-	}
+	//txn := transactions.SignedTxnWithAD{
+	//	SignedTxn: transactions.SignedTxn{
+	//		Txn: transactions.Transaction{
+	//			Type: "keyreg",
+	//			Header: transactions.Header{
+	//				Sender:      test.AccountA,
+	//				GenesisHash: test.GenesisHash,
+	//			},
+	//			KeyregTxnFields: transactions.KeyregTxnFields{
+	//				VotePK:           votePK,
+	//				SelectionPK:      selectionPK,
+	//				StateProofPK:     stateProofPK,
+	//				VoteFirst:        basics.Round(0),
+	//				VoteLast:         basics.Round(100),
+	//				VoteKeyDilution:  1000,
+	//				Nonparticipation: false,
+	//			},
+	//		},
+	//		Sig: test.Signature,
+	//	},
+	//}
+	//
 
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/KeyregTransactionWithStateProofKeys.vb")
+	require.NoError(t, err)
+	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&blk)
 	require.NoError(t, err)
 
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	txn, _, err := vb.Blk.BlockHeader.DecodeSignedTxn(vb.Blk.Payset[0])
 	require.NoError(t, err)
 
 	e := echo.New()

@@ -4,8 +4,11 @@ import (
 	"context"
 	_ "embed" // used to embed config
 	"fmt"
+	"os"
 	"time"
 
+	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
+	"github.com/algorand/indexer/types"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
@@ -366,6 +369,13 @@ func MakeBlockProcessorHandlerAdapter(proc *BlockProcessor, handler func(block *
 		}
 
 		vb := blockData.ValidatedBlock()
+
+		out := types.LegercoreValidatedBlock{
+			Blk:   vb.Block(),
+			Delta: vb.Delta(),
+		}
+		f, _ := os.Create("/Users/shiqi/projects/indexer/api/test_resources/validated_blocks/AccountClearsNonUTF8.vb")
+		f.Write(msgpack.Encode(out))
 
 		if handler != nil {
 			err = handler(&vb)
