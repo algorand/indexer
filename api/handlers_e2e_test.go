@@ -1313,6 +1313,7 @@ func TestLookupInnerLogs(t *testing.T) {
 			require.NotNil(t, response.LogData)
 			ld := *response.LogData
 			require.Equal(t, 1, len(ld))
+			require.Equal(t, appCall.Txn.ID().String(), ld[0].Txid)
 			require.Equal(t, len(tc.logs), len(ld[0].Logs))
 			for i, log := range ld[0].Logs {
 				require.Equal(t, []byte(tc.logs[i]), log)
@@ -1415,6 +1416,7 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 
 			logCount := 0
 			for txnIndex, result := range ld {
+				require.Equal(t, appCall.Txn.ID().String(), result.Txid)
 				for logIndex, log := range result.Logs {
 					require.Equal(t, []byte(tc.logs[txnIndex*2+logIndex]), log)
 					logCount++
