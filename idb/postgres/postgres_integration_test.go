@@ -30,9 +30,9 @@ import (
 	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/test"
 
-	crypto2 "github.com/algorand/go-algorand-sdk/v2/crypto"
-	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
+	crypto2 "github.com/algorand/go-algorand-sdk/crypto"
 	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
+	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"

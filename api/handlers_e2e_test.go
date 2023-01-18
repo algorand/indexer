@@ -16,7 +16,6 @@ import (
 
 	"github.com/algorand/avm-abi/apps"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"

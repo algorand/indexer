@@ -5,8 +5,6 @@ import (
 	"testing"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
-	"github.com/algorand/indexer/util/test"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/stretchr/testify/require"
 
