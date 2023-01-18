@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v4"
 
+	"github.com/algorand/avm-abi/apps"
 	"github.com/algorand/indexer/helpers"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
@@ -16,7 +17,6 @@ import (
 
 	sdk "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
@@ -313,7 +313,7 @@ func writeBoxMods(kvMods map[string]ledgercore.KvValueDelta, batch *pgx.Batch) e
 	// If a non-box is encountered inside kvMods, an error will be returned and
 	// AddBlock() will fail with the import getting stuck at the corresponding round.
 	for key, valueDelta := range kvMods {
-		app, name, err := logic.SplitBoxKey(key)
+		app, name, err := apps.SplitBoxKey(key)
 		if err != nil {
 			return fmt.Errorf("writeBoxMods() err: %w", err)
 		}
