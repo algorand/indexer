@@ -1149,7 +1149,7 @@ func TestVersion(t *testing.T) {
 }
 
 func TestAccountClearsNonUTF8(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -1165,12 +1165,12 @@ func TestAccountClearsNonUTF8(t *testing.T) {
 	urlBytes, _ := base64.StdEncoding.DecodeString("8J+qmSBNb25leSwgd2FudAo=")
 	url := string(urlBytes)
 	unitName := "asset\rwith\nnon-printable\tcharacters"
-	createAsset := test.MakeAssetConfigTxn(0, 100, 0, false, unitName, assetName, url, test.AccountA)
+	//createAsset := test.MakeAssetConfigTxn(0, 100, 0, false, unitName, assetName, url, test.AccountA)
 
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createAsset)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AccountClearsNonUTF8.vb")
 	require.NoError(t, err)
-
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&blk)
 	require.NoError(t, err)
 
 	verify := func(params generated.AssetParams) {
@@ -1280,19 +1280,19 @@ func TestLookupInnerLogs(t *testing.T) {
 		},
 	}
 
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
 	///////////
 	// Given // a DB with some inner txns in it.
 	///////////
-	appCall := test.MakeAppCallWithInnerAppCall(test.AccountA)
+	//appCall := test.MakeAppCallWithInnerAppCall(test.AccountA)
 
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LookupInnerLogs.vb")
 	require.NoError(t, err)
-
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&blk)
 	require.NoError(t, err)
 
 	for _, tc := range testcases {
@@ -1379,19 +1379,19 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 		},
 	}
 
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
 	///////////
 	// Given // a DB with some inner txns in it.
 	///////////
-	appCall := test.MakeAppCallWithMultiLogs(test.AccountA)
+	//appCall := test.MakeAppCallWithMultiLogs(test.AccountA)
 
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LookupMultiInnerLogs.vb")
 	require.NoError(t, err)
-
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&blk)
 	require.NoError(t, err)
 
 	for _, tc := range testcases {
@@ -1437,18 +1437,18 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 }
 
 func TestFetchBlockWithExpiredPartAccts(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
 	///////////
 	// Given // a DB with a block containing expired participation accounts.
 	///////////
-	appCreate := test.MakeCreateAppTxn(test.AccountA)
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCreate)
-	block.ExpiredParticipationAccounts = append(block.ExpiredParticipationAccounts, test.AccountB, test.AccountC)
+	//appCreate := test.MakeCreateAppTxn(test.AccountA)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/FetchBlockWithExpiredPartAccts.vb")
 	require.NoError(t, err)
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&blk)
 	require.NoError(t, err)
 
 	////////////
@@ -1503,19 +1503,20 @@ func TestFetchBlockWithOptions(t *testing.T) {
 		},
 	}
 
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	defer l.Close()
 
 	///////////
 	// Given // a DB with a block with a txn in it.
 	///////////
-	txnA := test.MakeCreateAppTxn(test.AccountA)
-	txnB := test.MakeCreateAppTxn(test.AccountB)
-	txnC := test.MakeCreateAppTxn(test.AccountC)
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txnA, &txnB, &txnC)
+	//txnA := test.MakeCreateAppTxn(test.AccountA)
+	//txnB := test.MakeCreateAppTxn(test.AccountB)
+	//txnC := test.MakeCreateAppTxn(test.AccountC)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/FetchBlockWithOptions.vb")
 	require.NoError(t, err)
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&blk)
 	require.NoError(t, err)
 
 	//////////
