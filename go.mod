@@ -39,7 +39,7 @@ require (
 	github.com/algorand/msgp v1.1.53 // indirect
 	github.com/algorand/websocket v1.4.5 // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
-	github.com/aws/aws-sdk-go v1.30.19 // indirect
+	github.com/aws/aws-sdk-go v1.33.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/consensys/gnark-crypto v0.7.0 // indirect
