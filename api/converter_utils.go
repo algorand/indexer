@@ -287,7 +287,12 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		Sig:      sigToTransactionSig(stxn.Sig),
 	}
 
-	txid := crypto.TransactionIDString(stxn.Txn)
+	var txid string
+	if row.Extra.RootIntra.Present {
+		txid = row.Extra.RootTxid
+	} else {
+		txid = crypto.TransactionIDString(stxn.Txn)
+	}
 	txn.Id = &txid
 	txn.Signature = &sig
 
