@@ -1,7 +1,7 @@
 package types
 
 import (
-	sdk "github.com/algorand/go-algorand-sdk/types"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 // ImportState encodes an import round counter.

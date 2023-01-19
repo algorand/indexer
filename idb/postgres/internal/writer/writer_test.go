@@ -24,8 +24,8 @@ import (
 	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/test"
 
-	crypto2 "github.com/algorand/go-algorand-sdk/crypto"
-	sdk "github.com/algorand/go-algorand-sdk/types"
+	crypto2 "github.com/algorand/go-algorand-sdk/v2/crypto"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
@@ -1475,44 +1475,6 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	for i := 0; i < len(txnPart); i++ {
 		require.Equal(t, expectedParticipation[i], txnPart[i])
 	}
-}
-
-func TestWriterAccountTotals(t *testing.T) {
-	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
-	defer shutdownFunc()
-
-	// Set empty account totals.
-	err := pgutil.SetMetastate(db, nil, schema.AccountTotals, "{}")
-	require.NoError(t, err)
-
-	block := test.MakeGenesisBlockV2()
-
-	accountTotals := ledgercore.AccountTotals{
-		Online: ledgercore.AlgoCount{
-			Money: basics.MicroAlgos{Raw: 33},
-		},
-	}
-
-	f := func(tx pgx.Tx) error {
-		w, err := writer.MakeWriter(tx)
-		require.NoError(t, err)
-
-		err = w.AddBlock(&block, ledgercore.StateDelta{Totals: accountTotals})
-		require.NoError(t, err)
-
-		w.Close()
-		return nil
-	}
-	err = pgutil.TxWithRetry(db, serializable, f, nil)
-	require.NoError(t, err)
-
-	j, err := pgutil.GetMetastate(
-		context.Background(), db, nil, schema.AccountTotals)
-	require.NoError(t, err)
-	accountTotalsRead, err := encoding.DecodeAccountTotals([]byte(j))
-	require.NoError(t, err)
-
-	assert.Equal(t, accountTotals, accountTotalsRead)
 }
 
 func TestWriterAddBlock0(t *testing.T) {

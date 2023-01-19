@@ -16,9 +16,9 @@ import (
 	"github.com/algorand/indexer/conduit/plugins/importers"
 	"github.com/algorand/indexer/data"
 
-	"github.com/algorand/go-algorand-sdk/client/v2/algod"
-	"github.com/algorand/go-algorand-sdk/encoding/json"
-	sdk "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand-sdk/v2/client/v2/algod"
+	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
 )

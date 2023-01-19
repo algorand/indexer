@@ -15,7 +15,7 @@ import (
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
 	"github.com/algorand/indexer/types"
 
-	sdk "github.com/algorand/go-algorand-sdk/types"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
@@ -37,7 +37,6 @@ const (
 	deleteAccountAppStmtName           = "delete_account_app"
 	upsertAppBoxStmtName               = "upsert_app_box"
 	deleteAppBoxStmtName               = "delete_app_box"
-	updateAccountTotalsStmtName        = "update_account_totals"
 )
 
 var statements = map[string]string{
@@ -115,8 +114,6 @@ var statements = map[string]string{
 		ON CONFLICT (app, name) DO UPDATE SET
 		value = EXCLUDED.value`,
 	deleteAppBoxStmtName: `DELETE FROM app_box WHERE app = $1 and name = $2`,
-	updateAccountTotalsStmtName: `UPDATE metastate SET v = $1 WHERE k = '` +
-		schema.AccountTotals + `'`,
 }
 
 // Writer is responsible for writing blocks and accounting state deltas to the database.
@@ -379,7 +376,6 @@ func (w *Writer) AddBlock(block *sdk.Block, delta ledgercore.StateDelta) error {
 			return fmt.Errorf("AddBlock() err on boxes: %w", err)
 		}
 	}
-	batch.Queue(updateAccountTotalsStmtName, encoding.EncodeAccountTotals(&delta.Totals))
 
 	results := w.tx.SendBatch(context.Background(), &batch)
 	// Clean the results off the connection's queue. Without this, weird things happen.

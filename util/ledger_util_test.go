@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/algorand/go-algorand-sdk/encoding/json"
+	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 )
 

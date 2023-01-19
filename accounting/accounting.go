@@ -1,7 +1,7 @@
 package accounting
 
 import (
-	sdk "github.com/algorand/go-algorand-sdk/types"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 // GetTransactionParticipants calls function `add` for every address referenced in the

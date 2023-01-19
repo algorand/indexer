@@ -11,7 +11,7 @@ import (
 	itypes "github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/util"
 
-	sdk "github.com/algorand/go-algorand-sdk/types"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
@@ -637,22 +637,6 @@ func DecodeMigrationState(data []byte) (types.MigrationState, error) {
 	}
 
 	return state, nil
-}
-
-// EncodeAccountTotals encodes account totals into json.
-func EncodeAccountTotals(totals *ledgercore.AccountTotals) []byte {
-	return encodeJSON(totals)
-}
-
-// DecodeAccountTotals decodes account totals from json.
-func DecodeAccountTotals(data []byte) (ledgercore.AccountTotals, error) {
-	var res ledgercore.AccountTotals
-	err := DecodeJSON(data, &res)
-	if err != nil {
-		return ledgercore.AccountTotals{}, err
-	}
-
-	return res, nil
 }
 
 // EncodeNetworkState encodes network metastate into json.
