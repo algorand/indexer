@@ -1,4 +1,4 @@
-package syncmode
+package syncalgod
 
 import (
 	"context"
@@ -22,7 +22,7 @@ import (
 	"github.com/algorand/go-algorand/rpcs"
 )
 
-const importerName = "sync-algod"
+const importerName = "sync_algod"
 
 type syncModeImporter struct {
 	aclient *algod.Client
@@ -40,9 +40,9 @@ func (sm *syncModeImporter) OnComplete(input data.BlockData) error {
 //go:embed sample.yaml
 var sampleConfig string
 
-var syncModeImporterMetadata = conduit.Metadata{
+var syncAlgodModeImporterMetadata = conduit.Metadata{
 	Name:         importerName,
-	Description:  "Importer for fetching blocks from an algod REST API.",
+	Description:  "Importer for fetching blocks from an algod REST API using synch round and ledger delta algod calls.",
 	Deprecated:   false,
 	SampleConfig: sampleConfig,
 }
@@ -53,7 +53,7 @@ func New() importers.Importer {
 }
 
 func (sm *syncModeImporter) Metadata() conduit.Metadata {
-	return syncModeImporterMetadata
+	return syncAlgodModeImporterMetadata
 }
 
 // package-wide init function

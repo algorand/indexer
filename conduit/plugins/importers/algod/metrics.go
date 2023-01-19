@@ -11,7 +11,7 @@ const (
 var (
 	GetAlgodRawBlockTimeSeconds = prometheus.NewSummary(
 		prometheus.SummaryOpts{
-			Subsystem: "indexer_daemon",
+			Subsystem: "algod_importer",
 			Name:      GetAlgodRawBlockTimeName,
 			Help:      "Total response time from Algod's raw block endpoint in seconds.",
 		})

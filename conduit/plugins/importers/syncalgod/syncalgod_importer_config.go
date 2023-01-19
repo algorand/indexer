@@ -1,4 +1,4 @@
-package syncmode
+package syncalgod
 
 //go:generate conduit-docs ../../../../conduit-docs/
 
