@@ -165,13 +165,6 @@ type pipelineImpl struct {
 
 	metricsCallback []conduit.ProvideMetricsFunc
 
-	// preConfigQueue is a pointer to a list of strings that should only be logged
-	// after all configuration of the pipeline is complete (i.e. after init() is successfully called).
-	// The main function of conduit will amass logging strings that will only be output once
-	// everything has been configured.  This is to make it so that the end user sees the direct
-	// error first when launching from the command line. Only after the pipeline has been successfully
-	// configured will log messages be recorded.
-	preConfigQueue *[]string
 }
 
 // state contains the pipeline state.
@@ -240,7 +233,6 @@ func (p *pipelineImpl) makeConfig(pluginType, pluginName string, cfg []byte) (co
 
 // Init prepares the pipeline for processing block data
 func (p *pipelineImpl) Init() error {
-	*p.preConfigQueue = append(*p.preConfigQueue, "Starting Pipeline Initialization")
 
 	prefix := p.cfg.Metrics.Prefix
 	if prefix == "" {
@@ -249,7 +241,6 @@ func (p *pipelineImpl) Init() error {
 	metrics.RegisterPrometheusMetrics(prefix)
 
 	if p.cfg.CPUProfile != "" {
-		*p.preConfigQueue = append(*p.preConfigQueue, fmt.Sprintf("Creating CPU Profile file at %s", p.cfg.CPUProfile))
 		var err error
 		profFile, err := os.Create(p.cfg.CPUProfile)
 		if err != nil {
@@ -301,11 +292,8 @@ func (p *pipelineImpl) Init() error {
 	}
 	// overriding NextRound if NextRoundOverride is set
 	if p.cfg.ConduitArgs.NextRoundOverride > 0 {
-		*p.preConfigQueue = append(*p.preConfigQueue, fmt.Sprintf("Overriding default next round from %d to %d.", p.pipelineMetadata.NextRound, p.cfg.ConduitArgs.NextRoundOverride))
 		p.pipelineMetadata.NextRound = p.cfg.ConduitArgs.NextRoundOverride
 	}
-
-	*p.preConfigQueue = append(*p.preConfigQueue, fmt.Sprintf("Initialized Importer: %s", importerName))
 
 	// InitProvider
 	round := basics.Round(p.pipelineMetadata.NextRound)
@@ -327,7 +315,6 @@ func (p *pipelineImpl) Init() error {
 		if err != nil {
 			return fmt.Errorf("Pipeline.Init(): could not initialize processor (%s): %w", processorName, err)
 		}
-		*p.preConfigQueue = append(*p.preConfigQueue, fmt.Sprintf("Initialized Processor: %s", processorName))
 	}
 
 	// Initialize Exporter
@@ -345,7 +332,6 @@ func (p *pipelineImpl) Init() error {
 	if err != nil {
 		return fmt.Errorf("Pipeline.Init(): could not initialize Exporter (%s): %w", exporterName, err)
 	}
-	*p.preConfigQueue = append(*p.preConfigQueue, fmt.Sprintf("Initialized Exporter: %s", exporterName))
 
 	// Register callbacks.
 	p.registerLifecycleCallbacks()
@@ -564,7 +550,7 @@ func (p *pipelineImpl) startMetricsServer() {
 }
 
 // MakePipeline creates a Pipeline
-func MakePipeline(ctx context.Context, cfg *Config, logger *log.Logger, preConfigQueue *[]string) (Pipeline, error) {
+func MakePipeline(ctx context.Context, cfg *Config, logger *log.Logger) (Pipeline, error) {
 
 	if cfg == nil {
 		return nil, fmt.Errorf("MakePipeline(): pipeline config was empty")
@@ -589,7 +575,6 @@ func MakePipeline(ctx context.Context, cfg *Config, logger *log.Logger, preConfi
 		importer:       nil,
 		processors:     []*processors.Processor{},
 		exporter:       nil,
-		preConfigQueue: preConfigQueue,
 	}
 
 	importerName := cfg.Importer.Name
@@ -601,7 +586,6 @@ func MakePipeline(ctx context.Context, cfg *Config, logger *log.Logger, preConfi
 
 	importer := importerBuilder.New()
 	pipeline.importer = &importer
-	*preConfigQueue = append(*preConfigQueue, fmt.Sprintf("Found Importer: %s", importerName))
 
 	// ---
 
@@ -615,7 +599,6 @@ func MakePipeline(ctx context.Context, cfg *Config, logger *log.Logger, preConfi
 
 		processor := processorBuilder.New()
 		pipeline.processors = append(pipeline.processors, &processor)
-		*preConfigQueue = append(*preConfigQueue, fmt.Sprintf("Found Processor: %s", processorName))
 	}
 
 	// ---
@@ -629,7 +612,6 @@ func MakePipeline(ctx context.Context, cfg *Config, logger *log.Logger, preConfi
 
 	exporter := exporterBuilder.New()
 	pipeline.exporter = &exporter
-	*preConfigQueue = append(*preConfigQueue, fmt.Sprintf("Found Exporter: %s", exporterName))
 
 	return pipeline, nil
 }

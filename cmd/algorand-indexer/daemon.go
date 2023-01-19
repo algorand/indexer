@@ -412,8 +412,7 @@ func runConduitPipeline(ctx context.Context, nextRound uint64, dCfg *daemonConfi
 	var conduit pipeline.Pipeline
 	var err error
 	pcfg := makeConduitConfig(dCfg, nextRound)
-	preConfigQueue := make([]string, 2)
-	if conduit, err = pipeline.MakePipeline(ctx, &pcfg, logger, &preConfigQueue); err != nil {
+	if conduit, err = pipeline.MakePipeline(ctx, &pcfg, logger); err != nil {
 		logger.Errorf("%v", err)
 		panic(exit{1})
 	}
@@ -421,11 +420,6 @@ func runConduitPipeline(ctx context.Context, nextRound uint64, dCfg *daemonConfi
 	if err != nil {
 		logger.Errorf("%v", err)
 		panic(exit{1})
-	}
-
-	// No more configuration before start...dump all strings
-	for _, s := range preConfigQueue {
-		logger.Infof(s)
 	}
 
 	conduit.Start()

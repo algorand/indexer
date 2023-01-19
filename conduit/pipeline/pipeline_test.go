@@ -382,7 +382,6 @@ func TestPipelineRun(t *testing.T) {
 				ConduitDataDir: t.TempDir(),
 			},
 		},
-		preConfigQueue: getStringQueue(),
 	}
 
 	go func() {
@@ -442,7 +441,6 @@ func TestPipelineCpuPidFiles(t *testing.T) {
 			Network:     "",
 			NextRound:   0,
 		},
-		preConfigQueue: getStringQueue(),
 	}
 
 	err := pImpl.Init()
@@ -509,7 +507,6 @@ func TestPipelineErrors(t *testing.T) {
 		exporter:         &pExporter,
 		completeCallback: []conduit.OnCompleteFunc{cbComplete.OnComplete},
 		pipelineMetadata: state{},
-		preConfigQueue:   getStringQueue(),
 	}
 
 	mImporter.returnError = true
@@ -569,15 +566,14 @@ func Test_pipelineImpl_registerLifecycleCallbacks(t *testing.T) {
 	ctx, cf := context.WithCancel(context.Background())
 	l, _ := test.NewNullLogger()
 	pImpl := pipelineImpl{
-		ctx:            ctx,
-		cf:             cf,
-		cfg:            &Config{},
-		logger:         l,
-		initProvider:   nil,
-		importer:       &pImporter,
-		processors:     []*processors.Processor{&pProcessor, &pProcessor},
-		exporter:       &pExporter,
-		preConfigQueue: getStringQueue(),
+		ctx:          ctx,
+		cf:           cf,
+		cfg:          &Config{},
+		logger:       l,
+		initProvider: nil,
+		importer:     &pImporter,
+		processors:   []*processors.Processor{&pProcessor, &pProcessor},
+		exporter:     &pExporter,
 	}
 
 	// Each plugin implements the Completed interface, so there should be 4
@@ -627,7 +623,6 @@ func TestPluginConfigDataDir(t *testing.T) {
 		pipelineMetadata: state{
 			NextRound: 3,
 		},
-		preConfigQueue: getStringQueue(),
 	}
 
 	err := pImpl.Init()
@@ -678,7 +673,6 @@ func TestBlockMetaDataFile(t *testing.T) {
 		pipelineMetadata: state{
 			NextRound: 3,
 		},
-		preConfigQueue: getStringQueue(),
 	}
 
 	err := pImpl.Init()
@@ -751,7 +745,6 @@ func TestGenesisHash(t *testing.T) {
 			Network:     "",
 			NextRound:   3,
 		},
-		preConfigQueue: getStringQueue(),
 	}
 
 	// write genesis hash to metadata.json
@@ -812,7 +805,6 @@ func TestPipelineMetricsConfigs(t *testing.T) {
 			Network:     "",
 			NextRound:   0,
 		},
-		preConfigQueue: getStringQueue(),
 	}
 	defer pImpl.cf()
 
@@ -885,7 +877,6 @@ func TestRoundOverwrite(t *testing.T) {
 			Network:     "",
 			NextRound:   3,
 		},
-		preConfigQueue: getStringQueue(),
 	}
 
 	// pipeline should initialize if NextRoundOverride is not set
@@ -996,8 +987,7 @@ func TestPipelineRetryVariables(t *testing.T) {
 					Network:     "",
 					NextRound:   3,
 				},
-				wg:             sync.WaitGroup{},
-				preConfigQueue: getStringQueue(),
+				wg: sync.WaitGroup{},
 			}
 
 			// pipeline should initialize if NextRoundOverride is not set
