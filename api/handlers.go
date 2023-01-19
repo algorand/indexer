@@ -24,7 +24,7 @@ import (
 	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/version"
 
-	sdk "github.com/algorand/go-algorand-sdk/types"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/data/basics"
 )
 

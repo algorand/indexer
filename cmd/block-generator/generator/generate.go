@@ -13,7 +13,7 @@ import (
 	"github.com/algorand/indexer/protocol"
 	cconfig "github.com/algorand/indexer/protocol/config"
 
-	sdk "github.com/algorand/go-algorand-sdk/encoding/json"
+	sdk "github.com/algorand/go-algorand-sdk/v2/encoding/json"
 	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/daemon/algod/api/server/v2/generated/model"

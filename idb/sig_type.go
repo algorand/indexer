@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	sdk "github.com/algorand/go-algorand-sdk/types"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 // SigType is signature type.

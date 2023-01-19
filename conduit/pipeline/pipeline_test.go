@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	sdk "github.com/algorand/go-algorand-sdk/types"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	log "github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"

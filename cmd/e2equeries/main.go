@@ -12,7 +12,7 @@ import (
 	"github.com/algorand/indexer/util"
 	testutil "github.com/algorand/indexer/util/test"
 
-	sdk "github.com/algorand/go-algorand-sdk/types"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 var (

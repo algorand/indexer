@@ -24,8 +24,8 @@ import (
 	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/test"
 
-	crypto2 "github.com/algorand/go-algorand-sdk/crypto"
-	sdk "github.com/algorand/go-algorand-sdk/types"
+	crypto2 "github.com/algorand/go-algorand-sdk/v2/crypto"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger/ledgercore"

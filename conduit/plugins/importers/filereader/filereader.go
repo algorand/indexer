@@ -19,7 +19,7 @@ import (
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/util"
 
-	sdk "github.com/algorand/go-algorand-sdk/types"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 const importerName = "file_reader"

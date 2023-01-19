@@ -13,8 +13,8 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/util"
 
-	"github.com/algorand/go-algorand-sdk/crypto"
-	sdk "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand-sdk/v2/crypto"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/data/basics"
 )
 

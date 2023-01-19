@@ -5,7 +5,7 @@ import (
 	"flag"
 	"fmt"
 
-	sdk_types "github.com/algorand/go-algorand-sdk/types"
+	sdk_types "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 func main() {

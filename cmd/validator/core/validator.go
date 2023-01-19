@@ -13,7 +13,7 @@ import (
 
 	"github.com/algorand/indexer/api"
 
-	sdk_types "github.com/algorand/go-algorand-sdk/types"
+	sdk_types "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 // Params are the program arguments which need to be passed between objects.
