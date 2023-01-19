@@ -9,8 +9,8 @@ import (
 	config2 "github.com/algorand/indexer/protocol/config"
 	"github.com/algorand/indexer/util"
 
-	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	sdk "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"

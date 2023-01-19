@@ -15,8 +15,8 @@ import (
 
 	"github.com/algorand/go-codec/codec"
 
-	"github.com/algorand/go-algorand-sdk/encoding/json"
-	sdk "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/protocol"
 )

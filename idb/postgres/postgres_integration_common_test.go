@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	sdk "github.com/algorand/go-algorand-sdk/types"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/jackc/pgx/v4/pgxpool"
 	test2 "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"

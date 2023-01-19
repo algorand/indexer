@@ -9,15 +9,15 @@ import (
 	"os"
 	"time"
 
-	ajson "github.com/algorand/go-algorand-sdk/encoding/json"
-	sdk_types "github.com/algorand/go-algorand-sdk/types"
-
 	"github.com/algorand/indexer/accounting"
 	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	_ "github.com/algorand/indexer/idb/postgres"
 	"github.com/algorand/indexer/util"
 	testutil "github.com/algorand/indexer/util/test"
+
+	ajson "github.com/algorand/go-algorand-sdk/v2/encoding/json"
+	sdk_types "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 var (
