@@ -77,6 +77,9 @@ func setupIdb(t *testing.T, genesis sdk.Genesis) (*postgres.IndexerDb, func()) {
 	}
 
 	err = db.LoadGenesis(genesis)
+	// todo: update when AddBlock interface gets updated
+	vb := ledgercore.MakeValidatedBlock(test.MakeGenesisBlock(), ledgercore.StateDelta{})
+	db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	return db, newShutdownFunc
