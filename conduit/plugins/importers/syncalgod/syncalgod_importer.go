@@ -157,8 +157,8 @@ func (sm *syncModeImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 		}
 		return blk, err
 	}
-	sm.logger.Error("GetBlock finished retries without fetching a block.")
-	return blk, fmt.Errorf("finished retries without fetching a block")
+	sm.logger.Error("GetBlock finished retries without fetching a block.  Check that the indexer is set to start at a round that the current algod node can handle")
+	return blk, fmt.Errorf("finished retries without fetching a block.  Check that the indexer is set to start at a round that the current algod node can handle")
 }
 
 func (sm *syncModeImporter) ProvideMetrics() []prometheus.Collector {
