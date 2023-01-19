@@ -17,8 +17,8 @@ import (
 	"github.com/algorand/indexer/data"
 
 	"github.com/algorand/go-algorand-sdk/v2/client/v2/algod"
+	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
 )
 
@@ -42,7 +42,7 @@ var sampleConfig string
 
 var syncAlgodModeImporterMetadata = conduit.Metadata{
 	Name:         importerName,
-	Description:  "Importer for fetching blocks from an algod REST API using synch round and ledger delta algod calls.",
+	Description:  "Importer for fetching blocks from an algod REST API using sync round and ledger delta algod calls.",
 	Deprecated:   false,
 	SampleConfig: sampleConfig,
 }
@@ -93,7 +93,7 @@ func (sm *syncModeImporter) Init(ctx context.Context, cfg plugins.PluginConfig, 
 
 	genesis := sdk.Genesis{}
 
-	err = protocol.DecodeJSON([]byte(genesisResponse), &genesis)
+	err = json.Decode([]byte(genesisResponse), &genesis)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +138,7 @@ func (sm *syncModeImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 			return blk, err
 		}
 		tmpBlk := new(rpcs.EncodedBlockCert)
-		err = protocol.Decode(blockbytes, tmpBlk)
+		err = json.Decode(blockbytes, tmpBlk)
 		if err != nil {
 			return blk, err
 		}
@@ -157,8 +157,8 @@ func (sm *syncModeImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 		}
 		return blk, err
 	}
-	sm.logger.Error("GetBlock finished retries without fetching a block.")
-	return blk, fmt.Errorf("finished retries without fetching a block")
+	sm.logger.Error("GetBlock finished retries without fetching a block.  Check that the indexer is set to start at a round that the current algod node can handle")
+	return blk, fmt.Errorf("finished retries without fetching a block.  Check that the indexer is set to start at a round that the current algod node can handle")
 }
 
 func (sm *syncModeImporter) ProvideMetrics() []prometheus.Collector {

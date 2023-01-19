@@ -84,3 +84,15 @@ func BlockAfterResponder(reqPath string, w http.ResponseWriter) bool {
 	}
 	return false
 }
+
+// LedgerStateDeltaResponder handles /v2/deltas requests and returns an empty ledger state delta object
+func LedgerStateDeltaResponder(reqPath string, w http.ResponseWriter) bool {
+	if strings.Contains(reqPath, "v2/deltas/") {
+		w.WriteHeader(http.StatusOK)
+		delta := models.LedgerStateDelta{}
+		_, _ = w.Write(protocol.EncodeJSON(delta))
+		return true
+	}
+	return false
+
+}
