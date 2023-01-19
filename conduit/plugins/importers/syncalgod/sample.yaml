@@ -1,4 +1,4 @@
-name: sync-algod
+name: sync_algod
 config:
   # Algod netaddr string
   netaddr: "http://url"
