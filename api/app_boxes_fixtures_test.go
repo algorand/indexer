@@ -43,7 +43,6 @@ func setupLiveBoxes(t *testing.T, db *postgres.IndexerDb) {
 	deleted := "DELETED"
 
 	firstAppid := basics.AppIndex(1)
-	//secondAppid := basics.AppIndex(3)
 	thirdAppid := basics.AppIndex(5)
 
 	// ---- ROUND 1: create and fund the box app and another app which won't have boxes ---- //
@@ -100,8 +99,8 @@ func setupLiveBoxes(t *testing.T, db *postgres.IndexerDb) {
 
 	vb2, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LiveBoxesR2.vb")
 	require.NoError(t, err)
-	blk := ledgercore.MakeValidatedBlock(vb2.Blk, vb2.Delta)
-	err = db.AddBlock(&blk)
+	blk2 := ledgercore.MakeValidatedBlock(vb2.Blk, vb2.Delta)
+	err = db.AddBlock(&blk2)
 	require.NoError(t, err)
 
 	// ---- ROUND 3: populate the boxes appropriately  ---- //
