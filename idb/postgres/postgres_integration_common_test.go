@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	sdk "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
+	"github.com/algorand/indexer/util/test"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/stretchr/testify/require"
 
@@ -31,6 +33,9 @@ func setupIdb(t *testing.T, genesis sdk.Genesis) (*IndexerDb, func()) {
 		db.Close()
 		shutdownFunc()
 	}
+	// todo: update when AddBlock interface gets updated
+	vb := ledgercore.MakeValidatedBlock(test.MakeGenesisBlock(), ledgercore.StateDelta{})
+	db.AddBlock(&vb)
 
 	return db, newShutdownFunc
 }
