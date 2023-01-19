@@ -83,10 +83,13 @@ github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751/go.mod h1:LOuy
 github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
 github.com/alecthomas/units v0.0.0-20190717042225-c3de453c63f4/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
 github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d/go.mod h1:rBZYJk541a8SKzHPHnH3zbiI+7dagKZ0cgpgrD7Fyho=
+github.com/algorand/avm-abi v0.1.1/go.mod h1:+CgwM46dithy850bpTeHh9MC99zpn2Snirb3QTl2O/g=
 github.com/algorand/avm-abi v0.2.0 h1:bkjsG+BOEcxUcnGSALLosmltE0JZdg+ZisXKx0UDX2k=
 github.com/algorand/avm-abi v0.2.0/go.mod h1:+CgwM46dithy850bpTeHh9MC99zpn2Snirb3QTl2O/g=
 github.com/algorand/falcon v0.0.0-20220727072124-02a2a64c4414 h1:nwYN+GQ7Z5OOfZwqBO1ma7DSlP7S1YrKWICOyjkwqrc=
 github.com/algorand/falcon v0.0.0-20220727072124-02a2a64c4414/go.mod h1:OkQyHlGvS0kLNcIWbC21/uQcnbfwSOQm+wiqWwBG9pQ=
+github.com/algorand/go-algorand-sdk v1.24.0 h1:mi8vqjXMC5nU87snq4vxHi+NgPR0thtZHRLA16FKZMM=
+github.com/algorand/go-algorand-sdk v1.24.0/go.mod h1:WEeJcctOHMzDFTgVJ6GT8BLUo9DbFTT47S+Kzx7ffXQ=
 github.com/algorand/go-algorand-sdk/v2 v2.0.0-20230111184032-153c9ac26286 h1:X1bIxpzX8CCRJ/6+2vDsjZT7xBwkjmH/6bsjxrwvn0w=
 github.com/algorand/go-algorand-sdk/v2 v2.0.0-20230111184032-153c9ac26286/go.mod h1:Nt3EHpP8AznLs0/EFfhr0/xsVf5ucnvjNeRygGgbUzM=
 github.com/algorand/go-codec v1.1.8 h1:XDSreeeZY8gMst6Edz4RBkl08/DGMJOeHYkoXL2B7wI=
