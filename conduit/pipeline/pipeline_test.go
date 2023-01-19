@@ -337,11 +337,6 @@ type mockedExporterNew struct{}
 
 func (c mockedExporterNew) New() exporters.Exporter { return &mockExporter{} }
 
-func getStringQueue() *[]string {
-	q := make([]string, 0)
-	return &q
-}
-
 // TestPipelineRun tests that running the pipeline calls the correct functions with mocking
 func TestPipelineRun(t *testing.T) {
 	mImporter := mockImporter{}

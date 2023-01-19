@@ -421,7 +421,6 @@ func runConduitPipeline(ctx context.Context, nextRound uint64, dCfg *daemonConfi
 		logger.Errorf("%v", err)
 		panic(exit{1})
 	}
-
 	conduit.Start()
 	return conduit
 }

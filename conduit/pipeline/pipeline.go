@@ -164,7 +164,6 @@ type pipelineImpl struct {
 	pipelineMetadata state
 
 	metricsCallback []conduit.ProvideMetricsFunc
-
 }
 
 // state contains the pipeline state.
@@ -567,14 +566,14 @@ func MakePipeline(ctx context.Context, cfg *Config, logger *log.Logger) (Pipelin
 	cancelContext, cancelFunc := context.WithCancel(ctx)
 
 	pipeline := &pipelineImpl{
-		ctx:            cancelContext,
-		cf:             cancelFunc,
-		cfg:            cfg,
-		logger:         logger,
-		initProvider:   nil,
-		importer:       nil,
-		processors:     []*processors.Processor{},
-		exporter:       nil,
+		ctx:          cancelContext,
+		cf:           cancelFunc,
+		cfg:          cfg,
+		logger:       logger,
+		initProvider: nil,
+		importer:     nil,
+		processors:   []*processors.Processor{},
+		exporter:     nil,
 	}
 
 	importerName := cfg.Importer.Name
