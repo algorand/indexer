@@ -1694,25 +1694,25 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 			name:        "match on root, inner, and inner-inners, return inners",
 			matches:     3,
 			returnInner: true,
-			filter:      idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumApplication, IncludeInnerTxns: true},
+			filter:      idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumApplication, SkipInnerTransactionConversion: true},
 		},
 		{
 			name:        "match on inner, return inners",
 			matches:     1,
 			returnInner: true,
-			filter:      idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumPay, IncludeInnerTxns: true},
+			filter:      idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumPay, SkipInnerTransactionConversion: true},
 		},
 		{
 			name:        "match on inner-inner, return inners",
 			matches:     1,
 			returnInner: true,
-			filter:      idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumAssetTransfer, IncludeInnerTxns: true},
+			filter:      idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumAssetTransfer, SkipInnerTransactionConversion: true},
 		},
 		{
 			name:        "match all, return inners",
 			matches:     5,
 			returnInner: true,
-			filter:      idb.TransactionFilter{Address: appAddr[:], IncludeInnerTxns: true},
+			filter:      idb.TransactionFilter{Address: appAddr[:], SkipInnerTransactionConversion: true},
 		},
 	}
 
@@ -1747,8 +1747,8 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 			// When: searching for a transaction that matches part of the transaction.
 			results, _ := db.Transactions(context.Background(), tc.filter)
 
-			// Then: only the root transaction should be returned if the IncludeInnerTxns flag is true.
-			// Else if IncludeInnerTxns is false, then the inner txn should be returned.
+			// Then: only the root transaction should be returned if the SkipInnerTransactionConversion flag is true.
+			// Else if SkipInnerTransactionConversion is false, then the inner txn should be returned.
 			num := 0
 			for result := range results {
 				num++

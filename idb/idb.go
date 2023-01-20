@@ -241,12 +241,12 @@ type TransactionFilter struct {
 	Limit uint64
 
 	// If this flag is set to true, then the query returns inner transactions
-	// instead of resolving them as the root transaction.
-	IncludeInnerTxns bool
+	// instead of converting them to the root transaction.
+	SkipInnerTransactionConversion bool
 
 	// If this flag is set to true, then the query only returns root
 	// transactions and skips matching or returning inner transactions.
-	ReturnRootTxnsOnly bool
+	SkipInnerTransactions bool
 
 	// If this flag is set to true, then the query returns the block excluding
 	// the transactions
