@@ -88,6 +88,7 @@ func (sm *syncModeImporter) Init(ctx context.Context, cfg plugins.PluginConfig, 
 
 	genesisResponse, err := client.GetGenesis().Do(ctx)
 	if err != nil {
+		sm.logger.Errorf("GetGenesis error: %v", err)
 		return nil, err
 	}
 
@@ -114,6 +115,7 @@ func (sm *syncModeImporter) Close() error {
 }
 
 func (sm *syncModeImporter) GetBlock(rnd uint64) (data.BlockData, error) {
+	sm.logger.Infof("Importing round %v", rnd)
 	var blockbytes []byte
 	var err error
 	var blk data.BlockData
@@ -135,6 +137,7 @@ func (sm *syncModeImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 		dt := time.Since(start)
 		GetAlgodRawBlockTimeSeconds.Observe(dt.Seconds())
 		if err != nil {
+			sm.logger.Errorf("BlockRaw error %v", err)
 			return blk, err
 		}
 		tmpBlk := new(rpcs.EncodedBlockCert)
@@ -145,9 +148,13 @@ func (sm *syncModeImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 
 		// We aren't going to do anything with the new delta until we get everything
 		// else converted over
-		_, err = sm.aclient.GetLedgerStateDelta(rnd).Do(sm.ctx)
-		if err != nil {
-			return blk, err
+		// Round 0 has no delta
+		if rnd != 0 {
+			_, err := sm.aclient.GetLedgerStateDelta(rnd).Do(sm.ctx)
+			if err != nil {
+				sm.logger.Errorf("GetLedgerStateDelta error: %v", err)
+				return blk, err
+			}
 		}
 
 		blk = data.BlockData{
