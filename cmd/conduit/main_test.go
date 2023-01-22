@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 	"path"
@@ -16,23 +17,28 @@ import (
 	"github.com/algorand/indexer/loggers"
 )
 
+// TestInitDataDirectory tests the initialization of the data directory//go:embed conduit.test.init.default.yml
+
+//go:embed conduit.test.init.default.yml
+var defaultYml string
+
 // TestInitDataDirectory tests the initialization of the data directory
 func TestInitDataDirectory(t *testing.T) {
 	verifyFile := func(file string) {
 		require.FileExists(t, file)
 		data, err := os.ReadFile(file)
 		require.NoError(t, err)
-		require.Equal(t, sampleConfig, string(data))
+		require.Equal(t, defaultYml, string(data))
 	}
 
 	// avoid clobbering an existing data directory
 	defaultDataDirectory = "override"
 	require.NoDirExists(t, defaultDataDirectory)
 
-	runConduitInit("")
+	runConduitInit("", "", "", "")
 	verifyFile(fmt.Sprintf("%s/conduit.yml", defaultDataDirectory))
 
-	runConduitInit(fmt.Sprintf("%s/provided_directory", defaultDataDirectory))
+	runConduitInit(fmt.Sprintf("%s/provided_directory", defaultDataDirectory), "", "", "")
 	verifyFile(fmt.Sprintf("%s/provided_directory/conduit.yml", defaultDataDirectory))
 
 	os.RemoveAll(defaultDataDirectory)
