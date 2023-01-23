@@ -430,7 +430,7 @@ func (p *pipelineImpl) Start() {
 					importStart := time.Now()
 					blkData, err := (*p.importer).GetBlock(p.pipelineMetadata.NextRound)
 					if err != nil {
-                        p.logger.Errorf("Importer.GetBlock error: %v", err)
+						p.logger.Errorf("Importer.GetBlock error: %v", err)
 						p.setError(err)
 						retry++
 						goto pipelineRun
