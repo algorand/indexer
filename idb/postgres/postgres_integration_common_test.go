@@ -5,15 +5,11 @@ import (
 	"testing"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
+	"github.com/algorand/indexer/util/test"
 	"github.com/jackc/pgx/v4/pgxpool"
-	test2 "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 
-	"github.com/algorand/go-algorand/ledger"
-	"github.com/algorand/go-algorand/rpcs"
-	"github.com/algorand/indexer/util/test"
-
-	"github.com/algorand/indexer/conduit/plugins/processors/blockprocessor"
 	"github.com/algorand/indexer/idb"
 	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
 )
@@ -28,7 +24,7 @@ func setupIdbWithConnectionString(t *testing.T, connStr string, genesis sdk.Gene
 	return idb
 }
 
-func setupIdb(t *testing.T, genesis sdk.Genesis) (*IndexerDb, func(), func(cert *rpcs.EncodedBlockCert) error, *ledger.Ledger) {
+func setupIdb(t *testing.T, genesis sdk.Genesis) (*IndexerDb, func()) {
 
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 
@@ -37,16 +33,11 @@ func setupIdb(t *testing.T, genesis sdk.Genesis) (*IndexerDb, func(), func(cert 
 		db.Close()
 		shutdownFunc()
 	}
+	// todo: update when AddBlock interface gets updated
+	vb := ledgercore.MakeValidatedBlock(test.MakeGenesisBlock(), ledgercore.StateDelta{})
+	db.AddBlock(&vb)
 
-	logger, _ := test2.NewNullLogger()
-	l, err := test.MakeTestLedger(logger)
-	require.NoError(t, err)
-	proc, err := blockprocessor.MakeBlockProcessorWithLedger(logger, l, db.AddBlock)
-	require.NoError(t, err, "failed to open ledger")
-
-	f := blockprocessor.MakeBlockProcessorHandlerAdapter(&proc, db.AddBlock)
-
-	return db, newShutdownFunc, f, l
+	return db, newShutdownFunc
 }
 
 // Helper to execute a query returning an integer, for example COUNT(*). Returns -1 on an error.
