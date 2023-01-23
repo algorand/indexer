@@ -15,22 +15,22 @@ import (
 	"time"
 
 	"github.com/algorand/avm-abi/apps"
-	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/labstack/echo/v4"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/crypto/merklesignature"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres"
 	pgtest "github.com/algorand/indexer/idb/postgres/testing"
 	"github.com/algorand/indexer/util/test"
+	"github.com/labstack/echo/v4"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var defaultOpts = ExtraOptions{
