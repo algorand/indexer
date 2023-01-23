@@ -177,12 +177,12 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 }
 
 // AddBlock is part of idb.IndexerDb.
-func (db *IndexerDb) AddBlock(vblk *ledgercore.ValidatedBlock) error {
+func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 	// TODO: use a converter util until vblk type is changed
-	vb, err := helpers.ConvertValidatedBlock(*vblk)
-	if err != nil {
-		return fmt.Errorf("AddBlock() err: %w", err)
-	}
+	//vb, err := helpers.ConvertValidatedBlock(*vblk)
+	//if err != nil {
+	//	return fmt.Errorf("AddBlock() err: %w", err)
+	//}
 	block := vb.Block
 	round := block.BlockHeader.Round
 	db.log.Printf("adding block %d", round)
@@ -303,7 +303,7 @@ func (db *IndexerDb) LoadGenesis(genesis sdk.Genesis) error {
 			_, err = tx.Exec(
 				context.Background(), setAccountStatementName,
 				addr[:], alloc.State.MicroAlgos,
-				encoding.EncodeTrimmedLcAccountData(encoding.TrimLcAccountData(accountData)), 0)
+				encoding.EncodeTrimmedLcAccountData(encoding.TrimAccountData(accountData)), 0)
 			if err != nil {
 				return fmt.Errorf("LoadGenesis() error setting genesis account[%d], %w", ai, err)
 			}

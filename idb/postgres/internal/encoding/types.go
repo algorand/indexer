@@ -1,11 +1,11 @@
 package encoding
 
 import (
+	"github.com/algorand/go-algorand-sdk/v2/client/v2/common/models"
 	"github.com/algorand/indexer/types"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/crypto"
-	"github.com/algorand/go-algorand/crypto/merklesignature"
 	"github.com/algorand/go-algorand/data/basics"
 )
 
@@ -87,19 +87,19 @@ type trimmedAccountData struct {
 }
 
 type tealValue struct {
-	basics.TealValue
+	models.TealValue
 	BytesOverride []byte `codec:"tb"`
 }
 
 type tealKeyValue map[byteArray]tealValue
 
 type appLocalState struct {
-	basics.AppLocalState
+	models.ApplicationLocalState
 	KeyValueOverride tealKeyValue `codec:"tkv"`
 }
 
 type appParams struct {
-	basics.AppParams
+	models.ApplicationParams
 	GlobalStateOverride tealKeyValue `codec:"gs"`
 }
 
@@ -112,27 +112,27 @@ type specialAddresses struct {
 type baseOnlineAccountData struct {
 	_struct struct{} `codec:",omitempty,omitemptyarray"`
 
-	VoteID          crypto.OneTimeSignatureVerifier `codec:"vote"`
-	SelectionID     crypto.VRFVerifier              `codec:"sel"`
-	StateProofID    merklesignature.Commitment      `codec:"stprf"`
-	VoteFirstValid  basics.Round                    `codec:"voteFst"`
-	VoteLastValid   basics.Round                    `codec:"voteLst"`
-	VoteKeyDilution uint64                          `codec:"voteKD"`
+	VoteID          []byte `codec:"vote"`
+	SelectionID     []byte `codec:"sel"`
+	StateProofID    []byte `codec:"stprf"`
+	VoteFirstValid  uint64 `codec:"voteFst"`
+	VoteLastValid   uint64 `codec:"voteLst"`
+	VoteKeyDilution uint64 `codec:"voteKD"`
 }
 
 type baseAccountData struct {
 	_struct struct{} `codec:",omitempty,omitemptyarray"`
 
-	Status              basics.Status      `codec:"onl"`
-	AuthAddr            crypto.Digest      `codec:"spend"`
-	TotalAppSchema      basics.StateSchema `codec:"tsch"`
-	TotalExtraAppPages  uint32             `codec:"teap"`
-	TotalAssetParams    uint64             `codec:"tasp"`
-	TotalAssets         uint64             `codec:"tas"`
-	TotalAppParams      uint64             `codec:"tapp"`
-	TotalAppLocalStates uint64             `codec:"tapl"`
-	TotalBoxes          uint64             `codec:"tbx"`
-	TotalBoxBytes       uint64             `codec:"tbxb"`
+	Status              string                        `codec:"onl"`
+	AuthAddr            sdk.Digest                    `codec:"spend"`
+	TotalAppSchema      models.ApplicationStateSchema `codec:"tsch"`
+	TotalExtraAppPages  uint64                        `codec:"teap"`
+	TotalAssetParams    uint64                        `codec:"tasp"`
+	TotalAssets         uint64                        `codec:"tas"`
+	TotalAppParams      uint64                        `codec:"tapp"`
+	TotalAppLocalStates uint64                        `codec:"tapl"`
+	TotalBoxes          uint64                        `codec:"tbx"`
+	TotalBoxBytes       uint64                        `codec:"tbxb"`
 
 	baseOnlineAccountData
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 
+	"github.com/algorand/go-algorand-sdk/v2/client/v2/common/models"
 	"github.com/algorand/go-codec/codec"
 
 	"github.com/algorand/indexer/idb"
@@ -14,7 +15,6 @@ import (
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
 var jsonCodecHandle *codec.JsonHandle
@@ -87,6 +87,7 @@ func DecodeBlockHeader(data []byte) (sdk.BlockHeader, error) {
 }
 
 func convertAssetParams(params sdk.AssetParams) assetParams {
+
 	ret := assetParams{
 		AssetParams:      params,
 		ManagerOverride:  sdk.Digest(params.Manager),
@@ -396,96 +397,99 @@ func DecodeTrimmedAccountData(data []byte) (basics.AccountData, error) {
 	return unconvertTrimmedAccountData(ado), nil
 }
 
-func convertTealValue(tv basics.TealValue) tealValue {
+func convertTealValue(tv models.TealValue) tealValue {
 	return tealValue{
 		TealValue:     tv,
 		BytesOverride: []byte(tv.Bytes),
 	}
 }
 
-func unconvertTealValue(tv tealValue) basics.TealValue {
+func unconvertTealValue(tv tealValue) models.TealValue {
 	res := tv.TealValue
 	res.Bytes = string(tv.BytesOverride)
 	return res
 }
 
-func convertTealKeyValue(tkv basics.TealKeyValue) tealKeyValue {
+func convertTealKeyValue(tkv []models.TealKeyValue) tealKeyValue {
 	if tkv == nil {
 		return nil
 	}
 
 	res := make(map[byteArray]tealValue, len(tkv))
-	for k, tv := range tkv {
-		res[byteArray{data: k}] = convertTealValue(tv)
+	for _, tv := range tkv {
+		res[byteArray{data: tv.Key}] = convertTealValue(tv.Value)
 	}
 	return res
 }
 
-func unconvertTealKeyValue(tkv tealKeyValue) basics.TealKeyValue {
+func unconvertTealKeyValue(tkv tealKeyValue) []models.TealKeyValue {
 	if tkv == nil {
 		return nil
 	}
 
-	res := make(map[string]basics.TealValue, len(tkv))
+	res := make([]models.TealKeyValue, len(tkv))
 	for k, tv := range tkv {
-		res[k.data] = unconvertTealValue(tv)
+		res = append(res, models.TealKeyValue{
+			Key:   k.data,
+			Value: unconvertTealValue(tv),
+		})
 	}
 	return res
 }
 
-func convertAppLocalState(state basics.AppLocalState) appLocalState {
+func convertAppLocalState(state models.ApplicationLocalState) appLocalState {
 	return appLocalState{
-		AppLocalState:    state,
-		KeyValueOverride: convertTealKeyValue(state.KeyValue),
+		ApplicationLocalState: state,
+		KeyValueOverride:      convertTealKeyValue(state.KeyValue),
 	}
 }
 
-func unconvertAppLocalState(state appLocalState) basics.AppLocalState {
-	res := state.AppLocalState
+func unconvertAppLocalState(state appLocalState) models.ApplicationLocalState {
+	res := state.ApplicationLocalState
 	res.KeyValue = unconvertTealKeyValue(state.KeyValueOverride)
 	return res
 }
 
 // EncodeAppLocalState encodes local application state into json.
-func EncodeAppLocalState(state basics.AppLocalState) []byte {
+func EncodeAppLocalState(state models.ApplicationLocalState) []byte {
 	return encodeJSON(convertAppLocalState(state))
 }
 
 // DecodeAppLocalState decodes local application state from json.
-func DecodeAppLocalState(data []byte) (basics.AppLocalState, error) {
+func DecodeAppLocalState(data []byte) (models.ApplicationLocalState, error) {
 	var state appLocalState
 	err := DecodeJSON(data, &state)
 	if err != nil {
-		return basics.AppLocalState{}, err
+		return models.ApplicationLocalState{}, err
 	}
 
 	return unconvertAppLocalState(state), nil
 }
 
-func convertAppParams(params basics.AppParams) appParams {
+func convertAppParams(params models.ApplicationParams) appParams {
 	return appParams{
-		AppParams:           params,
+		ApplicationParams:   params,
 		GlobalStateOverride: convertTealKeyValue(params.GlobalState),
 	}
 }
 
-func unconvertAppParams(params appParams) basics.AppParams {
-	res := params.AppParams
+func unconvertAppParams(params appParams) models.ApplicationParams {
+	res := params.ApplicationParams
 	res.GlobalState = unconvertTealKeyValue(params.GlobalStateOverride)
 	return res
 }
 
 // EncodeAppParams encodes application params into json.
-func EncodeAppParams(params basics.AppParams) []byte {
+func EncodeAppParams(params models.ApplicationParams) []byte {
 	return encodeJSON(convertAppParams(params))
 }
 
 // DecodeAppParams decodes application params from json.
-func DecodeAppParams(data []byte) (basics.AppParams, error) {
+func DecodeAppParams(data []byte) (models.ApplicationParams, error) {
 	var params appParams
 	err := DecodeJSON(data, &params)
 	if err != nil {
-		return basics.AppParams{}, nil
+		return models.ApplicationParams{}, nil
 	}
 
 	return unconvertAppParams(params), nil
@@ -514,12 +518,12 @@ func DecodeAssetParamsArray(data []byte) ([]sdk.AssetParams, error) {
 	return unconvertAssetParamsArray(paramsArr), nil
 }
 
-func unconvertAppParamsArray(paramsArr []appParams) []basics.AppParams {
+func unconvertAppParamsArray(paramsArr []appParams) []models.ApplicationParams {
 	if paramsArr == nil {
 		return nil
 	}
 
-	res := make([]basics.AppParams, 0, len(paramsArr))
+	res := make([]models.ApplicationParams, 0, len(paramsArr))
 	for _, params := range paramsArr {
 		res = append(res, unconvertAppParams(params))
 	}
@@ -527,7 +531,7 @@ func unconvertAppParamsArray(paramsArr []appParams) []basics.AppParams {
 }
 
 // DecodeAppParamsArray decodes an array of application params from a json array.
-func DecodeAppParamsArray(data []byte) ([]basics.AppParams, error) {
+func DecodeAppParamsArray(data []byte) ([]models.ApplicationParams, error) {
 	var paramsArr []appParams
 	err := DecodeJSON(data, &paramsArr)
 	if err != nil {
@@ -537,12 +541,12 @@ func DecodeAppParamsArray(data []byte) ([]basics.AppParams, error) {
 	return unconvertAppParamsArray(paramsArr), nil
 }
 
-func unconvertAppLocalStateArray(array []appLocalState) []basics.AppLocalState {
+func unconvertAppLocalStateArray(array []appLocalState) []models.ApplicationLocalState {
 	if array == nil {
 		return nil
 	}
 
-	res := make([]basics.AppLocalState, 0, len(array))
+	res := make([]models.ApplicationLocalState, 0, len(array))
 	for _, state := range array {
 		res = append(res, unconvertAppLocalState(state))
 	}
@@ -551,7 +555,7 @@ func unconvertAppLocalStateArray(array []appLocalState) []basics.AppLocalState {
 
 // DecodeAppLocalStateArray decodes an array of local application states from a json
 // array.
-func DecodeAppLocalStateArray(data []byte) ([]basics.AppLocalState, error) {
+func DecodeAppLocalStateArray(data []byte) ([]models.ApplicationLocalState, error) {
 	var array []appLocalState
 	err := DecodeJSON(data, &array)
 	if err != nil {
@@ -655,74 +659,75 @@ func DecodeNetworkState(data []byte) (types.NetworkState, error) {
 	return state, nil
 }
 
-// TrimLcAccountData deletes various information from account data that we do not write
+// TrimAccountData deletes various information from account data that we do not write
 // to `account.account_data`.
-func TrimLcAccountData(ad ledgercore.AccountData) ledgercore.AccountData {
-	ad.MicroAlgos = basics.MicroAlgos{}
-	ad.RewardsBase = 0
-	ad.RewardedMicroAlgos = basics.MicroAlgos{}
+func TrimAccountData(ad models.Account) models.Account {
+	ad.Amount = 0
+	ad.RewardBase = 0
+	ad.Rewards = 0
 	return ad
 }
 
-func convertTrimmedLcAccountData(ad ledgercore.AccountData) baseAccountData {
+func convertTrimmedLcAccountData(ad models.Account) baseAccountData {
+	authAddr, _ := sdk.DecodeAddress(ad.AuthAddr)
 	return baseAccountData{
 		Status:              ad.Status,
-		AuthAddr:            crypto.Digest(ad.AuthAddr),
-		TotalAppSchema:      ad.TotalAppSchema,
-		TotalExtraAppPages:  ad.TotalExtraAppPages,
-		TotalAssetParams:    ad.TotalAssetParams,
-		TotalAssets:         ad.TotalAssets,
-		TotalAppParams:      ad.TotalAppParams,
-		TotalAppLocalStates: ad.TotalAppLocalStates,
+		AuthAddr:            sdk.Digest(authAddr),
+		TotalAppSchema:      ad.AppsTotalSchema,
+		TotalExtraAppPages:  ad.AppsTotalExtraPages,
+		TotalAssetParams:    ad.TotalCreatedAssets,
+		TotalAssets:         ad.TotalCreatedAssets + ad.TotalAssetsOptedIn,
+		TotalAppParams:      ad.TotalCreatedApps,
+		TotalAppLocalStates: ad.TotalAppsOptedIn,
 		TotalBoxes:          ad.TotalBoxes,
 		TotalBoxBytes:       ad.TotalBoxBytes,
 		baseOnlineAccountData: baseOnlineAccountData{
-			VoteID:          ad.VoteID,
-			SelectionID:     ad.SelectionID,
-			StateProofID:    ad.StateProofID,
-			VoteFirstValid:  ad.VoteFirstValid,
-			VoteLastValid:   ad.VoteLastValid,
-			VoteKeyDilution: ad.VoteKeyDilution,
+			VoteID:          ad.Participation.VoteParticipationKey,
+			SelectionID:     ad.Participation.SelectionParticipationKey,
+			StateProofID:    ad.Participation.StateProofKey,
+			VoteFirstValid:  ad.Participation.VoteFirstValid,
+			VoteLastValid:   ad.Participation.VoteLastValid,
+			VoteKeyDilution: ad.Participation.VoteKeyDilution,
 		},
 	}
 }
 
-func unconvertTrimmedLcAccountData(ba baseAccountData) ledgercore.AccountData {
-	return ledgercore.AccountData{
-		AccountBaseData: ledgercore.AccountBaseData{
-			Status:              ba.Status,
-			AuthAddr:            basics.Address(ba.AuthAddr),
-			TotalAppSchema:      ba.TotalAppSchema,
-			TotalExtraAppPages:  ba.TotalExtraAppPages,
-			TotalAppParams:      ba.TotalAppParams,
-			TotalAppLocalStates: ba.TotalAppLocalStates,
-			TotalAssetParams:    ba.TotalAssetParams,
-			TotalAssets:         ba.TotalAssets,
-			TotalBoxes:          ba.TotalBoxes,
-			TotalBoxBytes:       ba.TotalBoxBytes,
-		},
-		VotingData: ledgercore.VotingData{
-			VoteID:          ba.VoteID,
-			SelectionID:     ba.SelectionID,
-			StateProofID:    ba.StateProofID,
-			VoteFirstValid:  ba.VoteFirstValid,
-			VoteLastValid:   ba.VoteLastValid,
-			VoteKeyDilution: ba.VoteKeyDilution,
-		},
+func unconvertTrimmedLcAccountData(ba baseAccountData) models.Account {
+	return models.Account{
+		//AccountBaseData: ledgercore.AccountBaseData{
+		//	Status:              ba.Status,
+		//	AuthAddr:            basics.Address(ba.AuthAddr),
+		//	TotalAppSchema:      ba.TotalAppSchema,
+		//	TotalExtraAppPages:  ba.TotalExtraAppPages,
+		//	TotalAppParams:      ba.TotalAppParams,
+		//	TotalAppLocalStates: ba.TotalAppLocalStates,
+		//	TotalAssetParams:    ba.TotalAssetParams,
+		//	TotalAssets:         ba.TotalAssets,
+		//	TotalBoxes:          ba.TotalBoxes,
+		//	TotalBoxBytes:       ba.TotalBoxBytes,
+		//},
+		//VotingData: ledgercore.VotingData{
+		//	VoteID:          ba.VoteID,
+		//	SelectionID:     ba.SelectionID,
+		//	StateProofID:    ba.StateProofID,
+		//	VoteFirstValid:  ba.VoteFirstValid,
+		//	VoteLastValid:   ba.VoteLastValid,
+		//	VoteKeyDilution: ba.VoteKeyDilution,
+		//},
 	}
 }
 
 // EncodeTrimmedLcAccountData encodes ledgercore account data into json.
-func EncodeTrimmedLcAccountData(ad ledgercore.AccountData) []byte {
+func EncodeTrimmedLcAccountData(ad models.Account) []byte {
 	return encodeJSON(convertTrimmedLcAccountData(ad))
 }
 
 // DecodeTrimmedLcAccountData decodes ledgercore account data from json.
-func DecodeTrimmedLcAccountData(data []byte) (ledgercore.AccountData, error) {
+func DecodeTrimmedLcAccountData(data []byte) (models.Account, error) {
 	var ba baseAccountData
 	err := DecodeJSON(data, &ba)
 	if err != nil {
-		return ledgercore.AccountData{}, err
+		return models.Account{}, err
 	}
 
 	return unconvertTrimmedLcAccountData(ba), nil

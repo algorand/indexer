@@ -14,7 +14,6 @@ import (
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
 // TxnRow is metadata relating to one transaction in a transaction query.
@@ -161,7 +160,7 @@ type IndexerDb interface {
 	Close()
 
 	// Import a block and do the accounting.
-	AddBlock(block *ledgercore.ValidatedBlock) error
+	AddBlock(block *types.ValidatedBlock) error
 
 	LoadGenesis(genesis sdk.Genesis) (err error)
 

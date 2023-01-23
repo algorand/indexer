@@ -511,7 +511,7 @@ func TestWriterAccountTableBasic(t *testing.T) {
 	{
 		accountDataRead, err := encoding.DecodeTrimmedLcAccountData(accountData)
 		require.NoError(t, err)
-		assert.Equal(t, encoding.TrimLcAccountData(expectedAccountData), accountDataRead)
+		assert.Equal(t, encoding.TrimAccountData(expectedAccountData), accountDataRead)
 	}
 
 	assert.False(t, rows.Next())

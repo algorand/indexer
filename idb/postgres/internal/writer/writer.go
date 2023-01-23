@@ -3,20 +3,20 @@ package writer
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strconv"
 	"time"
 
+	"github.com/algorand/go-algorand-sdk/v2/client/v2/common/models"
 	"github.com/jackc/pgx/v4"
 
 	"github.com/algorand/avm-abi/apps"
-	"github.com/algorand/indexer/helpers"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
 	"github.com/algorand/indexer/types"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
@@ -186,7 +186,7 @@ type optionalSigTypeDelta struct {
 	value   sigTypeDelta
 }
 
-func writeAccount(round sdk.Round, address basics.Address, accountData ledgercore.AccountData, sigtypeDelta optionalSigTypeDelta, batch *pgx.Batch) {
+func writeAccount(round sdk.Round, address sdk.Address, accountData models.Account, sigtypeDelta optionalSigTypeDelta, batch *pgx.Batch) {
 	sigtypeFunc := func(delta sigTypeDelta) *idb.SigType {
 		if !delta.present {
 			return nil
@@ -197,7 +197,7 @@ func writeAccount(round sdk.Round, address basics.Address, accountData ledgercor
 		return res
 	}
 
-	if accountData.IsZero() {
+	if reflect.DeepEqual(accountData, models.Account{}) {
 		// Delete account.
 		if sigtypeDelta.present {
 			batch.Queue(
@@ -209,95 +209,117 @@ func writeAccount(round sdk.Round, address basics.Address, accountData ledgercor
 	} else {
 		// Update account.
 		accountDataJSON :=
-			encoding.EncodeTrimmedLcAccountData(encoding.TrimLcAccountData(accountData))
+			encoding.EncodeTrimmedLcAccountData(encoding.TrimAccountData(accountData))
 
 		if sigtypeDelta.present {
 			batch.Queue(
 				upsertAccountWithKeytypeStmtName,
-				address[:], accountData.MicroAlgos.Raw, accountData.RewardsBase,
-				accountData.RewardedMicroAlgos.Raw, uint64(round),
+				address[:], accountData.Amount, accountData.RewardBase,
+				accountData.Rewards, uint64(round),
 				sigtypeFunc(sigtypeDelta.value), accountDataJSON)
 		} else {
 			batch.Queue(
 				upsertAccountStmtName,
-				address[:], accountData.MicroAlgos.Raw, accountData.RewardsBase,
-				accountData.RewardedMicroAlgos.Raw, uint64(round),
+				address[:], accountData.Amount, accountData.RewardBase,
+				accountData.Rewards, uint64(round),
 				accountDataJSON)
 		}
 	}
 }
 
-func writeAssetResource(round sdk.Round, resource *ledgercore.AssetResourceRecord, batch *pgx.Batch) {
-	if resource.Params.Deleted {
-		batch.Queue(deleteAssetStmtName, resource.Aidx, resource.Addr[:], round)
+func writeAssetResource(round sdk.Round, resource *models.AssetResourceRecord, batch *pgx.Batch) {
+	if resource.AssetDeleted {
+		batch.Queue(deleteAssetStmtName, resource.AssetIndex, resource.Address[:], round)
 	} else {
-		if resource.Params.Params != nil {
+		if !reflect.DeepEqual(resource.AssetParams, models.AssetParams{}) {
+			// convert models.AssetParams to types.AssetParams
+			sdkAssetParams := convertModelAssetParams(resource.AssetParams)
 			batch.Queue(
-				upsertAssetStmtName, resource.Aidx, resource.Addr[:],
-
-				encoding.EncodeAssetParams(helpers.ConvertParams(*resource.Params.Params)), round)
+				upsertAssetStmtName, resource.AssetIndex, resource.Address[:],
+				encoding.EncodeAssetParams(sdkAssetParams), round)
 		}
 	}
 
-	if resource.Holding.Deleted {
-		batch.Queue(deleteAccountAssetStmtName, resource.Addr[:], resource.Aidx, round)
+	if resource.AssetHoldingDeleted {
+		batch.Queue(deleteAccountAssetStmtName, resource.Address[:], resource.AssetIndex, round)
 	} else {
-		if resource.Holding.Holding != nil {
+		if !reflect.DeepEqual(resource.AssetHolding, models.AssetHolding{}) {
 			batch.Queue(
-				upsertAccountAssetStmtName, resource.Addr[:], resource.Aidx,
-				strconv.FormatUint(resource.Holding.Holding.Amount, 10),
-				resource.Holding.Holding.Frozen, round)
-		}
-	}
-}
-
-func writeAppResource(round sdk.Round, resource *ledgercore.AppResourceRecord, batch *pgx.Batch) {
-	if resource.Params.Deleted {
-		batch.Queue(deleteAppStmtName, resource.Aidx, resource.Addr[:], round)
-	} else {
-		if resource.Params.Params != nil {
-			batch.Queue(
-				upsertAppStmtName, resource.Aidx, resource.Addr[:],
-				encoding.EncodeAppParams(*resource.Params.Params), round)
-		}
-	}
-
-	if resource.State.Deleted {
-		batch.Queue(deleteAccountAppStmtName, resource.Addr[:], resource.Aidx, round)
-	} else {
-		if resource.State.LocalState != nil {
-			batch.Queue(
-				upsertAccountAppStmtName, resource.Addr[:], resource.Aidx,
-				encoding.EncodeAppLocalState(*resource.State.LocalState), round)
+				upsertAccountAssetStmtName, resource.Address[:], resource.AssetIndex,
+				strconv.FormatUint(resource.AssetHolding.Amount, 10),
+				resource.AssetHolding.IsFrozen, round)
 		}
 	}
 }
 
-func writeAccountDeltas(round sdk.Round, accountDeltas *ledgercore.AccountDeltas, sigtypeDeltas map[sdk.Address]sigTypeDelta, batch *pgx.Batch) {
+func convertModelAssetParams(params models.AssetParams) sdk.AssetParams {
+	var metaDataHash [32]byte
+	copy(metaDataHash[:], params.MetadataHash)
+	managerAddr, _ := sdk.DecodeAddress(params.Manager)
+	reserveAddr, _ := sdk.DecodeAddress(params.Reserve)
+	freezeAddr, _ := sdk.DecodeAddress(params.Freeze)
+	clawbackAddr, _ := sdk.DecodeAddress(params.Clawback)
+	return sdk.AssetParams{
+		Total:         params.Total,
+		Decimals:      uint32(params.Decimals),
+		DefaultFrozen: params.DefaultFrozen,
+		UnitName:      params.UnitName,
+		AssetName:     params.Name,
+		URL:           params.Url,
+		MetadataHash:  metaDataHash,
+		Manager:       managerAddr,
+		Reserve:       reserveAddr,
+		Freeze:        freezeAddr,
+		Clawback:      clawbackAddr,
+	}
+}
+func writeAppResource(round sdk.Round, resource *models.AppResourceRecord, batch *pgx.Batch) {
+	if resource.AppDeleted {
+		batch.Queue(deleteAppStmtName, resource.AppIndex, resource.Address[:], round)
+	} else {
+		if !reflect.DeepEqual(resource.AppParams, models.ApplicationParams{}) {
+			batch.Queue(
+				upsertAppStmtName, resource.AppIndex, resource.Address[:],
+				encoding.EncodeAppParams(resource.AppParams), round)
+		}
+	}
+
+	if resource.AppLocalState.Deleted {
+		batch.Queue(deleteAccountAppStmtName, resource.Address[:], resource.AppIndex, round)
+	} else {
+		if !reflect.DeepEqual(resource.AppLocalState, models.ApplicationLocalState{}) {
+			batch.Queue(
+				upsertAccountAppStmtName, resource.Address[:], resource.AppIndex,
+				encoding.EncodeAppLocalState(resource.AppLocalState), round)
+		}
+	}
+}
+
+func writeAccountDeltas(round sdk.Round, accountDeltas *models.AccountDeltas, sigtypeDeltas map[sdk.Address]sigTypeDelta, batch *pgx.Batch) {
 	// Update `account` table.
-	for i := 0; i < accountDeltas.Len(); i++ {
+	for i := 0; i < len(accountDeltas.Accounts); i++ {
 
-		address, accountData := accountDeltas.GetByIdx(i)
+		address := accountDeltas.Accounts[i].Address
+		accountData := accountDeltas.Accounts[i].AccountData
 
 		var sigtypeDelta optionalSigTypeDelta
-		sigtypeDelta.value, sigtypeDelta.present = sigtypeDeltas[sdk.Address(address)]
+		addr, _ := sdk.DecodeAddress(address)
+		sigtypeDelta.value, sigtypeDelta.present = sigtypeDeltas[addr]
 
-		writeAccount(round, address, accountData, sigtypeDelta, batch)
+		writeAccount(round, addr, accountData, sigtypeDelta, batch)
 	}
 
 	// Update `asset` and `account_asset` tables.
 	{
-		assetResources := accountDeltas.GetAllAssetResources()
-		for i := range assetResources {
-			writeAssetResource(round, &assetResources[i], batch)
+		for _, assetResource := range accountDeltas.Assets {
+			writeAssetResource(round, &assetResource, batch)
 		}
 	}
 
 	// Update `app` and `account_app` tables.
 	{
-		appResources := accountDeltas.GetAllAppResources()
-		for i := range appResources {
-			writeAppResource(round, &appResources[i], batch)
+		for _, appResource := range accountDeltas.Apps {
+			writeAppResource(round, &appResource, batch)
 		}
 	}
 
@@ -355,7 +377,7 @@ func (w *Writer) AddBlock0(block *sdk.Block) error {
 // AddBlock writes the block and accounting state deltas to the database, except for
 // transactions and transaction participation. Those are imported by free functions in
 // the writer/ directory.
-func (w *Writer) AddBlock(block *sdk.Block, delta ledgercore.StateDelta) error {
+func (w *Writer) AddBlock(block *sdk.Block, delta models.LedgerStateDelta) error {
 	var batch pgx.Batch
 	addBlockHeader(&block.BlockHeader, &batch)
 	specialAddresses := types.SpecialAddresses{
