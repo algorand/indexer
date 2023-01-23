@@ -1,7 +1,9 @@
 package types
 
 import (
+	"github.com/algorand/go-algorand-sdk/v2/client/v2/common/models"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
+
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
@@ -13,8 +15,7 @@ import (
 // and can now be recorded in the ledger.
 type ValidatedBlock struct {
 	Block sdk.Block
-	// TODO: replace when state delta endpoint is available
-	Delta ledgercore.StateDelta
+	Delta models.LedgerStateDelta
 }
 
 // EncodedBlockCert contains the encoded block and the corresponding encoded certificate
