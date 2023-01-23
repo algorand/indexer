@@ -62,9 +62,8 @@ func maybeGetAccount(t *testing.T, db *IndexerDb, address basics.Address) *model
 // and that there are no problems around passing account address pointers to the postgres
 // driver which could be the same pointer if we are not careful.
 func TestWriteReadAccountData(t *testing.T) {
-	db, shutdownFunc, _, ld := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer ld.Close()
 
 	data := make(map[basics.Address]ledgercore.AccountData)
 	var delta ledgercore.StateDelta
@@ -217,9 +216,8 @@ func generateAppLocalStateDelta(t *testing.T) ledgercore.AppLocalStateDelta {
 // and that there are no problems around passing account address pointers to the postgres
 // driver which could be the same pointer if we are not careful.
 func TestWriteReadResources(t *testing.T) {
-	db, shutdownFunc, _, ld := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer ld.Close()
 
 	type datum struct {
 		assetIndex  basics.AssetIndex
