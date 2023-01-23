@@ -19,6 +19,7 @@ import (
 	"github.com/algorand/go-algorand-sdk/v2/client/v2/algod"
 	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
+	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
 )
 
@@ -138,7 +139,7 @@ func (sm *syncModeImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 			return blk, err
 		}
 		tmpBlk := new(rpcs.EncodedBlockCert)
-		err = json.Decode(blockbytes, tmpBlk)
+		err = protocol.Decode(blockbytes, tmpBlk)
 		if err != nil {
 			return blk, err
 		}
