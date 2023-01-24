@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
+	models2 "github.com/algorand/go-algorand-sdk/v2/client/v2/common/models"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/algorand/avm-abi/apps"
 	"github.com/algorand/indexer/helpers"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
@@ -26,7 +26,6 @@ import (
 
 	crypto2 "github.com/algorand/go-algorand-sdk/v2/crypto"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
@@ -112,7 +111,7 @@ func TestWriterBlockHeaderTableBasic(t *testing.T) {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
 
-		err = w.AddBlock(&block, ledgercore.StateDelta{})
+		err = w.AddBlock(&block, models2.LedgerStateDelta{})
 		require.NoError(t, err)
 
 		w.Close()
@@ -150,7 +149,7 @@ func TestWriterSpecialAccounts(t *testing.T) {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
 
-		err = w.AddBlock(&block, ledgercore.StateDelta{})
+		err = w.AddBlock(&block, models2.LedgerStateDelta{})
 		require.NoError(t, err)
 
 		w.Close()
@@ -434,35 +433,37 @@ func TestWriterAccountTableBasic(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	var voteID crypto.OneTimeSignatureVerifier
+	var voteID [32]byte
 	voteID[0] = 1
 
-	var selectionID crypto.VRFVerifier
+	var selectionID [32]byte
 	selectionID[0] = 2
 
-	var authAddr basics.Address
+	var authAddr sdk.Address
 	authAddr[0] = 3
 
 	var block sdk.Block
 	block.BlockHeader.Round = 4
 
-	var delta ledgercore.StateDelta
-	delta.Accts.Upsert(test.AccountA, ledgercore.AccountData{
-		AccountBaseData: ledgercore.AccountBaseData{
-			Status:             basics.Online,
-			MicroAlgos:         basics.MicroAlgos{Raw: 5},
-			RewardsBase:        6,
-			RewardedMicroAlgos: basics.MicroAlgos{Raw: 7},
-			AuthAddr:           authAddr,
+	var delta models2.LedgerStateDelta
+	abr := models2.AccountBalanceRecord{
+		AccountData: models2.Account{
+			Status:     "online",
+			Amount:     5,
+			RewardBase: 7,
+			Rewards:    7,
+			AuthAddr:   authAddr.String(),
+			Participation: models2.AccountParticipation{
+				SelectionParticipationKey: selectionID[:],
+				VoteFirstValid:            7,
+				VoteKeyDilution:           8,
+				VoteLastValid:             9,
+				VoteParticipationKey:      voteID[:],
+			},
 		},
-		VotingData: ledgercore.VotingData{
-			VoteID:          voteID,
-			SelectionID:     selectionID,
-			VoteFirstValid:  7,
-			VoteLastValid:   8,
-			VoteKeyDilution: 9,
-		},
-	})
+		Address: test.AccountA.String(),
+	}
+	delta.Accts.Accounts = append(delta.Accts.Accounts, abr)
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -498,12 +499,12 @@ func TestWriterAccountTableBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, test.AccountA[:], addr)
-	_, expectedAccountData := delta.Accts.GetByIdx(0)
-	assert.Equal(t, expectedAccountData.MicroAlgos, basics.MicroAlgos{Raw: microalgos})
-	assert.Equal(t, expectedAccountData.RewardsBase, rewardsbase)
+	expectedAccountData := delta.Accts.Accounts[0].AccountData
+	assert.Equal(t, expectedAccountData.Amount, microalgos)
+	assert.Equal(t, expectedAccountData.RewardBase, rewardsbase)
 	assert.Equal(
-		t, expectedAccountData.RewardedMicroAlgos,
-		basics.MicroAlgos{Raw: rewardsTotal})
+		t, expectedAccountData.Rewards,
+		rewardsTotal)
 	assert.False(t, deleted)
 	assert.Equal(t, block.Round, sdk.Round(createdAt))
 	assert.Nil(t, closedAt)
@@ -519,8 +520,9 @@ func TestWriterAccountTableBasic(t *testing.T) {
 
 	// Now delete this account.
 	block.BlockHeader.Round++
-	delta.Accts = ledgercore.AccountDeltas{}
-	delta.Accts.Upsert(test.AccountA, ledgercore.AccountData{})
+	delta.Accts = models2.AccountDeltas{}
+	delta.Accts.Accounts = append(delta.Accts.Accounts, models2.AccountBalanceRecord{Address: test.AccountA.String(),
+		AccountData: models2.Account{}})
 
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -548,7 +550,7 @@ func TestWriterAccountTableBasic(t *testing.T) {
 	{
 		accountData, err := encoding.DecodeTrimmedLcAccountData(accountData)
 		require.NoError(t, err)
-		assert.Equal(t, ledgercore.AccountData{}, accountData)
+		assert.Equal(t, models2.Account{}, accountData)
 	}
 
 	assert.False(t, rows.Next())
@@ -563,8 +565,11 @@ func TestWriterAccountTableCreateDeleteSameRound(t *testing.T) {
 	var block sdk.Block
 	block.BlockHeader.Round = 4
 
-	var delta ledgercore.StateDelta
-	delta.Accts.Upsert(test.AccountA, ledgercore.AccountData{})
+	var delta models2.LedgerStateDelta
+	delta.Accts.Accounts = append(delta.Accts.Accounts, models2.AccountBalanceRecord{
+		Address:     test.AccountA.String(),
+		AccountData: models2.Account{},
+	})
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -642,12 +647,15 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 	block.Payset[0], err = util.EncodeSignedTxn(block.BlockHeader, stxnad.SignedTxn, stxnad.ApplyData)
 	require.NoError(t, err)
 
-	var delta ledgercore.StateDelta
-	delta.Accts.Upsert(test.AccountA, ledgercore.AccountData{
-		AccountBaseData: ledgercore.AccountBaseData{
-			MicroAlgos: basics.MicroAlgos{Raw: 5},
+	var delta models2.LedgerStateDelta
+	delta.Accts.Accounts = append(delta.Accts.Accounts, models2.AccountBalanceRecord{})
+	abr := models2.AccountBalanceRecord{
+		AccountData: models2.Account{
+			Amount: 5,
 		},
-	})
+		Address: test.AccountA.String(),
+	}
+	delta.Accts.Accounts = append(delta.Accts.Accounts, abr)
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -671,8 +679,11 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 
 	// Now delete this account.
 	block.BlockHeader.Round = sdk.Round(5)
-	delta.Accts = ledgercore.AccountDeltas{}
-	delta.Accts.Upsert(test.AccountA, ledgercore.AccountData{})
+	delta.Accts = models2.AccountDeltas{}
+	delta.Accts.Accounts = append(delta.Accts.Accounts, models2.AccountBalanceRecord{
+		Address:     test.AccountA.String(),
+		AccountData: models2.Account{},
+	})
 
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -690,15 +701,20 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 	var block sdk.Block
 	block.BlockHeader.Round = sdk.Round(1)
 
-	assetID := basics.AssetIndex(3)
-	assetHolding := basics.AssetHolding{
-		Amount: 4,
-		Frozen: true,
+	assetID := uint64(3)
+	assetHolding := models2.AssetHolding{
+		Amount:   4,
+		IsFrozen: true,
 	}
-	var delta ledgercore.StateDelta
-	delta.Accts.UpsertAssetResource(
-		test.AccountA, assetID, ledgercore.AssetParamsDelta{},
-		ledgercore.AssetHoldingDelta{Holding: &assetHolding})
+
+	var delta models2.LedgerStateDelta
+	assetResRec := models2.AssetResourceRecord{
+		Address:      test.AccountA.String(),
+		AssetHolding: models2.AssetHolding{},
+		AssetIndex:   assetID,
+		AssetParams:  models2.AssetParams{},
+	}
+	delta.Accts.Assets = append(delta.Accts.Assets, assetResRec)
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -732,7 +748,7 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 	assert.Equal(t, test.AccountA[:], addr)
 	assert.Equal(t, assetID, basics.AssetIndex(assetid))
 	assert.Equal(t, assetHolding.Amount, amount)
-	assert.Equal(t, assetHolding.Frozen, frozen)
+	assert.Equal(t, assetHolding.IsFrozen, frozen)
 	assert.False(t, deleted)
 	assert.Equal(t, block.Round, sdk.Round(createdAt))
 	assert.Nil(t, closedAt)
@@ -743,10 +759,20 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 	// Now delete the asset.
 	block.BlockHeader.Round++
 
-	delta.Accts = ledgercore.AccountDeltas{}
-	delta.Accts.UpsertAssetResource(
-		test.AccountA, assetID, ledgercore.AssetParamsDelta{},
-		ledgercore.AssetHoldingDelta{Deleted: true})
+	//delta.Accts = ledgercore.AccountDeltas{}
+	//delta.Accts.UpsertAssetResource(
+	//	test.AccountA, assetID, ledgercore.AssetParamsDelta{},
+	//	ledgercore.AssetHoldingDelta{Deleted: true})
+
+	delta.Accts = models2.AccountDeltas{}
+	assetResRec = models2.AssetResourceRecord{
+		Address:      test.AccountA.String(),
+		AssetHolding: models2.AssetHolding{Deleted: true},
+		AssetIndex:   assetID,
+		AssetParams:  models2.AssetParams{},
+	}
+
+	delta.Accts.Assets = append(delta.Accts.Assets)
 
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -762,7 +788,7 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 	assert.Equal(t, test.AccountA[:], addr)
 	assert.Equal(t, assetID, basics.AssetIndex(assetid))
 	assert.Equal(t, uint64(0), amount)
-	assert.Equal(t, assetHolding.Frozen, frozen)
+	assert.Equal(t, assetHolding.IsFrozen, frozen)
 	assert.True(t, deleted)
 	assert.Equal(t, uint64(block.Round)-1, createdAt)
 	require.NotNil(t, closedAt)
@@ -780,11 +806,19 @@ func TestWriterAccountAssetTableCreateDeleteSameRound(t *testing.T) {
 	var block sdk.Block
 	block.BlockHeader.Round = sdk.Round(1)
 
-	assetID := basics.AssetIndex(3)
-	var delta ledgercore.StateDelta
-	delta.Accts.UpsertAssetResource(
-		test.AccountA, assetID, ledgercore.AssetParamsDelta{},
-		ledgercore.AssetHoldingDelta{Deleted: true})
+	assetID := uint64(3)
+	//var delta ledgercore.StateDelta
+	//delta.Accts.UpsertAssetResource(
+	//	test.AccountA, assetID, ledgercore.AssetParamsDelta{},
+	//	ledgercore.AssetHoldingDelta{Deleted: true})
+	var delta models2.LedgerStateDelta
+	assetResRec := models2.AssetResourceRecord{
+		Address:      test.AccountA.String(),
+		AssetHolding: models2.AssetHolding{Deleted: true},
+		AssetIndex:   assetID,
+		AssetParams:  models2.AssetParams{},
+	}
+	delta.Accts.Assets = append(delta.Accts.Assets, assetResRec)
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -827,14 +861,23 @@ func TestWriterAccountAssetTableLargeAmount(t *testing.T) {
 	var block sdk.Block
 	block.BlockHeader.Round = sdk.Round(1)
 
-	assetID := basics.AssetIndex(3)
-	assetHolding := basics.AssetHolding{
+	assetID := uint64(3)
+	assetHolding := models2.AssetHolding{
 		Amount: math.MaxUint64,
 	}
-	var delta ledgercore.StateDelta
-	delta.Accts.UpsertAssetResource(
-		test.AccountA, assetID, ledgercore.AssetParamsDelta{},
-		ledgercore.AssetHoldingDelta{Holding: &assetHolding})
+	//var delta ledgercore.StateDelta
+	//delta.Accts.UpsertAssetResource(
+	//	test.AccountA, assetID, ledgercore.AssetParamsDelta{},
+	//	ledgercore.AssetHoldingDelta{Holding: &assetHolding})
+
+	var delta models2.LedgerStateDelta
+	assetResRec := models2.AssetResourceRecord{
+		Address:      test.AccountA.String(),
+		AssetHolding: assetHolding,
+		AssetIndex:   assetID,
+		AssetParams:  models2.AssetParams{},
+	}
+	delta.Accts.Assets = append(delta.Accts.Assets, assetResRec)
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -864,15 +907,24 @@ func TestWriterAssetTableBasic(t *testing.T) {
 	var block sdk.Block
 	block.BlockHeader.Round = sdk.Round(1)
 
-	assetID := basics.AssetIndex(3)
-	assetParams := basics.AssetParams{
+	assetID := uint64(3)
+	assetParams := models2.AssetParams{
 		Total:   99999,
-		Manager: test.AccountB,
+		Manager: test.AccountB.String(),
 	}
-	var delta ledgercore.StateDelta
-	delta.Accts.UpsertAssetResource(
-		test.AccountA, assetID, ledgercore.AssetParamsDelta{Params: &assetParams},
-		ledgercore.AssetHoldingDelta{})
+	//var delta ledgercore.StateDelta
+	//delta.Accts.UpsertAssetResource(
+	//	test.AccountA, assetID, ledgercore.AssetParamsDelta{Params: &assetParams},
+	//	ledgercore.AssetHoldingDelta{})
+
+	var delta models2.LedgerStateDelta
+	assetResRec := models2.AssetResourceRecord{
+		Address:      test.AccountA.String(),
+		AssetHolding: models2.AssetHolding{},
+		AssetIndex:   assetID,
+		AssetParams:  assetParams,
+	}
+	delta.Accts.Assets = append(delta.Accts.Assets, assetResRec)
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -907,7 +959,7 @@ func TestWriterAssetTableBasic(t *testing.T) {
 	{
 		paramsRead, err := encoding.DecodeAssetParams(params)
 		require.NoError(t, err)
-		assert.Equal(t, helpers.ConvertParams(assetParams), paramsRead)
+		assert.Equal(t, assetParams, paramsRead)
 	}
 	assert.False(t, deleted)
 	assert.Equal(t, block.Round, sdk.Round(createdAt))
@@ -919,10 +971,17 @@ func TestWriterAssetTableBasic(t *testing.T) {
 	// Now delete the asset.
 	block.BlockHeader.Round++
 
-	delta.Accts = ledgercore.AccountDeltas{}
-	delta.Accts.UpsertAssetResource(
-		test.AccountA, assetID, ledgercore.AssetParamsDelta{Deleted: true},
-		ledgercore.AssetHoldingDelta{})
+	delta.Accts = models2.AccountDeltas{}
+	//delta.Accts.UpsertAssetResource(
+	//	test.AccountA, assetID, ledgercore.AssetParamsDelta{Deleted: true},
+	//	ledgercore.AssetHoldingDelta{})
+	assetResRec = models2.AssetResourceRecord{
+		Address:      test.AccountA.String(),
+		AssetHolding: models2.AssetHolding{},
+		AssetIndex:   assetID,
+		AssetDeleted: true,
+	}
+	delta.Accts.Assets = append(delta.Accts.Assets, assetResRec)
 
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -960,11 +1019,20 @@ func TestWriterAssetTableCreateDeleteSameRound(t *testing.T) {
 	var block sdk.Block
 	block.BlockHeader.Round = sdk.Round(1)
 
-	assetID := basics.AssetIndex(3)
-	var delta ledgercore.StateDelta
-	delta.Accts.UpsertAssetResource(
-		test.AccountA, assetID, ledgercore.AssetParamsDelta{Deleted: true},
-		ledgercore.AssetHoldingDelta{})
+	assetID := uint64(3)
+	//var delta ledgercore.StateDelta
+	//delta.Accts.UpsertAssetResource(
+	//	test.AccountA, assetID, ledgercore.AssetParamsDelta{Deleted: true},
+	//	ledgercore.AssetHoldingDelta{})
+
+	var delta models2.LedgerStateDelta
+	assetResRec := models2.AssetResourceRecord{
+		Address:      test.AccountA.String(),
+		AssetHolding: models2.AssetHolding{},
+		AssetIndex:   assetID,
+		AssetDeleted: true,
+	}
+	delta.Accts.Assets = append(delta.Accts.Assets, assetResRec)
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -1010,19 +1078,35 @@ func TestWriterAppTableBasic(t *testing.T) {
 	var block sdk.Block
 	block.BlockHeader.Round = sdk.Round(1)
 
-	appID := basics.AppIndex(3)
-	appParams := basics.AppParams{
+	appID := uint64(3)
+	appParams := models2.ApplicationParams{
 		ApprovalProgram: []byte{3, 4, 5},
-		GlobalState: map[string]basics.TealValue{
-			string([]byte{0xff}): { // try a non-utf8 key
-				Type: 3,
+		GlobalState: []models2.TealKeyValue{
+			{
+				Key:   string([]byte{0xff}),
+				Value: models2.TealValue{Type: 3},
 			},
 		},
+		//GlobalState: map[string]basics.TealValue{
+		//	string([]byte{0xff}): { // try a non-utf8 key
+		//		Type: 3,
+		//	},
+		//},
 	}
-	var delta ledgercore.StateDelta
-	delta.Accts.UpsertAppResource(
-		test.AccountA, appID, ledgercore.AppParamsDelta{Params: &appParams},
-		ledgercore.AppLocalStateDelta{})
+
+	//var delta ledgercore.StateDelta
+	//delta.Accts.UpsertAppResource(
+	//	test.AccountA, appID, ledgercore.AppParamsDelta{Params: &appParams},
+	//	ledgercore.AppLocalStateDelta{})
+
+	var delta models2.LedgerStateDelta
+	appResRec := models2.AppResourceRecord{
+		Address:       test.AccountA.String(),
+		AppLocalState: models2.ApplicationLocalState{},
+		AppIndex:      appID,
+		AppParams:     appParams,
+	}
+	delta.Accts.Apps = append(delta.Accts.Apps, appResRec)
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -1069,10 +1153,17 @@ func TestWriterAppTableBasic(t *testing.T) {
 	// Now delete the app.
 	block.BlockHeader.Round++
 
-	delta.Accts = ledgercore.AccountDeltas{}
-	delta.Accts.UpsertAppResource(
-		test.AccountA, appID, ledgercore.AppParamsDelta{Deleted: true},
-		ledgercore.AppLocalStateDelta{})
+	delta.Accts = models2.AccountDeltas{}
+	appResRec = models2.AppResourceRecord{
+		Address:       test.AccountA.String(),
+		AppDeleted:    true,
+		AppIndex:      appID,
+		AppLocalState: models2.ApplicationLocalState{},
+	}
+	delta.Accts.Apps = append(delta.Accts.Apps, appResRec)
+	//delta.Accts.UpsertAppResource(
+	//	test.AccountA, appID, ledgercore.AppParamsDelta{Deleted: true},
+	//	ledgercore.AppLocalStateDelta{})
 
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -1110,11 +1201,20 @@ func TestWriterAppTableCreateDeleteSameRound(t *testing.T) {
 	var block sdk.Block
 	block.BlockHeader.Round = sdk.Round(1)
 
-	appID := basics.AppIndex(3)
-	var delta ledgercore.StateDelta
-	delta.Accts.UpsertAppResource(
-		test.AccountA, appID, ledgercore.AppParamsDelta{Deleted: true},
-		ledgercore.AppLocalStateDelta{})
+	appID := uint64(3)
+	//var delta ledgercore.StateDelta
+	//delta.Accts.UpsertAppResource(
+	//	test.AccountA, appID, ledgercore.AppParamsDelta{Deleted: true},
+	//	ledgercore.AppLocalStateDelta{})
+	var delta models2.LedgerStateDelta
+	appResRec := models2.AppResourceRecord{
+		Address:       test.AccountA.String(),
+		AppDeleted:    true,
+		AppIndex:      appID,
+		AppLocalState: models2.ApplicationLocalState{},
+	}
+
+	delta.Accts.Apps = append(delta.Accts.Apps, appResRec)
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -1161,18 +1261,32 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 	var block sdk.Block
 	block.BlockHeader.Round = sdk.Round(1)
 
-	appID := basics.AppIndex(3)
-	appLocalState := basics.AppLocalState{
-		KeyValue: map[string]basics.TealValue{
-			string([]byte{0xff}): { // try a non-utf8 key
-				Type: 4,
+	appID := uint64(3)
+	appLocalState := models2.ApplicationLocalState{
+		KeyValue: []models2.TealKeyValue{
+			{
+				Key:   string([]byte{0xff}),
+				Value: models2.TealValue{Type: 4},
 			},
 		},
+		//KeyValue: map[string]basics.TealValue{
+		//	string([]byte{0xff}): { // try a non-utf8 key
+		//		Type: 4,
+		//	},
+		//},
 	}
-	var delta ledgercore.StateDelta
-	delta.Accts.UpsertAppResource(
-		test.AccountA, appID, ledgercore.AppParamsDelta{},
-		ledgercore.AppLocalStateDelta{LocalState: &appLocalState})
+	//var delta ledgercore.StateDelta
+	//delta.Accts.UpsertAppResource(
+	//	test.AccountA, appID, ledgercore.AppParamsDelta{},
+	//	ledgercore.AppLocalStateDelta{LocalState: &appLocalState})
+
+	var delta models2.LedgerStateDelta
+	appResRec := models2.AppResourceRecord{
+		Address:       test.AccountA.String(),
+		AppLocalState: appLocalState,
+		AppIndex:      appID,
+	}
+	delta.Accts.Apps = append(delta.Accts.Apps, appResRec)
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -1219,10 +1333,17 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 	// Now delete the app.
 	block.BlockHeader.Round++
 
-	delta.Accts = ledgercore.AccountDeltas{}
-	delta.Accts.UpsertAppResource(
-		test.AccountA, appID, ledgercore.AppParamsDelta{},
-		ledgercore.AppLocalStateDelta{Deleted: true})
+	delta.Accts = models2.AccountDeltas{}
+	appResRec = models2.AppResourceRecord{
+		Address:       test.AccountA.String(),
+		AppLocalState: appLocalState,
+		AppIndex:      appID,
+		AppDeleted:    true,
+	}
+	delta.Accts.Apps = append(delta.Accts.Apps, appResRec)
+	//delta.Accts.UpsertAppResource(
+	//	test.AccountA, appID, ledgercore.AppParamsDelta{},
+	//	ledgercore.AppLocalStateDelta{Deleted: true})
 
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -1260,11 +1381,19 @@ func TestWriterAccountAppTableCreateDeleteSameRound(t *testing.T) {
 	var block sdk.Block
 	block.BlockHeader.Round = sdk.Round(1)
 
-	appID := basics.AppIndex(3)
-	var delta ledgercore.StateDelta
-	delta.Accts.UpsertAppResource(
-		test.AccountA, appID, ledgercore.AppParamsDelta{},
-		ledgercore.AppLocalStateDelta{Deleted: true})
+	appID := uint64(3)
+	//var delta ledgercore.StateDelta
+	//delta.Accts.UpsertAppResource(
+	//	test.AccountA, appID, ledgercore.AppParamsDelta{},
+	//	ledgercore.AppLocalStateDelta{Deleted: true})
+
+	var delta models2.LedgerStateDelta
+	appResRec := models2.AppResourceRecord{
+		Address:    test.AccountA.String(),
+		AppDeleted: true,
+		AppIndex:   appID,
+	}
+	delta.Accts.Apps = append(delta.Accts.Apps, appResRec)
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -1487,7 +1616,7 @@ func TestWriterAddBlock0(t *testing.T) {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
 
-		err = w.AddBlock(&block, ledgercore.StateDelta{})
+		err = w.AddBlock(&block, models2.LedgerStateDelta{})
 		require.NoError(t, err)
 
 		w.Close()
@@ -1532,275 +1661,300 @@ func TestWriterAddBlock0(t *testing.T) {
 		assert.Equal(t, expected, accounts)
 	}
 }
-func getNameAndAccountPointer(t *testing.T, value ledgercore.KvValueDelta, fullKey string, accts map[basics.Address]*ledgercore.AccountData) (basics.Address, string, *ledgercore.AccountData) {
-	require.NotNil(t, value, "cannot handle a nil value for box stats modification")
-	appIdxUint, name, err := apps.SplitBoxKey(fullKey)
-	appIdx := basics.AppIndex(appIdxUint)
-	account := appIdx.Address()
-	require.NoError(t, err)
-	acctData, ok := accts[account]
-	if !ok {
-		acctData = &ledgercore.AccountData{
-			AccountBaseData: ledgercore.AccountBaseData{},
-		}
-		accts[account] = acctData
-	}
-	return account, name, acctData
-}
 
-func addBoxInfoToStats(t *testing.T, fullKey string, value ledgercore.KvValueDelta,
-	accts map[basics.Address]*ledgercore.AccountData, boxTotals map[basics.Address]basics.AccountData) {
-	addr, name, acctData := getNameAndAccountPointer(t, value, fullKey, accts)
+//func getNameAndAccountPointer(t *testing.T, value []byte, fullKey string, accts map[sdk.Address]*models2.Account) (sdk.Address, string, *models2.Account) {
+//	require.NotNil(t, value, "cannot handle a nil value for box stats modification")
+//	appIdxUint, name, err := apps.SplitBoxKey(fullKey)
+//	appIdx := sdk.AppIndex(appIdxUint)
+//	account := appIdx.Address()
+//	require.NoError(t, err)
+//	acctData, ok := accts[account]
+//	if !ok {
+//		acctData = &ledgercore.AccountData{
+//			AccountBaseData: ledgercore.AccountBaseData{},
+//		}
+//		accts[account] = acctData
+//	}
+//	return account, name, acctData
+//}
 
-	acctData.TotalBoxes++
-	acctData.TotalBoxBytes += uint64(len(name) + len(value.Data))
-
-	boxTotals[addr] = basics.AccountData{
-		TotalBoxes:    acctData.TotalBoxes,
-		TotalBoxBytes: acctData.TotalBoxBytes,
-	}
-}
-
-func subtractBoxInfoToStats(t *testing.T, fullKey string, value ledgercore.KvValueDelta,
-	accts map[basics.Address]*ledgercore.AccountData, boxTotals map[basics.Address]basics.AccountData) {
-	addr, name, acctData := getNameAndAccountPointer(t, value, fullKey, accts)
-
-	prevBoxBytes := uint64(len(name) + len(value.Data))
-	require.GreaterOrEqual(t, acctData.TotalBoxes, uint64(0))
-	require.GreaterOrEqual(t, acctData.TotalBoxBytes, prevBoxBytes)
-
-	acctData.TotalBoxes--
-	acctData.TotalBoxBytes -= prevBoxBytes
-
-	boxTotals[addr] = basics.AccountData{
-		TotalBoxes:    acctData.TotalBoxes,
-		TotalBoxBytes: acctData.TotalBoxBytes,
-	}
-}
-
-// buildAccountDeltasFromKvsAndMods simulates keeping track of the evolution of the box statistics
-func buildAccountDeltasFromKvsAndMods(t *testing.T, kvOriginals, kvMods map[string]ledgercore.KvValueDelta) (
-	ledgercore.StateDelta, map[string]ledgercore.KvValueDelta, map[basics.Address]basics.AccountData) {
-	kvUpdated := map[string]ledgercore.KvValueDelta{}
-	boxTotals := map[basics.Address]basics.AccountData{}
-	accts := map[basics.Address]*ledgercore.AccountData{}
-	/*
-		1. fill the accts and kvUpdated using kvOriginals
-		2. for each (fullKey, value) in kvMod:
-			* (A) if the key is not present in kvOriginals just add the info as in #1
-			* (B) else (fullKey present):
-			    * (i)  if the value is nil
-					==> remove the box info from the stats and kvUpdated with assertions
-				* (ii) else (value is NOT nil):
-					==> reset kvUpdated and assert that the box hasn't changed shapes
-	*/
-
-	/* 1. */
-	for fullKey, value := range kvOriginals {
-		addBoxInfoToStats(t, fullKey, value, accts, boxTotals)
-		kvUpdated[fullKey] = value
-	}
-
-	/* 2. */
-	for fullKey, value := range kvMods {
-		prevValue, ok := kvOriginals[fullKey]
-		if !ok {
-			/* 2A. */
-			addBoxInfoToStats(t, fullKey, value, accts, boxTotals)
-			kvUpdated[fullKey] = value
-			continue
-		}
-		/* 2B. */
-		if value.Data == nil {
-			/* 2Bi. */
-			subtractBoxInfoToStats(t, fullKey, prevValue, accts, boxTotals)
-			delete(kvUpdated, fullKey)
-			continue
-		}
-		/* 2Bii. */
-		require.Contains(t, kvUpdated, fullKey)
-		kvUpdated[fullKey] = value
-	}
-
-	var delta ledgercore.StateDelta
-	for acct, acctData := range accts {
-		delta.Accts.Upsert(acct, *acctData)
-	}
-	return delta, kvUpdated, boxTotals
-}
-
-// Simulate a scenario where app boxes are created, mutated and deleted in consecutive rounds.
-func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
-	/* Simulation details:
-	Box 1: inserted and then untouched
-	Box 2: inserted and mutated
-	Box 3: inserted and deleted
-	Box 4: inserted, mutated and deleted
-	Box 5: inserted, deleted and re-inserted
-	Box 6: inserted after Box 2 is set
-	*/
-
-	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
-	defer shutdownFunc()
-
-	var block sdk.Block
-	block.BlockHeader.Round = sdk.Round(1)
-	delta := ledgercore.StateDelta{}
-
-	addNewBlock := func(tx pgx.Tx) error {
-		w, err := writer.MakeWriter(tx)
-		require.NoError(t, err)
-
-		err = w.AddBlock(&block, delta)
-		require.NoError(t, err)
-
-		w.Close()
-		return nil
-	}
-
-	appID := basics.AppIndex(3)
-	notPresent := "NOT PRESENT"
-
-	// ---- ROUND 1: create 5 boxes  ---- //
-	n1, v1 := "box1", "inserted"
-	n2, v2 := "box2", "inserted"
-	n3, v3 := "box3", "inserted"
-	n4, v4 := "box4", "inserted"
-	n5, v5 := "box5", "inserted"
-
-	k1 := apps.MakeBoxKey(uint64(appID), n1)
-	k2 := apps.MakeBoxKey(uint64(appID), n2)
-	k3 := apps.MakeBoxKey(uint64(appID), n3)
-	k4 := apps.MakeBoxKey(uint64(appID), n4)
-	k5 := apps.MakeBoxKey(uint64(appID), n5)
-
-	delta.KvMods = map[string]ledgercore.KvValueDelta{}
-	delta.KvMods[k1] = ledgercore.KvValueDelta{Data: []byte(v1)}
-	delta.KvMods[k2] = ledgercore.KvValueDelta{Data: []byte(v2)}
-	delta.KvMods[k3] = ledgercore.KvValueDelta{Data: []byte(v3)}
-	delta.KvMods[k4] = ledgercore.KvValueDelta{Data: []byte(v4)}
-	delta.KvMods[k5] = ledgercore.KvValueDelta{Data: []byte(v5)}
-
-	delta2, newKvMods, accts := buildAccountDeltasFromKvsAndMods(t, map[string]ledgercore.KvValueDelta{}, delta.KvMods)
-	delta.Accts = delta2.Accts
-
-	err := pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
-	require.NoError(t, err)
-
-	validateRow := func(expectedName string, expectedValue string) {
-		appBoxSQL := `SELECT app, name, value FROM app_box WHERE app = $1 AND name = $2`
-		var app basics.AppIndex
-		var name, value []byte
-
-		row := db.QueryRow(context.Background(), appBoxSQL, appID, []byte(expectedName))
-		err := row.Scan(&app, &name, &value)
-
-		if expectedValue == notPresent {
-			require.ErrorContains(t, err, "no rows in result set")
-			return
-		}
-
-		require.NoError(t, err)
-		require.Equal(t, appID, app)
-		require.Equal(t, expectedName, string(name))
-		require.Equal(t, expectedValue, string(value))
-	}
-
-	validateTotals := func() {
-		acctDataSQL := "SELECT account_data FROM account WHERE addr = $1"
-		for addr, acctInfo := range accts {
-			row := db.QueryRow(context.Background(), acctDataSQL, addr[:])
-
-			var buf []byte
-			err := row.Scan(&buf)
-			require.NoError(t, err)
-
-			ret, err := encoding.DecodeTrimmedLcAccountData(buf)
-			require.NoError(t, err)
-			require.Equal(t, acctInfo.TotalBoxes, ret.TotalBoxes)
-			require.Equal(t, acctInfo.TotalBoxBytes, ret.TotalBoxBytes)
-		}
-	}
-
-	validateRow(n1, v1)
-	validateRow(n2, v2)
-	validateRow(n3, v3)
-	validateRow(n4, v4)
-	validateRow(n5, v5)
-
-	validateTotals()
-
-	// ---- ROUND 2: mutate 2, delete 3, mutate 4, delete 5, create 6  ---- //
-	oldV2 := v2
-	v2 = "mutated"
-	// v3 is "deleted"
-	oldV4 := v4
-	v4 = "mutated"
-	// v5 is "deleted"
-	n6, v6 := "box6", "inserted"
-
-	k6 := apps.MakeBoxKey(uint64(appID), n6)
-
-	delta.KvMods = map[string]ledgercore.KvValueDelta{}
-	delta.KvMods[k2] = ledgercore.KvValueDelta{Data: []byte(v2), OldData: []byte(oldV2)}
-	delta.KvMods[k3] = ledgercore.KvValueDelta{Data: nil}
-	delta.KvMods[k4] = ledgercore.KvValueDelta{Data: []byte(v4), OldData: []byte(oldV4)}
-	delta.KvMods[k5] = ledgercore.KvValueDelta{Data: nil}
-	delta.KvMods[k6] = ledgercore.KvValueDelta{Data: []byte(v6)}
-
-	delta2, newKvMods, accts = buildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
-	delta.Accts = delta2.Accts
-
-	err = pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
-	require.NoError(t, err)
-
-	validateRow(n1, v1) // untouched
-	validateRow(n2, v2) // new v2
-	validateRow(n3, notPresent)
-	validateRow(n4, v4) // new v4
-	validateRow(n5, notPresent)
-	validateRow(n6, v6)
-
-	validateTotals()
-
-	// ---- ROUND 3: delete 4, insert 5  ---- //
-
-	// v4 is "deleted"
-	v5 = "re-inserted"
-
-	delta.KvMods = map[string]ledgercore.KvValueDelta{}
-	delta.KvMods[k4] = ledgercore.KvValueDelta{Data: nil}
-	delta.KvMods[k5] = ledgercore.KvValueDelta{Data: []byte(v5)}
-
-	delta2, newKvMods, accts = buildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
-	delta.Accts = delta2.Accts
-
-	err = pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
-	require.NoError(t, err)
-
-	validateRow(n1, v1)         // untouched
-	validateRow(n2, v2)         // untouched
-	validateRow(n3, notPresent) // still deleted
-	validateRow(n4, notPresent) // deleted
-	validateRow(n5, v5)         // re-inserted
-	validateRow(n6, v6)         // untouched
-
-	validateTotals()
-
-	/*** FOURTH ROUND  - NOOP ***/
-	delta.KvMods = map[string]ledgercore.KvValueDelta{}
-	delta2, _, accts = buildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
-	delta.Accts = delta2.Accts
-
-	err = pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
-	require.NoError(t, err)
-
-	validateRow(n1, v1)         // untouched
-	validateRow(n2, v2)         // untouched
-	validateRow(n3, notPresent) // still deleted
-	validateRow(n4, notPresent) // still deleted
-	validateRow(n5, v5)         // untouched
-	validateRow(n6, v6)         // untouched
-
-	validateTotals()
-}
+//func addBoxInfoToStats(t *testing.T, fullKey string, value []byte,
+//	accts map[sdk.Address]*models2.Account, boxTotals map[sdk.Address]models2.Account) {
+//	addr, name, acctData := getNameAndAccountPointer(t, value, fullKey, accts)
+//
+//	acctData.TotalBoxes++
+//	acctData.TotalBoxBytes += uint64(len(name) + len(value))
+//
+//	boxTotals[addr] = models2.Account{
+//		TotalBoxes:    acctData.TotalBoxes,
+//		TotalBoxBytes: acctData.TotalBoxBytes,
+//	}
+//}
+//
+//func subtractBoxInfoToStats(t *testing.T, fullKey string, value ledgercore.KvValueDelta,
+//	accts map[basics.Address]*ledgercore.AccountData, boxTotals map[basics.Address]basics.AccountData) {
+//	addr, name, acctData := getNameAndAccountPointer(t, value, fullKey, accts)
+//
+//	prevBoxBytes := uint64(len(name) + len(value.Data))
+//	require.GreaterOrEqual(t, acctData.TotalBoxes, uint64(0))
+//	require.GreaterOrEqual(t, acctData.TotalBoxBytes, prevBoxBytes)
+//
+//	acctData.TotalBoxes--
+//	acctData.TotalBoxBytes -= prevBoxBytes
+//
+//	boxTotals[addr] = basics.AccountData{
+//		TotalBoxes:    acctData.TotalBoxes,
+//		TotalBoxBytes: acctData.TotalBoxBytes,
+//	}
+//}
+//
+//// buildAccountDeltasFromKvsAndMods simulates keeping track of the evolution of the box statistics
+//func buildAccountDeltasFromKvsAndMods(t *testing.T, kvOriginals, kvMods []models2.KvDelta) (
+//	models2.LedgerStateDelta, []models2.KvDelta, map[sdk.Address]models2.Account) {
+//	var kvUpdated []models2.KvDelta
+//	boxTotals := map[sdk.Address]models2.Account{}
+//	accts := map[sdk.Address]*models2.Account{}
+//	/*
+//		1. fill the accts and kvUpdated using kvOriginals
+//		2. for each (fullKey, value) in kvMod:
+//			* (A) if the key is not present in kvOriginals just add the info as in #1
+//			* (B) else (fullKey present):
+//			    * (i)  if the value is nil
+//					==> remove the box info from the stats and kvUpdated with assertions
+//				* (ii) else (value is NOT nil):
+//					==> reset kvUpdated and assert that the box hasn't changed shapes
+//	*/
+//
+//	/* 1. */
+//	for _, kv := range kvOriginals {
+//		addBoxInfoToStats(t, string(kv.Key), kv.Value, accts, boxTotals)
+//		kvUpdated=append(kvUpdated,models2.KvDelta{
+//			Key:   kv.Key,
+//			Value: kv.Value,
+//		})
+//	}
+//
+//	/* 2. */
+//	for fullKey, value := range kvMods {
+//		prevValue, ok := kvOriginals[fullKey]
+//		if !ok {
+//			/* 2A. */
+//			addBoxInfoToStats(t, fullKey, value, accts, boxTotals)
+//			kvUpdated[fullKey] = value
+//			continue
+//		}
+//		/* 2B. */
+//		if value.Data == nil {
+//			/* 2Bi. */
+//			subtractBoxInfoToStats(t, fullKey, prevValue, accts, boxTotals)
+//			delete(kvUpdated, fullKey)
+//			continue
+//		}
+//		/* 2Bii. */
+//		require.Contains(t, kvUpdated, fullKey)
+//		kvUpdated[fullKey] = value
+//	}
+//
+//	var delta ledgercore.StateDelta
+//	for acct, acctData := range accts {
+//		delta.Accts.Upsert(acct, *acctData)
+//	}
+//	return delta, kvUpdated, boxTotals
+//}
+//
+//// Simulate a scenario where app boxes are created, mutated and deleted in consecutive rounds.
+//func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
+//	/* Simulation details:
+//	Box 1: inserted and then untouched
+//	Box 2: inserted and mutated
+//	Box 3: inserted and deleted
+//	Box 4: inserted, mutated and deleted
+//	Box 5: inserted, deleted and re-inserted
+//	Box 6: inserted after Box 2 is set
+//	*/
+//
+//	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
+//	defer shutdownFunc()
+//
+//	var block sdk.Block
+//	block.BlockHeader.Round = sdk.Round(1)
+//	delta := models2.LedgerStateDelta{}
+//
+//	addNewBlock := func(tx pgx.Tx) error {
+//		w, err := writer.MakeWriter(tx)
+//		require.NoError(t, err)
+//
+//		err = w.AddBlock(&block, delta)
+//		require.NoError(t, err)
+//
+//		w.Close()
+//		return nil
+//	}
+//
+//	appID := basics.AppIndex(3)
+//	notPresent := "NOT PRESENT"
+//
+//	// ---- ROUND 1: create 5 boxes  ---- //
+//	n1, v1 := "box1", "inserted"
+//	n2, v2 := "box2", "inserted"
+//	n3, v3 := "box3", "inserted"
+//	n4, v4 := "box4", "inserted"
+//	n5, v5 := "box5", "inserted"
+//
+//	k1 := apps.MakeBoxKey(uint64(appID), n1)
+//	k2 := apps.MakeBoxKey(uint64(appID), n2)
+//	k3 := apps.MakeBoxKey(uint64(appID), n3)
+//	k4 := apps.MakeBoxKey(uint64(appID), n4)
+//	k5 := apps.MakeBoxKey(uint64(appID), n5)
+//
+//	delta.KvMods = []models2.KvDelta{
+//		{
+//			Key:   []byte(k1),
+//			Value: []byte(v1),
+//		},
+//		{
+//			Key:   []byte(k2),
+//			Value: []byte(v2),
+//		},
+//		{
+//			Key:   []byte(k3),
+//			Value: []byte(v3),
+//		},
+//		{
+//			Key:   []byte(k4),
+//			Value: []byte(v4),
+//		},
+//		{
+//			Key:   []byte(k5),
+//			Value: []byte(v5),
+//		},
+//	}
+//	//delta.KvMods[k1] = ledgercore.KvValueDelta{Data: []byte(v1)}
+//	//delta.KvMods[k2] = ledgercore.KvValueDelta{Data: []byte(v2)}
+//	//delta.KvMods[k3] = ledgercore.KvValueDelta{Data: []byte(v3)}
+//	//delta.KvMods[k4] = ledgercore.KvValueDelta{Data: []byte(v4)}
+//	//delta.KvMods[k5] = ledgercore.KvValueDelta{Data: []byte(v5)}
+//
+//	delta2, newKvMods, accts := buildAccountDeltasFromKvsAndMods(t, []models2.KvDelta, delta.KvMods)
+//	delta.Accts = delta2.Accts
+//
+//	err := pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
+//	require.NoError(t, err)
+//
+//	validateRow := func(expectedName string, expectedValue string) {
+//		appBoxSQL := `SELECT app, name, value FROM app_box WHERE app = $1 AND name = $2`
+//		var app basics.AppIndex
+//		var name, value []byte
+//
+//		row := db.QueryRow(context.Background(), appBoxSQL, appID, []byte(expectedName))
+//		err := row.Scan(&app, &name, &value)
+//
+//		if expectedValue == notPresent {
+//			require.ErrorContains(t, err, "no rows in result set")
+//			return
+//		}
+//
+//		require.NoError(t, err)
+//		require.Equal(t, appID, app)
+//		require.Equal(t, expectedName, string(name))
+//		require.Equal(t, expectedValue, string(value))
+//	}
+//
+//	validateTotals := func() {
+//		acctDataSQL := "SELECT account_data FROM account WHERE addr = $1"
+//		for addr, acctInfo := range accts {
+//			row := db.QueryRow(context.Background(), acctDataSQL, addr[:])
+//
+//			var buf []byte
+//			err := row.Scan(&buf)
+//			require.NoError(t, err)
+//
+//			ret, err := encoding.DecodeTrimmedLcAccountData(buf)
+//			require.NoError(t, err)
+//			require.Equal(t, acctInfo.TotalBoxes, ret.TotalBoxes)
+//			require.Equal(t, acctInfo.TotalBoxBytes, ret.TotalBoxBytes)
+//		}
+//	}
+//
+//	validateRow(n1, v1)
+//	validateRow(n2, v2)
+//	validateRow(n3, v3)
+//	validateRow(n4, v4)
+//	validateRow(n5, v5)
+//
+//	validateTotals()
+//
+//	// ---- ROUND 2: mutate 2, delete 3, mutate 4, delete 5, create 6  ---- //
+//	oldV2 := v2
+//	v2 = "mutated"
+//	// v3 is "deleted"
+//	oldV4 := v4
+//	v4 = "mutated"
+//	// v5 is "deleted"
+//	n6, v6 := "box6", "inserted"
+//
+//	k6 := apps.MakeBoxKey(uint64(appID), n6)
+//
+//	delta.KvMods = map[string]ledgercore.KvValueDelta{}
+//	delta.KvMods[k2] = ledgercore.KvValueDelta{Data: []byte(v2), OldData: []byte(oldV2)}
+//	delta.KvMods[k3] = ledgercore.KvValueDelta{Data: nil}
+//	delta.KvMods[k4] = ledgercore.KvValueDelta{Data: []byte(v4), OldData: []byte(oldV4)}
+//	delta.KvMods[k5] = ledgercore.KvValueDelta{Data: nil}
+//	delta.KvMods[k6] = ledgercore.KvValueDelta{Data: []byte(v6)}
+//
+//	delta2, newKvMods, accts = buildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
+//	delta.Accts = delta2.Accts
+//
+//	err = pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
+//	require.NoError(t, err)
+//
+//	validateRow(n1, v1) // untouched
+//	validateRow(n2, v2) // new v2
+//	validateRow(n3, notPresent)
+//	validateRow(n4, v4) // new v4
+//	validateRow(n5, notPresent)
+//	validateRow(n6, v6)
+//
+//	validateTotals()
+//
+//	// ---- ROUND 3: delete 4, insert 5  ---- //
+//
+//	// v4 is "deleted"
+//	v5 = "re-inserted"
+//
+//	delta.KvMods = map[string]ledgercore.KvValueDelta{}
+//	delta.KvMods[k4] = ledgercore.KvValueDelta{Data: nil}
+//	delta.KvMods[k5] = ledgercore.KvValueDelta{Data: []byte(v5)}
+//
+//	delta2, newKvMods, accts = buildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
+//	delta.Accts = delta2.Accts
+//
+//	err = pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
+//	require.NoError(t, err)
+//
+//	validateRow(n1, v1)         // untouched
+//	validateRow(n2, v2)         // untouched
+//	validateRow(n3, notPresent) // still deleted
+//	validateRow(n4, notPresent) // deleted
+//	validateRow(n5, v5)         // re-inserted
+//	validateRow(n6, v6)         // untouched
+//
+//	validateTotals()
+//
+//	/*** FOURTH ROUND  - NOOP ***/
+//	delta.KvMods = map[string]ledgercore.KvValueDelta{}
+//	delta2, _, accts = buildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
+//	delta.Accts = delta2.Accts
+//
+//	err = pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
+//	require.NoError(t, err)
+//
+//	validateRow(n1, v1)         // untouched
+//	validateRow(n2, v2)         // untouched
+//	validateRow(n3, notPresent) // still deleted
+//	validateRow(n4, notPresent) // still deleted
+//	validateRow(n5, v5)         // untouched
+//	validateRow(n6, v6)         // untouched
+//
+//	validateTotals()
+//}

@@ -7,6 +7,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/algorand/indexer/helpers"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
@@ -140,7 +141,13 @@ func (exp *postgresqlExporter) Receive(exportData data.BlockData) error {
 			Payset:      exportData.Payset,
 		},
 		delta)
-	if err := exp.db.AddBlock(&vb); err != nil {
+
+	sdkvb, err := helpers.ConvertValidatedBlock(&vb)
+	if err != nil {
+		return fmt.Errorf("Receive: validated block convert error: %v", err)
+	}
+
+	if err = exp.db.AddBlock(&sdkvb); err != nil {
 		return err
 	}
 	atomic.StoreUint64(&exp.round, exportData.Round()+1)

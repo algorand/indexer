@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	models2 "github.com/algorand/go-algorand-sdk/v2/client/v2/common/models"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v4"
@@ -22,7 +23,6 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	models "github.com/algorand/indexer/api/generated/v2"
-	"github.com/algorand/indexer/helpers"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/migration"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
@@ -37,7 +37,6 @@ import (
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
 var serializable = pgx.TxOptions{IsoLevel: pgx.Serializable} // be a real ACID database
@@ -258,7 +257,7 @@ func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 
 		return nil
 	}
-	err = db.txWithRetry(serializable, f)
+	err := db.txWithRetry(serializable, f)
 	if err != nil {
 		return fmt.Errorf("AddBlock() err: %w", err)
 	}
@@ -299,7 +298,8 @@ func (db *IndexerDb) LoadGenesis(genesis sdk.Genesis) error {
 			if err != nil {
 				return fmt.Errorf("LoadGenesis() decode address err: %w", err)
 			}
-			accountData := ledgercore.ToAccountData(helpers.ConvertAccountType(alloc.State))
+			//accountData := ledgercore.ToAccountData(helpers.ConvertAccountType(alloc.State))
+			accountData := toAccountData(alloc.State)
 			_, err = tx.Exec(
 				context.Background(), setAccountStatementName,
 				addr[:], alloc.State.MicroAlgos,
@@ -326,6 +326,20 @@ func (db *IndexerDb) LoadGenesis(genesis sdk.Genesis) error {
 	}
 
 	return nil
+}
+
+func toAccountData(acct sdk.Account) models2.Account {
+	return models2.Account{
+		Status: string(acct.Status),
+		Amount: acct.MicroAlgos,
+		Participation: models2.AccountParticipation{
+			SelectionParticipationKey: acct.SelectionID[:],
+			StateProofKey:             acct.StateProofID[:],
+			VoteKeyDilution:           acct.VoteKeyDilution,
+			VoteLastValid:             acct.VoteLastValid,
+			VoteParticipationKey:      acct.VoteID[:],
+		},
+	}
 }
 
 // Returns `idb.ErrorNotInitialized` if uninitialized.
@@ -929,31 +943,30 @@ var statusStrings = []string{"Offline", "Online", "NotParticipating"}
 
 const offlineStatusIdx = 0
 
-func tealValueToModel(tv basics.TealValue) models.TealValue {
-	switch tv.Type {
-	case basics.TealUintType:
+func tealValueToModel(tv models2.TealValue) models.TealValue {
+	if tv.Type == 1 {
 		return models.TealValue{
 			Uint: tv.Uint,
-			Type: uint64(tv.Type),
+			Type: tv.Type,
 		}
-	case basics.TealBytesType:
+	} else if tv.Type == 2 {
 		return models.TealValue{
 			Bytes: encoding.Base64([]byte(tv.Bytes)),
-			Type:  uint64(tv.Type),
+			Type:  tv.Type,
 		}
 	}
 	return models.TealValue{}
 }
 
-func tealKeyValueToModel(tkv basics.TealKeyValue) *models.TealKeyValueStore {
+func tealKeyValueToModel(tkv []models2.TealKeyValue) *models.TealKeyValueStore {
 	if len(tkv) == 0 {
 		return nil
 	}
 	var out models.TealKeyValueStore = make([]models.TealKeyValue, len(tkv))
 	pos := 0
-	for key, tv := range tkv {
-		out[pos].Key = encoding.Base64([]byte(key))
-		out[pos].Value = tealValueToModel(tv)
+	for _, kv := range tkv {
+		out[pos].Key = encoding.Base64([]byte(kv.Key))
+		out[pos].Value = tealValueToModel(kv.Value)
 		pos++
 	}
 	return &out
@@ -1053,58 +1066,58 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		}
 
 		{
-			var accountData ledgercore.AccountData
+			var accountData models2.Account
 			accountData, err = encoding.DecodeTrimmedLcAccountData(accountDataJSONStr)
 			if err != nil {
 				err = fmt.Errorf("account decode err (%s) %v", accountDataJSONStr, err)
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
-			account.Status = statusStrings[accountData.Status]
-			hasSel := !allZero(accountData.SelectionID[:])
-			hasVote := !allZero(accountData.VoteID[:])
-			hasStateProofkey := !allZero(accountData.StateProofID[:])
+			account.Status = accountData.Status
+			hasSel := !allZero(accountData.Participation.SelectionParticipationKey)
+			hasVote := !allZero(accountData.Participation.VoteParticipationKey)
+			hasStateProofkey := !allZero(accountData.Participation.StateProofKey)
 
 			if hasSel || hasVote || hasStateProofkey {
 				part := new(models.AccountParticipation)
 				if hasSel {
-					part.SelectionParticipationKey = accountData.SelectionID[:]
+					part.SelectionParticipationKey = accountData.Participation.SelectionParticipationKey
 				}
 				if hasVote {
-					part.VoteParticipationKey = accountData.VoteID[:]
+					part.VoteParticipationKey = accountData.Participation.VoteParticipationKey
 				}
 				if hasStateProofkey {
-					part.StateProofKey = byteSlicePtr(accountData.StateProofID[:])
+					part.StateProofKey = byteSlicePtr(accountData.Participation.StateProofKey)
 				}
-				part.VoteFirstValid = uint64(accountData.VoteFirstValid)
-				part.VoteLastValid = uint64(accountData.VoteLastValid)
-				part.VoteKeyDilution = accountData.VoteKeyDilution
+				part.VoteFirstValid = accountData.Participation.VoteFirstValid
+				part.VoteLastValid = accountData.Participation.VoteLastValid
+				part.VoteKeyDilution = accountData.Participation.VoteKeyDilution
 				account.Participation = part
 			}
 
-			if !accountData.AuthAddr.IsZero() {
-				var spendingkey basics.Address
+			if accountData.AuthAddr != "" {
+				var spendingkey sdk.Address
 				copy(spendingkey[:], accountData.AuthAddr[:])
 				account.AuthAddr = stringPtr(spendingkey.String())
 			}
 
 			{
 				totalSchema := models.ApplicationStateSchema{
-					NumByteSlice: accountData.TotalAppSchema.NumByteSlice,
-					NumUint:      accountData.TotalAppSchema.NumUint,
+					NumByteSlice: accountData.AppsTotalSchema.NumByteSlice,
+					NumUint:      accountData.AppsTotalSchema.NumUint,
 				}
 				if totalSchema != (models.ApplicationStateSchema{}) {
 					account.AppsTotalSchema = &totalSchema
 				}
 			}
-			if accountData.TotalExtraAppPages != 0 {
-				account.AppsTotalExtraPages = uint64Ptr(uint64(accountData.TotalExtraAppPages))
+			if accountData.AppsTotalExtraPages != 0 {
+				account.AppsTotalExtraPages = uint64Ptr(accountData.AppsTotalExtraPages)
 			}
 
-			account.TotalAppsOptedIn = accountData.TotalAppLocalStates
-			account.TotalCreatedApps = accountData.TotalAppParams
-			account.TotalAssetsOptedIn = accountData.TotalAssets
-			account.TotalCreatedAssets = accountData.TotalAssetParams
+			account.TotalAppsOptedIn = accountData.TotalAppsOptedIn
+			account.TotalCreatedApps = accountData.TotalCreatedApps
+			account.TotalAssetsOptedIn = accountData.TotalAssetsOptedIn
+			account.TotalCreatedAssets = accountData.TotalCreatedAssets
 
 			account.TotalBoxes = accountData.TotalBoxes
 			account.TotalBoxBytes = accountData.TotalBoxBytes
@@ -1365,7 +1378,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 						NumUint:      apps[i].LocalStateSchema.NumUint,
 					}
 					if apps[i].ExtraProgramPages > 0 {
-						epp := uint64(apps[i].ExtraProgramPages)
+						epp := apps[i].ExtraProgramPages
 						aout[outpos].Params.ExtraProgramPages = &epp
 					}
 				}
@@ -1703,7 +1716,7 @@ func (db *IndexerDb) checkAccountResourceLimit(ctx context.Context, tx pgx.Tx, o
 			return fmt.Errorf("account limit scan err %v", err)
 		}
 
-		var ad ledgercore.AccountData
+		var ad models2.Account
 		ad, err = encoding.DecodeTrimmedLcAccountData(accountDataJSONStr)
 		if err != nil {
 			return fmt.Errorf("account limit decode err (%s) %v", accountDataJSONStr, err)
@@ -1717,10 +1730,10 @@ func (db *IndexerDb) checkAccountResourceLimit(ctx context.Context, tx pgx.Tx, o
 			totalAppLocalStates = uint64(lsCount.Int64)
 			totalAppParams = uint64(appCount.Int64)
 		} else {
-			totalAssets = ad.TotalAssets
-			totalAssetParams = ad.TotalAssetParams
-			totalAppLocalStates = ad.TotalAppLocalStates
-			totalAppParams = ad.TotalAppParams
+			totalAssets = ad.TotalAppsOptedIn
+			totalAssetParams = ad.TotalCreatedAssets
+			totalAppLocalStates = ad.TotalAppsOptedIn
+			totalAppParams = ad.TotalCreatedApps
 		}
 		if opts.IncludeAssetHoldings {
 			resultCount += totalAssets

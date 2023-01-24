@@ -4,16 +4,19 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/algorand/indexer/protocol"
-	"github.com/algorand/indexer/types"
-
+	models2 "github.com/algorand/go-algorand-sdk/v2/client/v2/common/models"
 	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
 	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
+	"github.com/algorand/go-algorand/config"
+	v2 "github.com/algorand/go-algorand/daemon/algod/api/server/v2"
+	"github.com/algorand/go-algorand/daemon/algod/api/server/v2/generated/model"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	protocol2 "github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/indexer/protocol"
+	"github.com/algorand/indexer/types"
 )
 
 // TODO: remove this file once all types have been converted to sdk types.
@@ -36,14 +39,33 @@ func ConvertParams(params basics.AssetParams) sdk.AssetParams {
 }
 
 // ConvertValidatedBlock converts ledgercore.ValidatedBlock to types.ValidatedBlock
-func ConvertValidatedBlock(vb ledgercore.ValidatedBlock) (types.ValidatedBlock, error) {
+func ConvertValidatedBlock(vb *ledgercore.ValidatedBlock) (types.ValidatedBlock, error) {
 	var ret types.ValidatedBlock
 	b64data := base64.StdEncoding.EncodeToString(msgpack.Encode(vb.Block()))
 	err := ret.Block.FromBase64String(b64data)
 	if err != nil {
 		return ret, fmt.Errorf("ConvertValidatedBlock err: %v", err)
 	}
-	ret.Delta = vb.Delta()
+	params, _ := config.Consensus[vb.Block().BlockHeader.CurrentProtocol]
+	modelDelta, err := v2.StateDeltaToLedgerDelta(vb.Delta(), params)
+	if err != nil {
+		return ret, fmt.Errorf("ConvertValidatedBlock err: %v", err)
+	}
+	sdkDelta, err := toSdkModel(modelDelta)
+	if err != nil {
+		return ret, fmt.Errorf("ConvertValidatedBlock err: %v", err)
+	}
+	ret.Delta = sdkDelta
+	return ret, nil
+}
+
+func toSdkModel(delta model.LedgerStateDelta) (models2.LedgerStateDelta, error) {
+	var ret models2.LedgerStateDelta
+	b := json.Encode(delta)
+	err := json.Decode(b, ret)
+	if err != nil {
+		return ret, fmt.Errorf("toSdkModel err: %v", err)
+	}
 	return ret, nil
 }
 
@@ -54,14 +76,7 @@ func ConvertConsensusType(v protocol.ConsensusVersion) protocol2.ConsensusVersio
 
 // ConvertAccountType returns a basics.AccountData type
 func ConvertAccountType(account sdk.Account) basics.AccountData {
-	return basics.AccountData{
-		Status:          basics.Status(account.Status),
-		MicroAlgos:      basics.MicroAlgos{Raw: account.MicroAlgos},
-		VoteID:          account.VoteID,
-		SelectionID:     account.SelectionID,
-		VoteLastValid:   basics.Round(account.VoteLastValid),
-		VoteKeyDilution: account.VoteKeyDilution,
-	}
+	return basics.AccountData{}
 }
 
 // ConvertGenesis returns bookkeeping.Genesis

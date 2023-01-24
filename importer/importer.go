@@ -3,6 +3,7 @@ package importer
 import (
 	"fmt"
 
+	"github.com/algorand/indexer/helpers"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/protocol"
 	"github.com/algorand/indexer/protocol/config"
@@ -27,7 +28,12 @@ func (imp *importerImpl) ImportBlock(vb *ledgercore.ValidatedBlock) error {
 	if !ok {
 		return fmt.Errorf("protocol %s not found", block.CurrentProtocol)
 	}
-	return imp.db.AddBlock(vb)
+
+	sdkvb, err := helpers.ConvertValidatedBlock(vb)
+	if err != nil {
+		return fmt.Errorf("validated block convert error: %v", err)
+	}
+	return imp.db.AddBlock(&sdkvb)
 }
 
 // NewImporter creates a new importer object.
