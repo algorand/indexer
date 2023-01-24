@@ -237,7 +237,7 @@ func makeInitCmd() *cobra.Command {
 	var processors string
 	cmd := &cobra.Command{
 		Use:     "init",
-		Short:   "initializes a sample data directory",
+		Short:   "initializes a Conduit data directory",
 		Long:    "initializes a Conduit data directory and conduit.yml file configured (by default) with the file_writer plugin. The config file needs to be modified slightly to include an algod address and token. Once ready, launch conduit with './conduit -d /path/to/data'.",
 		Example: "conduit init  -d /path/to/data -i importer -p processor1,processor2 -e exporter",
 		Args:    cobra.NoArgs,
