@@ -1,8 +1,8 @@
-package syncalgod
+package algodfollower
 
 //go:generate conduit-docs ../../../../conduit-docs/
 
-//Name: conduit_importers_syncmode
+//Name: conduit_importers_algod_follower
 
 // Config specific to the sync mode importer
 type Config struct {

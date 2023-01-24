@@ -1,4 +1,4 @@
-name: sync_algod
+name: algod_follower
 config:
   # Algod netaddr string
   netaddr: "http://url"

@@ -1,4 +1,4 @@
-package syncalgod
+package algodfollower
 
 import "github.com/prometheus/client_golang/prometheus"
 
@@ -11,7 +11,7 @@ const (
 var (
 	GetAlgodRawBlockTimeSeconds = prometheus.NewSummary(
 		prometheus.SummaryOpts{
-			Subsystem: "sync_algod",
+			Subsystem: "algod_follower",
 			Name:      GetAlgodRawBlockTimeName,
 			Help:      "Total response time from Algod's raw block endpoint in seconds.",
 		})

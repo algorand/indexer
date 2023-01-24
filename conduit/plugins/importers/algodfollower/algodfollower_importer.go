@@ -1,4 +1,4 @@
-package syncalgod
+package algodfollower
 
 import (
 	"context"
@@ -23,9 +23,9 @@ import (
 	"github.com/algorand/go-algorand/rpcs"
 )
 
-const importerName = "sync_algod"
+const importerName = "algod_follower"
 
-type syncModeImporter struct {
+type algodFollowerImporter struct {
 	aclient *algod.Client
 	logger  *logrus.Logger
 	cfg     Config
@@ -33,15 +33,15 @@ type syncModeImporter struct {
 	cancel  context.CancelFunc
 }
 
-func (sm *syncModeImporter) OnComplete(input data.BlockData) error {
-	_, err := sm.aclient.SetSyncRound(input.Round() + 1).Do(sm.ctx)
+func (af *algodFollowerImporter) OnComplete(input data.BlockData) error {
+	_, err := af.aclient.SetSyncRound(input.Round() + 1).Do(af.ctx)
 	return err
 }
 
 //go:embed sample.yaml
 var sampleConfig string
 
-var syncAlgodModeImporterMetadata = conduit.Metadata{
+var algodFollowerImporterMetadata = conduit.Metadata{
 	Name:         importerName,
 	Description:  "Importer for fetching blocks from an algod REST API using sync round and ledger delta algod calls.",
 	Deprecated:   false,
@@ -50,42 +50,42 @@ var syncAlgodModeImporterMetadata = conduit.Metadata{
 
 // New initializes an algod importer
 func New() importers.Importer {
-	return &syncModeImporter{}
+	return &algodFollowerImporter{}
 }
 
-func (sm *syncModeImporter) Metadata() conduit.Metadata {
-	return syncAlgodModeImporterMetadata
+func (af *algodFollowerImporter) Metadata() conduit.Metadata {
+	return algodFollowerImporterMetadata
 }
 
 // package-wide init function
 func init() {
 	importers.Register(importerName, importers.ImporterConstructorFunc(func() importers.Importer {
-		return &syncModeImporter{}
+		return &algodFollowerImporter{}
 	}))
 }
 
-func (sm *syncModeImporter) Init(ctx context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) (*sdk.Genesis, error) {
-	sm.ctx, sm.cancel = context.WithCancel(ctx)
-	sm.logger = logger
-	err := cfg.UnmarshalConfig(&sm.cfg)
+func (af *algodFollowerImporter) Init(ctx context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) (*sdk.Genesis, error) {
+	af.ctx, af.cancel = context.WithCancel(ctx)
+	af.logger = logger
+	err := cfg.UnmarshalConfig(&af.cfg)
 	if err != nil {
 		return nil, fmt.Errorf("connect failure in unmarshalConfig: %v", err)
 	}
 	var client *algod.Client
-	u, err := url.Parse(sm.cfg.NetAddr)
+	u, err := url.Parse(af.cfg.NetAddr)
 	if err != nil {
 		return nil, err
 	}
 
 	if u.Scheme != "http" && u.Scheme != "https" {
-		sm.cfg.NetAddr = "http://" + sm.cfg.NetAddr
-		sm.logger.Infof("Algod Importer added http prefix to NetAddr: %s", sm.cfg.NetAddr)
+		af.cfg.NetAddr = "http://" + af.cfg.NetAddr
+		af.logger.Infof("Algod Importer added http prefix to NetAddr: %s", af.cfg.NetAddr)
 	}
-	client, err = algod.MakeClient(sm.cfg.NetAddr, sm.cfg.Token)
+	client, err = algod.MakeClient(af.cfg.NetAddr, af.cfg.Token)
 	if err != nil {
 		return nil, err
 	}
-	sm.aclient = client
+	af.aclient = client
 
 	genesisResponse, err := client.GetGenesis().Do(ctx)
 	if err != nil {
@@ -102,37 +102,37 @@ func (sm *syncModeImporter) Init(ctx context.Context, cfg plugins.PluginConfig, 
 	return &genesis, err
 }
 
-func (sm *syncModeImporter) Config() string {
-	s, _ := yaml.Marshal(sm.cfg)
+func (af *algodFollowerImporter) Config() string {
+	s, _ := yaml.Marshal(af.cfg)
 	return string(s)
 }
 
-func (sm *syncModeImporter) Close() error {
-	if sm.cancel != nil {
-		sm.cancel()
+func (af *algodFollowerImporter) Close() error {
+	if af.cancel != nil {
+		af.cancel()
 	}
 	return nil
 }
 
-func (sm *syncModeImporter) GetBlock(rnd uint64) (data.BlockData, error) {
+func (af *algodFollowerImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 	var blockbytes []byte
 	var err error
 	var blk data.BlockData
 
 	for retries := 0; retries < 3; retries++ {
 		// nextRound - 1 because the endpoint waits until the subsequent block is committed to return
-		_, err = sm.aclient.StatusAfterBlock(rnd - 1).Do(sm.ctx)
+		_, err = af.aclient.StatusAfterBlock(rnd - 1).Do(af.ctx)
 		if err != nil {
 			// If context has expired.
-			if sm.ctx.Err() != nil {
+			if af.ctx.Err() != nil {
 				return blk, fmt.Errorf("GetBlock ctx error: %w", err)
 			}
-			sm.logger.Errorf(
+			af.logger.Errorf(
 				"r=%d error getting status %d", retries, rnd)
 			continue
 		}
 		start := time.Now()
-		blockbytes, err = sm.aclient.BlockRaw(rnd).Do(sm.ctx)
+		blockbytes, err = af.aclient.BlockRaw(rnd).Do(af.ctx)
 		dt := time.Since(start)
 		GetAlgodRawBlockTimeSeconds.Observe(dt.Seconds())
 		if err != nil {
@@ -148,7 +148,7 @@ func (sm *syncModeImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 		// else converted over
 		// Round 0 has no delta associated with it
 		if rnd != 0 {
-			_, err = sm.aclient.GetLedgerStateDelta(rnd).Do(sm.ctx)
+			_, err = af.aclient.GetLedgerStateDelta(rnd).Do(af.ctx)
 			if err != nil {
 				return blk, err
 			}
@@ -161,11 +161,11 @@ func (sm *syncModeImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 		}
 		return blk, err
 	}
-	sm.logger.Error("GetBlock finished retries without fetching a block.  Check that the indexer is set to start at a round that the current algod node can handle")
+	af.logger.Error("GetBlock finished retries without fetching a block.  Check that the indexer is set to start at a round that the current algod node can handle")
 	return blk, fmt.Errorf("finished retries without fetching a block.  Check that the indexer is set to start at a round that the current algod node can handle")
 }
 
-func (sm *syncModeImporter) ProvideMetrics() []prometheus.Collector {
+func (af *algodFollowerImporter) ProvideMetrics() []prometheus.Collector {
 	return []prometheus.Collector{
 		GetAlgodRawBlockTimeSeconds,
 	}

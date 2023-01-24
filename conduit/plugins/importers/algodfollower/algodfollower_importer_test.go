@@ -1,4 +1,4 @@
-package syncalgod
+package algodfollower
 
 import (
 	"context"
@@ -32,9 +32,9 @@ func init() {
 func TestImporterMetadata(t *testing.T) {
 	testImporter = New()
 	metadata := testImporter.Metadata()
-	assert.Equal(t, metadata.Name, syncAlgodModeImporterMetadata.Name)
-	assert.Equal(t, metadata.Description, syncAlgodModeImporterMetadata.Description)
-	assert.Equal(t, metadata.Deprecated, syncAlgodModeImporterMetadata.Deprecated)
+	assert.Equal(t, metadata.Name, algodFollowerImporterMetadata.Name)
+	assert.Equal(t, metadata.Description, algodFollowerImporterMetadata.Description)
+	assert.Equal(t, metadata.Deprecated, algodFollowerImporterMetadata.Deprecated)
 }
 
 // TestCloseSuccess tests that closing results in no error
