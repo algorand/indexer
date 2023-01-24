@@ -96,7 +96,7 @@ func (algodImp *algodImporter) Init(ctx context.Context, cfg plugins.PluginConfi
 		return nil, err
 	}
 	if reflect.DeepEqual(genesis, sdk.Genesis{}) {
-		return nil, errors.New
+		return nil, fmt.Errorf("unable to fetch genesis file from API at %s", algodImp.cfg.NetAddr)
 	}
 
 	return &genesis, err
