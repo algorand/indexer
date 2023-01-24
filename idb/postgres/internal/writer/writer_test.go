@@ -27,7 +27,6 @@ import (
 	crypto2 "github.com/algorand/go-algorand-sdk/v2/crypto"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
 var serializable = pgx.TxOptions{IsoLevel: pgx.Serializable}
@@ -616,7 +615,7 @@ func TestWriterAccountTableCreateDeleteSameRound(t *testing.T) {
 	{
 		accountData, err := encoding.DecodeTrimmedLcAccountData(accountData)
 		require.NoError(t, err)
-		assert.Equal(t, ledgercore.AccountData{}, accountData)
+		assert.Equal(t, models2.Account{}, accountData)
 	}
 
 	assert.False(t, rows.Next())
@@ -648,7 +647,6 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 	require.NoError(t, err)
 
 	var delta models2.LedgerStateDelta
-	delta.Accts.Accounts = append(delta.Accts.Accounts, models2.AccountBalanceRecord{})
 	abr := models2.AccountBalanceRecord{
 		AccountData: models2.Account{
 			Amount: 5,
@@ -710,7 +708,7 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 	var delta models2.LedgerStateDelta
 	assetResRec := models2.AssetResourceRecord{
 		Address:      test.AccountA.String(),
-		AssetHolding: models2.AssetHolding{},
+		AssetHolding: assetHolding,
 		AssetIndex:   assetID,
 		AssetParams:  models2.AssetParams{},
 	}
@@ -744,9 +742,9 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 	require.True(t, rows.Next())
 	err = rows.Scan(&addr, &assetid, &amount, &frozen, &deleted, &createdAt, &closedAt)
 	require.NoError(t, err)
-
-	assert.Equal(t, test.AccountA[:], addr)
-	assert.Equal(t, assetID, basics.AssetIndex(assetid))
+	actual, _ := sdk.EncodeAddress(addr)
+	assert.Equal(t, test.AccountA.String(), actual)
+	assert.Equal(t, assetID, assetid)
 	assert.Equal(t, assetHolding.Amount, amount)
 	assert.Equal(t, assetHolding.IsFrozen, frozen)
 	assert.False(t, deleted)
@@ -770,6 +768,7 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 		AssetHolding: models2.AssetHolding{Deleted: true},
 		AssetIndex:   assetID,
 		AssetParams:  models2.AssetParams{},
+		AssetDeleted: true,
 	}
 
 	delta.Accts.Assets = append(delta.Accts.Assets)
@@ -786,7 +785,7 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, test.AccountA[:], addr)
-	assert.Equal(t, assetID, basics.AssetIndex(assetid))
+	assert.Equal(t, assetID, assetid)
 	assert.Equal(t, uint64(0), amount)
 	assert.Equal(t, assetHolding.IsFrozen, frozen)
 	assert.True(t, deleted)

@@ -124,7 +124,7 @@ type baseAccountData struct {
 	_struct struct{} `codec:",omitempty,omitemptyarray"`
 
 	Status              string                        `codec:"onl"`
-	AuthAddr            sdk.Digest                    `codec:"spend"`
+	AuthAddr            string                        `codec:"spend"`
 	TotalAppSchema      models.ApplicationStateSchema `codec:"tsch"`
 	TotalExtraAppPages  uint64                        `codec:"teap"`
 	TotalAssetParams    uint64                        `codec:"tasp"`

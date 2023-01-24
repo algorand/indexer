@@ -228,23 +228,23 @@ func writeAccount(round sdk.Round, address sdk.Address, accountData models.Accou
 
 func writeAssetResource(round sdk.Round, resource *models.AssetResourceRecord, batch *pgx.Batch) {
 	if resource.AssetDeleted {
-		batch.Queue(deleteAssetStmtName, resource.AssetIndex, resource.Address[:], round)
+		batch.Queue(deleteAssetStmtName, resource.AssetIndex, resource.Address, round)
 	} else {
 		if !reflect.DeepEqual(resource.AssetParams, models.AssetParams{}) {
 			// convert models.AssetParams to types.AssetParams
 			sdkAssetParams := convertModelAssetParams(resource.AssetParams)
 			batch.Queue(
-				upsertAssetStmtName, resource.AssetIndex, resource.Address[:],
+				upsertAssetStmtName, resource.AssetIndex, resource.Address,
 				encoding.EncodeAssetParams(sdkAssetParams), round)
 		}
 	}
 
 	if resource.AssetHoldingDeleted {
-		batch.Queue(deleteAccountAssetStmtName, resource.Address[:], resource.AssetIndex, round)
+		batch.Queue(deleteAccountAssetStmtName, resource.Address, resource.AssetIndex, round)
 	} else {
 		if !reflect.DeepEqual(resource.AssetHolding, models.AssetHolding{}) {
 			batch.Queue(
-				upsertAccountAssetStmtName, resource.Address[:], resource.AssetIndex,
+				upsertAccountAssetStmtName, resource.Address, resource.AssetIndex,
 				strconv.FormatUint(resource.AssetHolding.Amount, 10),
 				resource.AssetHolding.IsFrozen, round)
 		}

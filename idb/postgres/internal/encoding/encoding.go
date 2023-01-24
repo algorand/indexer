@@ -672,7 +672,7 @@ func convertTrimmedLcAccountData(ad models.Account) baseAccountData {
 	authAddr, _ := sdk.DecodeAddress(ad.AuthAddr)
 	return baseAccountData{
 		Status:              ad.Status,
-		AuthAddr:            sdk.Digest(authAddr),
+		AuthAddr:            authAddr.String(),
 		TotalAppSchema:      ad.AppsTotalSchema,
 		TotalExtraAppPages:  ad.AppsTotalExtraPages,
 		TotalAssetParams:    ad.TotalCreatedAssets,
@@ -694,26 +694,24 @@ func convertTrimmedLcAccountData(ad models.Account) baseAccountData {
 
 func unconvertTrimmedLcAccountData(ba baseAccountData) models.Account {
 	return models.Account{
-		//AccountBaseData: ledgercore.AccountBaseData{
-		//	Status:              ba.Status,
-		//	AuthAddr:            basics.Address(ba.AuthAddr),
-		//	TotalAppSchema:      ba.TotalAppSchema,
-		//	TotalExtraAppPages:  ba.TotalExtraAppPages,
-		//	TotalAppParams:      ba.TotalAppParams,
-		//	TotalAppLocalStates: ba.TotalAppLocalStates,
-		//	TotalAssetParams:    ba.TotalAssetParams,
-		//	TotalAssets:         ba.TotalAssets,
-		//	TotalBoxes:          ba.TotalBoxes,
-		//	TotalBoxBytes:       ba.TotalBoxBytes,
-		//},
-		//VotingData: ledgercore.VotingData{
-		//	VoteID:          ba.VoteID,
-		//	SelectionID:     ba.SelectionID,
-		//	StateProofID:    ba.StateProofID,
-		//	VoteFirstValid:  ba.VoteFirstValid,
-		//	VoteLastValid:   ba.VoteLastValid,
-		//	VoteKeyDilution: ba.VoteKeyDilution,
-		//},
+		Status:              ba.Status,
+		AuthAddr:            ba.AuthAddr,
+		AppsTotalSchema:     ba.TotalAppSchema,
+		AppsTotalExtraPages: ba.TotalExtraAppPages,
+		TotalCreatedApps:    ba.TotalAppParams,
+		TotalAppsOptedIn:    ba.TotalAppLocalStates,
+		TotalAssetsOptedIn:  ba.TotalAssets,
+		TotalCreatedAssets:  ba.TotalAssetParams,
+		TotalBoxes:          ba.TotalBoxes,
+		TotalBoxBytes:       ba.TotalBoxBytes,
+		Participation: models.AccountParticipation{
+			SelectionParticipationKey: ba.SelectionID,
+			StateProofKey:             ba.StateProofID,
+			VoteFirstValid:            ba.VoteFirstValid,
+			VoteKeyDilution:           ba.VoteKeyDilution,
+			VoteLastValid:             ba.VoteLastValid,
+			VoteParticipationKey:      ba.VoteID,
+		},
 	}
 }
 
