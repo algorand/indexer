@@ -146,9 +146,12 @@ func (sm *syncModeImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 
 		// We aren't going to do anything with the new delta until we get everything
 		// else converted over
-		_, err = sm.aclient.GetLedgerStateDelta(rnd).Do(sm.ctx)
-		if err != nil {
-			return blk, err
+		// Round 0 has no delta associated with it
+		if rnd != 0 {
+			_, err = sm.aclient.GetLedgerStateDelta(rnd).Do(sm.ctx)
+			if err != nil {
+				return blk, err
+			}
 		}
 
 		blk = data.BlockData{
