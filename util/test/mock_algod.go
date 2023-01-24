@@ -11,7 +11,6 @@ import (
 	"github.com/algorand/go-algorand-sdk/v2/client/v2/common/models"
 	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
 	"github.com/algorand/go-algorand-sdk/v2/types"
-
 	"github.com/algorand/go-algorand/protocol"
 )
 
@@ -63,8 +62,8 @@ func BlockResponder(reqPath string, w http.ResponseWriter) bool {
 	return false
 }
 
+// MakeGenesisResponder returns a responder that will provide a specific genesis response.
 func MakeGenesisResponder(genesis types.Genesis) func(reqPath string, w http.ResponseWriter) bool {
-	// GenesisResponder handles /v2/genesis requests and returns an empty Genesis object
 	return func(reqPath string, w http.ResponseWriter) bool {
 		if strings.Contains(reqPath, "/genesis") {
 			w.WriteHeader(http.StatusOK)
@@ -76,6 +75,7 @@ func MakeGenesisResponder(genesis types.Genesis) func(reqPath string, w http.Res
 	}
 }
 
+// GenesisResponder handles /v2/genesis requests and returns an empty Genesis object
 var GenesisResponder = MakeGenesisResponder(types.Genesis{
 	Comment: "",
 	DevMode: true,
