@@ -1,4 +1,4 @@
-name: algod
+name: algod_archival
 config:
   # Algod netaddr string
   netaddr: "http://url"
