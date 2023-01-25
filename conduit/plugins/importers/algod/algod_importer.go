@@ -24,6 +24,7 @@ import (
 	"github.com/algorand/go-algorand/rpcs"
 )
 
+// ImporterName is the algod importer plugin name
 const ImporterName = "algod_archival"
 
 type algodImporter struct {
