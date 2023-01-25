@@ -5,6 +5,7 @@ import (
 	_ "embed" // used to embed config
 	"fmt"
 	"net/url"
+	"reflect"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -93,6 +94,9 @@ func (algodImp *algodImporter) Init(ctx context.Context, cfg plugins.PluginConfi
 	err = json.LenientDecode([]byte(genesisResponse), &genesis)
 	if err != nil {
 		return nil, err
+	}
+	if reflect.DeepEqual(genesis, sdk.Genesis{}) {
+		return nil, fmt.Errorf("unable to fetch genesis file from API at %s", algodImp.cfg.NetAddr)
 	}
 
 	return &genesis, err

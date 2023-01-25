@@ -9,10 +9,9 @@ import (
 
 	"github.com/algorand/go-algorand-sdk/v2/client/v2/algod"
 	"github.com/algorand/go-algorand-sdk/v2/client/v2/common/models"
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
+	"github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/protocol"
-	"github.com/algorand/go-algorand/rpcs"
 )
 
 // AlgodHandler is used to handle http requests to a mock algod server
@@ -50,8 +49,12 @@ func MockAClient(handler *AlgodHandler) (*algod.Client, error) {
 func BlockResponder(reqPath string, w http.ResponseWriter) bool {
 	if strings.Contains(reqPath, "v2/blocks/") {
 		rnd, _ := strconv.Atoi(path.Base(reqPath))
-		blk := rpcs.EncodedBlockCert{Block: bookkeeping.Block{BlockHeader: bookkeeping.BlockHeader{Round: basics.Round(rnd)}}}
-		blockbytes := protocol.Encode(&blk)
+		type EncodedBlock struct {
+			_struct struct{}    `codec:""`
+			Block   types.Block `codec:"block"`
+		}
+		blk := EncodedBlock{Block: types.Block{BlockHeader: types.BlockHeader{Round: types.Round(rnd)}}}
+		blockbytes := msgpack.Encode(&blk)
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(blockbytes)
 		return true
@@ -59,20 +62,24 @@ func BlockResponder(reqPath string, w http.ResponseWriter) bool {
 	return false
 }
 
-// GenesisResponder handles /v2/genesis requests and returns an empty Genesis object
-func GenesisResponder(reqPath string, w http.ResponseWriter) bool {
-	if strings.Contains(reqPath, "/genesis") {
-		w.WriteHeader(http.StatusOK)
-		genesis := &bookkeeping.Genesis{
-			Comment: "",
-			DevMode: true,
+// MakeGenesisResponder returns a responder that will provide a specific genesis response.
+func MakeGenesisResponder(genesis types.Genesis) func(reqPath string, w http.ResponseWriter) bool {
+	return func(reqPath string, w http.ResponseWriter) bool {
+		if strings.Contains(reqPath, "/genesis") {
+			w.WriteHeader(http.StatusOK)
+			blockbytes := protocol.EncodeJSON(&genesis)
+			_, _ = w.Write(blockbytes)
+			return true
 		}
-		blockbytes := protocol.EncodeJSON(*genesis)
-		_, _ = w.Write(blockbytes)
-		return true
+		return false
 	}
-	return false
 }
+
+// GenesisResponder handles /v2/genesis requests and returns an empty Genesis object
+var GenesisResponder = MakeGenesisResponder(types.Genesis{
+	Comment: "",
+	DevMode: true,
+})
 
 // BlockAfterResponder handles /v2/wait-for-block-after requests and returns an empty NodeStatus object
 func BlockAfterResponder(reqPath string, w http.ResponseWriter) bool {
