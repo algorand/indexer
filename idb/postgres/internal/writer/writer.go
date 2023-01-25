@@ -227,31 +227,33 @@ func writeAccount(round sdk.Round, address sdk.Address, accountData models.Accou
 }
 
 func writeAssetResource(round sdk.Round, resource *models.AssetResourceRecord, batch *pgx.Batch) {
+	addrByte, _ := sdk.DecodeAddress(resource.Address)
 	if resource.AssetDeleted {
-		batch.Queue(deleteAssetStmtName, resource.AssetIndex, resource.Address, round)
+		batch.Queue(deleteAssetStmtName, resource.AssetIndex, addrByte[:], round)
 	} else {
 		if !reflect.DeepEqual(resource.AssetParams, models.AssetParams{}) {
 			// convert models.AssetParams to types.AssetParams
-			sdkAssetParams := convertModelAssetParams(resource.AssetParams)
+			sdkAssetParams := ConvertModelAssetParams(resource.AssetParams)
 			batch.Queue(
-				upsertAssetStmtName, resource.AssetIndex, resource.Address,
+				upsertAssetStmtName, resource.AssetIndex, addrByte[:],
 				encoding.EncodeAssetParams(sdkAssetParams), round)
 		}
 	}
 
 	if resource.AssetHoldingDeleted {
-		batch.Queue(deleteAccountAssetStmtName, resource.Address, resource.AssetIndex, round)
+		batch.Queue(deleteAccountAssetStmtName, addrByte[:], resource.AssetIndex, round)
 	} else {
 		if !reflect.DeepEqual(resource.AssetHolding, models.AssetHolding{}) {
 			batch.Queue(
-				upsertAccountAssetStmtName, resource.Address, resource.AssetIndex,
+				upsertAccountAssetStmtName, addrByte[:], resource.AssetIndex,
 				strconv.FormatUint(resource.AssetHolding.Amount, 10),
 				resource.AssetHolding.IsFrozen, round)
 		}
 	}
 }
 
-func convertModelAssetParams(params models.AssetParams) sdk.AssetParams {
+// ConvertModelAssetParams converts models.AssertParams to sdk types.AssetParams
+func ConvertModelAssetParams(params models.AssetParams) sdk.AssetParams {
 	var metaDataHash [32]byte
 	copy(metaDataHash[:], params.MetadataHash)
 	managerAddr, _ := sdk.DecodeAddress(params.Manager)
@@ -273,22 +275,23 @@ func convertModelAssetParams(params models.AssetParams) sdk.AssetParams {
 	}
 }
 func writeAppResource(round sdk.Round, resource *models.AppResourceRecord, batch *pgx.Batch) {
+	addrByte, _ := sdk.DecodeAddress(resource.Address)
 	if resource.AppDeleted {
-		batch.Queue(deleteAppStmtName, resource.AppIndex, resource.Address[:], round)
+		batch.Queue(deleteAppStmtName, resource.AppIndex, addrByte[:], round)
 	} else {
 		if !reflect.DeepEqual(resource.AppParams, models.ApplicationParams{}) {
 			batch.Queue(
-				upsertAppStmtName, resource.AppIndex, resource.Address[:],
+				upsertAppStmtName, resource.AppIndex, addrByte[:],
 				encoding.EncodeAppParams(resource.AppParams), round)
 		}
 	}
 
-	if resource.AppLocalState.Deleted {
-		batch.Queue(deleteAccountAppStmtName, resource.Address[:], resource.AppIndex, round)
+	if resource.AppLocalStateDeleted {
+		batch.Queue(deleteAccountAppStmtName, addrByte[:], resource.AppIndex, round)
 	} else {
 		if !reflect.DeepEqual(resource.AppLocalState, models.ApplicationLocalState{}) {
 			batch.Queue(
-				upsertAccountAppStmtName, resource.Address[:], resource.AppIndex,
+				upsertAccountAppStmtName, addrByte[:], resource.AppIndex,
 				encoding.EncodeAppLocalState(resource.AppLocalState), round)
 		}
 	}

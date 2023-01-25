@@ -427,7 +427,7 @@ func unconvertTealKeyValue(tkv tealKeyValue) []models.TealKeyValue {
 		return nil
 	}
 
-	res := make([]models.TealKeyValue, len(tkv))
+	var res []models.TealKeyValue
 	for k, tv := range tkv {
 		res = append(res, models.TealKeyValue{
 			Key:   k.data,
@@ -546,7 +546,7 @@ func unconvertAppLocalStateArray(array []appLocalState) []models.ApplicationLoca
 		return nil
 	}
 
-	res := make([]models.ApplicationLocalState, 0, len(array))
+	var res []models.ApplicationLocalState
 	for _, state := range array {
 		res = append(res, unconvertAppLocalState(state))
 	}
@@ -669,10 +669,9 @@ func TrimAccountData(ad models.Account) models.Account {
 }
 
 func convertTrimmedLcAccountData(ad models.Account) baseAccountData {
-	authAddr, _ := sdk.DecodeAddress(ad.AuthAddr)
 	return baseAccountData{
 		Status:              ad.Status,
-		AuthAddr:            authAddr.String(),
+		AuthAddr:            ad.AuthAddr,
 		TotalAppSchema:      ad.AppsTotalSchema,
 		TotalExtraAppPages:  ad.AppsTotalExtraPages,
 		TotalAssetParams:    ad.TotalCreatedAssets,

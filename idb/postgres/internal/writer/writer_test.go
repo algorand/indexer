@@ -709,8 +709,8 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 	assetResRec := models2.AssetResourceRecord{
 		Address:      test.AccountA.String(),
 		AssetHolding: assetHolding,
-		AssetIndex:   assetID,
 		AssetParams:  models2.AssetParams{},
+		AssetIndex:   assetID,
 	}
 	delta.Accts.Assets = append(delta.Accts.Assets, assetResRec)
 
@@ -742,8 +742,7 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 	require.True(t, rows.Next())
 	err = rows.Scan(&addr, &assetid, &amount, &frozen, &deleted, &createdAt, &closedAt)
 	require.NoError(t, err)
-	actual, _ := sdk.EncodeAddress(addr)
-	assert.Equal(t, test.AccountA.String(), actual)
+	assert.Equal(t, test.AccountA[:], addr)
 	assert.Equal(t, assetID, assetid)
 	assert.Equal(t, assetHolding.Amount, amount)
 	assert.Equal(t, assetHolding.IsFrozen, frozen)
@@ -764,14 +763,13 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 
 	delta.Accts = models2.AccountDeltas{}
 	assetResRec = models2.AssetResourceRecord{
-		Address:      test.AccountA.String(),
-		AssetHolding: models2.AssetHolding{Deleted: true},
-		AssetIndex:   assetID,
-		AssetParams:  models2.AssetParams{},
-		AssetDeleted: true,
+		Address:             test.AccountA.String(),
+		AssetIndex:          assetID,
+		AssetParams:         models2.AssetParams{},
+		AssetHoldingDeleted: true,
 	}
 
-	delta.Accts.Assets = append(delta.Accts.Assets)
+	delta.Accts.Assets = append(delta.Accts.Assets, assetResRec)
 
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -812,10 +810,10 @@ func TestWriterAccountAssetTableCreateDeleteSameRound(t *testing.T) {
 	//	ledgercore.AssetHoldingDelta{Deleted: true})
 	var delta models2.LedgerStateDelta
 	assetResRec := models2.AssetResourceRecord{
-		Address:      test.AccountA.String(),
-		AssetHolding: models2.AssetHolding{Deleted: true},
-		AssetIndex:   assetID,
-		AssetParams:  models2.AssetParams{},
+		Address:             test.AccountA.String(),
+		AssetIndex:          assetID,
+		AssetParams:         models2.AssetParams{},
+		AssetHoldingDeleted: true,
 	}
 	delta.Accts.Assets = append(delta.Accts.Assets, assetResRec)
 
@@ -845,7 +843,7 @@ func TestWriterAccountAssetTableCreateDeleteSameRound(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, test.AccountA[:], addr)
-	assert.Equal(t, assetID, basics.AssetIndex(assetid))
+	assert.Equal(t, assetID, assetid)
 	assert.Equal(t, uint64(0), amount)
 	assert.False(t, frozen)
 	assert.True(t, deleted)
@@ -953,12 +951,13 @@ func TestWriterAssetTableBasic(t *testing.T) {
 	err = rows.Scan(&index, &creatorAddr, &params, &deleted, &createdAt, &closedAt)
 	require.NoError(t, err)
 
-	assert.Equal(t, assetID, basics.AssetIndex(index))
+	assert.Equal(t, assetID, index)
 	assert.Equal(t, test.AccountA[:], creatorAddr)
 	{
 		paramsRead, err := encoding.DecodeAssetParams(params)
 		require.NoError(t, err)
-		assert.Equal(t, assetParams, paramsRead)
+		expected := writer.ConvertModelAssetParams(assetParams)
+		assert.Equal(t, expected, paramsRead)
 	}
 	assert.False(t, deleted)
 	assert.Equal(t, block.Round, sdk.Round(createdAt))
@@ -993,13 +992,13 @@ func TestWriterAssetTableBasic(t *testing.T) {
 	err = rows.Scan(&index, &creatorAddr, &params, &deleted, &createdAt, &closedAt)
 	require.NoError(t, err)
 
-	assert.Equal(t, assetID, basics.AssetIndex(index))
+	assert.Equal(t, assetID, index)
 	assert.Equal(t, test.AccountA[:], creatorAddr)
 	assert.Equal(t, []byte("null"), params)
 	{
 		paramsRead, err := encoding.DecodeAssetParams(params)
 		require.NoError(t, err)
-		assert.Equal(t, helpers.ConvertParams(basics.AssetParams{}), paramsRead)
+		assert.Equal(t, sdk.AssetParams{}, paramsRead)
 	}
 	assert.True(t, deleted)
 	assert.Equal(t, uint64(block.Round)-1, createdAt)
@@ -1057,7 +1056,7 @@ func TestWriterAssetTableCreateDeleteSameRound(t *testing.T) {
 	err = row.Scan(&index, &creatorAddr, &params, &deleted, &createdAt, &closedAt)
 	require.NoError(t, err)
 
-	assert.Equal(t, assetID, basics.AssetIndex(index))
+	assert.Equal(t, assetID, index)
 	assert.Equal(t, test.AccountA[:], creatorAddr)
 	assert.Equal(t, []byte("null"), params)
 	{
@@ -1135,7 +1134,7 @@ func TestWriterAppTableBasic(t *testing.T) {
 	err = rows.Scan(&index, &creator, &params, &deleted, &createdAt, &closedAt)
 	require.NoError(t, err)
 
-	assert.Equal(t, appID, basics.AppIndex(index))
+	assert.Equal(t, appID, index)
 	assert.Equal(t, test.AccountA[:], creator)
 	{
 		paramsRead, err := encoding.DecodeAppParams(params)
@@ -1175,13 +1174,13 @@ func TestWriterAppTableBasic(t *testing.T) {
 	err = rows.Scan(&index, &creator, &params, &deleted, &createdAt, &closedAt)
 	require.NoError(t, err)
 
-	assert.Equal(t, appID, basics.AppIndex(index))
+	assert.Equal(t, appID, index)
 	assert.Equal(t, test.AccountA[:], creator)
 	assert.Equal(t, []byte("null"), params)
 	{
 		paramsRead, err := encoding.DecodeAppParams(params)
 		require.NoError(t, err)
-		assert.Equal(t, basics.AppParams{}, paramsRead)
+		assert.Equal(t, models2.ApplicationParams{}, paramsRead)
 	}
 	assert.True(t, deleted)
 	assert.Equal(t, uint64(block.Round)-1, createdAt)
@@ -1240,13 +1239,13 @@ func TestWriterAppTableCreateDeleteSameRound(t *testing.T) {
 	err = row.Scan(&index, &creator, &params, &deleted, &createdAt, &closedAt)
 	require.NoError(t, err)
 
-	assert.Equal(t, appID, basics.AppIndex(index))
+	assert.Equal(t, appID, index)
 	assert.Equal(t, test.AccountA[:], creator)
 	assert.Equal(t, []byte("null"), params)
 	{
 		paramsRead, err := encoding.DecodeAppParams(params)
 		require.NoError(t, err)
-		assert.Equal(t, basics.AppParams{}, paramsRead)
+		assert.Equal(t, models2.ApplicationParams{}, paramsRead)
 	}
 	assert.True(t, deleted)
 	assert.Equal(t, block.Round, sdk.Round(createdAt))
@@ -1316,7 +1315,7 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, test.AccountA[:], addr)
-	assert.Equal(t, appID, basics.AppIndex(app))
+	assert.Equal(t, appID, app)
 	{
 		appLocalStateRead, err := encoding.DecodeAppLocalState(localstate)
 		require.NoError(t, err)
@@ -1334,10 +1333,9 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 
 	delta.Accts = models2.AccountDeltas{}
 	appResRec = models2.AppResourceRecord{
-		Address:       test.AccountA.String(),
-		AppLocalState: appLocalState,
-		AppIndex:      appID,
-		AppDeleted:    true,
+		Address:              test.AccountA.String(),
+		AppIndex:             appID,
+		AppLocalStateDeleted: true,
 	}
 	delta.Accts.Apps = append(delta.Accts.Apps, appResRec)
 	//delta.Accts.UpsertAppResource(
@@ -1356,12 +1354,12 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, test.AccountA[:], addr)
-	assert.Equal(t, appID, basics.AppIndex(app))
+	assert.Equal(t, appID, app)
 	assert.Equal(t, []byte("null"), localstate)
 	{
 		appLocalStateRead, err := encoding.DecodeAppLocalState(localstate)
 		require.NoError(t, err)
-		assert.Equal(t, basics.AppLocalState{}, appLocalStateRead)
+		assert.Equal(t, models2.ApplicationLocalState{}, appLocalStateRead)
 	}
 	assert.True(t, deleted)
 	assert.Equal(t, uint64(block.Round)-1, createdAt)
@@ -1388,9 +1386,9 @@ func TestWriterAccountAppTableCreateDeleteSameRound(t *testing.T) {
 
 	var delta models2.LedgerStateDelta
 	appResRec := models2.AppResourceRecord{
-		Address:    test.AccountA.String(),
-		AppDeleted: true,
-		AppIndex:   appID,
+		Address:              test.AccountA.String(),
+		AppLocalStateDeleted: true,
+		AppIndex:             appID,
 	}
 	delta.Accts.Apps = append(delta.Accts.Apps, appResRec)
 
@@ -1419,12 +1417,12 @@ func TestWriterAccountAppTableCreateDeleteSameRound(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, test.AccountA[:], addr)
-	assert.Equal(t, appID, basics.AppIndex(app))
+	assert.Equal(t, appID, app)
 	assert.Equal(t, []byte("null"), localstate)
 	{
 		appLocalStateRead, err := encoding.DecodeAppLocalState(localstate)
 		require.NoError(t, err)
-		assert.Equal(t, basics.AppLocalState{}, appLocalStateRead)
+		assert.Equal(t, models2.ApplicationLocalState{}, appLocalStateRead)
 	}
 	assert.True(t, deleted)
 	assert.Equal(t, block.Round, sdk.Round(createdAt))
