@@ -81,7 +81,7 @@ func TestMakePipelineConfigErrors(t *testing.T) {
 		{"processors not processor", `---
 log-level: info
 importer:
-  name: "algod"
+  name: "algod_archival"
   config:
     netaddr: "http://127.0.0.1:8080"
     token: "e36c01fc77e490f23e61899c0c22c6390d0fff1443af2c95d056dc5ce4e61302"
@@ -96,7 +96,7 @@ exporter:
 		{"exporter not exporters", `---
 log-level: info
 importer:
-  name: "algod"
+  name: "algod_archival"
   config:
     netaddr: "http://127.0.0.1:8080"
     token: "e36c01fc77e490f23e61899c0c22c6390d0fff1443af2c95d056dc5ce4e61302"
@@ -112,7 +112,7 @@ exporters:
 		{"config not configs", `---
 log-level: info
 importer:
-  name: "algod"
+  name: "algod_archival"
   config:
     netaddr: "http://127.0.0.1:8080"
     token: "e36c01fc77e490f23e61899c0c22c6390d0fff1443af2c95d056dc5ce4e61302"
@@ -152,7 +152,7 @@ func TestMakePipelineConfig(t *testing.T) {
 	validConfigFile := `---
 log-level: info
 importer:
-  name: "algod"
+  name: "algod_archival"
   config:
     netaddr: "http://127.0.0.1:8080"
     token: "e36c01fc77e490f23e61899c0c22c6390d0fff1443af2c95d056dc5ce4e61302"
@@ -174,7 +174,7 @@ exporter:
 	assert.Nil(t, err)
 	assert.Equal(t, pCfg.PipelineLogLevel, "info")
 	assert.Equal(t, pCfg.Valid(), nil)
-	assert.Equal(t, pCfg.Importer.Name, "algod")
+	assert.Equal(t, pCfg.Importer.Name, "algod_archival")
 	assert.Equal(t, pCfg.Importer.Config["token"], "e36c01fc77e490f23e61899c0c22c6390d0fff1443af2c95d056dc5ce4e61302")
 	assert.Equal(t, pCfg.Processors[0].Name, "noop")
 	assert.Equal(t, pCfg.Processors[0].Config["catchpoint"], "7560000#3OUX3TLXZNOK6YJXGETKRRV2MHMILF5CCIVZUOJCT6SLY5H2WWTQ")

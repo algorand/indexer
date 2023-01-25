@@ -21,6 +21,7 @@ import (
 	"github.com/algorand/indexer/conduit/pipeline"
 	_ "github.com/algorand/indexer/conduit/plugins/exporters/postgresql"
 	_ "github.com/algorand/indexer/conduit/plugins/importers/algod"
+	algodimporter "github.com/algorand/indexer/conduit/plugins/importers/algod"
 	_ "github.com/algorand/indexer/conduit/plugins/processors/blockprocessor"
 	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/fetcher"
@@ -375,7 +376,7 @@ func makeConduitConfig(dCfg *daemonConfig, nextRound uint64) pipeline.Config {
 		HideBanner:       true,
 		PipelineLogLevel: logger.GetLevel().String(),
 		Importer: pipeline.NameConfigPair{
-			Name: "algod",
+			Name: algodimporter.ImporterName,
 			Config: map[string]interface{}{
 				"netaddr": dCfg.algodAddr,
 				"token":   dCfg.algodToken,

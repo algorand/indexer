@@ -24,7 +24,7 @@ class AlgodImporter(ImporterPlugin):
 
     @property
     def name(self):
-        return "algod"
+        return "algod_archival"
 
     @property
     def lastblock(self):
