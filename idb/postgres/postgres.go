@@ -672,7 +672,7 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 		whereParts = append(whereParts, "t.txid IS NOT NULL")
 	}
 
-	// If returnInnerTxnOnly flag is false, then return the root transaction
+	// If these flags are true, return the root transaction
 	if tf.SkipInnerTransactionConversion || tf.SkipInnerTransactions {
 		query = "SELECT t.round, t.intra, t.txn, NULL, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
 	} else {
@@ -683,7 +683,7 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 		query += " JOIN txn_participation p ON t.round = p.round AND t.intra = p.intra"
 	}
 
-	// join in the root transaction if the returnInnerTxnOnly flag is false
+	// join in the root transaction if needed
 	if !(tf.SkipInnerTransactionConversion || tf.SkipInnerTransactions) {
 		query += " LEFT OUTER JOIN txn root ON t.round = root.round AND (t.extra->>'root-intra')::int = root.intra"
 	}
