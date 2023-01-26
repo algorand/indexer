@@ -9,7 +9,7 @@ metrics:
 
 # The importer is typically an algod archival instance.
 importer:
-    name: algod
+    name: algod_archival
     config:
         netaddr: "your algod address here"
         token: "your algod token here"
