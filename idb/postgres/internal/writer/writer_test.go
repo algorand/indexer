@@ -1980,42 +1980,52 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 
 	// ---- ROUND 3: delete 4, insert 5  ---- //
 
-	// v4 is "deleted"
-	//v5 = "re-inserted"
+	//v4 is "deleted"
+	v5 = "re-inserted"
 
 	//delta.KvMods = map[string]ledgercore.KvValueDelta{}
 	//delta.KvMods[k4] = ledgercore.KvValueDelta{Data: nil}
 	//delta.KvMods[k5] = ledgercore.KvValueDelta{Data: []byte(v5)}
+	delta.KvMods = []models2.KvDelta{
+		{
+			Key:   []byte(k4),
+			Value: nil,
+		},
+		{
+			Key:   []byte(k5),
+			Value: []byte(v5),
+		},
+	}
 
-	//delta2, newKvMods, accts = buildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
-	//delta.Accts = delta2.Accts
-	//
-	//err = pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
-	//require.NoError(t, err)
-	//
-	//validateRow(n1, v1)         // untouched
-	//validateRow(n2, v2)         // untouched
-	//validateRow(n3, notPresent) // still deleted
-	//validateRow(n4, notPresent) // deleted
-	//validateRow(n5, v5)         // re-inserted
-	//validateRow(n6, v6)         // untouched
-	//
-	//validateTotals()
-	//
+	delta2, newKvMods, accts = buildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
+	delta.Accts = delta2.Accts
+
+	err = pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
+	require.NoError(t, err)
+
+	validateRow(n1, v1)         // untouched
+	validateRow(n2, v2)         // untouched
+	validateRow(n3, notPresent) // still deleted
+	validateRow(n4, notPresent) // deleted
+	validateRow(n5, v5)         // re-inserted
+	validateRow(n6, v6)         // untouched
+
+	validateTotals()
+
 	///*** FOURTH ROUND  - NOOP ***/
-	//delta.KvMods = map[string]ledgercore.KvValueDelta{}
-	//delta2, _, accts = buildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
-	//delta.Accts = delta2.Accts
-	//
-	//err = pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
-	//require.NoError(t, err)
-	//
-	//validateRow(n1, v1)         // untouched
-	//validateRow(n2, v2)         // untouched
-	//validateRow(n3, notPresent) // still deleted
-	//validateRow(n4, notPresent) // still deleted
-	//validateRow(n5, v5)         // untouched
-	//validateRow(n6, v6)         // untouched
-	//
-	//validateTotals()
+	delta.KvMods = []models2.KvDelta{}
+	delta2, _, accts = buildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
+	delta.Accts = delta2.Accts
+
+	err = pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
+	require.NoError(t, err)
+
+	validateRow(n1, v1)         // untouched
+	validateRow(n2, v2)         // untouched
+	validateRow(n3, notPresent) // still deleted
+	validateRow(n4, notPresent) // still deleted
+	validateRow(n5, v5)         // untouched
+	validateRow(n6, v6)         // untouched
+
+	validateTotals()
 }
