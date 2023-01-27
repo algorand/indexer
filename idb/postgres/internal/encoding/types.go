@@ -5,8 +5,6 @@ import (
 	"github.com/algorand/indexer/types"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/crypto"
-	"github.com/algorand/go-algorand/data/basics"
 )
 
 type blockHeader struct {
@@ -82,25 +80,25 @@ type signedTxnWithAD struct {
 }
 
 type trimmedAccountData struct {
-	basics.AccountData
-	AuthAddrOverride crypto.Digest `codec:"spend"`
+	Account          models.Account
+	AuthAddrOverride string `codec:"auth-addr"`
 }
 
 type tealValue struct {
 	models.TealValue
-	BytesOverride []byte `codec:"tb"`
+	BytesOverride []byte `codec:"value"`
 }
 
 type tealKeyValue map[byteArray]tealValue
 
 type appLocalState struct {
 	models.ApplicationLocalState
-	KeyValueOverride tealKeyValue `codec:"tkv"`
+	KeyValueOverride tealKeyValue `codec:"key-value"`
 }
 
 type appParams struct {
 	models.ApplicationParams
-	GlobalStateOverride tealKeyValue `codec:"gs"`
+	GlobalStateOverride tealKeyValue `codec:"global-state"`
 }
 
 type specialAddresses struct {

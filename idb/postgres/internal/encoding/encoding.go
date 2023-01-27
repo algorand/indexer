@@ -13,8 +13,6 @@ import (
 	"github.com/algorand/indexer/util"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/crypto"
-	"github.com/algorand/go-algorand/data/basics"
 )
 
 var jsonCodecHandle *codec.JsonHandle
@@ -368,30 +366,30 @@ func DecodeSignedTxnWithAD(data []byte) (sdk.SignedTxnWithAD, error) {
 	return unconvertSignedTxnWithAD(stxn), nil
 }
 
-func convertTrimmedAccountData(ad basics.AccountData) trimmedAccountData {
+func convertTrimmedAccountData(ad models.Account) trimmedAccountData {
 	return trimmedAccountData{
-		AccountData:      ad,
-		AuthAddrOverride: crypto.Digest(ad.AuthAddr),
+		Account:          ad,
+		AuthAddrOverride: ad.AuthAddr,
 	}
 }
 
-func unconvertTrimmedAccountData(ad trimmedAccountData) basics.AccountData {
-	res := ad.AccountData
-	res.AuthAddr = basics.Address(ad.AuthAddrOverride)
+func unconvertTrimmedAccountData(ad trimmedAccountData) models.Account {
+	res := ad.Account
+	res.AuthAddr = ad.AuthAddrOverride
 	return res
 }
 
 // EncodeTrimmedAccountData encodes account data into json.
-func EncodeTrimmedAccountData(ad basics.AccountData) []byte {
+func EncodeTrimmedAccountData(ad models.Account) []byte {
 	return encodeJSON(convertTrimmedAccountData(ad))
 }
 
 // DecodeTrimmedAccountData decodes account data from json.
-func DecodeTrimmedAccountData(data []byte) (basics.AccountData, error) {
+func DecodeTrimmedAccountData(data []byte) (models.Account, error) {
 	var ado trimmedAccountData // ado - account data with override
 	err := DecodeJSON(data, &ado)
 	if err != nil {
-		return basics.AccountData{}, err
+		return models.Account{}, err
 	}
 
 	return unconvertTrimmedAccountData(ado), nil
@@ -417,7 +415,7 @@ func convertTealKeyValue(tkv []models.TealKeyValue) tealKeyValue {
 
 	res := make(map[byteArray]tealValue, len(tkv))
 	for _, tv := range tkv {
-		res[byteArray{data: tv.Key}] = convertTealValue(tv.Value)
+		res[byteArray{data: tv.Key}] = tealValue{}
 	}
 	return res
 }
@@ -438,6 +436,7 @@ func unconvertTealKeyValue(tkv tealKeyValue) []models.TealKeyValue {
 }
 
 func convertAppLocalState(state models.ApplicationLocalState) appLocalState {
+	// TODO: state encoding issue
 	return appLocalState{
 		ApplicationLocalState: state,
 		KeyValueOverride:      convertTealKeyValue(state.KeyValue),
@@ -675,7 +674,7 @@ func convertTrimmedLcAccountData(ad models.Account) baseAccountData {
 		TotalAppSchema:      ad.AppsTotalSchema,
 		TotalExtraAppPages:  ad.AppsTotalExtraPages,
 		TotalAssetParams:    ad.TotalCreatedAssets,
-		TotalAssets:         ad.TotalCreatedAssets + ad.TotalAssetsOptedIn,
+		TotalAssets:         ad.TotalAssetsOptedIn,
 		TotalAppParams:      ad.TotalCreatedApps,
 		TotalAppLocalStates: ad.TotalAppsOptedIn,
 		TotalBoxes:          ad.TotalBoxes,
