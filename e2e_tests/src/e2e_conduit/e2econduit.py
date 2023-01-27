@@ -49,7 +49,7 @@ def main():
         sourcenet = e2edata and os.path.join(e2edata, "net")
     importer_source = sourcenet if sourcenet else args.s3_source_net
     if importer_source:
-        # scenarios.append(indexer_scenario(importer_source))
+        scenarios.append(indexer_scenario(importer_source))
         scenarios.append(follower_indexer_scenario(importer_source))
 
     runner = ConduitE2ETestRunner(args.conduit_bin, keep_temps=args.keep_temps)
