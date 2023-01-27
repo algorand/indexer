@@ -76,9 +76,6 @@ type Exporter interface {
     // Receive is called for each block to be processed by the exporter.
     Receive(exportData ExportData) error
 
-    // HandleGenesis is an Exporter's opportunity to do initial validation and handling of the Genesis block.
-    HandleGenesis(genesis bookkeeping.Genesis) error
-  
     // Round returns the next round not yet processed by the Exporter. Atomically updated when Receive successfully completes.
     Round() uint64
 }

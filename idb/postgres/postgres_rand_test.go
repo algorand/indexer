@@ -10,9 +10,8 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/stretchr/testify/require"
 
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 
 	models "github.com/algorand/indexer/api/generated/v2"
@@ -63,9 +62,8 @@ func maybeGetAccount(t *testing.T, db *IndexerDb, address basics.Address) *model
 // and that there are no problems around passing account address pointers to the postgres
 // driver which could be the same pointer if we are not careful.
 func TestWriteReadAccountData(t *testing.T) {
-	db, shutdownFunc, _, ld := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer ld.Close()
 
 	data := make(map[basics.Address]ledgercore.AccountData)
 	var delta ledgercore.StateDelta
@@ -81,7 +79,7 @@ func TestWriteReadAccountData(t *testing.T) {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
 
-		err = w.AddBlock(&bookkeeping.Block{}, transactions.Payset{}, delta)
+		err = w.AddBlock(&sdk.Block{}, delta)
 		require.NoError(t, err)
 
 		w.Close()
@@ -218,9 +216,8 @@ func generateAppLocalStateDelta(t *testing.T) ledgercore.AppLocalStateDelta {
 // and that there are no problems around passing account address pointers to the postgres
 // driver which could be the same pointer if we are not careful.
 func TestWriteReadResources(t *testing.T) {
-	db, shutdownFunc, _, ld := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer ld.Close()
 
 	type datum struct {
 		assetIndex  basics.AssetIndex
@@ -261,7 +258,7 @@ func TestWriteReadResources(t *testing.T) {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
 
-		err = w.AddBlock(&bookkeeping.Block{}, transactions.Payset{}, delta)
+		err = w.AddBlock(&sdk.Block{}, delta)
 		require.NoError(t, err)
 
 		w.Close()

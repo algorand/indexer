@@ -3,12 +3,13 @@ package dummy
 import (
 	"context"
 
-	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/types"
+
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
 type dummyIndexerDb struct {
@@ -29,7 +30,7 @@ func (db *dummyIndexerDb) AddBlock(block *ledgercore.ValidatedBlock) error {
 }
 
 // LoadGenesis is part of idb.IndexerDB
-func (db *dummyIndexerDb) LoadGenesis(genesis bookkeeping.Genesis) (err error) {
+func (db *dummyIndexerDb) LoadGenesis(genesis sdk.Genesis) (err error) {
 	return nil
 }
 
@@ -44,13 +45,13 @@ func (db *dummyIndexerDb) GetNextRoundToLoad() (uint64, error) {
 }
 
 // GetSpecialAccounts is part of idb.IndexerDb
-func (db *dummyIndexerDb) GetSpecialAccounts(ctx context.Context) (transactions.SpecialAddresses, error) {
-	return transactions.SpecialAddresses{}, nil
+func (db *dummyIndexerDb) GetSpecialAccounts(ctx context.Context) (types.SpecialAddresses, error) {
+	return types.SpecialAddresses{}, nil
 }
 
 // GetBlock is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (blockHeader bookkeeping.BlockHeader, transactions []idb.TxnRow, err error) {
-	return bookkeeping.BlockHeader{}, nil, nil
+func (db *dummyIndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (blockHeader sdk.BlockHeader, transactions []idb.TxnRow, err error) {
+	return sdk.BlockHeader{}, nil, nil
 }
 
 // Transactions is part of idb.IndexerDB
@@ -95,10 +96,15 @@ func (db *dummyIndexerDb) Health(ctx context.Context) (state idb.Health, err err
 
 // GetNetworkState is part of idb.IndexerDB
 func (db *dummyIndexerDb) GetNetworkState() (state idb.NetworkState, err error) {
-	return idb.NetworkState{}, nil
+	return idb.NetworkState{GenesisHash: sdk.Genesis{}.Hash()}, nil
 }
 
 // SetNetworkState is part of idb.IndexerDB
-func (db *dummyIndexerDb) SetNetworkState(genesis bookkeeping.Genesis) error {
+func (db *dummyIndexerDb) SetNetworkState(genesis sdk.Digest) error {
+	return nil
+}
+
+// SetNetworkState is part of idb.IndexerDB
+func (db *dummyIndexerDb) DeleteTransactions(ctx context.Context, keep uint64) error {
 	return nil
 }

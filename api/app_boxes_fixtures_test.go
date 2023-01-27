@@ -6,18 +6,17 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/data/transactions/logic"
-	"github.com/algorand/go-algorand/ledger"
-	"github.com/algorand/go-algorand/rpcs"
-	"github.com/algorand/indexer/processor"
-	"github.com/algorand/indexer/util/test"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
+	"github.com/algorand/indexer/idb/postgres"
 	"github.com/stretchr/testify/require"
+
+	"github.com/algorand/avm-abi/apps"
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/indexer/util/test"
 )
 
 func goalEncode(t *testing.T, s string) string {
-	b1, err := logic.NewAppCallBytes(s)
+	b1, err := apps.NewAppCallBytes(s)
 	require.NoError(t, err, s)
 	b2, err := b1.Raw()
 	require.NoError(t, err)
@@ -40,45 +39,38 @@ var goalEncodingExamples map[string]string = map[string]string{
 	"abi":         `(uint64,string,bool[]):[399,"pls pass",[true,false]]`,
 }
 
-func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
+func setupLiveBoxes(t *testing.T, db *postgres.IndexerDb) {
 	deleted := "DELETED"
 
 	firstAppid := basics.AppIndex(1)
-	secondAppid := basics.AppIndex(3)
 	thirdAppid := basics.AppIndex(5)
 
 	// ---- ROUND 1: create and fund the box app and another app which won't have boxes ---- //
-	currentRound := basics.Round(1)
+	//currentRound := basics.Round(1)
 
-	createTxn, err := test.MakeComplexCreateAppTxn(test.AccountA, test.BoxApprovalProgram, test.BoxClearProgram, 8)
+	//createTxn, err := test.MakeComplexCreateAppTxn(test.AccountA, test.BoxApprovalProgram, test.BoxClearProgram, 8)
+	//require.NoError(t, err)
+	//
+	//payNewAppTxn := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountA, firstAppid.Address(), basics.Address{},
+	//	basics.Address{})
+	//
+	//createTxn2, err := test.MakeComplexCreateAppTxn(test.AccountB, test.BoxApprovalProgram, test.BoxClearProgram, 8)
+	//require.NoError(t, err)
+	//payNewAppTxn2 := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountB, secondAppid.Address(), basics.Address{},
+	//	basics.Address{})
+	//
+	//createTxn3, err := test.MakeComplexCreateAppTxn(test.AccountC, test.BoxApprovalProgram, test.BoxClearProgram, 8)
+	//require.NoError(t, err)
+	//payNewAppTxn3 := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountC, thirdAppid.Address(), basics.Address{},
+	//	basics.Address{})
+
+	vb1, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LiveBoxesR1.vb")
 	require.NoError(t, err)
-
-	payNewAppTxn := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountA, firstAppid.Address(), basics.Address{},
-		basics.Address{})
-
-	createTxn2, err := test.MakeComplexCreateAppTxn(test.AccountB, test.BoxApprovalProgram, test.BoxClearProgram, 8)
-	require.NoError(t, err)
-	payNewAppTxn2 := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountB, secondAppid.Address(), basics.Address{},
-		basics.Address{})
-
-	createTxn3, err := test.MakeComplexCreateAppTxn(test.AccountC, test.BoxApprovalProgram, test.BoxClearProgram, 8)
-	require.NoError(t, err)
-	payNewAppTxn3 := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountC, thirdAppid.Address(), basics.Address{},
-		basics.Address{})
-
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createTxn, &payNewAppTxn, &createTxn2, &payNewAppTxn2, &createTxn3, &payNewAppTxn3)
-	require.NoError(t, err)
-
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
-	require.NoError(t, err)
-
-	// block header handoff: round 1 --> round 2
-	blockHdr, err := l.BlockHdr(currentRound)
+	blk1 := ledgercore.MakeValidatedBlock(vb1.Blk, vb1.Delta)
+	err = db.AddBlock(&blk1)
 	require.NoError(t, err)
 
 	// ---- ROUND 2: create 8 boxes for appid == 1  ---- //
-	currentRound = basics.Round(2)
-
 	boxNames := []string{
 		"a great box",
 		"another great box",
@@ -93,27 +85,25 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 	expectedAppBoxes := map[basics.AppIndex]map[string]string{}
 	expectedAppBoxes[firstAppid] = map[string]string{}
 	newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-	boxTxns := make([]*transactions.SignedTxnWithAD, 0)
+	//boxTxns := make([]*transactions.SignedTxnWithAD, 0)
+	//for _, boxName := range boxNames {
+	//	expectedAppBoxes[firstAppid][apps.MakeBoxKey(uint64(firstAppid), boxName)] = newBoxValue
+	//	args := []string{"create", boxName}
+	//	boxTxn := test.MakeAppCallTxnWithBoxes(uint64(firstAppid), test.AccountA, args, []string{boxName})
+	//	boxTxns = append(boxTxns, &boxTxn)
+	//}
+
 	for _, boxName := range boxNames {
-		expectedAppBoxes[firstAppid][logic.MakeBoxKey(firstAppid, boxName)] = newBoxValue
-		args := []string{"create", boxName}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(firstAppid), test.AccountA, args, []string{boxName})
-		boxTxns = append(boxTxns, &boxTxn)
+		expectedAppBoxes[firstAppid][apps.MakeBoxKey(uint64(firstAppid), boxName)] = newBoxValue
 	}
 
-	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	vb2, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LiveBoxesR2.vb")
 	require.NoError(t, err)
-
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
-	require.NoError(t, err)
-
-	// block header handoff: round 2 --> round 3
-	blockHdr, err = l.BlockHdr(currentRound)
+	blk2 := ledgercore.MakeValidatedBlock(vb2.Blk, vb2.Delta)
+	err = db.AddBlock(&blk2)
 	require.NoError(t, err)
 
 	// ---- ROUND 3: populate the boxes appropriately  ---- //
-	currentRound = basics.Round(3)
-
 	appBoxesToSet := map[string]string{
 		"a great box":               "it's a wonderful box",
 		"another great box":         "I'm wonderful too",
@@ -125,56 +115,55 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 		"box #8":                    "eight is beautiful",
 	}
 
-	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
-	for boxName, valPrefix := range appBoxesToSet {
-		args := []string{"set", boxName, valPrefix}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(firstAppid), test.AccountA, args, []string{boxName})
-		boxTxns = append(boxTxns, &boxTxn)
+	//boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	//for boxName, valPrefix := range appBoxesToSet {
+	//	args := []string{"set", boxName, valPrefix}
+	//	boxTxn := test.MakeAppCallTxnWithBoxes(uint64(firstAppid), test.AccountA, args, []string{boxName})
+	//	boxTxns = append(boxTxns, &boxTxn)
+	//
+	//	key := apps.MakeBoxKey(uint64(firstAppid), boxName)
+	//	expectedAppBoxes[firstAppid][key] = valPrefix + newBoxValue[len(valPrefix):]
+	//}
 
-		key := logic.MakeBoxKey(firstAppid, boxName)
+	for boxName, valPrefix := range appBoxesToSet {
+		key := apps.MakeBoxKey(uint64(firstAppid), boxName)
 		expectedAppBoxes[firstAppid][key] = valPrefix + newBoxValue[len(valPrefix):]
 	}
-	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
-	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	vb3, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LiveBoxesR3.vb")
 	require.NoError(t, err)
-
-	// block header handoff: round 3 --> round 4
-	blockHdr, err = l.BlockHdr(currentRound)
+	blk3 := ledgercore.MakeValidatedBlock(vb3.Blk, vb3.Delta)
+	err = db.AddBlock(&blk3)
 	require.NoError(t, err)
 
 	// ---- ROUND 4: delete the unhappy boxes  ---- //
-	currentRound = basics.Round(4)
-
 	appBoxesToDelete := []string{
 		"not so great box",
 		"disappointing box",
 		"I'm destined for deletion",
 	}
 
-	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	//boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	//for _, boxName := range appBoxesToDelete {
+	//	args := []string{"delete", boxName}
+	//	boxTxn := test.MakeAppCallTxnWithBoxes(uint64(firstAppid), test.AccountA, args, []string{boxName})
+	//	boxTxns = append(boxTxns, &boxTxn)
+	//
+	//	key := apps.MakeBoxKey(uint64(firstAppid), boxName)
+	//	expectedAppBoxes[firstAppid][key] = deleted
+	//}
 	for _, boxName := range appBoxesToDelete {
-		args := []string{"delete", boxName}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(firstAppid), test.AccountA, args, []string{boxName})
-		boxTxns = append(boxTxns, &boxTxn)
-
-		key := logic.MakeBoxKey(firstAppid, boxName)
+		key := apps.MakeBoxKey(uint64(firstAppid), boxName)
 		expectedAppBoxes[firstAppid][key] = deleted
 	}
-	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
-	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	vb4, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LiveBoxesR4.vb")
 	require.NoError(t, err)
-
-	// block header handoff: round 4 --> round 5
-	blockHdr, err = l.BlockHdr(currentRound)
+	blk4 := ledgercore.MakeValidatedBlock(vb4.Blk, vb4.Delta)
+	err = db.AddBlock(&blk4)
 	require.NoError(t, err)
 
 	// ---- ROUND 5: create 4 new boxes, overwriting one of the former boxes  ---- //
-	currentRound = basics.Round(5)
-
 	randBoxName := []byte{0x52, 0xfd, 0xfc, 0x7, 0x21, 0x82, 0x65, 0x4f, 0x16, 0x3f, 0x5f, 0xf, 0x9a, 0x62, 0x1d, 0x72, 0x95, 0x66, 0xc7, 0x4d, 0x10, 0x3, 0x7c, 0x4d, 0x7b, 0xbb, 0x4, 0x7, 0xd1, 0xe2, 0xc6, 0x49, 0x81, 0x85, 0x5a, 0xd8, 0x68, 0x1d, 0xd, 0x86, 0xd1, 0xe9, 0x1e, 0x0, 0x16, 0x79, 0x39, 0xcb, 0x66, 0x94, 0xd2, 0xc4, 0x22, 0xac, 0xd2, 0x8, 0xa0, 0x7, 0x29, 0x39, 0x48, 0x7f, 0x69, 0x99}
 	appBoxesToCreate := []string{
 		"fantabulous",
@@ -182,28 +171,27 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 		"AVM is the new EVM",
 		string(randBoxName),
 	}
-	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	//boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	//for _, boxName := range appBoxesToCreate {
+	//	args := []string{"create", boxName}
+	//	boxTxn := test.MakeAppCallTxnWithBoxes(uint64(firstAppid), test.AccountA, args, []string{boxName})
+	//	boxTxns = append(boxTxns, &boxTxn)
+	//
+	//	key := apps.MakeBoxKey(uint64(firstAppid), boxName)
+	//	expectedAppBoxes[firstAppid][key] = newBoxValue
+	//}
 	for _, boxName := range appBoxesToCreate {
-		args := []string{"create", boxName}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(firstAppid), test.AccountA, args, []string{boxName})
-		boxTxns = append(boxTxns, &boxTxn)
-
-		key := logic.MakeBoxKey(firstAppid, boxName)
+		key := apps.MakeBoxKey(uint64(firstAppid), boxName)
 		expectedAppBoxes[firstAppid][key] = newBoxValue
 	}
-	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
-	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	vb5, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LiveBoxesR5.vb")
 	require.NoError(t, err)
-
-	// block header handoff: round 5 --> round 6
-	blockHdr, err = l.BlockHdr(currentRound)
+	blk5 := ledgercore.MakeValidatedBlock(vb5.Blk, vb5.Delta)
+	err = db.AddBlock(&blk5)
 	require.NoError(t, err)
 
 	// ---- ROUND 6: populate the 4 new boxes  ---- //
-	currentRound = basics.Round(6)
-
 	randBoxValue := []byte{0xeb, 0x9d, 0x18, 0xa4, 0x47, 0x84, 0x4, 0x5d, 0x87, 0xf3, 0xc6, 0x7c, 0xf2, 0x27, 0x46, 0xe9, 0x95, 0xaf, 0x5a, 0x25, 0x36, 0x79, 0x51, 0xba}
 	appBoxesToSet = map[string]string{
 		"fantabulous":        "Italian food's the best!", // max char's
@@ -211,83 +199,87 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 		"AVM is the new EVM": "yes we can!",
 		string(randBoxName):  string(randBoxValue),
 	}
-	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	//boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	//for boxName, valPrefix := range appBoxesToSet {
+	//	args := []string{"set", boxName, valPrefix}
+	//	boxTxn := test.MakeAppCallTxnWithBoxes(uint64(firstAppid), test.AccountA, args, []string{boxName})
+	//	boxTxns = append(boxTxns, &boxTxn)
+	//
+	//	key := apps.MakeBoxKey(uint64(firstAppid), boxName)
+	//	expectedAppBoxes[firstAppid][key] = valPrefix + newBoxValue[len(valPrefix):]
+	//}
 	for boxName, valPrefix := range appBoxesToSet {
-		args := []string{"set", boxName, valPrefix}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(firstAppid), test.AccountA, args, []string{boxName})
-		boxTxns = append(boxTxns, &boxTxn)
-
-		key := logic.MakeBoxKey(firstAppid, boxName)
+		key := apps.MakeBoxKey(uint64(firstAppid), boxName)
 		expectedAppBoxes[firstAppid][key] = valPrefix + newBoxValue[len(valPrefix):]
 	}
-	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
-	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	vb6, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LiveBoxesR6.vb")
 	require.NoError(t, err)
-
-	// block header handoff: round 6 --> round 7
-	blockHdr, err = l.BlockHdr(currentRound)
+	blk6 := ledgercore.MakeValidatedBlock(vb6.Blk, vb6.Delta)
+	err = db.AddBlock(&blk6)
 	require.NoError(t, err)
 
 	// ---- ROUND 7: create GOAL-encoding boxes for appid == 5  ---- //
-	currentRound = basics.Round(7)
-
 	encodingExamples := make(map[string]string, len(goalEncodingExamples))
 	for k, v := range goalEncodingExamples {
 		encodingExamples[k] = goalEncode(t, k+":"+v)
 	}
 
-	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	//boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	//expectedAppBoxes[thirdAppid] = map[string]string{}
+	//for _, boxName := range encodingExamples {
+	//	args := []string{"create", boxName}
+	//	expectedAppBoxes[thirdAppid][apps.MakeBoxKey(uint64(thirdAppid), boxName)] = newBoxValue
+	//	boxTxn := test.MakeAppCallTxnWithBoxes(uint64(thirdAppid), test.AccountC, args, []string{boxName})
+	//	boxTxns = append(boxTxns, &boxTxn)
+	//}
+	//
+	//block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	//require.NoError(t, err)
 	expectedAppBoxes[thirdAppid] = map[string]string{}
 	for _, boxName := range encodingExamples {
-		args := []string{"create", boxName}
-		expectedAppBoxes[thirdAppid][logic.MakeBoxKey(thirdAppid, boxName)] = newBoxValue
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(thirdAppid), test.AccountC, args, []string{boxName})
-		boxTxns = append(boxTxns, &boxTxn)
+		expectedAppBoxes[thirdAppid][apps.MakeBoxKey(uint64(thirdAppid), boxName)] = newBoxValue
 	}
 
-	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	vb7, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LiveBoxesR7.vb")
 	require.NoError(t, err)
-
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
-	require.NoError(t, err)
-
-	// block header handoff: round 7 --> round 8
-	blockHdr, err = l.BlockHdr(currentRound)
+	blk7 := ledgercore.MakeValidatedBlock(vb7.Blk, vb7.Delta)
+	err = db.AddBlock(&blk7)
 	require.NoError(t, err)
 
 	// ---- ROUND 8: populate GOAL-encoding boxes for appid == 5  ---- //
-	currentRound = basics.Round(8)
+	//boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	//for _, valPrefix := range encodingExamples {
+	//	require.LessOrEqual(t, len(valPrefix), 40)
+	//	args := []string{"set", valPrefix, valPrefix}
+	//	boxTxn := test.MakeAppCallTxnWithBoxes(uint64(thirdAppid), test.AccountC, args, []string{valPrefix})
+	//	boxTxns = append(boxTxns, &boxTxn)
+	//
+	//	key := apps.MakeBoxKey(uint64(thirdAppid), valPrefix)
+	//	expectedAppBoxes[thirdAppid][key] = valPrefix + newBoxValue[len(valPrefix):]
+	//}
 
-	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
 	for _, valPrefix := range encodingExamples {
 		require.LessOrEqual(t, len(valPrefix), 40)
-		args := []string{"set", valPrefix, valPrefix}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(thirdAppid), test.AccountC, args, []string{valPrefix})
-		boxTxns = append(boxTxns, &boxTxn)
-
-		key := logic.MakeBoxKey(thirdAppid, valPrefix)
+		key := apps.MakeBoxKey(uint64(thirdAppid), valPrefix)
 		expectedAppBoxes[thirdAppid][key] = valPrefix + newBoxValue[len(valPrefix):]
 	}
-	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+
+	vb8, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LiveBoxesR8.vb")
+	require.NoError(t, err)
+	blk8 := ledgercore.MakeValidatedBlock(vb8.Blk, vb8.Delta)
+	err = db.AddBlock(&blk8)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	//---- ROUND 9: delete appid == 5 thus orphaning the boxes
+	//deleteTxn := test.MakeAppDestroyTxn(uint64(thirdAppid), test.AccountC)
+	//block, err = test.MakeBlockForTxns(blockHdr, &deleteTxn)
+	//require.NoError(t, err)
+
+	vb9, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LiveBoxesR9.vb")
 	require.NoError(t, err)
-
-	// block header handoff: round 8 --> round 9
-	blockHdr, err = l.BlockHdr(currentRound)
-	require.NoError(t, err)
-
-	// ---- ROUND 9: delete appid == 5 thus orphaning the boxes
-	currentRound = basics.Round(9)
-
-	deleteTxn := test.MakeAppDestroyTxn(uint64(thirdAppid), test.AccountC)
-	block, err = test.MakeBlockForTxns(blockHdr, &deleteTxn)
-	require.NoError(t, err)
-
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	blk9 := ledgercore.MakeValidatedBlock(vb9.Blk, vb9.Delta)
+	err = db.AddBlock(&blk9)
 	require.NoError(t, err)
 
 	// ---- SUMMARY ---- //
@@ -706,10 +698,10 @@ var boxSeedFixture = fixture{
 }
 
 func TestBoxes(t *testing.T) {
-	db, proc, l, dbShutdown := setupIdbAndReturnShutdownFunc(t)
+	db, dbShutdown := setupIdbAndReturnShutdownFunc(t)
 	defer dbShutdown()
 
-	setupLiveBoxes(t, proc, l)
+	setupLiveBoxes(t, db)
 
 	serverShutdown := setupLiveServerAndReturnShutdownFunc(t, db)
 	defer serverShutdown()

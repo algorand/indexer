@@ -14,11 +14,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 
-	"github.com/algorand/go-algorand/ledger"
-
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb/postgres"
-	"github.com/algorand/indexer/processor"
 	"github.com/algorand/indexer/util/test"
 )
 
@@ -268,12 +265,11 @@ func getProof(path string) (route string, proof prover, err error) {
 }
 
 // WARNING: receiver should not call l.Close()
-func setupIdbAndReturnShutdownFunc(t *testing.T) (db *postgres.IndexerDb, proc processor.Processor, l *ledger.Ledger, shutdown func()) {
-	db, dbShutdown, proc, l := setupIdb(t, test.MakeGenesis())
+func setupIdbAndReturnShutdownFunc(t *testing.T) (db *postgres.IndexerDb, shutdown func()) {
+	db, dbShutdown := setupIdb(t, test.MakeGenesisV2())
 
 	shutdown = func() {
 		dbShutdown()
-		l.Close()
 	}
 
 	return

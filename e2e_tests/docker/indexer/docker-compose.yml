@@ -1,0 +1,22 @@
+version: '3'
+
+services:
+  e2e:
+    build:
+      context: ../../../.
+      dockerfile: ./e2e_tests/docker/indexer/Dockerfile
+    environment:
+      CONNECTION_STRING: "host=e2e-db port=5432 user=algorand password=algorand dbname=indexer_db sslmode=disable"
+      CI_E2E_FILENAME: "${CI_E2E_FILENAME}"
+      # Add --keep-alive to this variable to pause the container on an error
+      EXTRA: "${EXTRA}"
+
+  e2e-db:
+    image: "postgres:13-alpine"
+    ports:
+      - 45432:5432
+    environment:
+      POSTGRES_USER: algorand
+      POSTGRES_PASSWORD: algorand
+      POSTGRES_DB: indexer_db
+

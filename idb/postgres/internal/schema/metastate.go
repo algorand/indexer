@@ -5,6 +5,6 @@ const (
 	StateMetastateKey           = "state"
 	MigrationMetastateKey       = "migration"
 	SpecialAccountsMetastateKey = "accounts"
-	AccountTotals               = "totals"
 	NetworkMetaStateKey         = "network"
+	DeleteStatusKey             = "pruned"
 )

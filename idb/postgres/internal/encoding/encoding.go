@@ -4,16 +4,17 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/algorand/go-algorand/crypto"
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-codec/codec"
 
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/types"
+	itypes "github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/util"
+
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
+	"github.com/algorand/go-algorand/crypto"
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
 var jsonCodecHandle *codec.JsonHandle
@@ -52,46 +53,46 @@ func decodeBase64(data string) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(data)
 }
 
-func convertBlockHeader(header bookkeeping.BlockHeader) blockHeader {
+func convertBlockHeader(header sdk.BlockHeader) blockHeader {
 	return blockHeader{
 		BlockHeader:         header,
-		BranchOverride:      crypto.Digest(header.Branch),
-		FeeSinkOverride:     crypto.Digest(header.FeeSink),
-		RewardsPoolOverride: crypto.Digest(header.RewardsPool),
+		BranchOverride:      sdk.Digest(header.Branch),
+		FeeSinkOverride:     sdk.Digest(header.FeeSink),
+		RewardsPoolOverride: sdk.Digest(header.RewardsPool),
 	}
 }
 
-func unconvertBlockHeader(header blockHeader) bookkeeping.BlockHeader {
+func unconvertBlockHeader(header blockHeader) sdk.BlockHeader {
 	res := header.BlockHeader
-	res.Branch = bookkeeping.BlockHash(header.BranchOverride)
-	res.FeeSink = basics.Address(header.FeeSinkOverride)
-	res.RewardsPool = basics.Address(header.RewardsPoolOverride)
+	res.Branch = sdk.BlockHash(header.BranchOverride)
+	res.FeeSink = sdk.Address(header.FeeSinkOverride)
+	res.RewardsPool = sdk.Address(header.RewardsPoolOverride)
 	return res
 }
 
 // EncodeBlockHeader encodes block header into json.
-func EncodeBlockHeader(header bookkeeping.BlockHeader) []byte {
+func EncodeBlockHeader(header sdk.BlockHeader) []byte {
 	return encodeJSON(convertBlockHeader(header))
 }
 
 // DecodeBlockHeader decodes block header from json.
-func DecodeBlockHeader(data []byte) (bookkeeping.BlockHeader, error) {
+func DecodeBlockHeader(data []byte) (sdk.BlockHeader, error) {
 	var header blockHeader
 	err := DecodeJSON(data, &header)
 	if err != nil {
-		return bookkeeping.BlockHeader{}, err
+		return sdk.BlockHeader{}, err
 	}
 
 	return unconvertBlockHeader(header), nil
 }
 
-func convertAssetParams(params basics.AssetParams) assetParams {
+func convertAssetParams(params sdk.AssetParams) assetParams {
 	ret := assetParams{
 		AssetParams:      params,
-		ManagerOverride:  crypto.Digest(params.Manager),
-		ReserveOverride:  crypto.Digest(params.Reserve),
-		FreezeOverride:   crypto.Digest(params.Freeze),
-		ClawbackOverride: crypto.Digest(params.Clawback),
+		ManagerOverride:  sdk.Digest(params.Manager),
+		ReserveOverride:  sdk.Digest(params.Reserve),
+		FreezeOverride:   sdk.Digest(params.Freeze),
+		ClawbackOverride: sdk.Digest(params.Clawback),
 		AssetNameBytes:   []byte(params.AssetName),
 		UnitNameBytes:    []byte(params.UnitName),
 		URLBytes:         []byte(params.URL),
@@ -116,7 +117,7 @@ func convertAssetParams(params basics.AssetParams) assetParams {
 	return ret
 }
 
-func unconvertAssetParams(params assetParams) basics.AssetParams {
+func unconvertAssetParams(params assetParams) sdk.AssetParams {
 	res := params.AssetParams
 	if len(res.AssetName) == 0 {
 		res.AssetName = string(params.AssetNameBytes)
@@ -127,98 +128,98 @@ func unconvertAssetParams(params assetParams) basics.AssetParams {
 	if len(res.URL) == 0 {
 		res.URL = string(params.URLBytes)
 	}
-	res.Manager = basics.Address(params.ManagerOverride)
-	res.Reserve = basics.Address(params.ReserveOverride)
-	res.Freeze = basics.Address(params.FreezeOverride)
-	res.Clawback = basics.Address(params.ClawbackOverride)
+	res.Manager = sdk.Address(params.ManagerOverride)
+	res.Reserve = sdk.Address(params.ReserveOverride)
+	res.Freeze = sdk.Address(params.FreezeOverride)
+	res.Clawback = sdk.Address(params.ClawbackOverride)
 	return res
 }
 
 // EncodeAssetParams encodes asset params into json.
-func EncodeAssetParams(params basics.AssetParams) []byte {
+func EncodeAssetParams(params sdk.AssetParams) []byte {
 	return encodeJSON(convertAssetParams(params))
 }
 
 // DecodeAssetParams decodes asset params from json.
-func DecodeAssetParams(data []byte) (basics.AssetParams, error) {
+func DecodeAssetParams(data []byte) (sdk.AssetParams, error) {
 	var params assetParams
 	err := DecodeJSON(data, &params)
 	if err != nil {
-		return basics.AssetParams{}, err
+		return sdk.AssetParams{}, err
 	}
 
 	return unconvertAssetParams(params), nil
 }
 
-func convertAccounts(accounts []basics.Address) []crypto.Digest {
+func convertAccounts(accounts []sdk.Address) []sdk.Digest {
 	if accounts == nil {
 		return nil
 	}
 
-	res := make([]crypto.Digest, 0, len(accounts))
+	res := make([]sdk.Digest, 0, len(accounts))
 	for _, address := range accounts {
-		res = append(res, crypto.Digest(address))
+		res = append(res, sdk.Digest(address))
 	}
 	return res
 }
 
-func unconvertAccounts(accounts []crypto.Digest) []basics.Address {
+func unconvertAccounts(accounts []sdk.Digest) []sdk.Address {
 	if accounts == nil {
 		return nil
 	}
 
-	res := make([]basics.Address, 0, len(accounts))
+	res := make([]sdk.Address, 0, len(accounts))
 	for _, address := range accounts {
-		res = append(res, basics.Address(address))
+		res = append(res, sdk.Address(address))
 	}
 	return res
 }
 
-func convertTransaction(txn transactions.Transaction) transaction {
+func convertTransaction(txn sdk.Transaction) transaction {
 	return transaction{
 		Transaction:              txn,
-		SenderOverride:           crypto.Digest(txn.Sender),
-		RekeyToOverride:          crypto.Digest(txn.RekeyTo),
-		ReceiverOverride:         crypto.Digest(txn.Receiver),
+		SenderOverride:           sdk.Digest(txn.Sender),
+		RekeyToOverride:          sdk.Digest(txn.RekeyTo),
+		ReceiverOverride:         sdk.Digest(txn.Receiver),
 		AssetParamsOverride:      convertAssetParams(txn.AssetParams),
-		CloseRemainderToOverride: crypto.Digest(txn.CloseRemainderTo),
-		AssetSenderOverride:      crypto.Digest(txn.AssetSender),
-		AssetReceiverOverride:    crypto.Digest(txn.AssetReceiver),
-		AssetCloseToOverride:     crypto.Digest(txn.AssetCloseTo),
-		FreezeAccountOverride:    crypto.Digest(txn.FreezeAccount),
+		CloseRemainderToOverride: sdk.Digest(txn.CloseRemainderTo),
+		AssetSenderOverride:      sdk.Digest(txn.AssetSender),
+		AssetReceiverOverride:    sdk.Digest(txn.AssetReceiver),
+		AssetCloseToOverride:     sdk.Digest(txn.AssetCloseTo),
+		FreezeAccountOverride:    sdk.Digest(txn.FreezeAccount),
 		AccountsOverride:         convertAccounts(txn.Accounts),
 	}
 }
 
-func unconvertTransaction(txn transaction) transactions.Transaction {
+func unconvertTransaction(txn transaction) sdk.Transaction {
 	res := txn.Transaction
-	res.Sender = basics.Address(txn.SenderOverride)
-	res.RekeyTo = basics.Address(txn.RekeyToOverride)
-	res.Receiver = basics.Address(txn.ReceiverOverride)
-	res.CloseRemainderTo = basics.Address(txn.CloseRemainderToOverride)
+	res.Sender = sdk.Address(txn.SenderOverride)
+	res.RekeyTo = sdk.Address(txn.RekeyToOverride)
+	res.Receiver = sdk.Address(txn.ReceiverOverride)
+	res.CloseRemainderTo = sdk.Address(txn.CloseRemainderToOverride)
 	res.AssetParams = unconvertAssetParams(txn.AssetParamsOverride)
-	res.AssetSender = basics.Address(txn.AssetSenderOverride)
-	res.AssetReceiver = basics.Address(txn.AssetReceiverOverride)
-	res.AssetCloseTo = basics.Address(txn.AssetCloseToOverride)
-	res.FreezeAccount = basics.Address(txn.FreezeAccountOverride)
+	res.AssetSender = sdk.Address(txn.AssetSenderOverride)
+	res.AssetReceiver = sdk.Address(txn.AssetReceiverOverride)
+	res.AssetCloseTo = sdk.Address(txn.AssetCloseToOverride)
+	res.FreezeAccount = sdk.Address(txn.FreezeAccountOverride)
 	res.Accounts = unconvertAccounts(txn.AccountsOverride)
 	return res
 }
 
-func convertValueDelta(delta basics.ValueDelta) valueDelta {
+func convertValueDelta(delta sdk.ValueDelta) valueDelta {
 	return valueDelta{
 		ValueDelta:    delta,
 		BytesOverride: []byte(delta.Bytes),
 	}
 }
 
-func unconvertValueDelta(delta valueDelta) basics.ValueDelta {
+func unconvertValueDelta(delta valueDelta) sdk.ValueDelta {
 	res := delta.ValueDelta
 	res.Bytes = string(delta.BytesOverride)
 	return res
 }
 
-func convertStateDelta(delta basics.StateDelta) stateDelta {
+func convertStateDelta(delta sdk.StateDelta) stateDelta {
 	if delta == nil {
 		return nil
 	}
@@ -230,19 +231,19 @@ func convertStateDelta(delta basics.StateDelta) stateDelta {
 	return res
 }
 
-func unconvertStateDelta(delta stateDelta) basics.StateDelta {
+func unconvertStateDelta(delta stateDelta) sdk.StateDelta {
 	if delta == nil {
 		return nil
 	}
 
-	res := make(map[string]basics.ValueDelta, len(delta))
+	res := make(map[string]sdk.ValueDelta, len(delta))
 	for k, v := range delta {
 		res[k.data] = unconvertValueDelta(v)
 	}
 	return res
 }
 
-func convertLocalDeltas(deltas map[uint64]basics.StateDelta) map[uint64]stateDelta {
+func convertLocalDeltas(deltas map[uint64]sdk.StateDelta) map[uint64]stateDelta {
 	if deltas == nil {
 		return nil
 	}
@@ -254,12 +255,12 @@ func convertLocalDeltas(deltas map[uint64]basics.StateDelta) map[uint64]stateDel
 	return res
 }
 
-func unconvertLocalDeltas(deltas map[uint64]stateDelta) map[uint64]basics.StateDelta {
+func unconvertLocalDeltas(deltas map[uint64]stateDelta) map[uint64]sdk.StateDelta {
 	if deltas == nil {
 		return nil
 	}
 
-	res := make(map[uint64]basics.StateDelta, len(deltas))
+	res := make(map[uint64]sdk.StateDelta, len(deltas))
 	for i, delta := range deltas {
 		res[i] = unconvertStateDelta(delta)
 	}
@@ -290,7 +291,7 @@ func unconvertLogs(logs [][]byte) []string {
 	return res
 }
 
-func convertInnerTxns(innerTxns []transactions.SignedTxnWithAD) []signedTxnWithAD {
+func convertInnerTxns(innerTxns []sdk.SignedTxnWithAD) []signedTxnWithAD {
 	if innerTxns == nil {
 		return nil
 	}
@@ -302,19 +303,19 @@ func convertInnerTxns(innerTxns []transactions.SignedTxnWithAD) []signedTxnWithA
 	return res
 }
 
-func unconvertInnerTxns(innerTxns []signedTxnWithAD) []transactions.SignedTxnWithAD {
+func unconvertInnerTxns(innerTxns []signedTxnWithAD) []sdk.SignedTxnWithAD {
 	if innerTxns == nil {
 		return nil
 	}
 
-	res := make([]transactions.SignedTxnWithAD, len(innerTxns))
+	res := make([]sdk.SignedTxnWithAD, len(innerTxns))
 	for i, innerTxn := range innerTxns {
 		res[i] = unconvertSignedTxnWithAD(innerTxn)
 	}
 	return res
 }
 
-func convertEvalDelta(delta transactions.EvalDelta) evalDelta {
+func convertEvalDelta(delta sdk.EvalDelta) evalDelta {
 	return evalDelta{
 		EvalDelta:           delta,
 		GlobalDeltaOverride: convertStateDelta(delta.GlobalDelta),
@@ -324,7 +325,7 @@ func convertEvalDelta(delta transactions.EvalDelta) evalDelta {
 	}
 }
 
-func unconvertEvalDelta(delta evalDelta) transactions.EvalDelta {
+func unconvertEvalDelta(delta evalDelta) sdk.EvalDelta {
 	res := delta.EvalDelta
 	res.GlobalDelta = unconvertStateDelta(delta.GlobalDeltaOverride)
 	res.LocalDeltas = unconvertLocalDeltas(delta.LocalDeltasOverride)
@@ -333,34 +334,34 @@ func unconvertEvalDelta(delta evalDelta) transactions.EvalDelta {
 	return res
 }
 
-func convertSignedTxnWithAD(stxn transactions.SignedTxnWithAD) signedTxnWithAD {
+func convertSignedTxnWithAD(stxn sdk.SignedTxnWithAD) signedTxnWithAD {
 	return signedTxnWithAD{
 		SignedTxnWithAD:   stxn,
 		TxnOverride:       convertTransaction(stxn.Txn),
-		AuthAddrOverride:  crypto.Digest(stxn.AuthAddr),
+		AuthAddrOverride:  sdk.Digest(stxn.AuthAddr),
 		EvalDeltaOverride: convertEvalDelta(stxn.EvalDelta),
 	}
 }
 
-func unconvertSignedTxnWithAD(stxn signedTxnWithAD) transactions.SignedTxnWithAD {
+func unconvertSignedTxnWithAD(stxn signedTxnWithAD) sdk.SignedTxnWithAD {
 	res := stxn.SignedTxnWithAD
 	res.Txn = unconvertTransaction(stxn.TxnOverride)
-	res.AuthAddr = basics.Address(stxn.AuthAddrOverride)
+	res.AuthAddr = sdk.Address(stxn.AuthAddrOverride)
 	res.EvalDelta = unconvertEvalDelta(stxn.EvalDeltaOverride)
 	return res
 }
 
 // EncodeSignedTxnWithAD encodes signed transaction with apply data into json.
-func EncodeSignedTxnWithAD(stxn transactions.SignedTxnWithAD) []byte {
+func EncodeSignedTxnWithAD(stxn sdk.SignedTxnWithAD) []byte {
 	return encodeJSON(convertSignedTxnWithAD(stxn))
 }
 
 // DecodeSignedTxnWithAD decodes signed txn with apply data from json.
-func DecodeSignedTxnWithAD(data []byte) (transactions.SignedTxnWithAD, error) {
+func DecodeSignedTxnWithAD(data []byte) (sdk.SignedTxnWithAD, error) {
 	var stxn signedTxnWithAD
 	err := DecodeJSON(data, &stxn)
 	if err != nil {
-		return transactions.SignedTxnWithAD{}, err
+		return sdk.SignedTxnWithAD{}, err
 	}
 
 	return unconvertSignedTxnWithAD(stxn), nil
@@ -490,12 +491,12 @@ func DecodeAppParams(data []byte) (basics.AppParams, error) {
 	return unconvertAppParams(params), nil
 }
 
-func unconvertAssetParamsArray(paramsArr []assetParams) []basics.AssetParams {
+func unconvertAssetParamsArray(paramsArr []assetParams) []sdk.AssetParams {
 	if paramsArr == nil {
 		return nil
 	}
 
-	res := make([]basics.AssetParams, 0, len(paramsArr))
+	res := make([]sdk.AssetParams, 0, len(paramsArr))
 	for _, params := range paramsArr {
 		res = append(res, unconvertAssetParams(params))
 	}
@@ -503,7 +504,7 @@ func unconvertAssetParamsArray(paramsArr []assetParams) []basics.AssetParams {
 }
 
 // DecodeAssetParamsArray decodes an array of asset params from a json array.
-func DecodeAssetParamsArray(data []byte) ([]basics.AssetParams, error) {
+func DecodeAssetParamsArray(data []byte) ([]sdk.AssetParams, error) {
 	var paramsArr []assetParams
 	err := DecodeJSON(data, &paramsArr)
 	if err != nil {
@@ -559,32 +560,32 @@ func DecodeAppLocalStateArray(data []byte) ([]basics.AppLocalState, error) {
 
 	return unconvertAppLocalStateArray(array), nil
 }
-func convertSpecialAddresses(special transactions.SpecialAddresses) specialAddresses {
+func convertSpecialAddresses(special itypes.SpecialAddresses) specialAddresses {
 	return specialAddresses{
 		SpecialAddresses:    special,
-		FeeSinkOverride:     crypto.Digest(special.FeeSink),
-		RewardsPoolOverride: crypto.Digest(special.RewardsPool),
+		FeeSinkOverride:     sdk.Digest(special.FeeSink),
+		RewardsPoolOverride: sdk.Digest(special.RewardsPool),
 	}
 }
 
-func unconvertSpecialAddresses(special specialAddresses) transactions.SpecialAddresses {
+func unconvertSpecialAddresses(special specialAddresses) itypes.SpecialAddresses {
 	res := special.SpecialAddresses
-	res.FeeSink = basics.Address(special.FeeSinkOverride)
-	res.RewardsPool = basics.Address(special.RewardsPoolOverride)
+	res.FeeSink = sdk.Address(special.FeeSinkOverride)
+	res.RewardsPool = sdk.Address(special.RewardsPoolOverride)
 	return res
 }
 
 // EncodeSpecialAddresses encodes special addresses (sink and rewards pool) into json.
-func EncodeSpecialAddresses(special transactions.SpecialAddresses) []byte {
+func EncodeSpecialAddresses(special itypes.SpecialAddresses) []byte {
 	return encodeJSON(convertSpecialAddresses(special))
 }
 
 // DecodeSpecialAddresses decodes special addresses (sink and rewards pool) from json.
-func DecodeSpecialAddresses(data []byte) (transactions.SpecialAddresses, error) {
+func DecodeSpecialAddresses(data []byte) (itypes.SpecialAddresses, error) {
 	var special specialAddresses
 	err := DecodeJSON(data, &special)
 	if err != nil {
-		return transactions.SpecialAddresses{}, err
+		return itypes.SpecialAddresses{}, err
 	}
 
 	return unconvertSpecialAddresses(special), nil
@@ -636,22 +637,6 @@ func DecodeMigrationState(data []byte) (types.MigrationState, error) {
 	}
 
 	return state, nil
-}
-
-// EncodeAccountTotals encodes account totals into json.
-func EncodeAccountTotals(totals *ledgercore.AccountTotals) []byte {
-	return encodeJSON(totals)
-}
-
-// DecodeAccountTotals decodes account totals from json.
-func DecodeAccountTotals(data []byte) (ledgercore.AccountTotals, error) {
-	var res ledgercore.AccountTotals
-	err := DecodeJSON(data, &res)
-	if err != nil {
-		return ledgercore.AccountTotals{}, err
-	}
-
-	return res, nil
 }
 
 // EncodeNetworkState encodes network metastate into json.
@@ -741,4 +726,20 @@ func DecodeTrimmedLcAccountData(data []byte) (ledgercore.AccountData, error) {
 	}
 
 	return unconvertTrimmedLcAccountData(ba), nil
+}
+
+// EncodeDeleteStatus encodes network metastate into json.
+func EncodeDeleteStatus(p *types.DeleteStatus) []byte {
+	return encodeJSON(p)
+}
+
+// DecodeDeleteStatus decodes network metastate from json.
+func DecodeDeleteStatus(data []byte) (types.DeleteStatus, error) {
+	var status types.DeleteStatus
+	err := DecodeJSON(data, &status)
+	if err != nil {
+		return types.DeleteStatus{}, fmt.Errorf("DecodeDeleteStatus() err: %w", err)
+	}
+
+	return status, nil
 }

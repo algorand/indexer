@@ -1,9 +1,16 @@
 package test
 
 import (
+	"crypto/sha512"
 	"fmt"
 	"math/rand"
 
+	protocol2 "github.com/algorand/indexer/protocol"
+	config2 "github.com/algorand/indexer/protocol/config"
+	"github.com/algorand/indexer/util"
+
+	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
@@ -36,6 +43,9 @@ var (
 
 	// Proto is a fake protocol version.
 	Proto = protocol.ConsensusFuture
+
+	// PaysetFlat is the payset HashID defined in go-algorand/protocol/hash.go
+	PaysetFlat = "PF"
 )
 
 // DecodeAddressOrPanic is a helper to ensure addresses are initialized.
@@ -690,4 +700,324 @@ func ArbitraryString() []byte {
 	arb := make([]byte, config.MaxTxnNoteBytes)
 	rand.Read(arb)
 	return arb
+}
+
+//==============================
+// TODO: test utils returning sdk types. Rename before release
+
+// MakeAssetConfigTxnV2 is a helper to ensure test asset config are initialized.
+func MakeAssetConfigTxnV2(configid, total, decimals uint64, defaultFrozen bool, unitName, assetName, url string, addr sdk.Address) sdk.SignedTxnWithAD {
+	return sdk.SignedTxnWithAD{
+		SignedTxn: sdk.SignedTxn{
+			Txn: sdk.Transaction{
+				Type: "acfg",
+				Header: sdk.Header{
+					Sender:      addr,
+					Fee:         sdk.MicroAlgos(1000),
+					GenesisHash: sdk.Digest(GenesisHash),
+					Note:        ArbitraryString(),
+				},
+				AssetConfigTxnFields: sdk.AssetConfigTxnFields{
+					ConfigAsset: sdk.AssetIndex(configid),
+					AssetParams: sdk.AssetParams{
+						Total:         total,
+						Decimals:      uint32(decimals),
+						DefaultFrozen: defaultFrozen,
+						UnitName:      unitName,
+						AssetName:     assetName,
+						URL:           url,
+						MetadataHash:  [32]byte{},
+						Manager:       addr,
+						Reserve:       addr,
+						Freeze:        addr,
+						Clawback:      addr,
+					},
+				},
+			},
+			Sig: sdk.Signature(Signature),
+		},
+	}
+}
+
+// MakeAssetTransferTxnV2 creates an asset transfer transaction.
+func MakeAssetTransferTxnV2(assetid, amt uint64, sender, receiver, close sdk.Address) sdk.SignedTxnWithAD {
+	return sdk.SignedTxnWithAD{
+		SignedTxn: sdk.SignedTxn{
+			Txn: sdk.Transaction{
+				Type: "axfer",
+				Header: sdk.Header{
+					Sender:      sender,
+					Fee:         sdk.MicroAlgos(1000),
+					GenesisHash: sdk.Digest(GenesisHash),
+					Note:        ArbitraryString(),
+				},
+				AssetTransferTxnFields: sdk.AssetTransferTxnFields{
+					XferAsset:   sdk.AssetIndex(assetid),
+					AssetAmount: amt,
+					//only used for clawback transactions
+					//AssetSender:   basics.Address{},
+					AssetReceiver: receiver,
+					AssetCloseTo:  close,
+				},
+			},
+			Sig: sdk.Signature(Signature),
+		},
+	}
+}
+
+// MakePaymentTxnV2 creates an algo transfer transaction.
+func MakePaymentTxnV2(fee, amt, closeAmt, sendRewards, receiveRewards,
+	closeRewards uint64, sender, receiver, close, rekeyTo sdk.Address) sdk.SignedTxnWithAD {
+	return sdk.SignedTxnWithAD{
+		SignedTxn: sdk.SignedTxn{
+			Txn: sdk.Transaction{
+				Type: "pay",
+				Header: sdk.Header{
+					Sender:      sender,
+					Fee:         sdk.MicroAlgos(fee),
+					GenesisHash: sdk.Digest(GenesisHash),
+					RekeyTo:     rekeyTo,
+					LastValid:   10,
+					Note:        ArbitraryString(),
+				},
+				PaymentTxnFields: sdk.PaymentTxnFields{
+					Receiver:         receiver,
+					Amount:           sdk.MicroAlgos(amt),
+					CloseRemainderTo: close,
+				},
+			},
+			Sig: sdk.Signature(Signature),
+		},
+		ApplyData: sdk.ApplyData{
+			ClosingAmount:   sdk.MicroAlgos(closeAmt),
+			SenderRewards:   sdk.MicroAlgos(sendRewards),
+			ReceiverRewards: sdk.MicroAlgos(receiveRewards),
+			CloseRewards:    sdk.MicroAlgos(closeRewards),
+		},
+	}
+}
+
+// MakeCreateAppTxnV2 makes a transaction that creates a simple application.
+func MakeCreateAppTxnV2(sender sdk.Address) sdk.SignedTxnWithAD {
+	// Create a transaction with ExtraProgramPages field set to 1
+	return sdk.SignedTxnWithAD{
+		SignedTxn: sdk.SignedTxn{
+			Txn: sdk.Transaction{
+				Type: "appl",
+				Header: sdk.Header{
+					Sender:      sender,
+					GenesisHash: sdk.Digest(GenesisHash),
+					Note:        ArbitraryString(),
+				},
+				ApplicationFields: sdk.ApplicationFields{
+					ApplicationCallTxnFields: sdk.ApplicationCallTxnFields{
+						ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+						ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+					},
+				},
+			},
+			Sig: sdk.Signature(Signature),
+		},
+	}
+}
+
+// MakeSimpleAppCallTxnV2 is a MakeSimpleAppCallTxn return sdk.SignedTxnWithAD.
+func MakeSimpleAppCallTxnV2(appid uint64, sender sdk.Address) sdk.SignedTxnWithAD {
+	return sdk.SignedTxnWithAD{
+		SignedTxn: sdk.SignedTxn{
+			Txn: sdk.Transaction{
+				Type: "appl",
+				Header: sdk.Header{
+					Sender:      sender,
+					GenesisHash: sdk.Digest(GenesisHash),
+					Note:        ArbitraryString(),
+				},
+				ApplicationFields: sdk.ApplicationFields{
+					ApplicationCallTxnFields: sdk.ApplicationCallTxnFields{
+						ApplicationID:     sdk.AppIndex(appid),
+						OnCompletion:      sdk.NoOpOC,
+						ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+						ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+					},
+				},
+			},
+			Sig: sdk.Signature(Signature),
+		},
+	}
+}
+
+// MakeAppCallWithInnerTxnV2 is a MakeAppCallWithInnerTxn returning sdk.SignedTxnWithAD
+func MakeAppCallWithInnerTxnV2(appSender, paymentSender, paymentReceiver, assetSender, assetReceiver sdk.Address) sdk.SignedTxnWithAD {
+	createApp := MakeCreateAppTxnV2(appSender)
+
+	// In order to simplify the test,
+	// since db.AddBlock uses ApplyData from the block and not from the evaluator,
+	// fake ApplyData to have inner txn
+	// otherwise it requires funding the app account and other special setup
+	createApp.ApplyData.EvalDelta.InnerTxns = []sdk.SignedTxnWithAD{
+		{
+			SignedTxn: sdk.SignedTxn{
+				Txn: sdk.Transaction{
+					Type: sdk.PaymentTx,
+					Header: sdk.Header{
+						Sender: paymentSender,
+						Note:   ArbitraryString(),
+					},
+					PaymentTxnFields: sdk.PaymentTxnFields{
+						Receiver: paymentReceiver,
+						Amount:   sdk.MicroAlgos(12),
+					},
+				},
+			},
+		},
+		{
+			SignedTxn: sdk.SignedTxn{
+				Txn: sdk.Transaction{
+					Type: sdk.ApplicationCallTx,
+					Header: sdk.Header{
+						Sender: assetSender,
+						Note:   ArbitraryString(),
+					},
+					ApplicationFields: sdk.ApplicationFields{
+						ApplicationCallTxnFields: sdk.ApplicationCallTxnFields{
+							ApplicationID:     789,
+							OnCompletion:      sdk.NoOpOC,
+							ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+							ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+						},
+					},
+				},
+			},
+			// also add a fake second-level ApplyData to ensure the recursive part works
+			ApplyData: sdk.ApplyData{
+				EvalDelta: sdk.EvalDelta{
+					InnerTxns: []sdk.SignedTxnWithAD{
+						// Inner axfer call
+						{
+							SignedTxn: sdk.SignedTxn{
+								Txn: sdk.Transaction{
+									Type: sdk.AssetTransferTx,
+									Header: sdk.Header{
+										Sender: assetSender,
+										Note:   ArbitraryString(),
+									},
+									AssetTransferTxnFields: sdk.AssetTransferTxnFields{
+										AssetReceiver: assetReceiver,
+										AssetAmount:   456,
+									},
+								},
+							},
+						},
+						// Inner application call
+						MakeSimpleAppCallTxnV2(789, assetSender),
+					},
+				},
+			},
+		},
+	}
+
+	return createApp
+}
+
+// MakeBlockForTxnsV2 takes some transactions and constructs a block compatible with the indexer import function.
+func MakeBlockForTxnsV2(prevHeader sdk.BlockHeader, inputs ...*sdk.SignedTxnWithAD) (sdk.Block, error) {
+	res := sdk.Block{BlockHeader: prevHeader}
+	res.Round = prevHeader.Round + 1
+	res.RewardsState = sdk.RewardsState{
+		FeeSink:     sdk.Address(FeeAddr),
+		RewardsPool: sdk.Address(RewardAddr),
+	}
+	res.TxnCounter = prevHeader.TxnCounter + uint64(len(inputs))
+
+	for _, stxnad := range inputs {
+		stxnib, err := util.EncodeSignedTxn(res.BlockHeader, stxnad.SignedTxn, stxnad.ApplyData)
+		if err != nil {
+			return sdk.Block{}, err
+		}
+
+		res.Payset = append(res.Payset, stxnib)
+	}
+
+	return res, nil
+}
+
+// MakeGenesisBlockV2 makes a genesis block.
+func MakeGenesisBlockV2() sdk.Block {
+	params := config2.Consensus[protocol2.ConsensusVersion(Proto)]
+	genesis := MakeGenesisV2()
+	// payset hashRep
+	data := msgpack.Encode(sdk.Payset{})
+	hashRep := []byte(PaysetFlat)
+	hashRep = append(hashRep, data...)
+
+	blk := sdk.Block{
+		BlockHeader: sdk.BlockHeader{
+			Round:  0,
+			Branch: sdk.BlockHash{},
+			Seed:   sdk.Seed(genesis.Hash()),
+			TxnCommitments: sdk.TxnCommitments{
+				NativeSha512_256Commitment: sdk.Digest(sha512.Sum512_256(hashRep)),
+				Sha256Commitment:           sdk.Digest{},
+			},
+			TimeStamp:   genesis.Timestamp,
+			GenesisID:   genesis.ID(),
+			GenesisHash: sdk.Digest(GenesisHash),
+			RewardsState: sdk.RewardsState{
+				FeeSink:                   sdk.Address(FeeAddr),
+				RewardsPool:               sdk.Address(RewardAddr),
+				RewardsRecalculationRound: sdk.Round(params.RewardsRateRefreshInterval),
+			},
+			UpgradeState: sdk.UpgradeState{
+				CurrentProtocol: "future",
+			},
+			UpgradeVote: sdk.UpgradeVote{},
+		},
+	}
+
+	return blk
+}
+
+// MakeGenesisV2 creates a sample sdk.Genesis info.
+func MakeGenesisV2() sdk.Genesis {
+	return sdk.Genesis{
+		SchemaID: "main",
+		Network:  "mynet",
+		Proto:    string(Proto),
+		Allocation: []sdk.GenesisAllocation{
+			{
+				Address: RewardAddr.String(),
+				Comment: "RewardsPool",
+				State: sdk.Account{
+					MicroAlgos: 100000, // minimum balance
+					Status:     2,
+				},
+			},
+			{
+				Address: AccountA.String(),
+				State: sdk.Account{
+					MicroAlgos: 1000 * 1000 * 1000 * 1000,
+				},
+			},
+			{
+				Address: AccountB.String(),
+				State: sdk.Account{
+					MicroAlgos: 1000 * 1000 * 1000 * 1000,
+				},
+			},
+			{
+				Address: AccountC.String(),
+				State: sdk.Account{
+					MicroAlgos: 1000 * 1000 * 1000 * 1000,
+				},
+			},
+			{
+				Address: AccountD.String(),
+				State: sdk.Account{
+					MicroAlgos: 1000 * 1000 * 1000 * 1000,
+				},
+			},
+		},
+		RewardsPool: RewardAddr.String(),
+		FeeSink:     FeeAddr.String(),
+	}
 }

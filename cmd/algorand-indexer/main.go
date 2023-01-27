@@ -11,7 +11,6 @@ import (
 	"github.com/spf13/cobra/doc"
 	"github.com/spf13/viper"
 
-	bg "github.com/algorand/indexer/cmd/block-generator/core"
 	v "github.com/algorand/indexer/cmd/validator/core"
 	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/idb"
@@ -66,7 +65,7 @@ var rootCmd = &cobra.Command{
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		if doVersion {
 			fmt.Printf("%s\n", version.LongVersion())
-			panic(exit{0})
+			os.Exit(0)
 		}
 	},
 }
@@ -81,17 +80,18 @@ var (
 	logger         *log.Logger
 )
 
-func indexerDbFromFlags(opts idb.IndexerDbOptions) (idb.IndexerDb, chan struct{}) {
+func indexerDbFromFlags(opts idb.IndexerDbOptions) (idb.IndexerDb, chan struct{}, error) {
 	if postgresAddr != "" {
 		db, ch, err := idb.IndexerDbByName("postgres", postgresAddr, opts, logger)
 		maybeFail(err, "could not init db, %v", err)
-		return db, ch
+		return db, ch, nil
 	}
 	if dummyIndexerDb {
-		return dummy.IndexerDb(), nil
+		return dummy.IndexerDb(), nil, nil
 	}
-	logger.Errorf("no import db set")
-	panic(exit{1})
+	err := fmt.Errorf("no import db set")
+	logger.WithError(err)
+	return nil, nil, err
 }
 
 func init() {
@@ -102,7 +102,6 @@ func init() {
 		Long:  "Utilities used for Indexer development. These are low level tools that may require low level knowledge of Indexer deployment and operation. They are included as part of this binary for ease of deployment and automation, and to publicize their existance to people who may find them useful. More detailed documention may be found on github in README files located the different 'cmd' directories.",
 	}
 	utilsCmd.AddCommand(v.ValidatorCmd)
-	utilsCmd.AddCommand(bg.BlockGenerator)
 	rootCmd.AddCommand(utilsCmd)
 
 	logger = log.New()
@@ -120,6 +119,7 @@ func init() {
 
 	// Version should be available globally
 	rootCmd.Flags().BoolVarP(&doVersion, "version", "v", false, "print version and exit")
+
 	// Not applied globally to avoid adding to utility commands.
 	addFlags := func(cmd *cobra.Command) {
 		cmd.Flags().StringVarP(&logLevel, "loglevel", "l", "info", "verbosity of logs: [error, warn, info, debug, trace]")
@@ -138,23 +138,11 @@ func init() {
 	// just hard-code yaml since we support multiple yaml filetypes
 	viper.SetConfigType("yaml")
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
-
-	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			// Config file not found, not an error since it may be set on the CLI.
-		} else {
-			fmt.Fprintf(os.Stderr, "invalid config file (%s): %v", viper.ConfigFileUsed(), err)
-			panic(exit{1})
-		}
-	} else {
-		fmt.Printf("Using configuration file: %s\n", viper.ConfigFileUsed())
-	}
-
 	viper.SetEnvPrefix(config.EnvPrefix)
 	viper.AutomaticEnv()
 
 	// Register metrics with the global prometheus handler.
-	metrics.RegisterPrometheusMetrics()
+	metrics.RegisterPrometheusMetrics("indexer_daemon")
 }
 
 func configureLogger() error {

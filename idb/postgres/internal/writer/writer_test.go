@@ -7,25 +7,28 @@ import (
 	"testing"
 	"time"
 
-	"github.com/algorand/go-algorand/crypto"
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/data/transactions/logic"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
-	"github.com/algorand/go-algorand/protocol"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/algorand/avm-abi/apps"
+	"github.com/algorand/indexer/helpers"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
 	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
 	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
 	"github.com/algorand/indexer/idb/postgres/internal/writer"
+	"github.com/algorand/indexer/types"
+	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/test"
+
+	crypto2 "github.com/algorand/go-algorand-sdk/v2/crypto"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
+	"github.com/algorand/go-algorand/crypto"
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
 var serializable = pgx.TxOptions{IsoLevel: pgx.Serializable}
@@ -71,7 +74,7 @@ func txnQuery(db *pgxpool.Pool, query string) ([]txnRow, error) {
 }
 
 type txnParticipationRow struct {
-	addr  basics.Address
+	addr  sdk.Address
 	round int
 	intra int
 }
@@ -100,8 +103,8 @@ func TestWriterBlockHeaderTableBasic(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	var block bookkeeping.Block
-	block.BlockHeader.Round = basics.Round(2)
+	var block sdk.Block
+	block.BlockHeader.Round = sdk.Round(2)
 	block.BlockHeader.TimeStamp = 333
 	block.BlockHeader.RewardsLevel = 111111
 
@@ -109,7 +112,7 @@ func TestWriterBlockHeaderTableBasic(t *testing.T) {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
 
-		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
+		err = w.AddBlock(&block, ledgercore.StateDelta{})
 		require.NoError(t, err)
 
 		w.Close()
@@ -126,7 +129,7 @@ func TestWriterBlockHeaderTableBasic(t *testing.T) {
 	err = row.Scan(&round, &realtime, &rewardslevel, &header)
 	require.NoError(t, err)
 
-	assert.Equal(t, block.BlockHeader.Round, basics.Round(round))
+	assert.Equal(t, block.BlockHeader.Round, sdk.Round(round))
 	{
 		expected := time.Unix(block.BlockHeader.TimeStamp, 0).UTC()
 		assert.True(t, expected.Equal(realtime))
@@ -141,13 +144,13 @@ func TestWriterSpecialAccounts(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	block := test.MakeGenesisBlock()
+	block := test.MakeGenesisBlockV2()
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
 
-		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
+		err = w.AddBlock(&block, ledgercore.StateDelta{})
 		require.NoError(t, err)
 
 		w.Close()
@@ -162,9 +165,9 @@ func TestWriterSpecialAccounts(t *testing.T) {
 	accounts, err := encoding.DecodeSpecialAddresses([]byte(j))
 	require.NoError(t, err)
 
-	expected := transactions.SpecialAddresses{
-		FeeSink:     test.FeeAddr,
-		RewardsPool: test.RewardAddr,
+	expected := types.SpecialAddresses{
+		FeeSink:     sdk.Address(test.FeeAddr),
+		RewardsPool: sdk.Address(test.RewardAddr),
 	}
 	assert.Equal(t, expected, accounts)
 }
@@ -173,35 +176,35 @@ func TestWriterTxnTableBasic(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	block := bookkeeping.Block{
-		BlockHeader: bookkeeping.BlockHeader{
-			Round:       basics.Round(2),
+	block := sdk.Block{
+		BlockHeader: sdk.BlockHeader{
+			Round:       sdk.Round(2),
 			TimeStamp:   333,
-			GenesisID:   test.MakeGenesis().ID(),
-			GenesisHash: test.GenesisHash,
-			RewardsState: bookkeeping.RewardsState{
+			GenesisID:   test.MakeGenesisV2().ID(),
+			GenesisHash: test.MakeGenesisV2().Hash(),
+			RewardsState: sdk.RewardsState{
 				RewardsLevel: 111111,
 			},
 			TxnCounter: 9,
-			UpgradeState: bookkeeping.UpgradeState{
-				CurrentProtocol: test.Proto,
+			UpgradeState: sdk.UpgradeState{
+				CurrentProtocol: "future",
 			},
 		},
-		Payset: make([]transactions.SignedTxnInBlock, 2),
+		Payset: make([]sdk.SignedTxnInBlock, 2),
 	}
 
-	stxnad0 := test.MakePaymentTxn(
-		1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
-		basics.Address{})
+	stxnad0 := test.MakePaymentTxnV2(
+		1000, 1, 0, 0, 0, 0, sdk.Address(test.AccountA), sdk.Address(test.AccountB), sdk.Address{},
+		sdk.Address{})
 	var err error
 	block.Payset[0], err =
-		block.BlockHeader.EncodeSignedTxn(stxnad0.SignedTxn, stxnad0.ApplyData)
+		util.EncodeSignedTxn(block.BlockHeader, stxnad0.SignedTxn, stxnad0.ApplyData)
 	require.NoError(t, err)
 
-	stxnad1 := test.MakeAssetConfigTxn(
-		0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountA)
+	stxnad1 := test.MakeAssetConfigTxnV2(
+		0, 100, 1, false, "ma", "myasset", "myasset.com", sdk.Address(test.AccountA))
 	block.Payset[1], err =
-		block.BlockHeader.EncodeSignedTxn(stxnad1.SignedTxn, stxnad1.ApplyData)
+		util.EncodeSignedTxn(block.BlockHeader, stxnad1.SignedTxn, stxnad1.ApplyData)
 	require.NoError(t, err)
 
 	f := func(tx pgx.Tx) error {
@@ -225,11 +228,11 @@ func TestWriterTxnTableBasic(t *testing.T) {
 	require.True(t, rows.Next())
 	err = rows.Scan(&round, &intra, &typeenum, &asset, &txid, &txn, &extra)
 	require.NoError(t, err)
-	assert.Equal(t, block.Round(), basics.Round(round))
+	assert.Equal(t, block.Round, sdk.Round(round))
 	assert.Equal(t, uint64(0), intra)
 	assert.Equal(t, idb.TypeEnumPay, idb.TxnTypeEnum(typeenum))
 	assert.Equal(t, uint64(0), asset)
-	assert.Equal(t, stxnad0.ID().String(), string(txid))
+	assert.Equal(t, crypto2.TransactionIDString(stxnad0.Txn), string(txid))
 	{
 		stxn, err := encoding.DecodeSignedTxnWithAD(txn)
 		require.NoError(t, err)
@@ -240,11 +243,11 @@ func TestWriterTxnTableBasic(t *testing.T) {
 	require.True(t, rows.Next())
 	err = rows.Scan(&round, &intra, &typeenum, &asset, &txid, &txn, &extra)
 	require.NoError(t, err)
-	assert.Equal(t, block.Round(), basics.Round(round))
+	assert.Equal(t, block.Round, sdk.Round(round))
 	assert.Equal(t, uint64(1), intra)
 	assert.Equal(t, idb.TypeEnumAssetConfig, idb.TxnTypeEnum(typeenum))
 	assert.Equal(t, uint64(9), asset)
-	assert.Equal(t, stxnad1.ID().String(), string(txid))
+	assert.Equal(t, crypto2.TransactionIDString(stxnad1.Txn), string(txid))
 	{
 		stxn, err := encoding.DecodeSignedTxnWithAD(txn)
 		require.NoError(t, err)
@@ -262,22 +265,22 @@ func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	block := bookkeeping.Block{
-		BlockHeader: bookkeeping.BlockHeader{
-			GenesisID:   test.MakeGenesis().ID(),
-			GenesisHash: test.GenesisHash,
-			UpgradeState: bookkeeping.UpgradeState{
-				CurrentProtocol: test.Proto,
+	block := sdk.Block{
+		BlockHeader: sdk.BlockHeader{
+			GenesisID:   test.MakeGenesisV2().ID(),
+			GenesisHash: test.MakeGenesisV2().Hash(),
+			UpgradeState: sdk.UpgradeState{
+				CurrentProtocol: "future",
 			},
 		},
-		Payset: make(transactions.Payset, 1),
+		Payset: make(sdk.Payset, 1),
 	}
-	stxnad := test.MakeAssetTransferTxn(1, 2, test.AccountA, test.AccountB, test.AccountC)
+	stxnad := test.MakeAssetTransferTxnV2(1, 2, sdk.Address(test.AccountA), sdk.Address(test.AccountB), sdk.Address(test.AccountC))
 	var err error
-	block.Payset[0], err = block.EncodeSignedTxn(stxnad.SignedTxn, stxnad.ApplyData)
+	block.Payset[0], err = util.EncodeSignedTxn(block.BlockHeader, stxnad.SignedTxn, stxnad.ApplyData)
 	require.NoError(t, err)
 
-	payset := []transactions.SignedTxnInBlock{block.Payset[0]}
+	payset := []sdk.SignedTxnInBlock{block.Payset[0]}
 	payset[0].ApplyData.AssetClosingAmount = 3
 
 	f := func(tx pgx.Tx) error {
@@ -318,18 +321,18 @@ func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
 func TestWriterTxnParticipationTable(t *testing.T) {
 	type testtype struct {
 		name     string
-		payset   transactions.Payset
+		payset   sdk.Payset
 		expected []txnParticipationRow
 	}
 
-	makeBlockFunc := func() bookkeeping.Block {
-		return bookkeeping.Block{
-			BlockHeader: bookkeeping.BlockHeader{
-				Round:       basics.Round(2),
-				GenesisID:   test.MakeGenesis().ID(),
-				GenesisHash: test.GenesisHash,
-				UpgradeState: bookkeeping.UpgradeState{
-					CurrentProtocol: test.Proto,
+	makeBlockFunc := func() sdk.Block {
+		return sdk.Block{
+			BlockHeader: sdk.BlockHeader{
+				Round:       sdk.Round(2),
+				GenesisID:   test.MakeGenesisV2().ID(),
+				GenesisHash: test.MakeGenesisV2().Hash(),
+				UpgradeState: sdk.UpgradeState{
+					CurrentProtocol: "future",
 				},
 			},
 		}
@@ -337,33 +340,33 @@ func TestWriterTxnParticipationTable(t *testing.T) {
 
 	var tests []testtype
 	{
-		stxnad0 := test.MakePaymentTxn(
-			1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
-			basics.Address{})
-		stib0, err := makeBlockFunc().EncodeSignedTxn(stxnad0.SignedTxn, stxnad0.ApplyData)
+		stxnad0 := test.MakePaymentTxnV2(
+			1000, 1, 0, 0, 0, 0, sdk.Address(test.AccountA), sdk.Address(test.AccountB), sdk.Address{},
+			sdk.Address{})
+		stib0, err := util.EncodeSignedTxn(makeBlockFunc().BlockHeader, stxnad0.SignedTxn, stxnad0.ApplyData)
 		require.NoError(t, err)
 
-		stxnad1 := test.MakeAssetConfigTxn(
-			0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountC)
-		stib1, err := makeBlockFunc().EncodeSignedTxn(stxnad1.SignedTxn, stxnad1.ApplyData)
+		stxnad1 := test.MakeAssetConfigTxnV2(
+			0, 100, 1, false, "ma", "myasset", "myasset.com", sdk.Address(test.AccountC))
+		stib1, err := util.EncodeSignedTxn(makeBlockFunc().BlockHeader, stxnad1.SignedTxn, stxnad1.ApplyData)
 		require.NoError(t, err)
 
 		testcase := testtype{
 			name:   "basic",
-			payset: []transactions.SignedTxnInBlock{stib0, stib1},
+			payset: []sdk.SignedTxnInBlock{stib0, stib1},
 			expected: []txnParticipationRow{
 				{
-					addr:  test.AccountA,
+					addr:  sdk.Address(test.AccountA),
 					round: 2,
 					intra: 0,
 				},
 				{
-					addr:  test.AccountB,
+					addr:  sdk.Address(test.AccountB),
 					round: 2,
 					intra: 0,
 				},
 				{
-					addr:  test.AccountC,
+					addr:  sdk.Address(test.AccountC),
 					round: 2,
 					intra: 1,
 				},
@@ -372,28 +375,28 @@ func TestWriterTxnParticipationTable(t *testing.T) {
 		tests = append(tests, testcase)
 	}
 	{
-		stxnad := test.MakeCreateAppTxn(test.AccountA)
+		stxnad := test.MakeCreateAppTxnV2(sdk.Address(test.AccountA))
 		stxnad.Txn.ApplicationCallTxnFields.Accounts =
-			[]basics.Address{test.AccountB, test.AccountC}
-		stib, err := makeBlockFunc().EncodeSignedTxn(stxnad.SignedTxn, stxnad.ApplyData)
+			[]sdk.Address{sdk.Address(test.AccountB), sdk.Address(test.AccountC)}
+		stib, err := util.EncodeSignedTxn(makeBlockFunc().BlockHeader, stxnad.SignedTxn, stxnad.ApplyData)
 		require.NoError(t, err)
 
 		testcase := testtype{
 			name:   "app_call_addresses",
-			payset: []transactions.SignedTxnInBlock{stib},
+			payset: []sdk.SignedTxnInBlock{stib},
 			expected: []txnParticipationRow{
 				{
-					addr:  test.AccountA,
+					addr:  sdk.Address(test.AccountA),
 					round: 2,
 					intra: 0,
 				},
 				{
-					addr:  test.AccountB,
+					addr:  sdk.Address(test.AccountB),
 					round: 2,
 					intra: 0,
 				},
 				{
-					addr:  test.AccountC,
+					addr:  sdk.Address(test.AccountC),
 					round: 2,
 					intra: 0,
 				},
@@ -440,7 +443,7 @@ func TestWriterAccountTableBasic(t *testing.T) {
 	var authAddr basics.Address
 	authAddr[0] = 3
 
-	var block bookkeeping.Block
+	var block sdk.Block
 	block.BlockHeader.Round = 4
 
 	var delta ledgercore.StateDelta
@@ -465,7 +468,7 @@ func TestWriterAccountTableBasic(t *testing.T) {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
 
-		err = w.AddBlock(&block, block.Payset, delta)
+		err = w.AddBlock(&block, delta)
 		require.NoError(t, err)
 
 		w.Close()
@@ -502,7 +505,7 @@ func TestWriterAccountTableBasic(t *testing.T) {
 		t, expectedAccountData.RewardedMicroAlgos,
 		basics.MicroAlgos{Raw: rewardsTotal})
 	assert.False(t, deleted)
-	assert.Equal(t, block.Round(), basics.Round(createdAt))
+	assert.Equal(t, block.Round, sdk.Round(createdAt))
 	assert.Nil(t, closedAt)
 	assert.Nil(t, keytype)
 	{
@@ -537,9 +540,9 @@ func TestWriterAccountTableBasic(t *testing.T) {
 	assert.Equal(t, uint64(0), rewardsbase)
 	assert.Equal(t, uint64(0), rewardsTotal)
 	assert.True(t, deleted)
-	assert.Equal(t, uint64(block.Round())-1, createdAt)
+	assert.Equal(t, uint64(block.Round)-1, createdAt)
 	require.NotNil(t, closedAt)
-	assert.Equal(t, uint64(block.Round()), *closedAt)
+	assert.Equal(t, uint64(block.Round), *closedAt)
 	assert.Nil(t, keytype)
 	assert.Equal(t, []byte("null"), accountData)
 	{
@@ -557,7 +560,7 @@ func TestWriterAccountTableCreateDeleteSameRound(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	var block bookkeeping.Block
+	var block sdk.Block
 	block.BlockHeader.Round = 4
 
 	var delta ledgercore.StateDelta
@@ -567,7 +570,7 @@ func TestWriterAccountTableCreateDeleteSameRound(t *testing.T) {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
 
-		err = w.AddBlock(&block, block.Payset, delta)
+		err = w.AddBlock(&block, delta)
 		require.NoError(t, err)
 
 		w.Close()
@@ -601,8 +604,8 @@ func TestWriterAccountTableCreateDeleteSameRound(t *testing.T) {
 	assert.Equal(t, uint64(0), rewardsbase)
 	assert.Equal(t, uint64(0), rewardsTotal)
 	assert.True(t, deleted)
-	assert.Equal(t, block.Round(), basics.Round(createdAt))
-	assert.Equal(t, block.Round(), basics.Round(closedAt))
+	assert.Equal(t, block.Round, sdk.Round(createdAt))
+	assert.Equal(t, block.Round, sdk.Round(closedAt))
 	assert.Nil(t, keytype)
 	assert.Equal(t, []byte("null"), accountData)
 	{
@@ -619,24 +622,24 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	block := bookkeeping.Block{
-		BlockHeader: bookkeeping.BlockHeader{
-			Round:       basics.Round(4),
-			GenesisID:   test.MakeGenesis().ID(),
-			GenesisHash: test.GenesisHash,
-			UpgradeState: bookkeeping.UpgradeState{
-				CurrentProtocol: test.Proto,
+	block := sdk.Block{
+		BlockHeader: sdk.BlockHeader{
+			Round:       sdk.Round(4),
+			GenesisID:   test.MakeGenesisV2().ID(),
+			GenesisHash: test.MakeGenesisV2().Hash(),
+			UpgradeState: sdk.UpgradeState{
+				CurrentProtocol: "future",
 			},
 		},
-		Payset: make(transactions.Payset, 1),
+		Payset: make(sdk.Payset, 1),
 	}
 
-	stxnad := test.MakePaymentTxn(
-		1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
-		basics.Address{})
+	stxnad := test.MakePaymentTxnV2(
+		1000, 1, 0, 0, 0, 0, sdk.Address(test.AccountA), sdk.Address(test.AccountB), sdk.Address{},
+		sdk.Address{})
 	stxnad.Sig[0] = 5 // set signature so that keytype for account is updated
 	var err error
-	block.Payset[0], err = block.EncodeSignedTxn(stxnad.SignedTxn, stxnad.ApplyData)
+	block.Payset[0], err = util.EncodeSignedTxn(block.BlockHeader, stxnad.SignedTxn, stxnad.ApplyData)
 	require.NoError(t, err)
 
 	var delta ledgercore.StateDelta
@@ -650,7 +653,7 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
 
-		err = w.AddBlock(&block, block.Payset, delta)
+		err = w.AddBlock(&block, delta)
 		require.NoError(t, err)
 
 		w.Close()
@@ -667,7 +670,7 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 	assert.Equal(t, "sig", keytype)
 
 	// Now delete this account.
-	block.BlockHeader.Round = basics.Round(5)
+	block.BlockHeader.Round = sdk.Round(5)
 	delta.Accts = ledgercore.AccountDeltas{}
 	delta.Accts.Upsert(test.AccountA, ledgercore.AccountData{})
 
@@ -684,8 +687,8 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	var block bookkeeping.Block
-	block.BlockHeader.Round = basics.Round(1)
+	var block sdk.Block
+	block.BlockHeader.Round = sdk.Round(1)
 
 	assetID := basics.AssetIndex(3)
 	assetHolding := basics.AssetHolding{
@@ -701,7 +704,7 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
 
-		err = w.AddBlock(&block, block.Payset, delta)
+		err = w.AddBlock(&block, delta)
 		require.NoError(t, err)
 
 		w.Close()
@@ -731,7 +734,7 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 	assert.Equal(t, assetHolding.Amount, amount)
 	assert.Equal(t, assetHolding.Frozen, frozen)
 	assert.False(t, deleted)
-	assert.Equal(t, block.Round(), basics.Round(createdAt))
+	assert.Equal(t, block.Round, sdk.Round(createdAt))
 	assert.Nil(t, closedAt)
 
 	assert.False(t, rows.Next())
@@ -761,9 +764,9 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 	assert.Equal(t, uint64(0), amount)
 	assert.Equal(t, assetHolding.Frozen, frozen)
 	assert.True(t, deleted)
-	assert.Equal(t, uint64(block.Round())-1, createdAt)
+	assert.Equal(t, uint64(block.Round)-1, createdAt)
 	require.NotNil(t, closedAt)
-	assert.Equal(t, uint64(block.Round()), *closedAt)
+	assert.Equal(t, uint64(block.Round), *closedAt)
 
 	assert.False(t, rows.Next())
 	assert.NoError(t, rows.Err())
@@ -774,8 +777,8 @@ func TestWriterAccountAssetTableCreateDeleteSameRound(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	var block bookkeeping.Block
-	block.BlockHeader.Round = basics.Round(1)
+	var block sdk.Block
+	block.BlockHeader.Round = sdk.Round(1)
 
 	assetID := basics.AssetIndex(3)
 	var delta ledgercore.StateDelta
@@ -787,7 +790,7 @@ func TestWriterAccountAssetTableCreateDeleteSameRound(t *testing.T) {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
 
-		err = w.AddBlock(&block, block.Payset, delta)
+		err = w.AddBlock(&block, delta)
 		require.NoError(t, err)
 
 		w.Close()
@@ -813,16 +816,16 @@ func TestWriterAccountAssetTableCreateDeleteSameRound(t *testing.T) {
 	assert.Equal(t, uint64(0), amount)
 	assert.False(t, frozen)
 	assert.True(t, deleted)
-	assert.Equal(t, block.Round(), basics.Round(createdAt))
-	assert.Equal(t, block.Round(), basics.Round(closedAt))
+	assert.Equal(t, block.Round, sdk.Round(createdAt))
+	assert.Equal(t, block.Round, sdk.Round(closedAt))
 }
 
 func TestWriterAccountAssetTableLargeAmount(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	var block bookkeeping.Block
-	block.BlockHeader.Round = basics.Round(1)
+	var block sdk.Block
+	block.BlockHeader.Round = sdk.Round(1)
 
 	assetID := basics.AssetIndex(3)
 	assetHolding := basics.AssetHolding{
@@ -837,7 +840,7 @@ func TestWriterAccountAssetTableLargeAmount(t *testing.T) {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
 
-		err = w.AddBlock(&block, block.Payset, delta)
+		err = w.AddBlock(&block, delta)
 		require.NoError(t, err)
 
 		w.Close()
@@ -858,8 +861,8 @@ func TestWriterAssetTableBasic(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	var block bookkeeping.Block
-	block.BlockHeader.Round = basics.Round(1)
+	var block sdk.Block
+	block.BlockHeader.Round = sdk.Round(1)
 
 	assetID := basics.AssetIndex(3)
 	assetParams := basics.AssetParams{
@@ -875,7 +878,7 @@ func TestWriterAssetTableBasic(t *testing.T) {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
 
-		err = w.AddBlock(&block, block.Payset, delta)
+		err = w.AddBlock(&block, delta)
 		require.NoError(t, err)
 
 		w.Close()
@@ -904,10 +907,10 @@ func TestWriterAssetTableBasic(t *testing.T) {
 	{
 		paramsRead, err := encoding.DecodeAssetParams(params)
 		require.NoError(t, err)
-		assert.Equal(t, assetParams, paramsRead)
+		assert.Equal(t, helpers.ConvertParams(assetParams), paramsRead)
 	}
 	assert.False(t, deleted)
-	assert.Equal(t, block.Round(), basics.Round(createdAt))
+	assert.Equal(t, block.Round, sdk.Round(createdAt))
 	assert.Nil(t, closedAt)
 
 	assert.False(t, rows.Next())
@@ -938,12 +941,12 @@ func TestWriterAssetTableBasic(t *testing.T) {
 	{
 		paramsRead, err := encoding.DecodeAssetParams(params)
 		require.NoError(t, err)
-		assert.Equal(t, basics.AssetParams{}, paramsRead)
+		assert.Equal(t, helpers.ConvertParams(basics.AssetParams{}), paramsRead)
 	}
 	assert.True(t, deleted)
-	assert.Equal(t, uint64(block.Round())-1, createdAt)
+	assert.Equal(t, uint64(block.Round)-1, createdAt)
 	require.NotNil(t, closedAt)
-	assert.Equal(t, uint64(block.Round()), *closedAt)
+	assert.Equal(t, uint64(block.Round), *closedAt)
 
 	assert.False(t, rows.Next())
 	assert.NoError(t, rows.Err())
@@ -954,8 +957,8 @@ func TestWriterAssetTableCreateDeleteSameRound(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	var block bookkeeping.Block
-	block.BlockHeader.Round = basics.Round(1)
+	var block sdk.Block
+	block.BlockHeader.Round = sdk.Round(1)
 
 	assetID := basics.AssetIndex(3)
 	var delta ledgercore.StateDelta
@@ -967,7 +970,7 @@ func TestWriterAssetTableCreateDeleteSameRound(t *testing.T) {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
 
-		err = w.AddBlock(&block, block.Payset, delta)
+		err = w.AddBlock(&block, delta)
 		require.NoError(t, err)
 
 		w.Close()
@@ -993,19 +996,19 @@ func TestWriterAssetTableCreateDeleteSameRound(t *testing.T) {
 	{
 		paramsRead, err := encoding.DecodeAssetParams(params)
 		require.NoError(t, err)
-		assert.Equal(t, basics.AssetParams{}, paramsRead)
+		assert.Equal(t, helpers.ConvertParams(basics.AssetParams{}), paramsRead)
 	}
 	assert.True(t, deleted)
-	assert.Equal(t, block.Round(), basics.Round(createdAt))
-	assert.Equal(t, block.Round(), basics.Round(closedAt))
+	assert.Equal(t, block.Round, sdk.Round(createdAt))
+	assert.Equal(t, block.Round, sdk.Round(closedAt))
 }
 
 func TestWriterAppTableBasic(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	var block bookkeeping.Block
-	block.BlockHeader.Round = basics.Round(1)
+	var block sdk.Block
+	block.BlockHeader.Round = sdk.Round(1)
 
 	appID := basics.AppIndex(3)
 	appParams := basics.AppParams{
@@ -1025,7 +1028,7 @@ func TestWriterAppTableBasic(t *testing.T) {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
 
-		err = w.AddBlock(&block, block.Payset, delta)
+		err = w.AddBlock(&block, delta)
 		require.NoError(t, err)
 
 		w.Close()
@@ -1057,7 +1060,7 @@ func TestWriterAppTableBasic(t *testing.T) {
 		assert.Equal(t, appParams, paramsRead)
 	}
 	assert.False(t, deleted)
-	assert.Equal(t, block.Round(), basics.Round(createdAt))
+	assert.Equal(t, block.Round, sdk.Round(createdAt))
 	assert.Nil(t, closedAt)
 
 	assert.False(t, rows.Next())
@@ -1091,9 +1094,9 @@ func TestWriterAppTableBasic(t *testing.T) {
 		assert.Equal(t, basics.AppParams{}, paramsRead)
 	}
 	assert.True(t, deleted)
-	assert.Equal(t, uint64(block.Round())-1, createdAt)
+	assert.Equal(t, uint64(block.Round)-1, createdAt)
 	require.NotNil(t, closedAt)
-	assert.Equal(t, uint64(block.Round()), *closedAt)
+	assert.Equal(t, uint64(block.Round), *closedAt)
 
 	assert.False(t, rows.Next())
 	assert.NoError(t, rows.Err())
@@ -1104,8 +1107,8 @@ func TestWriterAppTableCreateDeleteSameRound(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	var block bookkeeping.Block
-	block.BlockHeader.Round = basics.Round(1)
+	var block sdk.Block
+	block.BlockHeader.Round = sdk.Round(1)
 
 	appID := basics.AppIndex(3)
 	var delta ledgercore.StateDelta
@@ -1117,7 +1120,7 @@ func TestWriterAppTableCreateDeleteSameRound(t *testing.T) {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
 
-		err = w.AddBlock(&block, block.Payset, delta)
+		err = w.AddBlock(&block, delta)
 		require.NoError(t, err)
 
 		w.Close()
@@ -1147,16 +1150,16 @@ func TestWriterAppTableCreateDeleteSameRound(t *testing.T) {
 		assert.Equal(t, basics.AppParams{}, paramsRead)
 	}
 	assert.True(t, deleted)
-	assert.Equal(t, block.Round(), basics.Round(createdAt))
-	assert.Equal(t, block.Round(), basics.Round(closedAt))
+	assert.Equal(t, block.Round, sdk.Round(createdAt))
+	assert.Equal(t, block.Round, sdk.Round(closedAt))
 }
 
 func TestWriterAccountAppTableBasic(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	var block bookkeeping.Block
-	block.BlockHeader.Round = basics.Round(1)
+	var block sdk.Block
+	block.BlockHeader.Round = sdk.Round(1)
 
 	appID := basics.AppIndex(3)
 	appLocalState := basics.AppLocalState{
@@ -1175,7 +1178,7 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
 
-		err = w.AddBlock(&block, block.Payset, delta)
+		err = w.AddBlock(&block, delta)
 		require.NoError(t, err)
 
 		w.Close()
@@ -1207,7 +1210,7 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 		assert.Equal(t, appLocalState, appLocalStateRead)
 	}
 	assert.False(t, deleted)
-	assert.Equal(t, block.Round(), basics.Round(createdAt))
+	assert.Equal(t, block.Round, sdk.Round(createdAt))
 	assert.Nil(t, closedAt)
 
 	assert.False(t, rows.Next())
@@ -1241,9 +1244,9 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 		assert.Equal(t, basics.AppLocalState{}, appLocalStateRead)
 	}
 	assert.True(t, deleted)
-	assert.Equal(t, uint64(block.Round())-1, createdAt)
+	assert.Equal(t, uint64(block.Round)-1, createdAt)
 	require.NotNil(t, closedAt)
-	assert.Equal(t, uint64(block.Round()), *closedAt)
+	assert.Equal(t, uint64(block.Round), *closedAt)
 
 	assert.False(t, rows.Next())
 	assert.NoError(t, rows.Err())
@@ -1254,8 +1257,8 @@ func TestWriterAccountAppTableCreateDeleteSameRound(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	var block bookkeeping.Block
-	block.BlockHeader.Round = basics.Round(1)
+	var block sdk.Block
+	block.BlockHeader.Round = sdk.Round(1)
 
 	appID := basics.AppIndex(3)
 	var delta ledgercore.StateDelta
@@ -1267,7 +1270,7 @@ func TestWriterAccountAppTableCreateDeleteSameRound(t *testing.T) {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
 
-		err = w.AddBlock(&block, block.Payset, delta)
+		err = w.AddBlock(&block, delta)
 		require.NoError(t, err)
 
 		w.Close()
@@ -1296,28 +1299,28 @@ func TestWriterAccountAppTableCreateDeleteSameRound(t *testing.T) {
 		assert.Equal(t, basics.AppLocalState{}, appLocalStateRead)
 	}
 	assert.True(t, deleted)
-	assert.Equal(t, block.Round(), basics.Round(createdAt))
-	assert.Equal(t, block.Round(), basics.Round(closedAt))
+	assert.Equal(t, block.Round, sdk.Round(createdAt))
+	assert.Equal(t, block.Round, sdk.Round(closedAt))
 }
 
 func TestAddBlockInvalidInnerAsset(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	callWithBadInner := test.MakeCreateAppTxn(test.AccountA)
-	callWithBadInner.ApplyData.EvalDelta.InnerTxns = []transactions.SignedTxnWithAD{
+	callWithBadInner := test.MakeCreateAppTxnV2(sdk.Address(test.AccountA))
+	callWithBadInner.ApplyData.EvalDelta.InnerTxns = []sdk.SignedTxnWithAD{
 		{
-			ApplyData: transactions.ApplyData{
+			ApplyData: sdk.ApplyData{
 				// This is the invalid inner asset. It should not be zero.
 				ConfigAsset: 0,
 			},
-			SignedTxn: transactions.SignedTxn{
-				Txn: transactions.Transaction{
-					Type: protocol.AssetConfigTx,
-					Header: transactions.Header{
-						Sender: test.AccountB,
+			SignedTxn: sdk.SignedTxn{
+				Txn: sdk.Transaction{
+					Type: sdk.AssetConfigTx,
+					Header: sdk.Header{
+						Sender: sdk.Address(test.AccountB),
 					},
-					AssetConfigTxnFields: transactions.AssetConfigTxnFields{
+					AssetConfigTxnFields: sdk.AssetConfigTxnFields{
 						ConfigAsset: 0,
 					},
 				},
@@ -1325,7 +1328,8 @@ func TestAddBlockInvalidInnerAsset(t *testing.T) {
 		},
 	}
 
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &callWithBadInner)
+	genesisBlock := test.MakeGenesisBlockV2()
+	block, err := test.MakeBlockForTxnsV2(genesisBlock.BlockHeader, &callWithBadInner)
 	require.NoError(t, err)
 
 	err = makeTx(db, func(tx pgx.Tx) error {
@@ -1339,15 +1343,16 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	defer shutdownFunc()
 
 	// App call with inner txns, should be intra 0, 1, 2, 3, 4
-	var appAddr basics.Address
+	var appAddr sdk.Address
 	appAddr[1] = 99
-	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
+	appCall := test.MakeAppCallWithInnerTxnV2(sdk.Address(test.AccountA), appAddr, sdk.Address(test.AccountB), appAddr, sdk.Address(test.AccountC))
 
 	// Asset create call, should have intra = 5
-	assetCreate := test.MakeAssetConfigTxn(
-		0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountD)
+	assetCreate := test.MakeAssetConfigTxnV2(
+		0, 100, 1, false, "ma", "myasset", "myasset.com", sdk.Address(test.AccountD))
 
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall, &assetCreate)
+	genesisBlock := test.MakeGenesisBlockV2()
+	block, err := test.MakeBlockForTxnsV2(genesisBlock.BlockHeader, &appCall, &assetCreate)
 	require.NoError(t, err)
 
 	err = makeTx(db, func(tx pgx.Tx) error {
@@ -1410,17 +1415,17 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 			intra: 0,
 		},
 		{
-			addr:  test.AccountA,
+			addr:  sdk.Address(test.AccountA),
 			round: 1,
 			intra: 0,
 		},
 		{
-			addr:  test.AccountB,
+			addr:  sdk.Address(test.AccountB),
 			round: 1,
 			intra: 0,
 		},
 		{
-			addr:  test.AccountC,
+			addr:  sdk.Address(test.AccountC),
 			round: 1,
 			intra: 0,
 		},
@@ -1431,7 +1436,7 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 			intra: 1,
 		},
 		{
-			addr:  test.AccountB,
+			addr:  sdk.Address(test.AccountB),
 			round: 1,
 			intra: 1,
 		},
@@ -1448,7 +1453,7 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 			intra: 3,
 		},
 		{
-			addr:  test.AccountC,
+			addr:  sdk.Address(test.AccountC),
 			round: 1,
 			intra: 3,
 		},
@@ -1460,7 +1465,7 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 		},
 		// acfg after appl
 		{
-			addr:  test.AccountD,
+			addr:  sdk.Address(test.AccountD),
 			round: 1,
 			intra: 5,
 		},
@@ -1472,55 +1477,17 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	}
 }
 
-func TestWriterAccountTotals(t *testing.T) {
-	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
-	defer shutdownFunc()
-
-	// Set empty account totals.
-	err := pgutil.SetMetastate(db, nil, schema.AccountTotals, "{}")
-	require.NoError(t, err)
-
-	block := test.MakeGenesisBlock()
-
-	accountTotals := ledgercore.AccountTotals{
-		Online: ledgercore.AlgoCount{
-			Money: basics.MicroAlgos{Raw: 33},
-		},
-	}
-
-	f := func(tx pgx.Tx) error {
-		w, err := writer.MakeWriter(tx)
-		require.NoError(t, err)
-
-		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{Totals: accountTotals})
-		require.NoError(t, err)
-
-		w.Close()
-		return nil
-	}
-	err = pgutil.TxWithRetry(db, serializable, f, nil)
-	require.NoError(t, err)
-
-	j, err := pgutil.GetMetastate(
-		context.Background(), db, nil, schema.AccountTotals)
-	require.NoError(t, err)
-	accountTotalsRead, err := encoding.DecodeAccountTotals([]byte(j))
-	require.NoError(t, err)
-
-	assert.Equal(t, accountTotals, accountTotalsRead)
-}
-
 func TestWriterAddBlock0(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	block := test.MakeGenesisBlock()
+	block := test.MakeGenesisBlockV2()
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
 
-		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
+		err = w.AddBlock(&block, ledgercore.StateDelta{})
 		require.NoError(t, err)
 
 		w.Close()
@@ -1539,7 +1506,7 @@ func TestWriterAddBlock0(t *testing.T) {
 		err = row.Scan(&round, &realtime, &rewardslevel, &header)
 		require.NoError(t, err)
 
-		assert.Equal(t, block.BlockHeader.Round, basics.Round(round))
+		assert.Equal(t, block.BlockHeader.Round, sdk.Round(round))
 		{
 			expected := time.Unix(block.BlockHeader.TimeStamp, 0).UTC()
 			assert.True(t, expected.Equal(realtime))
@@ -1558,16 +1525,17 @@ func TestWriterAddBlock0(t *testing.T) {
 		accounts, err := encoding.DecodeSpecialAddresses([]byte(j))
 		require.NoError(t, err)
 
-		expected := transactions.SpecialAddresses{
-			FeeSink:     test.FeeAddr,
-			RewardsPool: test.RewardAddr,
+		expected := types.SpecialAddresses{
+			FeeSink:     sdk.Address(test.FeeAddr),
+			RewardsPool: sdk.Address(test.RewardAddr),
 		}
 		assert.Equal(t, expected, accounts)
 	}
 }
 func getNameAndAccountPointer(t *testing.T, value ledgercore.KvValueDelta, fullKey string, accts map[basics.Address]*ledgercore.AccountData) (basics.Address, string, *ledgercore.AccountData) {
 	require.NotNil(t, value, "cannot handle a nil value for box stats modification")
-	appIdx, name, err := logic.SplitBoxKey(fullKey)
+	appIdxUint, name, err := apps.SplitBoxKey(fullKey)
+	appIdx := basics.AppIndex(appIdxUint)
 	account := appIdx.Address()
 	require.NoError(t, err)
 	acctData, ok := accts[account]
@@ -1675,15 +1643,15 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	var block bookkeeping.Block
-	block.BlockHeader.Round = basics.Round(1)
+	var block sdk.Block
+	block.BlockHeader.Round = sdk.Round(1)
 	delta := ledgercore.StateDelta{}
 
 	addNewBlock := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
 
-		err = w.AddBlock(&block, block.Payset, delta)
+		err = w.AddBlock(&block, delta)
 		require.NoError(t, err)
 
 		w.Close()
@@ -1700,11 +1668,11 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	n4, v4 := "box4", "inserted"
 	n5, v5 := "box5", "inserted"
 
-	k1 := logic.MakeBoxKey(appID, n1)
-	k2 := logic.MakeBoxKey(appID, n2)
-	k3 := logic.MakeBoxKey(appID, n3)
-	k4 := logic.MakeBoxKey(appID, n4)
-	k5 := logic.MakeBoxKey(appID, n5)
+	k1 := apps.MakeBoxKey(uint64(appID), n1)
+	k2 := apps.MakeBoxKey(uint64(appID), n2)
+	k3 := apps.MakeBoxKey(uint64(appID), n3)
+	k4 := apps.MakeBoxKey(uint64(appID), n4)
+	k5 := apps.MakeBoxKey(uint64(appID), n5)
 
 	delta.KvMods = map[string]ledgercore.KvValueDelta{}
 	delta.KvMods[k1] = ledgercore.KvValueDelta{Data: []byte(v1)}
@@ -1771,7 +1739,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	// v5 is "deleted"
 	n6, v6 := "box6", "inserted"
 
-	k6 := logic.MakeBoxKey(appID, n6)
+	k6 := apps.MakeBoxKey(uint64(appID), n6)
 
 	delta.KvMods = map[string]ledgercore.KvValueDelta{}
 	delta.KvMods[k2] = ledgercore.KvValueDelta{Data: []byte(v2), OldData: []byte(oldV2)}

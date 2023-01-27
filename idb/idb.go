@@ -9,13 +9,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/algorand/go-algorand/crypto"
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
-
 	models "github.com/algorand/indexer/api/generated/v2"
+	"github.com/algorand/indexer/types"
+
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
 // TxnRow is metadata relating to one transaction in a transaction query.
@@ -30,10 +29,10 @@ type TxnRow struct {
 	Intra int
 
 	// TxnBytes is the raw signed transaction with apply data object, only used when the root txn is being returned.
-	Txn *transactions.SignedTxnWithAD
+	Txn *sdk.SignedTxnWithAD
 
 	// RootTxnBytes the root transaction raw signed transaction with apply data object, only inner transactions have this.
-	RootTxn *transactions.SignedTxnWithAD
+	RootTxn *sdk.SignedTxnWithAD
 
 	// AssetID is the ID of any asset or application created or configured by this
 	// transaction.
@@ -46,7 +45,7 @@ type TxnRow struct {
 	Error error
 }
 
-func countInner(stxn *transactions.SignedTxnWithAD) uint {
+func countInner(stxn *sdk.SignedTxnWithAD) uint {
 	num := uint(0)
 	for _, itxn := range stxn.ApplyData.EvalDelta.InnerTxns {
 		num++
@@ -68,7 +67,7 @@ func (tr TxnRow) Next(ascending bool) (string, error) {
 
 	// when ascending add the count of inner transactions.
 	if ascending {
-		var stxn *transactions.SignedTxnWithAD
+		var stxn *sdk.SignedTxnWithAD
 		if tr.RootTxn != nil {
 			stxn = tr.RootTxn
 		} else {
@@ -164,15 +163,15 @@ type IndexerDb interface {
 	// Import a block and do the accounting.
 	AddBlock(block *ledgercore.ValidatedBlock) error
 
-	LoadGenesis(genesis bookkeeping.Genesis) (err error)
+	LoadGenesis(genesis sdk.Genesis) (err error)
 
 	// GetNextRoundToAccount returns ErrorNotInitialized if genesis is not loaded.
 	GetNextRoundToAccount() (uint64, error)
-	GetSpecialAccounts(ctx context.Context) (transactions.SpecialAddresses, error)
+	GetSpecialAccounts(ctx context.Context) (types.SpecialAddresses, error)
 	GetNetworkState() (NetworkState, error)
-	SetNetworkState(genesis bookkeeping.Genesis) error
+	SetNetworkState(genesis sdk.Digest) error
 
-	GetBlock(ctx context.Context, round uint64, options GetBlockOptions) (blockHeader bookkeeping.BlockHeader, transactions []TxnRow, err error)
+	GetBlock(ctx context.Context, round uint64, options GetBlockOptions) (blockHeader sdk.BlockHeader, transactions []TxnRow, err error)
 
 	// The next multiple functions return a channel with results as well as the latest round
 	// accounted.
@@ -185,6 +184,8 @@ type IndexerDb interface {
 	ApplicationBoxes(ctx context.Context, filter ApplicationBoxQuery) (<-chan ApplicationBoxRow, uint64)
 
 	Health(ctx context.Context) (status Health, err error)
+
+	DeleteTransactions(ctx context.Context, keep uint64) error
 }
 
 // GetBlockOptions contains the options when requesting to load a block from the database.
@@ -330,7 +331,7 @@ type AssetsQuery struct {
 type AssetRow struct {
 	AssetID      uint64
 	Creator      []byte
-	Params       basics.AssetParams
+	Params       sdk.AssetParams
 	Error        error
 	CreatedRound *uint64
 	ClosedRound  *uint64
@@ -431,7 +432,7 @@ type Health struct {
 
 // NetworkState encodes network metastate.
 type NetworkState struct {
-	GenesisHash crypto.Digest `codec:"genesis-hash"`
+	GenesisHash sdk.Digest `codec:"genesis-hash"`
 }
 
 // MaxTransactionsError records the error when transaction counts exceeds MaxTransactionsLimit.

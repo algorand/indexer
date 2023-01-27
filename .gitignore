@@ -1,8 +1,10 @@
 # Build artifacts
 cmd/algorand-indexer/algorand-indexer
+cmd/conduit/conduit
 api/.3tmp.json
 api/generate
 tmp/
+./conduit-docs/
 
 # Binaries for programs and plugins
 *.exe
@@ -28,6 +30,9 @@ _*.json
 
 # Python
 __pycache__
+e2e_tests/dist
+e2e_tests/build
+e2e_tests/*egg-info*
 .venv
 
 # jetbrains IDE
@@ -48,3 +53,6 @@ coverage.txt
 
 # asdf
 .tool-versions
+
+# conduit example
+cmd/conduit/data

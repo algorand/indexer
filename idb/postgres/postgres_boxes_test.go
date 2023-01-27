@@ -10,15 +10,12 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/stretchr/testify/require"
 
+	"github.com/algorand/avm-abi/apps"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/protocol"
-	"github.com/algorand/go-algorand/rpcs"
-
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/idb/postgres/internal/writer"
@@ -49,9 +46,9 @@ func compareAppBoxesAgainstDB(t *testing.T, db *IndexerDb,
 		// compare expected against db contents one box at a time
 		for key, expectedValue := range boxes {
 			msg := fmt.Sprintf("caseNum=%d, appIdx=%d, key=%#v", caseNum, appIdx, key)
-			expectedAppIdx, boxName, err := logic.SplitBoxKey(key)
+			expectedAppIdx, boxName, err := apps.SplitBoxKey(key)
 			require.NoError(t, err, msg)
-			require.Equal(t, appIdx, expectedAppIdx, msg)
+			require.Equal(t, uint64(appIdx), expectedAppIdx, msg)
 
 			row := db.db.QueryRow(context.Background(), appBoxSQL, appIdx, []byte(boxName))
 			numQueries++
@@ -68,7 +65,7 @@ func compareAppBoxesAgainstDB(t *testing.T, db *IndexerDb,
 			err = row.Scan(&app, &name, &value)
 			if !boxDeleted {
 				require.NoError(t, err, msg)
-				require.Equal(t, expectedAppIdx, app, msg)
+				require.Equal(t, expectedAppIdx, uint64(app), msg)
 				require.Equal(t, boxName, string(name), msg)
 				require.Equal(t, expectedValue, string(value), msg)
 
@@ -106,26 +103,27 @@ func compareAppBoxesAgainstDB(t *testing.T, db *IndexerDb,
 func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	start := time.Now()
 
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-
-	defer l.Close()
 
 	appid := basics.AppIndex(1)
 
 	// ---- ROUND 1: create and fund the box app  ---- //
 	currentRound := basics.Round(1)
 
-	createTxn, err := test.MakeComplexCreateAppTxn(test.AccountA, test.BoxApprovalProgram, test.BoxClearProgram, 8)
+	//createTxn, err := test.MakeComplexCreateAppTxn(test.AccountA, test.BoxApprovalProgram, test.BoxClearProgram, 8)
+	//require.NoError(t, err)
+	//
+	//payNewAppTxn := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountA, appid.Address(), basics.Address{},
+	//	basics.Address{})
+	//
+	//block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createTxn, &payNewAppTxn)
+	//require.NoError(t, err)
+
+	vb1, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDeleteR1.vb")
 	require.NoError(t, err)
-
-	payNewAppTxn := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountA, appid.Address(), basics.Address{},
-		basics.Address{})
-
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createTxn, &payNewAppTxn)
-	require.NoError(t, err)
-
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	blk1 := ledgercore.MakeValidatedBlock(vb1.Blk, vb1.Delta)
+	err = db.AddBlock(&blk1)
 	require.NoError(t, err)
 
 	opts := idb.ApplicationQuery{ApplicationID: uint64(appid)}
@@ -138,10 +136,6 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	require.NoError(t, row.Error)
 	require.NotNil(t, row.Application.CreatedAtRound)
 	require.Equal(t, uint64(currentRound), *row.Application.CreatedAtRound)
-
-	// block header handoff: round 1 --> round 2
-	blockHdr, err := l.BlockHdr(currentRound)
-	require.NoError(t, err)
 
 	// ---- ROUND 2: create 8 boxes for appid == 1  ---- //
 	currentRound = basics.Round(2)
@@ -161,28 +155,28 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 
 	expectedAppBoxes[appid] = map[string]string{}
 	newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-	boxTxns := make([]*transactions.SignedTxnWithAD, 0)
-	for _, boxName := range boxNames {
-		expectedAppBoxes[appid][logic.MakeBoxKey(appid, boxName)] = newBoxValue
+	//boxTxns := make([]*transactions.SignedTxnWithAD, 0)
+	//for _, boxName := range boxNames {
+	//	expectedAppBoxes[appid][apps.MakeBoxKey(uint64(appid), boxName)] = newBoxValue
+	//
+	//	args := []string{"create", boxName}
+	//	boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+	//	boxTxns = append(boxTxns, &boxTxn)
+	//}
 
-		args := []string{"create", boxName}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
-		boxTxns = append(boxTxns, &boxTxn)
+	for _, boxName := range boxNames {
+		expectedAppBoxes[appid][apps.MakeBoxKey(uint64(appid), boxName)] = newBoxValue
 	}
 
-	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	vb2, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDeleteR2.vb")
 	require.NoError(t, err)
-
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	blk2 := ledgercore.MakeValidatedBlock(vb2.Blk, vb2.Delta)
+	err = db.AddBlock(&blk2)
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
 
 	comparator(t, db, expectedAppBoxes, nil, true)
-
-	// block header handoff: round 2 --> round 3
-	blockHdr, err = l.BlockHdr(currentRound)
-	require.NoError(t, err)
 
 	// ---- ROUND 3: populate the boxes appropriately  ---- //
 	currentRound = basics.Round(3)
@@ -198,29 +192,32 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 		"box #8":                    "eight is beautiful",
 	}
 
-	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	//boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	//expectedAppBoxes[appid] = make(map[string]string)
+	//for boxName, valPrefix := range appBoxesToSet {
+	//	args := []string{"set", boxName, valPrefix}
+	//	boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+	//	boxTxns = append(boxTxns, &boxTxn)
+	//
+	//	key := apps.MakeBoxKey(uint64(appid), boxName)
+	//	expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
+	//}
+
 	expectedAppBoxes[appid] = make(map[string]string)
 	for boxName, valPrefix := range appBoxesToSet {
-		args := []string{"set", boxName, valPrefix}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
-		boxTxns = append(boxTxns, &boxTxn)
-
-		key := logic.MakeBoxKey(appid, boxName)
+		key := apps.MakeBoxKey(uint64(appid), boxName)
 		expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
 	}
-	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
-	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	vb3, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDeleteR3.vb")
+	require.NoError(t, err)
+	blk3 := ledgercore.MakeValidatedBlock(vb3.Blk, vb3.Delta)
+	err = db.AddBlock(&blk3)
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
 
 	comparator(t, db, expectedAppBoxes, nil, true)
-
-	// block header handoff: round 3 --> round 4
-	blockHdr, err = l.BlockHdr(currentRound)
-	require.NoError(t, err)
 
 	// ---- ROUND 4: delete the unhappy boxes  ---- //
 	currentRound = basics.Round(4)
@@ -231,19 +228,25 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 		"I'm destined for deletion",
 	}
 
-	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
-	for _, boxName := range appBoxesToDelete {
-		args := []string{"delete", boxName}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
-		boxTxns = append(boxTxns, &boxTxn)
+	//boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	//for _, boxName := range appBoxesToDelete {
+	//	args := []string{"delete", boxName}
+	//	boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+	//	boxTxns = append(boxTxns, &boxTxn)
+	//
+	//	key := apps.MakeBoxKey(uint64(appid), boxName)
+	//	delete(expectedAppBoxes[appid], key)
+	//}
 
-		key := logic.MakeBoxKey(appid, boxName)
+	for _, boxName := range appBoxesToDelete {
+		key := apps.MakeBoxKey(uint64(appid), boxName)
 		delete(expectedAppBoxes[appid], key)
 	}
-	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
-	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	vb4, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDeleteR4.vb")
+	require.NoError(t, err)
+	blk4 := ledgercore.MakeValidatedBlock(vb4.Blk, vb4.Delta)
+	err = db.AddBlock(&blk4)
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
@@ -255,10 +258,6 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	}
 	comparator(t, db, expectedAppBoxes, deletedBoxes, true)
 
-	// block header handoff: round 4 --> round 5
-	blockHdr, err = l.BlockHdr(currentRound)
-	require.NoError(t, err)
-
 	// ---- ROUND 5: create 3 new boxes, overwriting one of the former boxes  ---- //
 	currentRound = basics.Round(5)
 
@@ -267,28 +266,29 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 		"disappointing box", // overwriting here
 		"AVM is the new EVM",
 	}
-	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	//boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	//for _, boxName := range appBoxesToCreate {
+	//	args := []string{"create", boxName}
+	//	boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+	//	boxTxns = append(boxTxns, &boxTxn)
+	//
+	//	key := apps.MakeBoxKey(uint64(appid), boxName)
+	//	expectedAppBoxes[appid][key] = newBoxValue
+	//}
 	for _, boxName := range appBoxesToCreate {
-		args := []string{"create", boxName}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
-		boxTxns = append(boxTxns, &boxTxn)
-
-		key := logic.MakeBoxKey(appid, boxName)
+		key := apps.MakeBoxKey(uint64(appid), boxName)
 		expectedAppBoxes[appid][key] = newBoxValue
 	}
-	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
-	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	vb5, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDeleteR5.vb")
+	require.NoError(t, err)
+	blk5 := ledgercore.MakeValidatedBlock(vb5.Blk, vb5.Delta)
+	err = db.AddBlock(&blk5)
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
 
 	comparator(t, db, expectedAppBoxes, nil, true)
-
-	// block header handoff: round 5 --> round 6
-	blockHdr, err = l.BlockHdr(currentRound)
-	require.NoError(t, err)
 
 	// ---- ROUND 6: populate the 3 new boxes  ---- //
 	currentRound = basics.Round(6)
@@ -298,19 +298,24 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 		"disappointing box":  "you made it!",
 		"AVM is the new EVM": "yes we can!",
 	}
-	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	//boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	//for boxName, valPrefix := range appBoxesToSet {
+	//	args := []string{"set", boxName, valPrefix}
+	//	boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+	//	boxTxns = append(boxTxns, &boxTxn)
+	//
+	//	key := apps.MakeBoxKey(uint64(appid), boxName)
+	//	expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
+	//}
 	for boxName, valPrefix := range appBoxesToSet {
-		args := []string{"set", boxName, valPrefix}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
-		boxTxns = append(boxTxns, &boxTxn)
-
-		key := logic.MakeBoxKey(appid, boxName)
+		key := apps.MakeBoxKey(uint64(appid), boxName)
 		expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
 	}
-	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
-	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	vb6, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDeleteR6.vb")
+	require.NoError(t, err)
+	blk6 := ledgercore.MakeValidatedBlock(vb6.Blk, vb6.Delta)
+	err = db.AddBlock(&blk6)
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
@@ -334,7 +339,7 @@ func generateRandomBoxes(t *testing.T, appIdx basics.AppIndex, maxBoxes int) map
 		nameBytes := make([]byte, nameLen)
 		_, err := rand.Read(nameBytes)
 		require.NoError(t, err)
-		key := logic.MakeBoxKey(appIdx, string(nameBytes))
+		key := apps.MakeBoxKey(uint64(appIdx), string(nameBytes))
 
 		require.Positive(t, len(key))
 
@@ -361,9 +366,9 @@ func createRandomBoxesWithDelta(t *testing.T, numApps, maxBoxes int) (map[basics
 		appBoxes[appIndex] = boxes
 
 		for key, value := range boxes {
-			embeddedAppIdx, _, err := logic.SplitBoxKey(key)
+			embeddedAppIdx, _, err := apps.SplitBoxKey(key)
 			require.NoError(t, err)
-			require.Equal(t, appIndex, embeddedAppIdx)
+			require.Equal(t, uint64(appIndex), embeddedAppIdx)
 
 			val := string([]byte(value)[:])
 			delta.KvMods[key] = ledgercore.KvValueDelta{Data: []byte(val)}
@@ -420,7 +425,7 @@ func addAppBoxesBlock(t *testing.T, db *IndexerDb, delta ledgercore.StateDelta) 
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
 
-		err = w.AddBlock(&bookkeeping.Block{}, transactions.Payset{}, delta)
+		err = w.AddBlock(&sdk.Block{}, delta)
 		require.NoError(t, err)
 
 		w.Close()
@@ -443,9 +448,8 @@ func TestBoxCreateMutateDeleteAgainstDB(t *testing.T) {
 func TestRandomWriteReadBoxes(t *testing.T) {
 	start := time.Now()
 
-	db, shutdownFunc, _, ld := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer ld.Close()
 
 	appBoxes, delta := createRandomBoxesWithDelta(t, 10, 2500)
 	addAppBoxesBlock(t, db, delta)

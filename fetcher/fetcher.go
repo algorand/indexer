@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/algorand/go-algorand-sdk/client/v2/algod"
+	"github.com/algorand/go-algorand-sdk/v2/client/v2/algod"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/indexer/util/metrics"
@@ -318,7 +318,17 @@ func algodStat(netpath, tokenpath string) (lastmod time.Time, err error) {
 }
 
 func algodClientForDataDir(datadir string) (client *algod.Client, lastmod time.Time, err error) {
-	// TODO: move this to go-algorand-sdk
+	netAddr, token, lastmod, err := AlgodArgsForDataDir(datadir)
+	if err != nil {
+		return
+	}
+	client, err = algod.MakeClient(netAddr, token)
+
+	return
+}
+
+// AlgodArgsForDataDir opens the token and network files in the data directory, returning data for constructing client
+func AlgodArgsForDataDir(datadir string) (netAddr string, token string, lastmod time.Time, err error) {
 	netpath, tokenpath := algodPaths(datadir)
 	var netaddrbytes []byte
 	netaddrbytes, err = ioutil.ReadFile(netpath)
@@ -326,18 +336,21 @@ func algodClientForDataDir(datadir string) (client *algod.Client, lastmod time.T
 		err = fmt.Errorf("%s: %v", netpath, err)
 		return
 	}
-	netaddr := strings.TrimSpace(string(netaddrbytes))
-	if !strings.HasPrefix(netaddr, "http") {
-		netaddr = "http://" + netaddr
+	netAddr = strings.TrimSpace(string(netaddrbytes))
+	if !strings.HasPrefix(netAddr, "http") {
+		netAddr = "http://" + netAddr
 	}
-	token, err := ioutil.ReadFile(tokenpath)
+
+	tokenBytes, err := ioutil.ReadFile(tokenpath)
 	if err != nil {
 		err = fmt.Errorf("%s: %v", tokenpath, err)
 		return
 	}
-	client, err = algod.MakeClient(netaddr, strings.TrimSpace(string(token)))
+	token = strings.TrimSpace(string(tokenBytes))
+
 	if err == nil {
 		lastmod, err = algodStat(netpath, tokenpath)
 	}
+
 	return
 }

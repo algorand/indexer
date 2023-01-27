@@ -1,17 +1,16 @@
 package encoding
 
 import (
-	"math/rand"
 	"reflect"
 	"testing"
 
+	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/crypto/merklesignature"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
-	"github.com/algorand/go-algorand/protocol"
+	itypes "github.com/algorand/indexer/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -44,10 +43,10 @@ func TestEncodeSignedTxnWithAD(t *testing.T) {
 		},
 	}
 
-	var stxn transactions.SignedTxnWithAD
+	var stxn sdk.SignedTxnWithAD
 	for _, mt := range testTxns {
 		t.Run(mt.name, func(t *testing.T) {
-			protocol.Decode(mt.msgpack, &stxn)
+			msgpack.Decode(mt.msgpack, &stxn)
 			js := EncodeSignedTxnWithAD(stxn)
 			require.Equal(t, mt.json, string(js))
 		})
@@ -57,16 +56,16 @@ func TestEncodeSignedTxnWithAD(t *testing.T) {
 func TestEncodeSignedTxnWithADSynthetic(t *testing.T) {
 	nonutf8b := []byte{254, 254, 255, 239, 0, 0, 17, 34, 51}
 	nonutf8 := string(nonutf8b)
-	var stxn transactions.SignedTxnWithAD
-	stxn.EvalDelta.GlobalDelta = make(map[string]basics.ValueDelta)
-	stxn.EvalDelta.GlobalDelta[nonutf8] = basics.ValueDelta{
-		Action: basics.SetBytesAction,
+	var stxn sdk.SignedTxnWithAD
+	stxn.EvalDelta.GlobalDelta = make(map[string]sdk.ValueDelta)
+	stxn.EvalDelta.GlobalDelta[nonutf8] = sdk.ValueDelta{
+		Action: sdk.SetBytesAction,
 		Bytes:  string(nonutf8b),
 	}
-	stxn.EvalDelta.LocalDeltas = make(map[uint64]basics.StateDelta, 1)
-	ld := make(map[string]basics.ValueDelta)
-	ld[nonutf8] = basics.ValueDelta{
-		Action: basics.SetBytesAction,
+	stxn.EvalDelta.LocalDeltas = make(map[uint64]sdk.StateDelta, 1)
+	ld := make(map[string]sdk.ValueDelta)
+	ld[nonutf8] = sdk.ValueDelta{
+		Action: sdk.SetBytesAction,
 		Bytes:  string(nonutf8b),
 	}
 	stxn.EvalDelta.LocalDeltas[1] = ld
@@ -104,25 +103,25 @@ func TestJSONEncoding(t *testing.T) {
 // Test that encoding of Transaction is as expected and that decoding results in the same object.
 func TestTransactionEncoding(t *testing.T) {
 	i := byte(0)
-	newaddr := func() basics.Address {
+	newaddr := func() sdk.Address {
 		i++
-		var address basics.Address
+		var address sdk.Address
 		address[0] = i
 		return address
 	}
 
 	tests := []struct {
 		name     string
-		params   transactions.SignedTxnWithAD
+		params   sdk.SignedTxnWithAD
 		expected string
 	}{
 		{
 			name: "simple",
-			params: transactions.SignedTxnWithAD{
-				SignedTxn: transactions.SignedTxn{
-					Txn: transactions.Transaction{
-						AssetConfigTxnFields: transactions.AssetConfigTxnFields{
-							AssetParams: basics.AssetParams{
+			params: sdk.SignedTxnWithAD{
+				SignedTxn: sdk.SignedTxn{
+					Txn: sdk.Transaction{
+						AssetConfigTxnFields: sdk.AssetConfigTxnFields{
+							AssetParams: sdk.AssetParams{
 								Total:     99999,
 								AssetName: "\r",
 								UnitName:  "💰",
@@ -158,21 +157,21 @@ func TestTransactionEncoding(t *testing.T) {
 // same object.
 func TestAssetParamsEncoding(t *testing.T) {
 	i := byte(0)
-	newaddr := func() basics.Address {
+	newaddr := func() sdk.Address {
 		i++
-		var address basics.Address
+		var address sdk.Address
 		address[0] = i
 		return address
 	}
 
 	tests := []struct {
 		name     string
-		params   basics.AssetParams
+		params   sdk.AssetParams
 		expected string
 	}{
 		{
 			name: "simple",
-			params: basics.AssetParams{
+			params: sdk.AssetParams{
 				Total:    99999,
 				URL:      "https://my.asset",
 				Manager:  newaddr(),
@@ -184,7 +183,7 @@ func TestAssetParamsEncoding(t *testing.T) {
 		},
 		{
 			name: "embedded null / non-printable / emoji char",
-			params: basics.AssetParams{
+			params: sdk.AssetParams{
 				Total:     99999,
 				AssetName: "\r",
 				UnitName:  "💰",
@@ -216,20 +215,20 @@ func TestAssetParamsEncoding(t *testing.T) {
 // same object.
 func TestBlockHeaderEncoding(t *testing.T) {
 	i := byte(0)
-	newaddr := func() basics.Address {
+	newaddr := func() sdk.Address {
 		i++
-		var address basics.Address
+		var address sdk.Address
 		address[0] = i
 		return address
 	}
 
-	var branch bookkeeping.BlockHash
+	var branch sdk.BlockHash
 	branch[0] = 5
 
-	header := bookkeeping.BlockHeader{
+	header := sdk.BlockHeader{
 		Round:  3,
 		Branch: branch,
-		RewardsState: bookkeeping.RewardsState{
+		RewardsState: sdk.RewardsState{
 			FeeSink:     newaddr(),
 			RewardsPool: newaddr(),
 		},
@@ -273,57 +272,59 @@ func TestByteArrayEncoding(t *testing.T) {
 // the same object.
 func TestSignedTxnWithADEncoding(t *testing.T) {
 	i := byte(0)
-	newaddr := func() basics.Address {
+	newaddr := func() sdk.Address {
 		i++
-		var address basics.Address
+		var address sdk.Address
 		address[0] = i
 		return address
 	}
 
-	stxn := transactions.SignedTxnWithAD{
-		SignedTxn: transactions.SignedTxn{
-			Txn: transactions.Transaction{
-				Header: transactions.Header{
+	stxn := sdk.SignedTxnWithAD{
+		SignedTxn: sdk.SignedTxn{
+			Txn: sdk.Transaction{
+				Header: sdk.Header{
 					Sender:  newaddr(),
 					RekeyTo: newaddr(),
 				},
-				PaymentTxnFields: transactions.PaymentTxnFields{
+				PaymentTxnFields: sdk.PaymentTxnFields{
 					Receiver:         newaddr(),
 					CloseRemainderTo: newaddr(),
 				},
-				AssetConfigTxnFields: transactions.AssetConfigTxnFields{
-					AssetParams: basics.AssetParams{
+				AssetConfigTxnFields: sdk.AssetConfigTxnFields{
+					AssetParams: sdk.AssetParams{
 						Manager:  newaddr(),
 						Reserve:  newaddr(),
 						Freeze:   newaddr(),
 						Clawback: newaddr(),
 					},
 				},
-				AssetTransferTxnFields: transactions.AssetTransferTxnFields{
+				AssetTransferTxnFields: sdk.AssetTransferTxnFields{
 					AssetSender:   newaddr(),
 					AssetReceiver: newaddr(),
 					AssetCloseTo:  newaddr(),
 				},
-				AssetFreezeTxnFields: transactions.AssetFreezeTxnFields{
+				AssetFreezeTxnFields: sdk.AssetFreezeTxnFields{
 					FreezeAccount: newaddr(),
 				},
-				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
-					Accounts: []basics.Address{newaddr(), newaddr()},
+				ApplicationFields: sdk.ApplicationFields{
+					ApplicationCallTxnFields: sdk.ApplicationCallTxnFields{
+						Accounts: []sdk.Address{newaddr(), newaddr()},
+					},
 				},
 			},
 			AuthAddr: newaddr(),
 		},
-		ApplyData: transactions.ApplyData{
-			EvalDelta: transactions.EvalDelta{
-				GlobalDelta: map[string]basics.ValueDelta{
+		ApplyData: sdk.ApplyData{
+			EvalDelta: sdk.EvalDelta{
+				GlobalDelta: map[string]sdk.ValueDelta{
 					"abc": {
 						Action: 44,
 						Bytes:  "xyz",
 						Uint:   33,
 					},
 				},
-				LocalDeltas: map[uint64]basics.StateDelta{
-					2: map[string]basics.ValueDelta{
+				LocalDeltas: map[uint64]sdk.StateDelta{
+					2: map[string]sdk.ValueDelta{
 						"bcd": {
 							Action: 55,
 							Bytes:  "yzx",
@@ -335,18 +336,18 @@ func TestSignedTxnWithADEncoding(t *testing.T) {
 					"xyz",
 					"\000",
 				},
-				InnerTxns: []transactions.SignedTxnWithAD{{
-					ApplyData: transactions.ApplyData{
-						EvalDelta: transactions.EvalDelta{
-							GlobalDelta: map[string]basics.ValueDelta{
+				InnerTxns: []sdk.SignedTxnWithAD{{
+					ApplyData: sdk.ApplyData{
+						EvalDelta: sdk.EvalDelta{
+							GlobalDelta: map[string]sdk.ValueDelta{
 								"xyz": {
-									Action: basics.SetBytesAction,
+									Action: sdk.SetBytesAction,
 									Bytes:  string("xyz"),
 								},
 							},
-							LocalDeltas: map[uint64]basics.StateDelta{
+							LocalDeltas: map[uint64]sdk.StateDelta{
 								1: {"xyz": {
-									Action: basics.SetBytesAction,
+									Action: sdk.SetBytesAction,
 									Bytes:  string("xyz"),
 								}},
 							},
@@ -442,14 +443,14 @@ func TestAppParamsEncoding(t *testing.T) {
 // same object.
 func TestSpecialAddressesEncoding(t *testing.T) {
 	i := byte(0)
-	newaddr := func() basics.Address {
+	newaddr := func() sdk.Address {
 		i++
-		var address basics.Address
+		var address sdk.Address
 		address[0] = i
 		return address
 	}
 
-	special := transactions.SpecialAddresses{
+	special := itypes.SpecialAddresses{
 		FeeSink:     newaddr(),
 		RewardsPool: newaddr(),
 	}
@@ -462,36 +463,6 @@ func TestSpecialAddressesEncoding(t *testing.T) {
 	specialNew, err := DecodeSpecialAddresses(buf)
 	require.NoError(t, err)
 	assert.Equal(t, special, specialNew)
-}
-
-// Test that encoding of AccountTotals is as expected and that decoding results in the
-// same object.
-func TestAccountTotalsEncoding(t *testing.T) {
-	random := rand.New(rand.NewSource(1))
-	totals := ledgercore.AccountTotals{
-		Online: ledgercore.AlgoCount{
-			Money:       basics.MicroAlgos{Raw: random.Uint64()},
-			RewardUnits: random.Uint64(),
-		},
-		Offline: ledgercore.AlgoCount{
-			Money:       basics.MicroAlgos{Raw: random.Uint64()},
-			RewardUnits: random.Uint64(),
-		},
-		NotParticipating: ledgercore.AlgoCount{
-			Money:       basics.MicroAlgos{Raw: random.Uint64()},
-			RewardUnits: random.Uint64(),
-		},
-		RewardsLevel: random.Uint64(),
-	}
-
-	buf := EncodeAccountTotals(&totals)
-
-	expectedString := `{"notpart":{"mon":3916589616287113937,"rwd":6334824724549167320},"offline":{"mon":15352856648520921629,"rwd":13260572831089785859},"online":{"mon":5577006791947779410,"rwd":8674665223082153551},"rwdlvl":9828766684487745566}`
-	assert.Equal(t, expectedString, string(buf))
-
-	totalsNew, err := DecodeAccountTotals(buf)
-	require.NoError(t, err)
-	assert.Equal(t, totals, totalsNew)
 }
 
 func TestTxnExtra(t *testing.T) {
@@ -540,7 +511,7 @@ func TestTxnExtra(t *testing.T) {
 // same object.
 func TestNetworkStateEncoding(t *testing.T) {
 	network := types.NetworkState{
-		GenesisHash: crypto.Digest{77},
+		GenesisHash: sdk.Digest{77},
 	}
 
 	buf := EncodeNetworkState(&network)

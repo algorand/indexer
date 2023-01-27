@@ -7,12 +7,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/algorand/go-algorand/data/basics"
-
 	"github.com/algorand/indexer/idb"
 	_ "github.com/algorand/indexer/idb/postgres"
 	"github.com/algorand/indexer/util"
 	testutil "github.com/algorand/indexer/util/test"
+
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 var (
@@ -40,7 +40,7 @@ func main() {
 	rekeyTxnQuery := idb.TransactionFilter{RekeyTo: &truev, Limit: 4}
 	printTxnQuery(db, rekeyTxnQuery)
 
-	var rekeyedAuthAddrs []basics.Address
+	var rekeyedAuthAddrs []sdk.Address
 	rowchan, _ := db.Transactions(context.Background(), rekeyTxnQuery)
 	for txnrow := range rowchan {
 		maybeFail(txnrow.Error, "err rekey txn %v\n", txnrow.Error)

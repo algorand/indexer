@@ -15,13 +15,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/algorand/go-algorand/config"
-	"github.com/algorand/go-algorand/crypto"
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
-
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v4"
@@ -29,6 +22,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	models "github.com/algorand/indexer/api/generated/v2"
+	"github.com/algorand/indexer/helpers"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/migration"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
@@ -36,7 +30,14 @@ import (
 	"github.com/algorand/indexer/idb/postgres/internal/types"
 	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
 	"github.com/algorand/indexer/idb/postgres/internal/writer"
+	"github.com/algorand/indexer/protocol"
+	"github.com/algorand/indexer/protocol/config"
+	itypes "github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/util"
+
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
 var serializable = pgx.TxOptions{IsoLevel: pgx.Serializable} // be a real ACID database
@@ -176,9 +177,15 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 }
 
 // AddBlock is part of idb.IndexerDb.
-func (db *IndexerDb) AddBlock(vb *ledgercore.ValidatedBlock) error {
-	block := vb.Block()
-	db.log.Printf("adding block %d", block.Round())
+func (db *IndexerDb) AddBlock(vblk *ledgercore.ValidatedBlock) error {
+	// TODO: use a converter util until vblk type is changed
+	vb, err := helpers.ConvertValidatedBlock(*vblk)
+	if err != nil {
+		return fmt.Errorf("AddBlock() err: %w", err)
+	}
+	block := vb.Block
+	round := block.BlockHeader.Round
+	db.log.Printf("adding block %d", round)
 
 	db.accountingLock.Lock()
 	defer db.accountingLock.Unlock()
@@ -189,10 +196,10 @@ func (db *IndexerDb) AddBlock(vb *ledgercore.ValidatedBlock) error {
 		if err != nil {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
-		if block.Round() != basics.Round(importstate.NextRoundToAccount) {
+		if round != sdk.Round(importstate.NextRoundToAccount) {
 			return fmt.Errorf(
 				"AddBlock() adding block round %d but next round to account is %d",
-				block.Round(), importstate.NextRoundToAccount)
+				round, importstate.NextRoundToAccount)
 		}
 		importstate.NextRoundToAccount++
 		err = db.setImportState(tx, &importstate)
@@ -206,7 +213,7 @@ func (db *IndexerDb) AddBlock(vb *ledgercore.ValidatedBlock) error {
 		}
 		defer w.Close()
 
-		if block.Round() == basics.Round(0) {
+		if round == sdk.Round(0) {
 			err = w.AddBlock0(&block)
 			if err != nil {
 				return fmt.Errorf("AddBlock() err: %w", err)
@@ -231,7 +238,7 @@ func (db *IndexerDb) AddBlock(vb *ledgercore.ValidatedBlock) error {
 			err0 = db.txWithRetry(serializable, f)
 		}()
 
-		err = w.AddBlock(&block, block.Payset, vb.Delta())
+		err = w.AddBlock(&block, vb.Delta)
 		if err != nil {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
@@ -251,7 +258,7 @@ func (db *IndexerDb) AddBlock(vb *ledgercore.ValidatedBlock) error {
 
 		return nil
 	}
-	err := db.txWithRetry(serializable, f)
+	err = db.txWithRetry(serializable, f)
 	if err != nil {
 		return fmt.Errorf("AddBlock() err: %w", err)
 	}
@@ -260,13 +267,13 @@ func (db *IndexerDb) AddBlock(vb *ledgercore.ValidatedBlock) error {
 }
 
 // LoadGenesis is part of idb.IndexerDB
-func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
+func (db *IndexerDb) LoadGenesis(genesis sdk.Genesis) error {
 	f := func(tx pgx.Tx) error {
 		// check genesis hash
 		network, err := db.getNetworkState(context.Background(), tx)
 		if err == idb.ErrorNotInitialized {
 			networkState := types.NetworkState{
-				GenesisHash: crypto.HashObj(genesis),
+				GenesisHash: genesis.Hash(),
 			}
 			err = db.setNetworkState(tx, &networkState)
 			if err != nil {
@@ -275,7 +282,7 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 		} else if err != nil {
 			return fmt.Errorf("LoadGenesis() err: %w", err)
 		} else {
-			if network.GenesisHash != crypto.HashObj(genesis) {
+			if network.GenesisHash != genesis.Hash() {
 				return fmt.Errorf("LoadGenesis() genesis hash not matching")
 			}
 		}
@@ -287,36 +294,20 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 		}
 		defer tx.Conn().Deallocate(context.Background(), setAccountStatementName)
 
-		proto, ok := config.Consensus[genesis.Proto]
-		if !ok {
-			return fmt.Errorf("LoadGenesis() consensus version %s not found", genesis.Proto)
-		}
-		var ot basics.OverflowTracker
-		var totals ledgercore.AccountTotals
 		for ai, alloc := range genesis.Allocation {
-			addr, err := basics.UnmarshalChecksumAddress(alloc.Address)
+			addr, err := sdk.DecodeAddress(alloc.Address)
 			if err != nil {
 				return fmt.Errorf("LoadGenesis() decode address err: %w", err)
 			}
-			if len(alloc.State.AssetParams) > 0 || len(alloc.State.Assets) > 0 {
-				return fmt.Errorf("LoadGenesis() genesis account[%d] has unhandled asset", ai)
-			}
-			accountData := ledgercore.ToAccountData(alloc.State)
+			accountData := ledgercore.ToAccountData(helpers.ConvertAccountType(alloc.State))
 			_, err = tx.Exec(
 				context.Background(), setAccountStatementName,
-				addr[:], alloc.State.MicroAlgos.Raw,
+				addr[:], alloc.State.MicroAlgos,
 				encoding.EncodeTrimmedLcAccountData(encoding.TrimLcAccountData(accountData)), 0)
 			if err != nil {
 				return fmt.Errorf("LoadGenesis() error setting genesis account[%d], %w", ai, err)
 			}
 
-			totals.AddAccount(proto, accountData, &ot)
-		}
-
-		err = db.setMetastate(
-			tx, schema.AccountTotals, string(encoding.EncodeAccountTotals(&totals)))
-		if err != nil {
-			return fmt.Errorf("LoadGenesis() err: %w", err)
 		}
 
 		importstate := types.ImportState{
@@ -435,7 +426,7 @@ func (db *IndexerDb) getMaxRoundAccounted(ctx context.Context, tx pgx.Tx) (uint6
 }
 
 // GetBlock is part of idb.IndexerDB
-func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (blockHeader bookkeeping.BlockHeader, transactions []idb.TxnRow, err error) {
+func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (blockHeader sdk.BlockHeader, transactions []idb.TxnRow, err error) {
 	tx, err := db.db.BeginTx(ctx, readonlyRepeatableRead)
 	if err != nil {
 		return
@@ -463,13 +454,13 @@ func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.Get
 			err = fmt.Errorf("txn query err %v", err)
 			out <- idb.TxnRow{Error: err}
 			close(out)
-			return bookkeeping.BlockHeader{}, nil, err
+			return sdk.BlockHeader{}, nil, err
 		}
 
 		rows, err := tx.Query(ctx, query, whereArgs...)
 		if err != nil {
 			err = fmt.Errorf("txn query %#v err %v", query, err)
-			return bookkeeping.BlockHeader{}, nil, err
+			return sdk.BlockHeader{}, nil, err
 		}
 
 		// Unlike other spots, because we don't return a channel, we don't need
@@ -484,7 +475,7 @@ func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.Get
 			results = append(results, txrow)
 		}
 		if uint64(len(results)) > options.MaxTransactionsLimit {
-			return bookkeeping.BlockHeader{}, nil, idb.MaxTransactionsError{}
+			return sdk.BlockHeader{}, nil, idb.MaxTransactionsError{}
 		}
 		transactions = results
 	}
@@ -716,7 +707,6 @@ func (db *IndexerDb) yieldTxns(ctx context.Context, tx pgx.Tx, tf idb.Transactio
 		out <- idb.TxnRow{Error: err}
 		return
 	}
-
 	db.yieldTxnsThreadSimple(rows, out, nil, nil)
 }
 
@@ -888,7 +878,7 @@ func (db *IndexerDb) yieldTxnsThreadSimple(rows pgx.Rows, results chan<- idb.Txn
 			row.Intra = intra
 			if roottxn != nil {
 				// Inner transaction.
-				row.RootTxn = new(transactions.SignedTxnWithAD)
+				row.RootTxn = new(sdk.SignedTxnWithAD)
 				*row.RootTxn, err = encoding.DecodeSignedTxnWithAD(roottxn)
 				if err != nil {
 					err = fmt.Errorf("error decoding roottxn, err: %w", err)
@@ -896,7 +886,7 @@ func (db *IndexerDb) yieldTxnsThreadSimple(rows pgx.Rows, results chan<- idb.Txn
 				}
 			} else {
 				// Root transaction.
-				row.Txn = new(transactions.SignedTxnWithAD)
+				row.Txn = new(sdk.SignedTxnWithAD)
 				*row.Txn, err = encoding.DecodeSignedTxnWithAD(txn)
 				if err != nil {
 					err = fmt.Errorf("error decoding txn, err: %w", err)
@@ -1124,7 +1114,9 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			account.PendingRewards = 0
 		} else {
 			// TODO: pending rewards calculation doesn't belong in database layer (this is just the most covenient place which has all the data)
-			proto, ok := config.Consensus[req.blockheader.CurrentProtocol]
+			// TODO: replace config.Consensus. config.Consensus map[protocol.ConsensusVersion]ConsensusParams
+			// temporarily cast req.blockheader.CurrentProtocol(string) to protocol.ConsensusVersion
+			proto, ok := config.Consensus[protocol.ConsensusVersion(req.blockheader.CurrentProtocol)]
 			if !ok {
 				err = fmt.Errorf("get protocol err (%s)", req.blockheader.CurrentProtocol)
 				req.out <- idb.AccountRow{Error: err}
@@ -1532,7 +1524,7 @@ func allZero(x []byte) bool {
 	return true
 }
 
-func addrStr(addr basics.Address) *string {
+func addrStr(addr sdk.Address) *string {
 	if addr.IsZero() {
 		return nil
 	}
@@ -1543,7 +1535,7 @@ func addrStr(addr basics.Address) *string {
 
 type getAccountsRequest struct {
 	opts        idb.AccountQueryOptions
-	blockheader bookkeeping.BlockHeader
+	blockheader sdk.BlockHeader
 	query       string
 	rows        pgx.Rows
 	out         chan idb.AccountRow
@@ -2612,17 +2604,17 @@ func (db *IndexerDb) Health(ctx context.Context) (idb.Health, error) {
 }
 
 // GetSpecialAccounts is part of idb.IndexerDB
-func (db *IndexerDb) GetSpecialAccounts(ctx context.Context) (transactions.SpecialAddresses, error) {
+func (db *IndexerDb) GetSpecialAccounts(ctx context.Context) (itypes.SpecialAddresses, error) {
 	cache, err := db.getMetastate(ctx, nil, schema.SpecialAccountsMetastateKey)
 	if err != nil {
-		return transactions.SpecialAddresses{}, fmt.Errorf("GetSpecialAccounts() err: %w", err)
+		return itypes.SpecialAddresses{}, fmt.Errorf("GetSpecialAccounts() err: %w", err)
 	}
 
 	accounts, err := encoding.DecodeSpecialAddresses([]byte(cache))
 	if err != nil {
 		err = fmt.Errorf(
 			"GetSpecialAccounts() problem decoding, cache: '%s' err: %w", cache, err)
-		return transactions.SpecialAddresses{}, err
+		return itypes.SpecialAddresses{}, err
 	}
 
 	return accounts, nil
@@ -2641,9 +2633,42 @@ func (db *IndexerDb) GetNetworkState() (idb.NetworkState, error) {
 }
 
 // SetNetworkState is part of idb.IndexerDB
-func (db *IndexerDb) SetNetworkState(genesis bookkeeping.Genesis) error {
+func (db *IndexerDb) SetNetworkState(gh sdk.Digest) error {
 	networkState := types.NetworkState{
-		GenesisHash: crypto.HashObj(genesis),
+		GenesisHash: gh,
 	}
 	return db.setNetworkState(nil, &networkState)
+}
+
+// DeleteTransactions removes old transactions
+// keep is the number of rounds to keep in db
+func (db *IndexerDb) DeleteTransactions(ctx context.Context, keep uint64) error {
+	// delete old transactions and update metastate
+	deleteTxns := func(tx pgx.Tx) error {
+		db.log.Infof("deleteTxns(): removing transactions before round %d", keep)
+		// delete query
+		query := "DELETE FROM txn WHERE round < $1"
+		cmd, err2 := tx.Exec(ctx, query, keep)
+		if err2 != nil {
+			return fmt.Errorf("deleteTxns(): transaction delete err %w", err2)
+		}
+		t := time.Now().UTC()
+		// update metastate
+		status := types.DeleteStatus{
+			// format time, "2006-01-02T15:04:05Z07:00"
+			LastPruned:  t.Format(time.RFC3339),
+			OldestRound: keep,
+		}
+		err2 = db.setMetastate(tx, schema.DeleteStatusKey, string(encoding.EncodeDeleteStatus(&status)))
+		if err2 != nil {
+			return fmt.Errorf("deleteTxns(): metastate update err %w", err2)
+		}
+		db.log.Infof("%d transactions deleted, last pruned at %s", cmd.RowsAffected(), status.LastPruned)
+		return nil
+	}
+	err := db.txWithRetry(serializable, deleteTxns)
+	if err != nil {
+		return fmt.Errorf("DeleteTransactions err: %w", err)
+	}
+	return nil
 }

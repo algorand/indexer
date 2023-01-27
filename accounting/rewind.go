@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/protocol"
 	models "github.com/algorand/indexer/api/generated/v2"
-
 	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/types"
+
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 // ConsistencyError is returned when the database returns inconsistent (stale) results.
@@ -60,7 +59,7 @@ func (sare *SpecialAccountRewindError) Error() string {
 	return fmt.Sprintf("unable to rewind the %s", sare.account)
 }
 
-var specialAccounts *transactions.SpecialAddresses
+var specialAccounts *types.SpecialAddresses
 
 // AccountAtRound queries the idb.IndexerDb object for transactions and rewinds most fields of the account back to
 // their values at the requested round.
@@ -68,7 +67,7 @@ var specialAccounts *transactions.SpecialAddresses
 func AccountAtRound(ctx context.Context, account models.Account, round uint64, db idb.IndexerDb) (acct models.Account, err error) {
 	// Make sure special accounts cache has been initialized.
 	if specialAccounts == nil {
-		var accounts transactions.SpecialAddresses
+		var accounts types.SpecialAddresses
 		accounts, err = db.GetSpecialAccounts(ctx)
 		if err != nil {
 			return models.Account{}, fmt.Errorf("unable to get special accounts: %v", err)
@@ -77,8 +76,8 @@ func AccountAtRound(ctx context.Context, account models.Account, round uint64, d
 	}
 
 	acct = account
-	var addr basics.Address
-	addr, err = basics.UnmarshalChecksumAddress(account.Address)
+	var addr sdk.Address
+	addr, err = sdk.DecodeAddress(account.Address)
 	if err != nil {
 		return
 	}
@@ -126,34 +125,34 @@ func AccountAtRound(ctx context.Context, account models.Account, round uint64, d
 				fmt.Errorf("rewinding past inner transactions is not supported")
 		}
 		if addr == stxn.Txn.Sender {
-			acct.AmountWithoutPendingRewards += stxn.Txn.Fee.ToUint64()
-			acct.AmountWithoutPendingRewards -= stxn.SenderRewards.ToUint64()
+			acct.AmountWithoutPendingRewards += uint64(stxn.Txn.Fee)
+			acct.AmountWithoutPendingRewards -= uint64(stxn.SenderRewards)
 		}
 		switch stxn.Txn.Type {
-		case protocol.PaymentTx:
+		case sdk.PaymentTx:
 			if addr == stxn.Txn.Sender {
-				acct.AmountWithoutPendingRewards += stxn.Txn.Amount.ToUint64()
+				acct.AmountWithoutPendingRewards += uint64(stxn.Txn.Amount)
 			}
 			if addr == stxn.Txn.Receiver {
-				acct.AmountWithoutPendingRewards -= stxn.Txn.Amount.ToUint64()
-				acct.AmountWithoutPendingRewards -= stxn.ReceiverRewards.ToUint64()
+				acct.AmountWithoutPendingRewards -= uint64(stxn.Txn.Amount)
+				acct.AmountWithoutPendingRewards -= uint64(stxn.ReceiverRewards)
 			}
 			if addr == stxn.Txn.CloseRemainderTo {
 				// unwind receiving a close-to
-				acct.AmountWithoutPendingRewards -= stxn.ClosingAmount.ToUint64()
-				acct.AmountWithoutPendingRewards -= stxn.CloseRewards.ToUint64()
+				acct.AmountWithoutPendingRewards -= uint64(stxn.ClosingAmount)
+				acct.AmountWithoutPendingRewards -= uint64(stxn.CloseRewards)
 			} else if !stxn.Txn.CloseRemainderTo.IsZero() {
 				// unwind sending a close-to
-				acct.AmountWithoutPendingRewards += stxn.ClosingAmount.ToUint64()
+				acct.AmountWithoutPendingRewards += uint64(stxn.ClosingAmount)
 			}
-		case protocol.KeyRegistrationTx:
+		case sdk.KeyRegistrationTx:
 			// TODO: keyreg does not rewind. workaround: query for txns on an account with typeenum=2 to find previous values it was set to.
-		case protocol.AssetConfigTx:
+		case sdk.AssetConfigTx:
 			if stxn.Txn.ConfigAsset == 0 {
 				// create asset, unwind the application of the value
 				assetUpdate(&acct, txnrow.AssetID, 0, stxn.Txn.AssetParams.Total)
 			}
-		case protocol.AssetTransferTx:
+		case sdk.AssetTransferTx:
 			if addr == stxn.Txn.AssetSender || addr == stxn.Txn.Sender {
 				assetUpdate(&acct, uint64(stxn.Txn.XferAsset), stxn.Txn.AssetAmount+txnrow.Extra.AssetCloseAmount, 0)
 			}
@@ -163,7 +162,7 @@ func AccountAtRound(ctx context.Context, account models.Account, round uint64, d
 			if addr == stxn.Txn.AssetCloseTo {
 				assetUpdate(&acct, uint64(stxn.Txn.XferAsset), 0, txnrow.Extra.AssetCloseAmount)
 			}
-		case protocol.AssetFreezeTx:
+		case sdk.AssetFreezeTx:
 		default:
 			err = fmt.Errorf("%s[%d,%d]: rewinding past txn type %s is not currently supported", account.Address, txnrow.Round, txnrow.Intra, stxn.Txn.Type)
 			return
