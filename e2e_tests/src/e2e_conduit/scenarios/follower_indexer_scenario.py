@@ -4,10 +4,10 @@ import e2e_conduit.fixtures.exporters as exporters
 from e2e_conduit.scenarios import Scenario
 
 
-def sync_indexer_scenario(sourcenet):
+def follower_indexer_scenario(sourcenet):
     return Scenario(
-        "sync_indexer_scenario",
-        importer=importers.SyncAlgodImporter(sourcenet),
+        "follower_indexer_scenario",
+        importer=importers.FollowerAlgodImporter(sourcenet),
         processors=[
             processors.BlockEvaluator(),
         ],

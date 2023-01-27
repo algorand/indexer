@@ -16,7 +16,7 @@ from e2e_conduit.fixtures.importers.importer_plugin import ImporterPlugin
 logger = logging.getLogger(__name__)
 
 
-class SyncAlgodImporter(ImporterPlugin):
+class FollowerAlgodImporter(ImporterPlugin):
     def __init__(self, sourcenet):
         self.algoddir = None
         self.sourcenet = sourcenet
@@ -25,7 +25,7 @@ class SyncAlgodImporter(ImporterPlugin):
 
     @property
     def name(self):
-        return "sync_algod"
+        return "algod_follower"
 
     @property
     def lastblock(self):
@@ -94,7 +94,7 @@ class SyncAlgodImporter(ImporterPlugin):
         cf = {}
         with open(os.path.join(tempnet, "Node", "config.json"), "r") as config_file:
             cf = json.load(config_file)
-            cf['NodeSyncMode'] = True
+            cf['EnableFollowMode'] = True
         with open(os.path.join(tempnet, "Node", "config.json"), "w") as config_file:
             config_file.write(json.dumps(cf))
         try:
