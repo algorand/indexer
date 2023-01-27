@@ -330,7 +330,7 @@ func (db *IndexerDb) LoadGenesis(genesis sdk.Genesis) error {
 
 func toAccountData(acct sdk.Account) models2.Account {
 	return models2.Account{
-		Status: string(acct.Status),
+		Status: statusStrings[acct.Status],
 		Amount: acct.MicroAlgos,
 		Participation: models2.AccountParticipation{
 			SelectionParticipationKey: acct.SelectionID[:],

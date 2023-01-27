@@ -1,7 +1,7 @@
+// You can build without postgres by `go build --tags nopostgres` but it's on by default
 //go:build !nopostgres
 // +build !nopostgres
 
-// You can build without postgres by `go build --tags nopostgres` but it's on by default
 package postgres
 
 import (
