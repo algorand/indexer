@@ -4,20 +4,19 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
-
+	models2 "github.com/algorand/go-algorand-sdk/v2/client/v2/common/models"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/jackc/pgx/v4"
 
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 )
 
 type aad struct {
-	address            basics.Address
-	trimmedAccountData basics.AccountData
+	address            sdk.Address
+	trimmedAccountData models2.Account
 }
 
-func getAccounts(tx pgx.Tx, batchSize uint, lastAddress *basics.Address) ([]aad, error) {
+func getAccounts(tx pgx.Tx, batchSize uint, lastAddress *sdk.Address) ([]aad, error) {
 	var rows pgx.Rows
 	var err error
 	if lastAddress == nil {
@@ -58,10 +57,10 @@ func getAccounts(tx pgx.Tx, batchSize uint, lastAddress *basics.Address) ([]aad,
 	return res, nil
 }
 
-func computeLcAccountData(tx pgx.Tx, accounts []aad) ([]ledgercore.AccountData, error) {
-	res := make([]ledgercore.AccountData, 0, len(accounts))
+func computeLcAccountData(tx pgx.Tx, accounts []aad) ([]models2.Account, error) {
+	res := make([]models2.Account, 0, len(accounts))
 	for i := range accounts {
-		res = append(res, ledgercore.ToAccountData(accounts[i].trimmedAccountData))
+		res = append(res, models2.Account(accounts[i].trimmedAccountData))
 	}
 
 	var batch pgx.Batch
@@ -90,25 +89,25 @@ func computeLcAccountData(tx pgx.Tx, accounts []aad) ([]ledgercore.AccountData, 
 	defer results.Close()
 
 	for i := range accounts {
-		err := results.QueryRow().Scan(&res[i].TotalAssets)
+		err := results.QueryRow().Scan(&res[i].TotalAssetsOptedIn)
 		if err != nil {
 			return nil, fmt.Errorf("computeLcAccountData() scan total assets err: %w", err)
 		}
 	}
 	for i := range accounts {
-		err := results.QueryRow().Scan(&res[i].TotalAssetParams)
+		err := results.QueryRow().Scan(&res[i].TotalCreatedAssets)
 		if err != nil {
 			return nil, fmt.Errorf("computeLcAccountData() scan total asset params err: %w", err)
 		}
 	}
 	for i := range accounts {
-		err := results.QueryRow().Scan(&res[i].TotalAppParams)
+		err := results.QueryRow().Scan(&res[i].TotalCreatedApps)
 		if err != nil {
 			return nil, fmt.Errorf("computeLcAccountData() scan total app params err: %w", err)
 		}
 	}
 	for i := range accounts {
-		err := results.QueryRow().Scan(&res[i].TotalAppLocalStates)
+		err := results.QueryRow().Scan(&res[i].TotalAppsOptedIn)
 		if err != nil {
 			return nil, fmt.Errorf("computeLcAccountData() scan total app local states err: %w", err)
 		}
@@ -122,7 +121,7 @@ func computeLcAccountData(tx pgx.Tx, accounts []aad) ([]ledgercore.AccountData, 
 	return res, nil
 }
 
-func writeLcAccountData(tx pgx.Tx, accounts []aad, lcAccountData []ledgercore.AccountData) error {
+func writeLcAccountData(tx pgx.Tx, accounts []aad, lcAccountData []models2.Account) error {
 	var batch pgx.Batch
 	for i := range accounts {
 		query := "UPDATE account SET account_data = $1 WHERE addr = $2"
