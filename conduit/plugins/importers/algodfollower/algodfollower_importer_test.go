@@ -1,4 +1,4 @@
-package algodimporter
+package algodfollower
 
 import (
 	"context"
@@ -8,8 +8,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
-
-	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/importers"
@@ -30,14 +28,16 @@ func init() {
 	ctx, cancel = context.WithCancel(context.Background())
 }
 
+// TestImporterMetadata tests that metadata is correctly set
 func TestImporterMetadata(t *testing.T) {
 	testImporter = New()
 	metadata := testImporter.Metadata()
-	assert.Equal(t, metadata.Name, algodImporterMetadata.Name)
-	assert.Equal(t, metadata.Description, algodImporterMetadata.Description)
-	assert.Equal(t, metadata.Deprecated, algodImporterMetadata.Deprecated)
+	assert.Equal(t, metadata.Name, algodFollowerImporterMetadata.Name)
+	assert.Equal(t, metadata.Description, algodFollowerImporterMetadata.Description)
+	assert.Equal(t, metadata.Deprecated, algodFollowerImporterMetadata.Deprecated)
 }
 
+// TestCloseSuccess tests that closing results in no error
 func TestCloseSuccess(t *testing.T) {
 	ts := test.NewAlgodServer(test.GenesisResponder)
 	testImporter = New()
@@ -47,6 +47,7 @@ func TestCloseSuccess(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+// TestInitSuccess tests that initializing results in no error
 func TestInitSuccess(t *testing.T) {
 	ts := test.NewAlgodServer(test.GenesisResponder)
 	testImporter = New()
@@ -56,15 +57,7 @@ func TestInitSuccess(t *testing.T) {
 	testImporter.Close()
 }
 
-func TestInitGenesisFailure(t *testing.T) {
-	ts := test.NewAlgodServer(test.MakeGenesisResponder(sdk.Genesis{}))
-	testImporter = New()
-	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("netaddr: "+ts.URL), logger)
-	assert.Error(t, err)
-	assert.ErrorContains(t, err, "unable to fetch genesis file")
-	testImporter.Close()
-}
-
+// TestInitUnmarshalFailure tests config marshaling failures
 func TestInitUnmarshalFailure(t *testing.T) {
 	testImporter = New()
 	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("`"), logger)
@@ -73,6 +66,7 @@ func TestInitUnmarshalFailure(t *testing.T) {
 	testImporter.Close()
 }
 
+// TestConfigDefault tests that configuration is correct by default
 func TestConfigDefault(t *testing.T) {
 	testImporter = New()
 	expected, err := yaml.Marshal(&Config{})
@@ -82,6 +76,7 @@ func TestConfigDefault(t *testing.T) {
 	assert.Equal(t, string(expected), testImporter.Config())
 }
 
+// TestWaitForBlockBlockFailure tests that GetBlock results in a failure
 func TestWaitForBlockBlockFailure(t *testing.T) {
 	ts := test.NewAlgodServer(test.GenesisResponder)
 	testImporter = New()
@@ -94,12 +89,13 @@ func TestWaitForBlockBlockFailure(t *testing.T) {
 	assert.True(t, blk.Empty())
 }
 
+// TestGetBlockSuccess tests that GetBlock results in success
 func TestGetBlockSuccess(t *testing.T) {
 	ctx, cancel = context.WithCancel(context.Background())
 	ts := test.NewAlgodServer(
 		test.GenesisResponder,
 		test.BlockResponder,
-		test.BlockAfterResponder)
+		test.BlockAfterResponder, test.LedgerStateDeltaResponder)
 	testImporter = New()
 	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("netaddr: "+ts.URL), logger)
 	assert.NoError(t, err)
@@ -112,12 +108,13 @@ func TestGetBlockSuccess(t *testing.T) {
 	cancel()
 }
 
+// TestGetBlockContextCancelled results in an error if the context is cancelled
 func TestGetBlockContextCancelled(t *testing.T) {
 	ctx, cancel = context.WithCancel(context.Background())
 	ts := test.NewAlgodServer(
 		test.GenesisResponder,
 		test.BlockResponder,
-		test.BlockAfterResponder)
+		test.BlockAfterResponder, test.LedgerStateDeltaResponder)
 	testImporter = New()
 	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("netaddr: "+ts.URL), logger)
 	assert.NoError(t, err)
@@ -128,10 +125,28 @@ func TestGetBlockContextCancelled(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestGetBlockFailure(t *testing.T) {
+// TestGetBlockFailureBlockResponder tests that GetBlock results in an error due to a lack of block responsiveness
+func TestGetBlockFailureBlockResponder(t *testing.T) {
 	ctx, cancel = context.WithCancel(context.Background())
 	ts := test.NewAlgodServer(
 		test.GenesisResponder,
+		test.BlockAfterResponder, test.LedgerStateDeltaResponder)
+	testImporter = New()
+	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("netaddr: "+ts.URL), logger)
+	assert.NoError(t, err)
+	assert.NotEqual(t, testImporter, nil)
+
+	_, err = testImporter.GetBlock(uint64(10))
+	assert.Error(t, err)
+	cancel()
+}
+
+// TestGetBlockFailureLedgerStateDeltaResponder tests that GetBlock results in an error due to a lack of ledger state delta
+func TestGetBlockFailureLedgerStateDeltaResponder(t *testing.T) {
+	ctx, cancel = context.WithCancel(context.Background())
+	ts := test.NewAlgodServer(
+		test.GenesisResponder,
+		test.BlockResponder,
 		test.BlockAfterResponder)
 	testImporter = New()
 	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("netaddr: "+ts.URL), logger)

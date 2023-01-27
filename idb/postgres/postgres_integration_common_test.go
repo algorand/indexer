@@ -5,13 +5,13 @@ import (
 	"testing"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
-	"github.com/algorand/indexer/util/test"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/stretchr/testify/require"
 
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/indexer/idb"
 	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
+	"github.com/algorand/indexer/util/test"
 )
 
 func setupIdbWithConnectionString(t *testing.T, connStr string, genesis sdk.Genesis) *IndexerDb {

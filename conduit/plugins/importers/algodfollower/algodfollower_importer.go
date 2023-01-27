@@ -1,11 +1,10 @@
-package algodimporter
+package algodfollower
 
 import (
 	"context"
-	_ "embed" // used to embed config
+	_ "embed"
 	"fmt"
 	"net/url"
-	"reflect"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -24,9 +23,9 @@ import (
 	"github.com/algorand/go-algorand/rpcs"
 )
 
-const importerName = "algod"
+const importerName = "algod_follower"
 
-type algodImporter struct {
+type algodFollowerImporter struct {
 	aclient *algod.Client
 	logger  *logrus.Logger
 	cfg     Config
@@ -34,54 +33,59 @@ type algodImporter struct {
 	cancel  context.CancelFunc
 }
 
+func (af *algodFollowerImporter) OnComplete(input data.BlockData) error {
+	_, err := af.aclient.SetSyncRound(input.Round() + 1).Do(af.ctx)
+	return err
+}
+
 //go:embed sample.yaml
 var sampleConfig string
 
-var algodImporterMetadata = conduit.Metadata{
+var algodFollowerImporterMetadata = conduit.Metadata{
 	Name:         importerName,
-	Description:  "Importer for fetching blocks from an algod REST API.",
+	Description:  "Importer for fetching blocks from an algod REST API using sync round and ledger delta algod calls.",
 	Deprecated:   false,
 	SampleConfig: sampleConfig,
 }
 
 // New initializes an algod importer
 func New() importers.Importer {
-	return &algodImporter{}
+	return &algodFollowerImporter{}
 }
 
-func (algodImp *algodImporter) Metadata() conduit.Metadata {
-	return algodImporterMetadata
+func (af *algodFollowerImporter) Metadata() conduit.Metadata {
+	return algodFollowerImporterMetadata
 }
 
 // package-wide init function
 func init() {
 	importers.Register(importerName, importers.ImporterConstructorFunc(func() importers.Importer {
-		return &algodImporter{}
+		return &algodFollowerImporter{}
 	}))
 }
 
-func (algodImp *algodImporter) Init(ctx context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) (*sdk.Genesis, error) {
-	algodImp.ctx, algodImp.cancel = context.WithCancel(ctx)
-	algodImp.logger = logger
-	err := cfg.UnmarshalConfig(&algodImp.cfg)
+func (af *algodFollowerImporter) Init(ctx context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) (*sdk.Genesis, error) {
+	af.ctx, af.cancel = context.WithCancel(ctx)
+	af.logger = logger
+	err := cfg.UnmarshalConfig(&af.cfg)
 	if err != nil {
 		return nil, fmt.Errorf("connect failure in unmarshalConfig: %v", err)
 	}
 	var client *algod.Client
-	u, err := url.Parse(algodImp.cfg.NetAddr)
+	u, err := url.Parse(af.cfg.NetAddr)
 	if err != nil {
 		return nil, err
 	}
 
 	if u.Scheme != "http" && u.Scheme != "https" {
-		algodImp.cfg.NetAddr = "http://" + algodImp.cfg.NetAddr
-		algodImp.logger.Infof("Algod Importer added http prefix to NetAddr: %s", algodImp.cfg.NetAddr)
+		af.cfg.NetAddr = "http://" + af.cfg.NetAddr
+		af.logger.Infof("Algod Importer added http prefix to NetAddr: %s", af.cfg.NetAddr)
 	}
-	client, err = algod.MakeClient(algodImp.cfg.NetAddr, algodImp.cfg.Token)
+	client, err = algod.MakeClient(af.cfg.NetAddr, af.cfg.Token)
 	if err != nil {
 		return nil, err
 	}
-	algodImp.aclient = client
+	af.aclient = client
 
 	genesisResponse, err := client.GetGenesis().Do(ctx)
 	if err != nil {
@@ -90,49 +94,45 @@ func (algodImp *algodImporter) Init(ctx context.Context, cfg plugins.PluginConfi
 
 	genesis := sdk.Genesis{}
 
-	// Don't fail on unknown properties here since the go-algorand and SDK genesis types differ slightly
-	err = json.LenientDecode([]byte(genesisResponse), &genesis)
+	err = json.Decode([]byte(genesisResponse), &genesis)
 	if err != nil {
 		return nil, err
-	}
-	if reflect.DeepEqual(genesis, sdk.Genesis{}) {
-		return nil, fmt.Errorf("unable to fetch genesis file from API at %s", algodImp.cfg.NetAddr)
 	}
 
 	return &genesis, err
 }
 
-func (algodImp *algodImporter) Config() string {
-	s, _ := yaml.Marshal(algodImp.cfg)
+func (af *algodFollowerImporter) Config() string {
+	s, _ := yaml.Marshal(af.cfg)
 	return string(s)
 }
 
-func (algodImp *algodImporter) Close() error {
-	if algodImp.cancel != nil {
-		algodImp.cancel()
+func (af *algodFollowerImporter) Close() error {
+	if af.cancel != nil {
+		af.cancel()
 	}
 	return nil
 }
 
-func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
+func (af *algodFollowerImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 	var blockbytes []byte
 	var err error
 	var blk data.BlockData
 
 	for retries := 0; retries < 3; retries++ {
 		// nextRound - 1 because the endpoint waits until the subsequent block is committed to return
-		_, err = algodImp.aclient.StatusAfterBlock(rnd - 1).Do(algodImp.ctx)
+		_, err = af.aclient.StatusAfterBlock(rnd - 1).Do(af.ctx)
 		if err != nil {
 			// If context has expired.
-			if algodImp.ctx.Err() != nil {
+			if af.ctx.Err() != nil {
 				return blk, fmt.Errorf("GetBlock ctx error: %w", err)
 			}
-			algodImp.logger.Errorf(
+			af.logger.Errorf(
 				"r=%d error getting status %d", retries, rnd)
 			continue
 		}
 		start := time.Now()
-		blockbytes, err = algodImp.aclient.BlockRaw(rnd).Do(algodImp.ctx)
+		blockbytes, err = af.aclient.BlockRaw(rnd).Do(af.ctx)
 		dt := time.Since(start)
 		GetAlgodRawBlockTimeSeconds.Observe(dt.Seconds())
 		if err != nil {
@@ -140,6 +140,19 @@ func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 		}
 		tmpBlk := new(rpcs.EncodedBlockCert)
 		err = protocol.Decode(blockbytes, tmpBlk)
+		if err != nil {
+			return blk, err
+		}
+
+		// We aren't going to do anything with the new delta until we get everything
+		// else converted over
+		// Round 0 has no delta associated with it
+		if rnd != 0 {
+			_, err = af.aclient.GetLedgerStateDelta(rnd).Do(af.ctx)
+			if err != nil {
+				return blk, err
+			}
+		}
 
 		blk = data.BlockData{
 			BlockHeader: tmpBlk.Block.BlockHeader,
@@ -148,11 +161,11 @@ func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 		}
 		return blk, err
 	}
-	algodImp.logger.Error("GetBlock finished retries without fetching a block.")
-	return blk, fmt.Errorf("finished retries without fetching a block")
+	af.logger.Error("GetBlock finished retries without fetching a block.  Check that the indexer is set to start at a round that the current algod node can handle")
+	return blk, fmt.Errorf("finished retries without fetching a block.  Check that the indexer is set to start at a round that the current algod node can handle")
 }
 
-func (algodImp *algodImporter) ProvideMetrics() []prometheus.Collector {
+func (af *algodFollowerImporter) ProvideMetrics() []prometheus.Collector {
 	return []prometheus.Collector{
 		GetAlgodRawBlockTimeSeconds,
 	}

@@ -14,19 +14,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/algorand/avm-abi/apps"
-	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/algorand/avm-abi/apps"
 	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/crypto/merklesignature"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres"
@@ -1304,6 +1304,7 @@ func TestLookupInnerLogs(t *testing.T) {
 			require.NotNil(t, response.LogData)
 			ld := *response.LogData
 			require.Equal(t, 1, len(ld))
+			require.Equal(t, appCall.Txn.ID().String(), ld[0].Txid)
 			require.Equal(t, len(tc.logs), len(ld[0].Logs))
 			for i, log := range ld[0].Logs {
 				require.Equal(t, []byte(tc.logs[i]), log)
@@ -1405,6 +1406,7 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 
 			logCount := 0
 			for txnIndex, result := range ld {
+				require.Equal(t, appCall.Txn.ID().String(), result.Txid)
 				for logIndex, log := range result.Logs {
 					require.Equal(t, []byte(tc.logs[txnIndex*2+logIndex]), log)
 					logCount++

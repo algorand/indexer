@@ -246,13 +246,17 @@ type rowData struct {
 }
 
 // txnRowToTransaction parses the idb.TxnRow and generates the appropriate generated.Transaction object.
+// If the TxnRow contains a RootTxn, the generated.Transaction object will be the root txn.
 func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 	if row.Error != nil {
 		return generated.Transaction{}, row.Error
 	}
 
 	var stxn *sdk.SignedTxnWithAD
-	if row.Txn != nil {
+	if row.RootTxn != nil && row.Txn != nil {
+		// see postgres.go:yieldTxnsThreadSimple
+		return generated.Transaction{}, fmt.Errorf("%d:%d Txn and RootTxn should be mutually exclusive", row.Round, row.Intra)
+	} else if row.Txn != nil {
 		stxn = row.Txn
 	} else if row.RootTxn != nil {
 		stxn = row.RootTxn

@@ -732,7 +732,7 @@ func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, appl
 	filter.AddressRole = idb.AddressRoleSender
 	// If there is a match on an inner transaction, return the inner txn's logs
 	// instead of the root txn's logs.
-	filter.ReturnInnerTxnOnly = true
+	filter.SkipInnerTransactionConversion = true
 
 	err = validateTransactionFilter(&filter)
 	if err != nil {
@@ -1451,15 +1451,9 @@ func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter id
 				return err
 			}
 
-			// Do not return inner transactions.
-			if tx.Id == nil {
-				continue
-			}
-
-			// The root txn has already been added.
-			// If we also want to return inner txns, we cannot deduplicate the
-			// results as inner txns all share the same txn ID as its root txn.
-			if _, ok := rootTxnDedupeMap[*tx.Id]; ok && !filter.ReturnInnerTxnOnly {
+			// The root txn only needs to be added once, so remove duplicates unless
+			// we are including inner transactions (which use the root txid).
+			if _, ok := rootTxnDedupeMap[*tx.Id]; ok && !filter.SkipInnerTransactionConversion {
 				continue
 			}
 
