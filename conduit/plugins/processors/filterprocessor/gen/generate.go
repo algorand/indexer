@@ -115,8 +115,8 @@ func SignedTxnFunc(tag string, input *transactions.SignedTxnInBlock) (interface{
 	}
 
 	//nolint:govet
-	_, err = fmt.Fprint(&bb, "default:\n"+
-		"return nil, fmt.Errorf(\"unknown tag: %s\", tag)\n"+
+	_, err = bb.WriteString("default:\n" +
+		"return nil, fmt.Errorf(\"unknown tag: %s\", tag)\n" +
 		"}\n}")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to write to %s: %v\n", outputFilepath, err)
