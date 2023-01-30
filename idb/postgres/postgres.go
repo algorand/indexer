@@ -190,6 +190,10 @@ func (db *IndexerDb) AddBlock(vb *ledgercore.ValidatedBlock) error {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
 		if block.Round() != basics.Round(importstate.NextRoundToAccount) {
+			// Ignore repeat attempts to add genesis file.
+			if block.Round() == 0 {
+				return nil
+			}
 			return fmt.Errorf(
 				"AddBlock() adding block round %d but next round to account is %d",
 				block.Round(), importstate.NextRoundToAccount)
