@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"fmt"
 	"net/url"
+	"reflect"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -94,9 +95,13 @@ func (af *algodFollowerImporter) Init(ctx context.Context, cfg plugins.PluginCon
 
 	genesis := sdk.Genesis{}
 
-	err = json.Decode([]byte(genesisResponse), &genesis)
+	// Don't fail on unknown properties here since the go-algorand and SDK genesis types differ slightly
+	err = json.LenientDecode([]byte(genesisResponse), &genesis)
 	if err != nil {
 		return nil, err
+	}
+	if reflect.DeepEqual(genesis, sdk.Genesis{}) {
+		return nil, fmt.Errorf("unable to fetch genesis file from API at %s", af.cfg.NetAddr)
 	}
 
 	return &genesis, err

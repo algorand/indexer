@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
+
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/importers"
 	"github.com/algorand/indexer/util/test"
@@ -54,6 +56,15 @@ func TestInitSuccess(t *testing.T) {
 	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("netaddr: "+ts.URL), logger)
 	assert.NoError(t, err)
 	assert.NotEqual(t, testImporter, nil)
+	testImporter.Close()
+}
+
+func TestInitGenesisFailure(t *testing.T) {
+	ts := test.NewAlgodServer(test.MakeGenesisResponder(sdk.Genesis{}))
+	testImporter = New()
+	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("netaddr: "+ts.URL), logger)
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "unable to fetch genesis file")
 	testImporter.Close()
 }
 
