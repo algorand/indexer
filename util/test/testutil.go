@@ -155,9 +155,23 @@ func MockedInitProvider(round *basics.Round) *MockInitProvider {
 
 // ReadValidatedBlockFromFile reads a validated block from file
 func ReadValidatedBlockFromFile(filename string) (types.ValidatedBlock, error) {
-	var vb types.ValidatedBlock
+	var blk types.Block
+	var sd types.Delta
 	dat, _ := os.ReadFile(filename)
-	err := json2.Decode(dat, &vb)
+	// block
+	err := json2.LenientDecode(dat, &blk)
+	if err != nil {
+		return types.ValidatedBlock{}, err
+	}
+	// delta
+	err = json2.LenientDecode(dat, &sd)
+	if err != nil {
+		return types.ValidatedBlock{}, err
+	}
+	vb := types.ValidatedBlock{
+		Block: blk.Block,
+		Delta: sd.Delta,
+	}
 	return vb, err
 }
 

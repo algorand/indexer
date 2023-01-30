@@ -121,6 +121,10 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	//block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createTxn, &payNewAppTxn)
 	//require.NoError(t, err)
 
+	//tmp, err := test.ReadValidatedBlockFromFileV2("test_resources/validated_blocks/BoxCreateMutateDeleteR1msgp.vb")
+	//require.NoError(t, err)
+	//fmt.Println(tmp)
+
 	vb1, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDeleteR1.vb")
 	require.NoError(t, err)
 	err = db.AddBlock(&vb1)
