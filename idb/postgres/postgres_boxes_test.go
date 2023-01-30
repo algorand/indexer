@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/algorand/go-algorand-sdk/v2/client/v2/common/models"
 	"github.com/jackc/pgx/v4"
 	"github.com/stretchr/testify/require"
 
@@ -14,7 +15,6 @@ import (
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
@@ -22,13 +22,13 @@ import (
 	"github.com/algorand/indexer/util/test"
 )
 
-type boxTestComparator func(t *testing.T, db *IndexerDb, appBoxes map[basics.AppIndex]map[string]string,
-	deletedBoxes map[basics.AppIndex]map[string]bool, verifyTotals bool)
+type boxTestComparator func(t *testing.T, db *IndexerDb, appBoxes map[sdk.AppIndex]map[string]string,
+	deletedBoxes map[sdk.AppIndex]map[string]bool, verifyTotals bool)
 
 // compareAppBoxesAgainstDB is of type testing.BoxTestComparator
 func compareAppBoxesAgainstDB(t *testing.T, db *IndexerDb,
-	appBoxes map[basics.AppIndex]map[string]string,
-	deletedBoxes map[basics.AppIndex]map[string]bool, verifyTotals bool) {
+	appBoxes map[sdk.AppIndex]map[string]string,
+	deletedBoxes map[sdk.AppIndex]map[string]bool, verifyTotals bool) {
 
 	numQueries := 0
 	sumOfBoxes := 0
@@ -76,7 +76,8 @@ func compareAppBoxesAgainstDB(t *testing.T, db *IndexerDb,
 			}
 		}
 		if verifyTotals {
-			addr := appIdx.Address()
+			//addr := appIdx.Address()
+			addr := test.AppAddress(appIdx)
 			msg := fmt.Sprintf("caseNum=%d, appIdx=%d", caseNum, appIdx)
 
 			row := db.db.QueryRow(context.Background(), acctDataSQL, addr[:])
@@ -106,7 +107,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
-	appid := basics.AppIndex(1)
+	appid := sdk.AppIndex(1)
 
 	// ---- ROUND 1: create and fund the box app  ---- //
 	currentRound := basics.Round(1)
@@ -122,8 +123,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 
 	vb1, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDeleteR1.vb")
 	require.NoError(t, err)
-	blk1 := ledgercore.MakeValidatedBlock(vb1.Blk, vb1.Delta)
-	err = db.AddBlock(&blk1)
+	err = db.AddBlock(&vb1)
 	require.NoError(t, err)
 
 	opts := idb.ApplicationQuery{ApplicationID: uint64(appid)}
@@ -151,7 +151,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 		"box #8",
 	}
 
-	expectedAppBoxes := map[basics.AppIndex]map[string]string{}
+	expectedAppBoxes := map[sdk.AppIndex]map[string]string{}
 
 	expectedAppBoxes[appid] = map[string]string{}
 	newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
@@ -170,8 +170,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 
 	vb2, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDeleteR2.vb")
 	require.NoError(t, err)
-	blk2 := ledgercore.MakeValidatedBlock(vb2.Blk, vb2.Delta)
-	err = db.AddBlock(&blk2)
+	err = db.AddBlock(&vb2)
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
@@ -211,8 +210,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 
 	vb3, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDeleteR3.vb")
 	require.NoError(t, err)
-	blk3 := ledgercore.MakeValidatedBlock(vb3.Blk, vb3.Delta)
-	err = db.AddBlock(&blk3)
+	err = db.AddBlock(&vb3)
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
@@ -245,13 +243,12 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 
 	vb4, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDeleteR4.vb")
 	require.NoError(t, err)
-	blk4 := ledgercore.MakeValidatedBlock(vb4.Blk, vb4.Delta)
-	err = db.AddBlock(&blk4)
+	err = db.AddBlock(&vb4)
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
 
-	deletedBoxes := make(map[basics.AppIndex]map[string]bool)
+	deletedBoxes := make(map[sdk.AppIndex]map[string]bool)
 	deletedBoxes[appid] = make(map[string]bool)
 	for _, deletedBox := range appBoxesToDelete {
 		deletedBoxes[appid][deletedBox] = true
@@ -282,8 +279,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 
 	vb5, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDeleteR5.vb")
 	require.NoError(t, err)
-	blk5 := ledgercore.MakeValidatedBlock(vb5.Blk, vb5.Delta)
-	err = db.AddBlock(&blk5)
+	err = db.AddBlock(&vb5)
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
@@ -314,8 +310,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 
 	vb6, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDeleteR6.vb")
 	require.NoError(t, err)
-	blk6 := ledgercore.MakeValidatedBlock(vb6.Blk, vb6.Delta)
-	err = db.AddBlock(&blk6)
+	err = db.AddBlock(&vb6)
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
@@ -327,7 +322,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 
 // generateRandomBoxes generates a random slice of box keys and values for an app using future consensus params for guidance.
 // NOTE: no attempt is made to adhere to the constraints BytesPerBoxReference etc.
-func generateRandomBoxes(t *testing.T, appIdx basics.AppIndex, maxBoxes int) map[string]string {
+func generateRandomBoxes(t *testing.T, appIdx sdk.AppIndex, maxBoxes int) map[string]string {
 	future := config.Consensus[protocol.ConsensusFuture]
 
 	numBoxes := rand.Intn(maxBoxes + 1)
@@ -352,16 +347,16 @@ func generateRandomBoxes(t *testing.T, appIdx basics.AppIndex, maxBoxes int) map
 	return boxes
 }
 
-func createRandomBoxesWithDelta(t *testing.T, numApps, maxBoxes int) (map[basics.AppIndex]map[string]string, ledgercore.StateDelta) {
-	appBoxes := make(map[basics.AppIndex]map[string]string)
+func createRandomBoxesWithDelta(t *testing.T, numApps, maxBoxes int) (map[sdk.AppIndex]map[string]string, models.LedgerStateDelta) {
+	appBoxes := make(map[sdk.AppIndex]map[string]string)
 
-	delta := ledgercore.StateDelta{
-		KvMods: map[string]ledgercore.KvValueDelta{},
-		Accts:  ledgercore.MakeAccountDeltas(numApps),
+	delta := models.LedgerStateDelta{
+		KvMods: []models.KvDelta{},
+		Accts:  models.AccountDeltas{},
 	}
 
 	for i := 0; i < numApps; i++ {
-		appIndex := basics.AppIndex(rand.Int63())
+		appIndex := sdk.AppIndex(rand.Int63())
 		boxes := generateRandomBoxes(t, appIndex, maxBoxes)
 		appBoxes[appIndex] = boxes
 
@@ -371,16 +366,19 @@ func createRandomBoxesWithDelta(t *testing.T, numApps, maxBoxes int) (map[basics
 			require.Equal(t, uint64(appIndex), embeddedAppIdx)
 
 			val := string([]byte(value)[:])
-			delta.KvMods[key] = ledgercore.KvValueDelta{Data: []byte(val)}
+			delta.KvMods = append(delta.KvMods, models.KvDelta{
+				Key:   []byte(key),
+				Value: []byte(val),
+			})
 		}
 
 	}
 	return appBoxes, delta
 }
 
-func randomMutateSomeBoxesWithDelta(t *testing.T, appBoxes map[basics.AppIndex]map[string]string) ledgercore.StateDelta {
-	var delta ledgercore.StateDelta
-	delta.KvMods = make(map[string]ledgercore.KvValueDelta)
+func randomMutateSomeBoxesWithDelta(t *testing.T, appBoxes map[sdk.AppIndex]map[string]string) models.LedgerStateDelta {
+	var delta models.LedgerStateDelta
+	//delta.KvMods = make(map[string]ledgercore.KvValueDelta)
 
 	for _, boxes := range appBoxes {
 		for key, value := range boxes {
@@ -393,18 +391,21 @@ func randomMutateSomeBoxesWithDelta(t *testing.T, appBoxes map[basics.AppIndex]m
 			boxes[key] = string(valueBytes)
 
 			val := string([]byte(boxes[key])[:])
-			delta.KvMods[key] = ledgercore.KvValueDelta{Data: []byte(val)}
+			//delta.KvMods[key] = ledgercore.KvValueDelta{Data: []byte(val)}
+			delta.KvMods = append(delta.KvMods, models.KvDelta{
+				Key:   []byte(key),
+				Value: []byte(val),
+			})
 		}
 	}
 
 	return delta
 }
 
-func deleteSomeBoxesWithDelta(t *testing.T, appBoxes map[basics.AppIndex]map[string]string) (map[basics.AppIndex]map[string]bool, ledgercore.StateDelta) {
-	deletedBoxes := make(map[basics.AppIndex]map[string]bool, len(appBoxes))
+func deleteSomeBoxesWithDelta(t *testing.T, appBoxes map[sdk.AppIndex]map[string]string) (map[sdk.AppIndex]map[string]bool, models.LedgerStateDelta) {
+	deletedBoxes := make(map[sdk.AppIndex]map[string]bool, len(appBoxes))
 
-	var delta ledgercore.StateDelta
-	delta.KvMods = make(map[string]ledgercore.KvValueDelta)
+	var delta models.LedgerStateDelta
 
 	for appIndex, boxes := range appBoxes {
 		deletedBoxes[appIndex] = map[string]bool{}
@@ -413,14 +414,18 @@ func deleteSomeBoxesWithDelta(t *testing.T, appBoxes map[basics.AppIndex]map[str
 				continue
 			}
 			deletedBoxes[appIndex][key] = true
-			delta.KvMods[key] = ledgercore.KvValueDelta{Data: nil}
+			//delta.KvMods[key] = ledgercore.KvValueDelta{Data: nil}
+			delta.KvMods = append(delta.KvMods, models.KvDelta{
+				Key:   []byte(key),
+				Value: nil,
+			})
 		}
 	}
 
 	return deletedBoxes, delta
 }
 
-func addAppBoxesBlock(t *testing.T, db *IndexerDb, delta ledgercore.StateDelta) {
+func addAppBoxesBlock(t *testing.T, db *IndexerDb, delta models.LedgerStateDelta) {
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)

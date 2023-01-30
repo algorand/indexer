@@ -13,8 +13,8 @@ import (
 // A ValidatedBlock represents an Block that has been successfully validated
 // and can now be recorded in the ledger.
 type ValidatedBlock struct {
-	Block sdk.Block
-	Delta models.LedgerStateDelta
+	Block sdk.Block               `codec:"Blk, omitempty"`
+	Delta models.LedgerStateDelta `json:"Delta,omitempty"`
 }
 
 // EncodedBlockCert contains the encoded block and the corresponding encoded certificate

@@ -2,18 +2,20 @@ package test
 
 import (
 	"context"
+	"crypto/sha512"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"os"
 	"runtime"
 
+	json2 "github.com/algorand/go-algorand-sdk/v2/encoding/json"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/util"
 
-	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger"
@@ -152,9 +154,20 @@ func MockedInitProvider(round *basics.Round) *MockInitProvider {
 }
 
 // ReadValidatedBlockFromFile reads a validated block from file
-func ReadValidatedBlockFromFile(filename string) (types.LegercoreValidatedBlock, error) {
-	var vb types.LegercoreValidatedBlock
+func ReadValidatedBlockFromFile(filename string) (types.ValidatedBlock, error) {
+	var vb types.ValidatedBlock
 	dat, _ := os.ReadFile(filename)
-	err := msgpack.Decode(dat, &vb)
+	err := json2.Decode(dat, &vb)
 	return vb, err
+}
+
+func AppAddress(app sdk.AppIndex) sdk.Address {
+	hashid := "appID"
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, uint64(app))
+	b := []byte(hashid)
+	b = append(b, buf...)
+	account := sha512.Sum512_256(b)
+
+	return account
 }
