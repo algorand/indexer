@@ -154,11 +154,6 @@
     "modified-apps": [
       {
         "created": true,
-        "creator": "N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU",
-        "id": 2
-      },
-      {
-        "created": true,
         "creator": "OKUWMFFEKF4B4D7FRQYBVV3C2SNS54ZO4WZ2MJ3576UYKFDHM5P3AFMRWE",
         "id": 3
       },
@@ -166,6 +161,11 @@
         "created": true,
         "creator": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
         "id": 1
+      },
+      {
+        "created": true,
+        "creator": "N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU",
+        "id": 2
       }
     ],
     "totals": {
