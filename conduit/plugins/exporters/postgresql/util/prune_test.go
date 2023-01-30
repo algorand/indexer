@@ -27,7 +27,7 @@ func init() {
 }
 
 var config = PruneConfigurations{
-	Interval: -1,
+	Interval: once,
 	Rounds:   10,
 }
 
@@ -100,7 +100,7 @@ func TestDeleteConfigs(t *testing.T) {
 
 	// config.Rounds > rounds in DB
 	config = PruneConfigurations{
-		Interval: -1,
+		Interval: once,
 		Rounds:   5,
 	}
 
@@ -117,7 +117,7 @@ func TestDeleteConfigs(t *testing.T) {
 
 	// run delete once
 	config = PruneConfigurations{
-		Interval: -1,
+		Interval: once,
 		Rounds:   2,
 	}
 	var wg sync.WaitGroup
@@ -132,6 +132,25 @@ func TestDeleteConfigs(t *testing.T) {
 
 	wg.Add(1)
 	round := uint64(nextRound)
+	go dm.DeleteLoop(&wg, &round)
+	wg.Wait()
+	assert.Equal(t, 2, rowsInTxnTable(db))
+
+	// interval is disabled, no deletion should occur
+	config = PruneConfigurations{
+		Interval: disabled,
+		Rounds:   1,
+	}
+	dm = postgresql{
+		config:   &config,
+		db:       idb,
+		logger:   logger,
+		ctx:      context.Background(),
+		duration: 500 * time.Millisecond,
+	}
+
+	wg.Add(1)
+	round = uint64(nextRound)
 	go dm.DeleteLoop(&wg, &round)
 	wg.Wait()
 	assert.Equal(t, 2, rowsInTxnTable(db))
@@ -203,7 +222,7 @@ func TestDeleteInterval(t *testing.T) {
 
 	// reconnect
 	config = PruneConfigurations{
-		Interval: -1,
+		Interval: once,
 		Rounds:   1,
 	}
 	delete(idb, uint64(nextRound))
