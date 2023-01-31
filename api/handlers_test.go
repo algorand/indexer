@@ -18,16 +18,14 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
+	sdkcrypto "github.com/algorand/go-algorand-sdk/v2/crypto"
+	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/protocol"
-	"github.com/algorand/go-algorand/rpcs"
-
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/mocks"
+	"github.com/algorand/indexer/types"
 )
 
 func TestTransactionParamToTransactionFilter(t *testing.T) {
@@ -637,7 +635,7 @@ func TestFetchTransactions(t *testing.T) {
 		},
 	}
 
-	// use for the brach below and createTxn helper func to add a new test case
+	// use for the branch below and createTxn helper func to add a new test case
 	var addNewTest = false
 	if addNewTest {
 		tests = tests[:0]
@@ -651,11 +649,9 @@ func TestFetchTransactions(t *testing.T) {
 			txnBytes: [][]byte{loadResourceFileOrPanic("test_resources/state_proof.txn")},
 		})
 	}
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			// Setup the mocked responses
-
 			mockIndexer := &mocks.IndexerDb{}
 			si := testServerImplementation(mockIndexer)
 			si.EnableAddressSearchRoundRewind = true
@@ -666,8 +662,8 @@ func TestFetchTransactions(t *testing.T) {
 
 			ch := make(chan idb.TxnRow, len(test.txnBytes))
 			for _, bytes := range test.txnBytes {
-				stxnad := new(transactions.SignedTxnWithAD)
-				err := protocol.Decode(bytes, stxnad)
+				stxnad := new(sdk.SignedTxnWithAD)
+				err := msgpack.Decode(bytes, stxnad)
 				require.NoError(t, err)
 				txnRow := idb.TxnRow{
 					Round:     1,
@@ -756,8 +752,8 @@ func TestLookupApplicationLogsByID(t *testing.T) {
 	si.EnableAddressSearchRoundRewind = true
 
 	txnBytes := loadResourceFileOrPanic("test_resources/app_call_logs.txn")
-	var stxn transactions.SignedTxnWithAD
-	err := protocol.Decode(txnBytes, &stxn)
+	var stxn sdk.SignedTxnWithAD
+	err := msgpack.Decode(txnBytes, &stxn)
 	assert.NoError(t, err)
 
 	roundTime := time.Now()
@@ -801,7 +797,7 @@ func TestLookupApplicationLogsByID(t *testing.T) {
 	assert.NotNil(t, response.LogData)
 	ld := *response.LogData
 	assert.Equal(t, 1, len(ld))
-	assert.Equal(t, stxn.Txn.ID().String(), ld[0].Txid)
+	assert.Equal(t, sdkcrypto.TransactionIDString(stxn.Txn), ld[0].Txid)
 	assert.Equal(t, len(stxn.ApplyData.EvalDelta.Logs), len(ld[0].Logs))
 	for i, log := range ld[0].Logs {
 		assert.Equal(t, []byte(stxn.ApplyData.EvalDelta.Logs[i]), log)
@@ -829,7 +825,7 @@ func TestTimeouts(t *testing.T) {
 		mockIndexer.
 			On("GetBlock", mock.Anything, mock.Anything, mock.Anything).
 			WaitUntil(timeout).
-			Return(bookkeeping.BlockHeader{}, nil, nil)
+			Return(sdk.BlockHeader{}, nil, nil)
 	}
 	healthFunc := func(mockIndexer *mocks.IndexerDb, timeout <-chan time.Time) {
 		mockIndexer.
@@ -1256,8 +1252,8 @@ func TestFetchBlock(t *testing.T) {
 		roundTime64 := uint64(roundTime.Unix())
 
 		t.Run(tc.name, func(t *testing.T) {
-			blk := new(rpcs.EncodedBlockCert)
-			err := protocol.Decode(tc.blockBytes, blk)
+			blk := new(types.EncodedBlockCert)
+			err := msgpack.Decode(tc.blockBytes, blk)
 			require.NoError(t, err)
 			txnRows := make([]idb.TxnRow, len(blk.Block.Payset))
 			for idx, stxn := range blk.Block.Payset {
@@ -1273,7 +1269,7 @@ func TestFetchBlock(t *testing.T) {
 					Error: nil,
 				}
 			}
-			// bookkeeping.BlockHeader, []idb.TxnRow, error
+			// sdk.BlockHeader, []idb.TxnRow, error
 			mockIndexer.
 				On("GetBlock", mock.Anything, mock.Anything, mock.Anything).
 				Return(blk.Block.BlockHeader, txnRows, nil)

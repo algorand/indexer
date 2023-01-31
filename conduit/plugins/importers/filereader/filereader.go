@@ -19,7 +19,7 @@ import (
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/util"
 
-	"github.com/algorand/go-algorand/data/bookkeeping"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 const importerName = "file_reader"
@@ -57,7 +57,7 @@ func init() {
 	}))
 }
 
-func (r *fileReader) Init(ctx context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) (*bookkeeping.Genesis, error) {
+func (r *fileReader) Init(ctx context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) (*sdk.Genesis, error) {
 	r.ctx, r.cancel = context.WithCancel(ctx)
 	r.logger = logger
 	var err error
@@ -71,8 +71,8 @@ func (r *fileReader) Init(ctx context.Context, cfg plugins.PluginConfig, logger 
 	}
 
 	genesisFile := path.Join(r.cfg.BlocksDir, "genesis.json")
-	var genesis bookkeeping.Genesis
-	err = util.DecodeFromFile(genesisFile, &genesis)
+	var genesis sdk.Genesis
+	err = util.DecodeFromFile(genesisFile, &genesis, false)
 	if err != nil {
 		return nil, fmt.Errorf("Init(): failed to process genesis file: %w", err)
 	}
@@ -98,7 +98,7 @@ func (r *fileReader) GetBlock(rnd uint64) (data.BlockData, error) {
 		filename := path.Join(r.cfg.BlocksDir, fmt.Sprintf(r.cfg.FilenamePattern, rnd))
 		var blockData data.BlockData
 		start := time.Now()
-		err := util.DecodeFromFile(filename, &blockData)
+		err := util.DecodeFromFile(filename, &blockData, false)
 		if err != nil && errors.Is(err, fs.ErrNotExist) {
 			// If the file read failed because the file didn't exist, wait before trying again
 			if attempts == 0 {

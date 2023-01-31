@@ -21,8 +21,8 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/util"
 
-	"github.com/algorand/go-algorand-sdk/client/v2/algod"
-	"github.com/algorand/go-algorand/crypto"
+	"github.com/algorand/go-algorand-sdk/v2/client/v2/algod"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
@@ -133,6 +133,7 @@ func importTar(imp Importer, tarfile io.Reader, logger *log.Logger, genesisReade
 	}
 	sort.Slice(blocks, less)
 
+	//TODO: will be refactored when changing util.MakeLedger
 	var genesis bookkeeping.Genesis
 	gbytes, err := ioutil.ReadAll(genesisReader)
 	if err != nil {
@@ -194,14 +195,14 @@ func importFile(fname string, imp Importer, l *log.Logger, genesisPath string) (
 }
 
 // EnsureInitialImport imports the genesis block if needed. Returns true if the initial import occurred.
-func EnsureInitialImport(db idb.IndexerDb, genesis bookkeeping.Genesis) (bool, error) {
+func EnsureInitialImport(db idb.IndexerDb, genesis sdk.Genesis) (bool, error) {
 	_, err := db.GetNextRoundToAccount()
 	// Exit immediately or crash if we don't see ErrorNotInitialized.
 	if err != idb.ErrorNotInitialized {
 		if err != nil {
 			return false, fmt.Errorf("getting import state, %v", err)
 		}
-		err = checkGenesisHash(db, genesis)
+		err = checkGenesisHash(db, genesis.Hash())
 		if err != nil {
 			return false, err
 		}
@@ -275,10 +276,10 @@ func GetGenesisFile(genesisJSONPath string, client *algod.Client, l *log.Logger)
 	return genesisReader
 }
 
-func checkGenesisHash(db idb.IndexerDb, genesis bookkeeping.Genesis) error {
+func checkGenesisHash(db idb.IndexerDb, gh sdk.Digest) error {
 	network, err := db.GetNetworkState()
 	if errors.Is(err, idb.ErrorNotInitialized) {
-		err = db.SetNetworkState(genesis)
+		err = db.SetNetworkState(gh)
 		if err != nil {
 			return fmt.Errorf("error setting network state %w", err)
 		}
@@ -286,7 +287,7 @@ func checkGenesisHash(db idb.IndexerDb, genesis bookkeeping.Genesis) error {
 	} else if err != nil {
 		return fmt.Errorf("unable to fetch network state from db %w", err)
 	}
-	if network.GenesisHash != crypto.HashObj(genesis) {
+	if network.GenesisHash != gh {
 		return fmt.Errorf("genesis hash not matching")
 	}
 	return nil

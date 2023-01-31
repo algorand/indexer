@@ -3,6 +3,7 @@ package api
 import (
 	"time"
 
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/data/basics"
 )
 
@@ -81,7 +82,7 @@ func timePtr(x time.Time) *time.Time {
 	return &x
 }
 
-func addrPtr(x basics.Address) *string {
+func addrPtr(x sdk.Address) *string {
 	if x.IsZero() {
 		return nil
 	}

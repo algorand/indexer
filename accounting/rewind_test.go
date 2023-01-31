@@ -5,9 +5,10 @@ import (
 	"errors"
 	"testing"
 
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/indexer/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
@@ -17,7 +18,7 @@ import (
 )
 
 func TestBasic(t *testing.T) {
-	var a basics.Address
+	var a sdk.Address
 	a[0] = 'a'
 
 	account := models.Account{
@@ -29,13 +30,13 @@ func TestBasic(t *testing.T) {
 
 	txnRow := idb.TxnRow{
 		Round: 7,
-		Txn: &transactions.SignedTxnWithAD{
-			SignedTxn: transactions.SignedTxn{
-				Txn: transactions.Transaction{
-					Type: protocol.PaymentTx,
-					PaymentTxnFields: transactions.PaymentTxnFields{
+		Txn: &sdk.SignedTxnWithAD{
+			SignedTxn: sdk.SignedTxn{
+				Txn: sdk.Transaction{
+					Type: sdk.PaymentTx,
+					PaymentTxnFields: sdk.PaymentTxnFields{
 						Receiver: a,
-						Amount:   basics.MicroAlgos{Raw: 2},
+						Amount:   sdk.MicroAlgos(2),
 					},
 				},
 			},
@@ -48,7 +49,7 @@ func TestBasic(t *testing.T) {
 	var outCh <-chan idb.TxnRow = ch
 
 	db := &mocks.IndexerDb{}
-	db.On("GetSpecialAccounts", mock.Anything).Return(transactions.SpecialAddresses{}, nil)
+	db.On("GetSpecialAccounts", mock.Anything).Return(types.SpecialAddresses{}, nil)
 	db.On("Transactions", mock.Anything, mock.Anything).Return(outCh, uint64(8))
 
 	account, err := AccountAtRound(context.Background(), account, 6, db)

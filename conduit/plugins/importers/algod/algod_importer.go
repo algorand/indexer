@@ -5,6 +5,7 @@ import (
 	_ "embed" // used to embed config
 	"fmt"
 	"net/url"
+	"reflect"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -16,8 +17,9 @@ import (
 	"github.com/algorand/indexer/conduit/plugins/importers"
 	"github.com/algorand/indexer/data"
 
-	"github.com/algorand/go-algorand-sdk/client/v2/algod"
-	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand-sdk/v2/client/v2/algod"
+	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
 )
@@ -58,7 +60,7 @@ func init() {
 	}))
 }
 
-func (algodImp *algodImporter) Init(ctx context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) (*bookkeeping.Genesis, error) {
+func (algodImp *algodImporter) Init(ctx context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) (*sdk.Genesis, error) {
 	algodImp.ctx, algodImp.cancel = context.WithCancel(ctx)
 	algodImp.logger = logger
 	err := cfg.UnmarshalConfig(&algodImp.cfg)
@@ -86,11 +88,15 @@ func (algodImp *algodImporter) Init(ctx context.Context, cfg plugins.PluginConfi
 		return nil, err
 	}
 
-	genesis := bookkeeping.Genesis{}
+	genesis := sdk.Genesis{}
 
-	err = protocol.DecodeJSON([]byte(genesisResponse), &genesis)
+	// Don't fail on unknown properties here since the go-algorand and SDK genesis types differ slightly
+	err = json.LenientDecode([]byte(genesisResponse), &genesis)
 	if err != nil {
 		return nil, err
+	}
+	if reflect.DeepEqual(genesis, sdk.Genesis{}) {
+		return nil, fmt.Errorf("unable to fetch genesis file from API at %s", algodImp.cfg.NetAddr)
 	}
 
 	return &genesis, err

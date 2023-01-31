@@ -6,17 +6,18 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/data/transactions/logic"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
-	"github.com/algorand/go-algorand/protocol"
 	"github.com/jackc/pgx/v4"
 
+	"github.com/algorand/avm-abi/apps"
+	"github.com/algorand/indexer/helpers"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
+	"github.com/algorand/indexer/types"
+
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
 const (
@@ -36,7 +37,6 @@ const (
 	deleteAccountAppStmtName           = "delete_account_app"
 	upsertAppBoxStmtName               = "upsert_app_box"
 	deleteAppBoxStmtName               = "delete_app_box"
-	updateAccountTotalsStmtName        = "update_account_totals"
 )
 
 var statements = map[string]string{
@@ -114,8 +114,6 @@ var statements = map[string]string{
 		ON CONFLICT (app, name) DO UPDATE SET
 		value = EXCLUDED.value`,
 	deleteAppBoxStmtName: `DELETE FROM app_box WHERE app = $1 and name = $2`,
-	updateAccountTotalsStmtName: `UPDATE metastate SET v = $1 WHERE k = '` +
-		schema.AccountTotals + `'`,
 }
 
 // Writer is responsible for writing blocks and accounting state deltas to the database.
@@ -146,14 +144,14 @@ func (w *Writer) Close() {
 	}
 }
 
-func addBlockHeader(blockHeader *bookkeeping.BlockHeader, batch *pgx.Batch) {
+func addBlockHeader(blockHeader *sdk.BlockHeader, batch *pgx.Batch) {
 	batch.Queue(
 		addBlockHeaderStmtName,
 		uint64(blockHeader.Round), time.Unix(blockHeader.TimeStamp, 0).UTC(),
 		blockHeader.RewardsLevel, encoding.EncodeBlockHeader(*blockHeader))
 }
 
-func setSpecialAccounts(addresses transactions.SpecialAddresses, batch *pgx.Batch) {
+func setSpecialAccounts(addresses types.SpecialAddresses, batch *pgx.Batch) {
 	j := encoding.EncodeSpecialAddresses(addresses)
 	batch.Queue(setSpecialAccountsStmtName, j)
 }
@@ -165,11 +163,11 @@ type sigTypeDelta struct {
 	value   idb.SigType
 }
 
-func getSigTypeDeltas(payset []transactions.SignedTxnInBlock) (map[basics.Address]sigTypeDelta, error) {
-	res := make(map[basics.Address]sigTypeDelta, len(payset))
+func getSigTypeDeltas(payset []sdk.SignedTxnInBlock) (map[sdk.Address]sigTypeDelta, error) {
+	res := make(map[sdk.Address]sigTypeDelta, len(payset))
 
 	for i := range payset {
-		if payset[i].Txn.RekeyTo == (basics.Address{}) && payset[i].Txn.Type != protocol.StateProofTx {
+		if payset[i].Txn.RekeyTo == (sdk.Address{}) && payset[i].Txn.Type != sdk.StateProofTx {
 			sigtype, err := idb.SignatureType(&payset[i].SignedTxn)
 			if err != nil {
 				return nil, fmt.Errorf("getSigTypeDelta() err: %w", err)
@@ -188,7 +186,7 @@ type optionalSigTypeDelta struct {
 	value   sigTypeDelta
 }
 
-func writeAccount(round basics.Round, address basics.Address, accountData ledgercore.AccountData, sigtypeDelta optionalSigTypeDelta, batch *pgx.Batch) {
+func writeAccount(round sdk.Round, address basics.Address, accountData ledgercore.AccountData, sigtypeDelta optionalSigTypeDelta, batch *pgx.Batch) {
 	sigtypeFunc := func(delta sigTypeDelta) *idb.SigType {
 		if !delta.present {
 			return nil
@@ -229,14 +227,15 @@ func writeAccount(round basics.Round, address basics.Address, accountData ledger
 	}
 }
 
-func writeAssetResource(round basics.Round, resource *ledgercore.AssetResourceRecord, batch *pgx.Batch) {
+func writeAssetResource(round sdk.Round, resource *ledgercore.AssetResourceRecord, batch *pgx.Batch) {
 	if resource.Params.Deleted {
 		batch.Queue(deleteAssetStmtName, resource.Aidx, resource.Addr[:], round)
 	} else {
 		if resource.Params.Params != nil {
 			batch.Queue(
 				upsertAssetStmtName, resource.Aidx, resource.Addr[:],
-				encoding.EncodeAssetParams(*resource.Params.Params), round)
+
+				encoding.EncodeAssetParams(helpers.ConvertParams(*resource.Params.Params)), round)
 		}
 	}
 
@@ -252,7 +251,7 @@ func writeAssetResource(round basics.Round, resource *ledgercore.AssetResourceRe
 	}
 }
 
-func writeAppResource(round basics.Round, resource *ledgercore.AppResourceRecord, batch *pgx.Batch) {
+func writeAppResource(round sdk.Round, resource *ledgercore.AppResourceRecord, batch *pgx.Batch) {
 	if resource.Params.Deleted {
 		batch.Queue(deleteAppStmtName, resource.Aidx, resource.Addr[:], round)
 	} else {
@@ -274,13 +273,14 @@ func writeAppResource(round basics.Round, resource *ledgercore.AppResourceRecord
 	}
 }
 
-func writeAccountDeltas(round basics.Round, accountDeltas *ledgercore.AccountDeltas, sigtypeDeltas map[basics.Address]sigTypeDelta, batch *pgx.Batch) {
+func writeAccountDeltas(round sdk.Round, accountDeltas *ledgercore.AccountDeltas, sigtypeDeltas map[sdk.Address]sigTypeDelta, batch *pgx.Batch) {
 	// Update `account` table.
 	for i := 0; i < accountDeltas.Len(); i++ {
+
 		address, accountData := accountDeltas.GetByIdx(i)
 
 		var sigtypeDelta optionalSigTypeDelta
-		sigtypeDelta.value, sigtypeDelta.present = sigtypeDeltas[address]
+		sigtypeDelta.value, sigtypeDelta.present = sigtypeDeltas[sdk.Address(address)]
 
 		writeAccount(round, address, accountData, sigtypeDelta, batch)
 	}
@@ -310,7 +310,7 @@ func writeBoxMods(kvMods map[string]ledgercore.KvValueDelta, batch *pgx.Batch) e
 	// If a non-box is encountered inside kvMods, an error will be returned and
 	// AddBlock() will fail with the import getting stuck at the corresponding round.
 	for key, valueDelta := range kvMods {
-		app, name, err := logic.SplitBoxKey(key)
+		app, name, err := apps.SplitBoxKey(key)
 		if err != nil {
 			return fmt.Errorf("writeBoxMods() err: %w", err)
 		}
@@ -325,11 +325,11 @@ func writeBoxMods(kvMods map[string]ledgercore.KvValueDelta, batch *pgx.Batch) e
 }
 
 // AddBlock0 writes block 0 to the database.
-func (w *Writer) AddBlock0(block *bookkeeping.Block) error {
+func (w *Writer) AddBlock0(block *sdk.Block) error {
 	var batch pgx.Batch
 
 	addBlockHeader(&block.BlockHeader, &batch)
-	specialAddresses := transactions.SpecialAddresses{
+	specialAddresses := types.SpecialAddresses{
 		FeeSink:     block.FeeSink,
 		RewardsPool: block.RewardsPool,
 	}
@@ -355,11 +355,10 @@ func (w *Writer) AddBlock0(block *bookkeeping.Block) error {
 // AddBlock writes the block and accounting state deltas to the database, except for
 // transactions and transaction participation. Those are imported by free functions in
 // the writer/ directory.
-func (w *Writer) AddBlock(block *bookkeeping.Block, modifiedTxns []transactions.SignedTxnInBlock, delta ledgercore.StateDelta) error {
+func (w *Writer) AddBlock(block *sdk.Block, delta ledgercore.StateDelta) error {
 	var batch pgx.Batch
-
 	addBlockHeader(&block.BlockHeader, &batch)
-	specialAddresses := transactions.SpecialAddresses{
+	specialAddresses := types.SpecialAddresses{
 		FeeSink:     block.FeeSink,
 		RewardsPool: block.RewardsPool,
 	}
@@ -369,7 +368,7 @@ func (w *Writer) AddBlock(block *bookkeeping.Block, modifiedTxns []transactions.
 		if err != nil {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
-		writeAccountDeltas(block.Round(), &delta.Accts, sigTypeDeltas, &batch)
+		writeAccountDeltas(block.Round, &delta.Accts, sigTypeDeltas, &batch)
 	}
 	{
 		err := writeBoxMods(delta.KvMods, &batch)
@@ -377,7 +376,6 @@ func (w *Writer) AddBlock(block *bookkeeping.Block, modifiedTxns []transactions.
 			return fmt.Errorf("AddBlock() err on boxes: %w", err)
 		}
 	}
-	batch.Queue(updateAccountTotalsStmtName, encoding.EncodeAccountTotals(&delta.Totals))
 
 	results := w.tx.SendBatch(context.Background(), &batch)
 	// Clean the results off the connection's queue. Without this, weird things happen.

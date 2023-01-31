@@ -10,10 +10,12 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/util"
 
+	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger"
 )
 
@@ -128,11 +130,11 @@ func MakeTestLedger(logger *log.Logger) (*ledger.Ledger, error) {
 // MockInitProvider mock an init provider
 type MockInitProvider struct {
 	CurrentRound *basics.Round
-	Genesis      *bookkeeping.Genesis
+	Genesis      *sdk.Genesis
 }
 
 // GetGenesis produces genesis pointer
-func (m *MockInitProvider) GetGenesis() *bookkeeping.Genesis {
+func (m *MockInitProvider) GetGenesis() *sdk.Genesis {
 	return m.Genesis
 }
 
@@ -145,6 +147,14 @@ func (m *MockInitProvider) NextDBRound() basics.Round {
 func MockedInitProvider(round *basics.Round) *MockInitProvider {
 	return &MockInitProvider{
 		CurrentRound: round,
-		Genesis:      &bookkeeping.Genesis{},
+		Genesis:      &sdk.Genesis{},
 	}
+}
+
+// ReadValidatedBlockFromFile reads a validated block from file
+func ReadValidatedBlockFromFile(filename string) (types.LegercoreValidatedBlock, error) {
+	var vb types.LegercoreValidatedBlock
+	dat, _ := os.ReadFile(filename)
+	err := msgpack.Decode(dat, &vb)
+	return vb, err
 }

@@ -1,6 +1,8 @@
 package api
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/base64"
 	"fmt"
@@ -14,22 +16,18 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
-	test2 "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/algorand/go-algorand-sdk/encoding/json"
+	"github.com/algorand/avm-abi/apps"
+	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/crypto/merklesignature"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/data/transactions/logic"
-	"github.com/algorand/go-algorand/ledger"
-	"github.com/algorand/go-algorand/rpcs"
-
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/indexer/api/generated/v2"
-	"github.com/algorand/indexer/conduit/plugins/processors/blockprocessor"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres"
 	pgtest "github.com/algorand/indexer/idb/postgres/testing"
@@ -67,7 +65,7 @@ func testServerImplementation(db idb.IndexerDb) *ServerImplementation {
 	return &ServerImplementation{db: db, timeout: 30 * time.Second, opts: defaultOpts}
 }
 
-func setupIdb(t *testing.T, genesis bookkeeping.Genesis) (*postgres.IndexerDb, func(), func(cert *rpcs.EncodedBlockCert) error, *ledger.Ledger) {
+func setupIdb(t *testing.T, genesis sdk.Genesis) (*postgres.IndexerDb, func()) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 
 	db, _, err := postgres.OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
@@ -79,58 +77,50 @@ func setupIdb(t *testing.T, genesis bookkeeping.Genesis) (*postgres.IndexerDb, f
 	}
 
 	err = db.LoadGenesis(genesis)
+	// todo: update when AddBlock interface gets updated
+	vb := ledgercore.MakeValidatedBlock(test.MakeGenesisBlock(), ledgercore.StateDelta{})
+	db.AddBlock(&vb)
 	require.NoError(t, err)
 
-	logger, _ := test2.NewNullLogger()
-	l, err := test.MakeTestLedger(logger)
-	require.NoError(t, err)
-	proc, err := blockprocessor.MakeBlockProcessorWithLedger(logger, l, db.AddBlock)
-	require.NoError(t, err, "failed to open ledger")
-
-	f := blockprocessor.MakeBlockProcessorHandlerAdapter(&proc, db.AddBlock)
-
-	return db, newShutdownFunc, f, l
+	return db, newShutdownFunc
 }
 
 func TestApplicationHandlers(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // A block containing an app call txn with ExtraProgramPages, that the creator and another account have opted into
 	///////////
 
+	//txn := transactions.SignedTxnWithAD{
+	//	SignedTxn: transactions.SignedTxn{
+	//		Txn: transactions.Transaction{
+	//			Type: "appl",
+	//			Header: transactions.Header{
+	//				Sender:      test.AccountA,
+	//				GenesisHash: test.GenesisHash,
+	//			},
+	//			ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
+	//				ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+	//				ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+	//				ExtraProgramPages: extraPages,
+	//			},
+	//		},
+	//		Sig: test.Signature,
+	//	},
+	//	ApplyData: transactions.ApplyData{
+	//		ApplicationID: expectedAppIdx,
+	//	},
+	//}
+	//optInTxnA := test.MakeAppOptInTxn(expectedAppIdx, test.AccountA)
+	//optInTxnB := test.MakeAppOptInTxn(expectedAppIdx, test.AccountB)
 	const expectedAppIdx = 1 // must be 1 since this is the first txn
 	const extraPages = 2
-	txn := transactions.SignedTxnWithAD{
-		SignedTxn: transactions.SignedTxn{
-			Txn: transactions.Transaction{
-				Type: "appl",
-				Header: transactions.Header{
-					Sender:      test.AccountA,
-					GenesisHash: test.GenesisHash,
-				},
-				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
-					ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
-					ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
-					ExtraProgramPages: extraPages,
-				},
-			},
-			Sig: test.Signature,
-		},
-		ApplyData: transactions.ApplyData{
-			ApplicationID: expectedAppIdx,
-		},
-	}
-	optInTxnA := test.MakeAppOptInTxn(expectedAppIdx, test.AccountA)
-	optInTxnB := test.MakeAppOptInTxn(expectedAppIdx, test.AccountB)
-
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn, &optInTxnA, &optInTxnB)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/ApplicationHandlers.vb")
 	require.NoError(t, err)
-
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
-
+	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&blk)
 	require.NoError(t, err)
 
 	//////////
@@ -236,28 +226,26 @@ func TestApplicationHandlers(t *testing.T) {
 }
 
 func TestAccountExcludeParameters(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // A block containing a creator of an app, an asset, who also holds and has opted-into those apps.
 	///////////
 
-	const expectedAppIdx = 1 // must be 1 since this is the first txn
-	const expectedAssetIdx = 2
-	createAppTxn := test.MakeCreateAppTxn(test.AccountA)
-	createAssetTxn := test.MakeAssetConfigTxn(0, 100, 0, false, "UNIT", "Asset 2", "http://asset2.com", test.AccountA)
-	appOptInTxnA := test.MakeAppOptInTxn(expectedAppIdx, test.AccountA)
-	appOptInTxnB := test.MakeAppOptInTxn(expectedAppIdx, test.AccountB)
-	assetOptInTxnA := test.MakeAssetOptInTxn(expectedAssetIdx, test.AccountA)
-	assetOptInTxnB := test.MakeAssetOptInTxn(expectedAssetIdx, test.AccountB)
+	//const expectedAppIdx = 1 // must be 1 since this is the first txn
+	//const expectedAssetIdx = 2
+	//createAppTxn := test.MakeCreateAppTxn(test.AccountA)
+	//createAssetTxn := test.MakeAssetConfigTxn(0, 100, 0, false, "UNIT", "Asset 2", "http://asset2.com", test.AccountA)
+	//appOptInTxnA := test.MakeAppOptInTxn(expectedAppIdx, test.AccountA)
+	//appOptInTxnB := test.MakeAppOptInTxn(expectedAppIdx, test.AccountB)
+	//assetOptInTxnA := test.MakeAssetOptInTxn(expectedAssetIdx, test.AccountA)
+	//assetOptInTxnB := test.MakeAssetOptInTxn(expectedAssetIdx, test.AccountB)
 
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createAppTxn, &createAssetTxn,
-		&appOptInTxnA, &appOptInTxnB, &assetOptInTxnA, &assetOptInTxnB)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AccountExcludeParameters.vb")
 	require.NoError(t, err)
-
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&blk)
 	require.NoError(t, err)
 
 	//////////
@@ -408,9 +396,8 @@ type accountsErrorResponse struct {
 }
 
 func TestAccountMaxResultsLimit(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // A block containing an address that has created 10 apps, deleted 5 apps, and created 10 assets,
@@ -460,10 +447,11 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 	for i := range txns {
 		ptxns[i] = &txns[i]
 	}
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, ptxns...)
-	require.NoError(t, err)
 
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AccountMaxResultsLimit.vb")
+	require.NoError(t, err)
+	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&blk)
 	require.NoError(t, err)
 
 	//////////
@@ -479,23 +467,7 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 	listenAddr := "localhost:8989"
 	go Serve(serverCtx, listenAddr, db, nil, logrus.New(), opts)
 
-	// wait at most a few seconds for server to come up
-	serverUp := false
-	for maxWait := 3 * time.Second; !serverUp && maxWait > 0; maxWait -= 50 * time.Millisecond {
-		time.Sleep(50 * time.Millisecond)
-		resp, err := http.Get("http://" + listenAddr + "/health")
-		if err != nil {
-			t.Log("waiting for server:", err)
-			continue
-		}
-		resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			t.Log("waiting for server OK:", resp.StatusCode)
-			continue
-		}
-		serverUp = true // server is up now
-	}
-	require.True(t, serverUp, "api.Serve did not start server in time")
+	waitForServer(t, listenAddr)
 
 	// make a real HTTP request (to additionally test generated param parsing logic)
 	makeReq := func(t *testing.T, path string, exclude []string, includeDeleted bool, next *string, limit *uint64) (*http.Response, []byte) {
@@ -788,9 +760,8 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 }
 
 func TestBlockNotFound(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // An empty database.
@@ -854,21 +825,24 @@ func TestInnerTxn(t *testing.T) {
 		},
 	}
 
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // a DB with some inner txns in it.
 	///////////
-	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
-	expectedID := appCall.Txn.ID().String()
+	// appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
+	//expectedID := appCall.Txn.ID().String()
 
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/InnerTxn.vb")
+	require.NoError(t, err)
+	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&blk)
 	require.NoError(t, err)
 
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	stxn, _, err := vb.Blk.BlockHeader.DecodeSignedTxn(vb.Blk.Payset[0])
 	require.NoError(t, err)
+	expectedID := stxn.Txn.ID().String()
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -903,9 +877,8 @@ func TestInnerTxn(t *testing.T) {
 // transaction group does not allow the root transaction to be returned on both
 // pages.
 func TestPagingRootTxnDeduplication(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // a DB with some inner txns in it.
@@ -914,14 +887,18 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 	appAddr[1] = 99
 	appAddrStr := appAddr.String()
 
-	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
-	expectedID := appCall.Txn.ID().String()
+	//appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
+	//expectedID := appCall.Txn.ID().String()
 
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/PagingRootTxnDeduplication.vb")
+	require.NoError(t, err)
+	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&blk)
 	require.NoError(t, err)
 
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	stxn, _, err := vb.Blk.BlockHeader.DecodeSignedTxn(vb.Blk.Payset[0])
 	require.NoError(t, err)
+	expectedID := stxn.Txn.ID().String()
 
 	testcases := []struct {
 		name   string
@@ -1008,7 +985,7 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 		// Get first page with limit 1.
 		// Address filter causes results to return newest to oldest.
 		api := testServerImplementation(db)
-		err = api.LookupBlock(c, uint64(block.Round()), generated.LookupBlockParams{})
+		err = api.LookupBlock(c, uint64(vb.Blk.Round()), generated.LookupBlockParams{})
 		require.NoError(t, err)
 
 		//////////
@@ -1027,9 +1004,8 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 }
 
 func TestKeyregTransactionWithStateProofKeys(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // A block containing a key reg txn with state proof key
@@ -1043,32 +1019,36 @@ func TestKeyregTransactionWithStateProofKeys(t *testing.T) {
 	var stateProofPK merklesignature.Commitment
 	stateProofPK[0] = 1
 
-	txn := transactions.SignedTxnWithAD{
-		SignedTxn: transactions.SignedTxn{
-			Txn: transactions.Transaction{
-				Type: "keyreg",
-				Header: transactions.Header{
-					Sender:      test.AccountA,
-					GenesisHash: test.GenesisHash,
-				},
-				KeyregTxnFields: transactions.KeyregTxnFields{
-					VotePK:           votePK,
-					SelectionPK:      selectionPK,
-					StateProofPK:     stateProofPK,
-					VoteFirst:        basics.Round(0),
-					VoteLast:         basics.Round(100),
-					VoteKeyDilution:  1000,
-					Nonparticipation: false,
-				},
-			},
-			Sig: test.Signature,
-		},
-	}
+	//txn := transactions.SignedTxnWithAD{
+	//	SignedTxn: transactions.SignedTxn{
+	//		Txn: transactions.Transaction{
+	//			Type: "keyreg",
+	//			Header: transactions.Header{
+	//				Sender:      test.AccountA,
+	//				GenesisHash: test.GenesisHash,
+	//			},
+	//			KeyregTxnFields: transactions.KeyregTxnFields{
+	//				VotePK:           votePK,
+	//				SelectionPK:      selectionPK,
+	//				StateProofPK:     stateProofPK,
+	//				VoteFirst:        basics.Round(0),
+	//				VoteLast:         basics.Round(100),
+	//				VoteKeyDilution:  1000,
+	//				Nonparticipation: false,
+	//			},
+	//		},
+	//		Sig: test.Signature,
+	//	},
+	//}
+	//
 
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/KeyregTransactionWithStateProofKeys.vb")
+	require.NoError(t, err)
+	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&blk)
 	require.NoError(t, err)
 
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	txn, _, err := vb.Blk.BlockHeader.DecodeSignedTxn(vb.Blk.Payset[0])
 	require.NoError(t, err)
 
 	e := echo.New()
@@ -1122,9 +1102,8 @@ func TestVersion(t *testing.T) {
 	///////////
 	// Given // An API and context
 	///////////
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 	api := testServerImplementation(db)
 
 	e := echo.New()
@@ -1152,9 +1131,8 @@ func TestVersion(t *testing.T) {
 }
 
 func TestAccountClearsNonUTF8(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // a DB with some inner txns in it.
@@ -1168,12 +1146,12 @@ func TestAccountClearsNonUTF8(t *testing.T) {
 	urlBytes, _ := base64.StdEncoding.DecodeString("8J+qmSBNb25leSwgd2FudAo=")
 	url := string(urlBytes)
 	unitName := "asset\rwith\nnon-printable\tcharacters"
-	createAsset := test.MakeAssetConfigTxn(0, 100, 0, false, unitName, assetName, url, test.AccountA)
+	//createAsset := test.MakeAssetConfigTxn(0, 100, 0, false, unitName, assetName, url, test.AccountA)
 
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createAsset)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AccountClearsNonUTF8.vb")
 	require.NoError(t, err)
-
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&blk)
 	require.NoError(t, err)
 
 	verify := func(params generated.AssetParams) {
@@ -1283,19 +1261,18 @@ func TestLookupInnerLogs(t *testing.T) {
 		},
 	}
 
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // a DB with some inner txns in it.
 	///////////
-	appCall := test.MakeAppCallWithInnerAppCall(test.AccountA)
+	//appCall := test.MakeAppCallWithInnerAppCall(test.AccountA)
 
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LookupInnerLogs.vb")
 	require.NoError(t, err)
-
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&blk)
 	require.NoError(t, err)
 
 	for _, tc := range testcases {
@@ -1382,19 +1359,18 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 		},
 	}
 
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // a DB with some inner txns in it.
 	///////////
-	appCall := test.MakeAppCallWithMultiLogs(test.AccountA)
+	//appCall := test.MakeAppCallWithMultiLogs(test.AccountA)
 
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LookupMultiInnerLogs.vb")
 	require.NoError(t, err)
-
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&blk)
 	require.NoError(t, err)
 
 	for _, tc := range testcases {
@@ -1440,18 +1416,17 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 }
 
 func TestFetchBlockWithExpiredPartAccts(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // a DB with a block containing expired participation accounts.
 	///////////
-	appCreate := test.MakeCreateAppTxn(test.AccountA)
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCreate)
-	block.ExpiredParticipationAccounts = append(block.ExpiredParticipationAccounts, test.AccountB, test.AccountC)
+	//appCreate := test.MakeCreateAppTxn(test.AccountA)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/FetchBlockWithExpiredPartAccts.vb")
 	require.NoError(t, err)
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&blk)
 	require.NoError(t, err)
 
 	////////////
@@ -1506,19 +1481,19 @@ func TestFetchBlockWithOptions(t *testing.T) {
 		},
 	}
 
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // a DB with a block with a txn in it.
 	///////////
-	txnA := test.MakeCreateAppTxn(test.AccountA)
-	txnB := test.MakeCreateAppTxn(test.AccountB)
-	txnC := test.MakeCreateAppTxn(test.AccountC)
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txnA, &txnB, &txnC)
+	//txnA := test.MakeCreateAppTxn(test.AccountA)
+	//txnB := test.MakeCreateAppTxn(test.AccountB)
+	//txnC := test.MakeCreateAppTxn(test.AccountC)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/FetchBlockWithOptions.vb")
 	require.NoError(t, err)
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&blk)
 	require.NoError(t, err)
 
 	//////////
@@ -1557,30 +1532,37 @@ func TestFetchBlockWithOptions(t *testing.T) {
 }
 
 func TestGetBlocksTransactionsLimit(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // A block containing 2 transactions, a block containing 10 transactions
 	//       // and a block containing 20 transactions
 	///////////
 
-	ntxns := []int{2, 10, 20}
-	for i, n := range ntxns {
-		var txns []transactions.SignedTxnWithAD
-		for j := 0; j < n; j++ {
-			txns = append(txns, test.MakePaymentTxn(1, 100, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{}, basics.Address{}))
-		}
-		ptxns := make([]*transactions.SignedTxnWithAD, n)
-		for k := range txns {
-			ptxns[k] = &txns[k]
-		}
-		block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, ptxns...)
-		block.BlockHeader.Round = basics.Round(i + 1)
-		require.NoError(t, err)
+	//ntxns := []int{2, 10, 20}
+	//for i, n := range ntxns {
+	//	var txns []transactions.SignedTxnWithAD
+	//	for j := 0; j < n; j++ {
+	//		txns = append(txns, test.MakePaymentTxn(1, 100, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{}, basics.Address{}))
+	//	}
+	//	ptxns := make([]*transactions.SignedTxnWithAD, n)
+	//	for k := range txns {
+	//		ptxns[k] = &txns[k]
+	//	}
+	//	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, ptxns...)
+	//	block.BlockHeader.Round = basics.Round(i + 1)
+	//	require.NoError(t, err)
+	//
+	//	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	//	require.NoError(t, err)
+	//}
 
-		err = proc(&rpcs.EncodedBlockCert{Block: block})
+	for _, n := range []int{2, 10, 20} {
+		vb, err := test.ReadValidatedBlockFromFile(fmt.Sprintf("test_resources/validated_blocks/GetBlocksTransactionsLimit%d.vb", n))
+		require.NoError(t, err)
+		blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+		err = db.AddBlock(&blk)
 		require.NoError(t, err)
 	}
 
@@ -1597,23 +1579,7 @@ func TestGetBlocksTransactionsLimit(t *testing.T) {
 	listenAddr := "localhost:8888"
 	go Serve(serverCtx, listenAddr, db, nil, logrus.New(), opts)
 
-	// wait at most a few seconds for server to come up
-	serverUp := false
-	for maxWait := 3 * time.Second; !serverUp && maxWait > 0; maxWait -= 50 * time.Millisecond {
-		time.Sleep(50 * time.Millisecond)
-		resp, err := http.Get("http://" + listenAddr + "/health")
-		if err != nil {
-			t.Log("waiting for server:", err)
-			continue
-		}
-		resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			t.Log("waiting for server OK:", resp.StatusCode)
-			continue
-		}
-		serverUp = true // server is up now
-	}
-	require.True(t, serverUp, "api.Serve did not start server in time")
+	waitForServer(t, listenAddr)
 
 	// make a real HTTP request (to additionally test generated param parsing logic)
 	makeReq := func(t *testing.T, path string, headerOnly bool) (*http.Response, []byte) {
@@ -1669,6 +1635,157 @@ func TestGetBlocksTransactionsLimit(t *testing.T) {
 	}
 }
 
+func TestGetBlockWithCompression(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	defer shutdownFunc()
+
+	///////////
+	// Given // A block containing 20 transactions at round 1
+	//       //
+	///////////
+
+	const numbOfTxns = 20
+	//var txns []transactions.SignedTxnWithAD
+	//for j := 0; j < numbOfTxns; j++ {
+	//	txns = append(txns, test.MakePaymentTxn(1, 100, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{}, basics.Address{}))
+	//}
+	//ptxns := make([]*transactions.SignedTxnWithAD, numbOfTxns)
+	//for k := range txns {
+	//	ptxns[k] = &txns[k]
+	//}
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/GetBlockWithCompression.vb")
+	require.NoError(t, err)
+	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
+	err = db.AddBlock(&blk)
+	require.NoError(t, err)
+
+	//////////
+	// When // We look up a block using a ServerImplementation with a compression flag on/off
+	//////////
+
+	serverCtx, serverCancel := context.WithCancel(context.Background())
+	defer serverCancel()
+	opts := defaultOpts
+	listenAddr := "localhost:8889"
+	go Serve(serverCtx, listenAddr, db, nil, logrus.New(), opts)
+
+	waitForServer(t, listenAddr)
+
+	getBlockFunc := func(t *testing.T, headerOnly bool, useCompression bool) *generated.BlockResponse {
+		path := "/v2/blocks/1"
+
+		client := &http.Client{}
+		req, err := http.NewRequest("GET", "http://"+listenAddr+path, nil)
+		require.NoError(t, err)
+		q := req.URL.Query()
+		if headerOnly {
+			q.Add("header-only", "true")
+		}
+		if useCompression {
+			req.Header.Add(echo.HeaderAcceptEncoding, "gzip")
+		}
+		req.URL.RawQuery = q.Encode()
+		t.Log("making HTTP request path", req.URL)
+		resp, err := client.Do(req)
+		require.NoError(t, err)
+
+		defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(body)))
+
+		var response generated.BlockResponse
+		if useCompression {
+			require.Equal(t, resp.Header.Get(echo.HeaderContentEncoding), "gzip")
+			reader, err := gzip.NewReader(bytes.NewReader(body))
+			require.NoError(t, err)
+
+			output, e2 := ioutil.ReadAll(reader)
+			require.NoError(t, e2)
+
+			body = output
+		}
+		err = json.Decode(body, &response)
+		require.NoError(t, err)
+
+		return &response
+	}
+
+	//////////
+	// Then // Get the same block content compared to uncompress block
+	//////////
+	notCompressedBlock := getBlockFunc(t, false, false)
+	compressedBlock := getBlockFunc(t, false, true)
+	require.Equal(t, notCompressedBlock, compressedBlock)
+	require.Equal(t, len(*notCompressedBlock.Transactions), numbOfTxns)
+
+	// we now make sure that compression flag works with other flags.
+	notCompressedBlock = getBlockFunc(t, true, false)
+	compressedBlock = getBlockFunc(t, true, true)
+	require.Equal(t, len(*notCompressedBlock.Transactions), 0)
+}
+
+func TestNoCompressionSupportForNonBlockAPI(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	defer shutdownFunc()
+
+	//////////
+	// When // we call the health endpoint using compression flag on
+	//////////
+
+	serverCtx, serverCancel := context.WithCancel(context.Background())
+	defer serverCancel()
+	opts := defaultOpts
+	listenAddr := "localhost:8887"
+	go Serve(serverCtx, listenAddr, db, nil, logrus.New(), opts)
+
+	waitForServer(t, listenAddr)
+
+	path := "/health"
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", "http://"+listenAddr+path, nil)
+	require.NoError(t, err)
+	req.Header.Add(echo.HeaderAcceptEncoding, "gzip")
+
+	t.Log("making HTTP request path", req.URL)
+
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+
+	//////////
+	// Then // We expect the result not to be compressed.
+	//////////
+
+	require.Equal(t, resp.Header.Get(echo.HeaderContentEncoding), "")
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(body)))
+	var response generated.HealthCheckResponse
+	err = json.Decode(body, &response)
+	require.NoError(t, err)
+}
+
+func waitForServer(t *testing.T, listenAddr string) {
+	// wait at most a few seconds for server to come up
+	serverUp := false
+	for maxWait := 3 * time.Second; !serverUp && maxWait > 0; maxWait -= 50 * time.Millisecond {
+		time.Sleep(50 * time.Millisecond)
+		resp, err := http.Get("http://" + listenAddr + "/health")
+		if err != nil {
+			t.Log("waiting for server:", err)
+			continue
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Log("waiting for server OK:", resp.StatusCode)
+			continue
+		}
+		serverUp = true // server is up now
+	}
+	require.True(t, serverUp, "api.Serve did not start server in time")
+}
+
 // compareAppBoxesAgainstHandler is of type BoxTestComparator
 func compareAppBoxesAgainstHandler(t *testing.T, db *postgres.IndexerDb,
 	appBoxes map[basics.AppIndex]map[string]string, deletedBoxes map[basics.AppIndex]map[string]bool, verifyTotals bool) {
@@ -1701,9 +1818,9 @@ func compareAppBoxesAgainstHandler(t *testing.T, db *postgres.IndexerDb,
 		// compare expected against handler response one box at a time
 		for key, expectedValue := range boxes {
 			msg := fmt.Sprintf("caseNum=%d, appIdx=%d, key=%#v", caseNum, appIdx, key)
-			expectedAppIdx, boxName, err := logic.SplitBoxKey(key)
+			expectedAppIdx, boxName, err := apps.SplitBoxKey(key)
 			require.NoError(t, err, msg)
-			require.Equal(t, appIdx, expectedAppIdx, msg)
+			require.Equal(t, uint64(appIdx), expectedAppIdx, msg)
 			numRequests++
 
 			boxDeleted := false
@@ -1800,25 +1917,24 @@ func compareAppBoxesAgainstHandler(t *testing.T, db *postgres.IndexerDb,
 func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	start := time.Now()
 
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	appid := basics.AppIndex(1)
 
 	// ---- ROUND 1: create and fund the box app  ---- //
 	currentRound := basics.Round(1)
+	//
+	//createTxn, err := test.MakeComplexCreateAppTxn(test.AccountA, test.BoxApprovalProgram, test.BoxClearProgram, 8)
+	//require.NoError(t, err)
+	//
+	//payNewAppTxn := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountA, appid.Address(), basics.Address{},
+	//	basics.Address{})
 
-	createTxn, err := test.MakeComplexCreateAppTxn(test.AccountA, test.BoxApprovalProgram, test.BoxClearProgram, 8)
+	vb1, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDelete1.vb")
 	require.NoError(t, err)
-
-	payNewAppTxn := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountA, appid.Address(), basics.Address{},
-		basics.Address{})
-
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createTxn, &payNewAppTxn)
-	require.NoError(t, err)
-
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	blk1 := ledgercore.MakeValidatedBlock(vb1.Blk, vb1.Delta)
+	err = db.AddBlock(&blk1)
 	require.NoError(t, err)
 
 	opts := idb.ApplicationQuery{ApplicationID: uint64(appid)}
@@ -1831,10 +1947,6 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	require.NoError(t, row.Error)
 	require.NotNil(t, row.Application.CreatedAtRound)
 	require.Equal(t, uint64(currentRound), *row.Application.CreatedAtRound)
-
-	// block header handoff: round 1 --> round 2
-	blockHdr, err := l.BlockHdr(currentRound)
-	require.NoError(t, err)
 
 	// ---- ROUND 2: create 8 boxes for appid == 1  ---- //
 	currentRound = basics.Round(2)
@@ -1852,30 +1964,32 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 
 	expectedAppBoxes := map[basics.AppIndex]map[string]string{}
 
+	//expectedAppBoxes[appid] = map[string]string{}
+	//newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+	//boxTxns := make([]*transactions.SignedTxnWithAD, 0)
+	//for _, boxName := range boxNames {
+	//	expectedAppBoxes[appid][apps.MakeBoxKey(uint64(appid), boxName)] = newBoxValue
+	//
+	//	args := []string{"create", boxName}
+	//	boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+	//	boxTxns = append(boxTxns, &boxTxn)
+	//}
+
 	expectedAppBoxes[appid] = map[string]string{}
 	newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-	boxTxns := make([]*transactions.SignedTxnWithAD, 0)
 	for _, boxName := range boxNames {
-		expectedAppBoxes[appid][logic.MakeBoxKey(appid, boxName)] = newBoxValue
-
-		args := []string{"create", boxName}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
-		boxTxns = append(boxTxns, &boxTxn)
+		expectedAppBoxes[appid][apps.MakeBoxKey(uint64(appid), boxName)] = newBoxValue
 	}
 
-	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	vb2, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDelete2.vb")
 	require.NoError(t, err)
-
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	blk2 := ledgercore.MakeValidatedBlock(vb2.Blk, vb2.Delta)
+	err = db.AddBlock(&blk2)
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
 
 	comparator(t, db, expectedAppBoxes, nil, true)
-
-	// block header handoff: round 2 --> round 3
-	blockHdr, err = l.BlockHdr(currentRound)
-	require.NoError(t, err)
 
 	// ---- ROUND 3: populate the boxes appropriately  ---- //
 	currentRound = basics.Round(3)
@@ -1891,29 +2005,32 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 		"box #8":                    "eight is beautiful",
 	}
 
-	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	//boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	//expectedAppBoxes[appid] = make(map[string]string)
+	//for boxName, valPrefix := range appBoxesToSet {
+	//	args := []string{"set", boxName, valPrefix}
+	//	boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+	//	boxTxns = append(boxTxns, &boxTxn)
+	//
+	//	key := apps.MakeBoxKey(uint64(appid), boxName)
+	//	expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
+	//}
+
 	expectedAppBoxes[appid] = make(map[string]string)
 	for boxName, valPrefix := range appBoxesToSet {
-		args := []string{"set", boxName, valPrefix}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
-		boxTxns = append(boxTxns, &boxTxn)
-
-		key := logic.MakeBoxKey(appid, boxName)
+		key := apps.MakeBoxKey(uint64(appid), boxName)
 		expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
 	}
-	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	vb3, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDelete3.vb")
+	require.NoError(t, err)
+	blk3 := ledgercore.MakeValidatedBlock(vb3.Blk, vb3.Delta)
+	err = db.AddBlock(&blk3)
 	require.NoError(t, err)
 
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
-	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
 
 	comparator(t, db, expectedAppBoxes, nil, true)
-
-	// block header handoff: round 3 --> round 4
-	blockHdr, err = l.BlockHdr(currentRound)
-	require.NoError(t, err)
 
 	// ---- ROUND 4: delete the unhappy boxes  ---- //
 	currentRound = basics.Round(4)
@@ -1924,20 +2041,25 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 		"I'm destined for deletion",
 	}
 
-	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	//boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	//for _, boxName := range appBoxesToDelete {
+	//	args := []string{"delete", boxName}
+	//	boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+	//	boxTxns = append(boxTxns, &boxTxn)
+	//
+	//	key := apps.MakeBoxKey(uint64(appid), boxName)
+	//	delete(expectedAppBoxes[appid], key)
+	//}
 	for _, boxName := range appBoxesToDelete {
-		args := []string{"delete", boxName}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
-		boxTxns = append(boxTxns, &boxTxn)
-
-		key := logic.MakeBoxKey(appid, boxName)
+		key := apps.MakeBoxKey(uint64(appid), boxName)
 		delete(expectedAppBoxes[appid], key)
 	}
-	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	vb4, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDelete4.vb")
+	require.NoError(t, err)
+	blk4 := ledgercore.MakeValidatedBlock(vb4.Blk, vb4.Delta)
+	err = db.AddBlock(&blk4)
 	require.NoError(t, err)
 
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
-	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
 
@@ -1948,62 +2070,64 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	}
 	comparator(t, db, expectedAppBoxes, deletedBoxes, true)
 
-	// block header handoff: round 4 --> round 5
-	blockHdr, err = l.BlockHdr(currentRound)
-	require.NoError(t, err)
-
 	// ---- ROUND 5: create 3 new boxes, overwriting one of the former boxes  ---- //
 	currentRound = basics.Round(5)
 
+	//boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	//for _, boxName := range appBoxesToCreate {
+	//	args := []string{"create", boxName}
+	//	boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+	//	boxTxns = append(boxTxns, &boxTxn)
+	//
+	//	key := apps.MakeBoxKey(uint64(appid), boxName)
+	//	expectedAppBoxes[appid][key] = newBoxValue
+	//}
 	appBoxesToCreate := []string{
 		"fantabulous",
 		"disappointing box", // overwriting here
 		"AVM is the new EVM",
 	}
-	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
 	for _, boxName := range appBoxesToCreate {
-		args := []string{"create", boxName}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
-		boxTxns = append(boxTxns, &boxTxn)
-
-		key := logic.MakeBoxKey(appid, boxName)
+		key := apps.MakeBoxKey(uint64(appid), boxName)
 		expectedAppBoxes[appid][key] = newBoxValue
 	}
-	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	vb5, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDelete5.vb")
+	require.NoError(t, err)
+	blk5 := ledgercore.MakeValidatedBlock(vb5.Blk, vb5.Delta)
+	err = db.AddBlock(&blk5)
 	require.NoError(t, err)
 
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
-	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
 
 	comparator(t, db, expectedAppBoxes, nil, true)
 
-	// block header handoff: round 5 --> round 6
-	blockHdr, err = l.BlockHdr(currentRound)
-	require.NoError(t, err)
-
 	// ---- ROUND 6: populate the 3 new boxes  ---- //
 	currentRound = basics.Round(6)
+
+	//boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	//for boxName, valPrefix := range appBoxesToSet {
+	//	args := []string{"set", boxName, valPrefix}
+	//	boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+	//	boxTxns = append(boxTxns, &boxTxn)
+	//
+	//	key := apps.MakeBoxKey(uint64(appid), boxName)
+	//	expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
+	//}
 
 	appBoxesToSet = map[string]string{
 		"fantabulous":        "Italian food's the best!", // max char's
 		"disappointing box":  "you made it!",
 		"AVM is the new EVM": "yes we can!",
 	}
-	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
 	for boxName, valPrefix := range appBoxesToSet {
-		args := []string{"set", boxName, valPrefix}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
-		boxTxns = append(boxTxns, &boxTxn)
-
-		key := logic.MakeBoxKey(appid, boxName)
+		key := apps.MakeBoxKey(uint64(appid), boxName)
 		expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
 	}
-	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	vb6, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDelete6.vb")
 	require.NoError(t, err)
-
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	blk6 := ledgercore.MakeValidatedBlock(vb6.Blk, vb6.Delta)
+	err = db.AddBlock(&blk6)
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)

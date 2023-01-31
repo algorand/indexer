@@ -1,26 +1,24 @@
 package accounting
 
 import (
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/protocol"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 // GetTransactionParticipants calls function `add` for every address referenced in the
 // given transaction, possibly with repetition.
-func GetTransactionParticipants(stxnad *transactions.SignedTxnWithAD, includeInner bool, add func(address basics.Address)) {
+func GetTransactionParticipants(stxnad *sdk.SignedTxnWithAD, includeInner bool, add func(address sdk.Address)) {
 	txn := &stxnad.Txn
 
 	add(txn.Sender)
 
 	switch txn.Type {
-	case protocol.PaymentTx:
+	case sdk.PaymentTx:
 		add(txn.Receiver)
 		// Close address is optional.
 		if !txn.CloseRemainderTo.IsZero() {
 			add(txn.CloseRemainderTo)
 		}
-	case protocol.AssetTransferTx:
+	case sdk.AssetTransferTx:
 		// If asset sender is non-zero, it is a clawback transaction. Otherwise,
 		// the transaction sender address is used.
 		if !txn.AssetSender.IsZero() {
@@ -31,9 +29,9 @@ func GetTransactionParticipants(stxnad *transactions.SignedTxnWithAD, includeInn
 		if !txn.AssetCloseTo.IsZero() {
 			add(txn.AssetCloseTo)
 		}
-	case protocol.AssetFreezeTx:
+	case sdk.AssetFreezeTx:
 		add(txn.FreezeAccount)
-	case protocol.ApplicationCallTx:
+	case sdk.ApplicationCallTx:
 		for _, address := range txn.ApplicationCallTxnFields.Accounts {
 			add(address)
 		}
