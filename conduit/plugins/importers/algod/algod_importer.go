@@ -24,7 +24,11 @@ import (
 	"github.com/algorand/go-algorand/rpcs"
 )
 
-const importerName = "algod"
+const (
+	importerName = "algod"
+	archivalMode = "archival"
+	followerMode = "follower"
+)
 
 type algodImporter struct {
 	aclient *algod.Client
@@ -49,6 +53,14 @@ func New() importers.Importer {
 	return &algodImporter{}
 }
 
+func (algodImp *algodImporter) OnComplete(input data.BlockData) error {
+	if algodImp.cfg.Mode != followerMode {
+		return nil
+	}
+	_, err := algodImp.aclient.SetSyncRound(input.Round() + 1).Do(algodImp.ctx)
+	return err
+}
+
 func (algodImp *algodImporter) Metadata() conduit.Metadata {
 	return algodImporterMetadata
 }
@@ -67,6 +79,11 @@ func (algodImp *algodImporter) Init(ctx context.Context, cfg plugins.PluginConfi
 	if err != nil {
 		return nil, fmt.Errorf("connect failure in unmarshalConfig: %v", err)
 	}
+
+	if algodImp.cfg.Mode != archivalMode && algodImp.cfg.Mode != followerMode {
+		return nil, fmt.Errorf("algod importer was set to a mode (%s) that wasn't supported", algodImp.cfg.Mode)
+	}
+
 	var client *algod.Client
 	u, err := url.Parse(algodImp.cfg.NetAddr)
 	if err != nil {
@@ -140,6 +157,21 @@ func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 		}
 		tmpBlk := new(rpcs.EncodedBlockCert)
 		err = protocol.Decode(blockbytes, tmpBlk)
+		if err != nil {
+			return blk, err
+		}
+
+		if algodImp.cfg.Mode == followerMode {
+			// We aren't going to do anything with the new delta until we get everything
+			// else converted over
+			// Round 0 has no delta associated with it
+			if rnd != 0 {
+				_, err = algodImp.aclient.GetLedgerStateDelta(rnd).Do(algodImp.ctx)
+				if err != nil {
+					return blk, err
+				}
+			}
+		}
 
 		blk = data.BlockData{
 			BlockHeader: tmpBlk.Block.BlockHeader,
@@ -148,8 +180,8 @@ func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 		}
 		return blk, err
 	}
-	algodImp.logger.Error("GetBlock finished retries without fetching a block.")
-	return blk, fmt.Errorf("finished retries without fetching a block")
+	algodImp.logger.Error("GetBlock finished retries without fetching a block. Check that the indexer is set to start at a round that the current algod node can handle")
+	return blk, fmt.Errorf("finished retries without fetching a block. Check that the indexer is set to start at a round that the current algod node can handle")
 }
 
 func (algodImp *algodImporter) ProvideMetrics(subsystem string) []prometheus.Collector {
