@@ -157,7 +157,7 @@ func (proc *blockProcessor) extractValidatedBlockAndPayset(blockCert *rpcs.Encod
 	if err != nil {
 		return vb, transactions.Payset{}, fmt.Errorf("eval err: %w", err)
 	}
-	EvalTimeSeconds.Observe(time.Since(start).Seconds())
+	evalTimeSeconds.Observe(time.Since(start).Seconds())
 
 	// validated block
 	if protoChanged {
@@ -279,9 +279,10 @@ func (proc *blockProcessor) NextRoundToProcess() uint64 {
 	return uint64(proc.ledger.Latest()) + 1
 }
 
-func (proc *blockProcessor) ProvideMetrics() []prometheus.Collector {
+func (proc *blockProcessor) ProvideMetrics(subsystem string) []prometheus.Collector {
+	var evalTimeSeconds = initEvalTimeSeconds(subsystem)
 	return []prometheus.Collector{
-		EvalTimeSeconds,
+		evalTimeSeconds,
 	}
 }
 
