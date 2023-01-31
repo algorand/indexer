@@ -16,8 +16,6 @@ const namePrefix = "Name: "
 const headerPrefix = "Header\n"
 const footerPrefix = "Footer\n"
 
-var verbose bool
-
 // generateMd takes the path of a file containing a struct definition named "Config", and an output directory,
 // and writes a markdown file to the outputDir containing mkdocs-style documentation for the Config struct
 func generateMd(configPath string, outputDir string) error {
@@ -46,9 +44,6 @@ func generateMd(configPath string, outputDir string) error {
 		}
 		if strings.HasPrefix(comm.Text(), namePrefix) {
 			fileName = strings.TrimSuffix(strings.TrimPrefix(comm.Text(), namePrefix), "\n")
-			if verbose {
-				fmt.Println(fileName)
-			}
 		}
 	}
 	// Process struct decls into tables describing their fields
@@ -120,7 +115,6 @@ func processConfig(configStruct *ast.StructType, structName string, fileBytes []
 }
 
 func main() {
-	flag.BoolVar(&verbose, "verbose", false, "Include additional terminal output.")
 	flag.Parse()
 
 	usage := "USAGE: //go:generate conduit-docs <path-to-output-dir>"
