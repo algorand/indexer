@@ -148,7 +148,7 @@ commands:
           no_output_timeout: 15m
       - run: make test-generate
       - run: make fakepackage
-      - run: make e2e
+      - run: make e2e-nightly
       - run: make e2e-conduit
 
   run_indexer_vs_algod:
