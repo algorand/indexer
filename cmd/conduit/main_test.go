@@ -17,8 +17,6 @@ import (
 	"github.com/algorand/indexer/loggers"
 )
 
-// TestInitDataDirectory tests the initialization of the data directory//go:embed conduit.test.init.default.yml
-
 //go:embed conduit.test.init.default.yml
 var defaultYml string
 
@@ -35,10 +33,10 @@ func TestInitDataDirectory(t *testing.T) {
 	defaultDataDirectory = "override"
 	require.NoDirExists(t, defaultDataDirectory)
 
-	runConduitInit("", "", "", "")
+	runConduitInit("", "", []string{}, "")
 	verifyFile(fmt.Sprintf("%s/conduit.yml", defaultDataDirectory))
 
-	runConduitInit(fmt.Sprintf("%s/provided_directory", defaultDataDirectory), "", "", "")
+	runConduitInit(fmt.Sprintf("%s/provided_directory", defaultDataDirectory), "", []string{}, "")
 	verifyFile(fmt.Sprintf("%s/provided_directory/conduit.yml", defaultDataDirectory))
 
 	os.RemoveAll(defaultDataDirectory)

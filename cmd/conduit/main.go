@@ -15,6 +15,7 @@ import (
 	"github.com/algorand/indexer/cmd/conduit/internal/list"
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/pipeline"
+
 	// We need to import these so that the package wide init() function gets called
 	_ "github.com/algorand/indexer/conduit/plugins/exporters/all"
 	_ "github.com/algorand/indexer/conduit/plugins/importers/all"
@@ -142,7 +143,7 @@ func formatArrayObject(obj string) string {
 
 }
 
-func runConduitInit(path string, importerFlag string, processorsFlag string, exporterFlag string) error {
+func runConduitInit(path string, importerFlag string, processorsFlag []string, exporterFlag string) error {
 	var location string
 	if path == "" {
 		path = defaultDataDirectory
@@ -161,12 +162,6 @@ func runConduitInit(path string, importerFlag string, processorsFlag string, exp
 		return fmt.Errorf("runConduitInit(): failed to create %s", configFilePath)
 	}
 	defer f.Close()
-
-	var processorList []string
-
-	if processorsFlag != "" {
-		processorList = strings.Split(processorsFlag, ",")
-	}
 
 	var importer string
 	if importerFlag == "" {
@@ -197,7 +192,7 @@ func runConduitInit(path string, importerFlag string, processorsFlag string, exp
 	}
 
 	var processors string
-	for _, processorName := range processorList {
+	for _, processorName := range processorsFlag {
 		found := false
 		for _, metadata := range pipeline.ProcessorMetadata() {
 			if metadata.Name == processorName {
@@ -234,7 +229,7 @@ func makeInitCmd() *cobra.Command {
 	var data string
 	var importer string
 	var exporter string
-	var processors string
+	var processors []string
 	cmd := &cobra.Command{
 		Use:     "init",
 		Short:   "initializes a Conduit data directory",
@@ -249,7 +244,7 @@ func makeInitCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&data, "data", "d", "", "Full path to new data directory. If not set, a directory named 'data' will be created in the current directory.")
 	cmd.Flags().StringVarP(&importer, "importer", "i", "", "data importer name.")
-	cmd.Flags().StringVarP(&processors, "processors", "p", "", "comma-separated list of processors.")
+	cmd.Flags().StringSliceVarP(&processors, "processors", "p", []string{}, "comma-separated list of processors.")
 	cmd.Flags().StringVarP(&exporter, "exporter", "e", "", "data exporter name.")
 	return cmd
 }
