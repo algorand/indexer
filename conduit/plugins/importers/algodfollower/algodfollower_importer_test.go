@@ -59,7 +59,7 @@ func TestInitSuccess(t *testing.T) {
 
 func TestInitGenesisFailure(t *testing.T) {
 	ts := test.NewAlgodServer(test.MakeGenesisResponder(sdk.Genesis{}))
-	testImporter = New()
+	testImporter := New()
 	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("netaddr: "+ts.URL), logger)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "unable to fetch genesis file")
