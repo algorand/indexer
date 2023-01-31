@@ -153,12 +153,7 @@ func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 }
 
 func (algodImp *algodImporter) ProvideMetrics(subsystem string) []prometheus.Collector {
-	getAlgodRawBlockTimeSeconds = prometheus.NewSummary(
-		prometheus.SummaryOpts{
-			Subsystem: subsystem,
-			Name:      "get_algod_raw_block_time_sec",
-			Help:      "Total response time from Algod's raw block endpoint in seconds.",
-		})
+	getAlgodRawBlockTimeSeconds = initGetAlgodRawBlockTimeSeconds(subsystem)
 	return []prometheus.Collector{
 		getAlgodRawBlockTimeSeconds,
 	}

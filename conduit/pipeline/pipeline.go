@@ -235,7 +235,7 @@ func (p *pipelineImpl) Init() error {
 	p.logger.Infof("Starting Pipeline Initialization")
 
 	if p.cfg.Metrics.Prefix == "" {
-		p.cfg.Metrics.Prefix = "conduit"
+		p.cfg.Metrics.Prefix = conduit.DefaultMetricsPrefix
 	}
 	metrics.RegisterPrometheusMetrics(p.cfg.Metrics.Prefix)
 

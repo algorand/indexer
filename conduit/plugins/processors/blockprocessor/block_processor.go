@@ -280,12 +280,7 @@ func (proc *blockProcessor) NextRoundToProcess() uint64 {
 }
 
 func (proc *blockProcessor) ProvideMetrics(subsystem string) []prometheus.Collector {
-	evalTimeSeconds = prometheus.NewSummary(
-		prometheus.SummaryOpts{
-			Subsystem: subsystem,
-			Name:      "eval_time_sec",
-			Help:      "Time spent calling Eval function in seconds.",
-		})
+	var evalTimeSeconds = initEvalTimeSeconds(subsystem)
 	return []prometheus.Collector{
 		evalTimeSeconds,
 	}
