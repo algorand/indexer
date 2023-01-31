@@ -118,3 +118,8 @@ func TestInitializeLedgerFastCatchup_Errors(t *testing.T) {
 	}()
 	tryToRun(ctx)
 }
+
+func TestBlockProcessor_ProvideMetrics(t *testing.T) {
+	testImporter := &blockProcessor{}
+	assert.Len(t, testImporter.ProvideMetrics("blah"), 1)
+}
