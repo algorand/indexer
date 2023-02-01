@@ -80,6 +80,11 @@ func (algodImp *algodImporter) Init(ctx context.Context, cfg plugins.PluginConfi
 		return nil, fmt.Errorf("connect failure in unmarshalConfig: %v", err)
 	}
 
+	// To support backwards compatibility with the daemon we default to archival mode
+	if algodImp.cfg.Mode == "" {
+		algodImp.cfg.Mode = archivalMode
+	}
+
 	if algodImp.cfg.Mode != archivalMode && algodImp.cfg.Mode != followerMode {
 		return nil, fmt.Errorf("algod importer was set to a mode (%s) that wasn't supported", algodImp.cfg.Mode)
 	}
