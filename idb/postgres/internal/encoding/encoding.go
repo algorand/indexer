@@ -267,6 +267,7 @@ func unconvertLocalDeltas(deltas map[uint64]stateDelta) map[uint64]sdk.StateDelt
 }
 
 func convertLogs(logs []string) [][]byte {
+	fmt.Printf("convert logs: %q\n", logs)
 	if logs == nil {
 		return nil
 	}
@@ -330,6 +331,7 @@ func unconvertEvalDelta(delta evalDelta) sdk.EvalDelta {
 	res.LocalDeltas = unconvertLocalDeltas(delta.LocalDeltasOverride)
 	res.Logs = unconvertLogs(delta.LogsOverride)
 	res.InnerTxns = unconvertInnerTxns(delta.InnerTxnsOverride)
+	fmt.Printf("unconvert logs: %q\n", res.Logs)
 	return res
 }
 
@@ -368,14 +370,14 @@ func DecodeSignedTxnWithAD(data []byte) (sdk.SignedTxnWithAD, error) {
 
 func convertTrimmedAccountData(ad models.Account) trimmedAccountData {
 	return trimmedAccountData{
-		Account:          ad,
-		AuthAddrOverride: ad.AuthAddr,
+		Account: ad,
+		//AuthAddrOverride: ad.AuthAddr,
 	}
 }
 
 func unconvertTrimmedAccountData(ad trimmedAccountData) models.Account {
 	res := ad.Account
-	res.AuthAddr = ad.AuthAddrOverride
+	//res.AuthAddr = ad.AuthAddrOverride
 	return res
 }
 
@@ -395,16 +397,16 @@ func DecodeTrimmedAccountData(data []byte) (models.Account, error) {
 	return unconvertTrimmedAccountData(ado), nil
 }
 
-func convertTealValue(tv models.TealValue) tealValue {
-	return tealValue{
-		TealValue:     tv,
-		BytesOverride: []byte(tv.Bytes),
-	}
-}
+//func convertTealValue(tv models.TealValue) tealValue {
+//	return tealValue{
+//		TealValue:     tv,
+//		BytesOverride: []byte(tv.Bytes),
+//	}
+//}
 
 func unconvertTealValue(tv tealValue) models.TealValue {
 	res := tv.TealValue
-	res.Bytes = string(tv.BytesOverride)
+	res.Bytes = tv.Bytes
 	return res
 }
 
@@ -415,7 +417,10 @@ func convertTealKeyValue(tkv []models.TealKeyValue) tealKeyValue {
 
 	res := make(map[byteArray]tealValue, len(tkv))
 	for _, tv := range tkv {
-		res[byteArray{data: tv.Key}] = tealValue{}
+		res[byteArray{data: tv.Key}] = tealValue{
+			TealValue:     tv.Value,
+			BytesOverride: []byte(tv.Value.Bytes),
+		}
 	}
 	return res
 }
@@ -436,7 +441,6 @@ func unconvertTealKeyValue(tkv tealKeyValue) []models.TealKeyValue {
 }
 
 func convertAppLocalState(state models.ApplicationLocalState) appLocalState {
-	// TODO: state encoding issue
 	return appLocalState{
 		ApplicationLocalState: state,
 		KeyValueOverride:      convertTealKeyValue(state.KeyValue),

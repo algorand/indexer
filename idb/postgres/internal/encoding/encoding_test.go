@@ -4,11 +4,9 @@ import (
 	"reflect"
 	"testing"
 
+	models2 "github.com/algorand/go-algorand-sdk/v2/client/v2/common/models"
 	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/crypto"
-	"github.com/algorand/go-algorand/crypto/merklesignature"
-	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	itypes "github.com/algorand/indexer/types"
 	"github.com/stretchr/testify/assert"
@@ -372,20 +370,20 @@ func TestSignedTxnWithADEncoding(t *testing.T) {
 	assert.Equal(t, stxn, newStxn)
 }
 
-// Test that encoding of AccountData is as expected and that decoding results in the
-// same object.
+//Test that encoding of AccountData is as expected and that decoding results in the
+//same object.
 func TestAccountDataEncoding(t *testing.T) {
-	var addr basics.Address
+	var addr sdk.Address
 	addr[0] = 3
 
-	ad := basics.AccountData{
-		MicroAlgos: basics.MicroAlgos{Raw: 22},
-		AuthAddr:   addr,
+	ad := models2.Account{
+		Amount:   22,
+		AuthAddr: addr.String(),
 	}
 
 	buf := EncodeTrimmedAccountData(ad)
 
-	expectedString := `{"algo":22,"spend":"AwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}`
+	expectedString := `{"Account":{"address":"","amount":22,"amount-without-pending-rewards":0,"auth-addr":"AMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANVWEXNA","pending-rewards":0,"rewards":0,"round":0,"status":"","total-apps-opted-in":0,"total-assets-opted-in":0,"total-box-bytes":0,"total-boxes":0,"total-created-apps":0,"total-created-assets":0}}`
 	assert.Equal(t, expectedString, string(buf))
 
 	adNew, err := DecodeTrimmedAccountData(buf)
@@ -396,20 +394,23 @@ func TestAccountDataEncoding(t *testing.T) {
 // Test that encoding of AppLocalState is as expected and that decoding results in the
 // same object.
 func TestAppLocalStateEncoding(t *testing.T) {
-	state := basics.AppLocalState{
-		Schema: basics.StateSchema{
+	state := models2.ApplicationLocalState{
+		Schema: models2.ApplicationStateSchema{
 			NumUint: 2,
 		},
-		KeyValue: map[string]basics.TealValue{
-			string([]byte{0xff}): { // try a non-utf8 key
-				Type: 3,
+		KeyValue: []models2.TealKeyValue{
+			{
+				Key: string([]byte{0xff}),
+				Value: models2.TealValue{
+					Type: 3,
+				},
 			},
 		},
 	}
 
 	buf := EncodeAppLocalState(state)
 
-	expectedString := `{"hsch":{"nui":2},"tkv":{"/w==":{"tt":3}}}`
+	expectedString := `{"id":0,"key-value":{"/w==":{"bytes":"","type":3,"uint":0}},"schema":{"num-byte-slice":0,"num-uint":2}}`
 	assert.Equal(t, expectedString, string(buf))
 
 	stateNew, err := DecodeAppLocalState(buf)
@@ -420,18 +421,19 @@ func TestAppLocalStateEncoding(t *testing.T) {
 // Test that encoding of AppLocalState is as expected and that decoding results in the
 // same object.
 func TestAppParamsEncoding(t *testing.T) {
-	params := basics.AppParams{
+	params := models2.ApplicationParams{
 		ApprovalProgram: []byte{0xff}, // try a non-utf8 key
-		GlobalState: map[string]basics.TealValue{
-			string([]byte{0xff}): { // try a non-utf8 key
-				Type: 3,
+		GlobalState: []models2.TealKeyValue{
+			{
+				Key:   string([]byte{0xff}),
+				Value: models2.TealValue{Type: 3},
 			},
 		},
 	}
 
 	buf := EncodeAppParams(params)
 
-	expectedString := `{"approv":"/w==","gs":{"/w==":{"tt":3}}}`
+	expectedString := `{"approval-program":"/w==","clear-state-program":null,"global-state":{"/w==":{"bytes":"","type":3,"uint":0}}}`
 	assert.Equal(t, expectedString, string(buf))
 
 	paramsNew, err := DecodeAppParams(buf)
@@ -527,46 +529,44 @@ func TestNetworkStateEncoding(t *testing.T) {
 // Test that encoding of ledgercore.AccountData is as expected and that decoding
 // results in the same object.
 func TestLcAccountDataEncoding(t *testing.T) {
-	var authAddr basics.Address
+	var authAddr sdk.Address
 	authAddr[0] = 6
 
-	var voteID crypto.OneTimeSignatureVerifier
+	var voteID [32]byte
 	voteID[0] = 14
 
-	var selectionID crypto.VRFVerifier
+	var selectionID [32]byte
 	selectionID[0] = 15
 
-	var stateProofID merklesignature.Commitment
+	var stateProofID sdk.Commitment
 	stateProofID[0] = 19
 
-	ad := ledgercore.AccountData{
-		AccountBaseData: ledgercore.AccountBaseData{
-			Status:   basics.Online,
-			AuthAddr: authAddr,
-			TotalAppSchema: basics.StateSchema{
-				NumUint:      7,
-				NumByteSlice: 8,
-			},
-			TotalExtraAppPages:  9,
-			TotalAppParams:      10,
-			TotalAppLocalStates: 11,
-			TotalAssetParams:    12,
-			TotalAssets:         13,
-			TotalBoxes:          20,
-			TotalBoxBytes:       21,
+	ad := models2.Account{
+		Status:   "Online",
+		AuthAddr: authAddr.String(),
+		AppsTotalSchema: models2.ApplicationStateSchema{
+			NumUint:      7,
+			NumByteSlice: 8,
 		},
-		VotingData: ledgercore.VotingData{
-			VoteID:          voteID,
-			SelectionID:     selectionID,
-			StateProofID:    stateProofID,
-			VoteFirstValid:  16,
-			VoteLastValid:   17,
-			VoteKeyDilution: 18,
+		AppsTotalExtraPages: 9,
+		TotalCreatedApps:    10,
+		TotalAppsOptedIn:    11,
+		TotalCreatedAssets:  12,
+		TotalAssetsOptedIn:  13,
+		TotalBoxes:          20,
+		TotalBoxBytes:       21,
+		Participation: models2.AccountParticipation{
+			SelectionParticipationKey: selectionID[:],
+			StateProofKey:             stateProofID[:],
+			VoteFirstValid:            16,
+			VoteLastValid:             17,
+			VoteKeyDilution:           18,
+			VoteParticipationKey:      voteID[:],
 		},
 	}
 	buf := EncodeTrimmedLcAccountData(ad)
 
-	expectedString := `{"onl":1,"sel":"DwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","spend":"BgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","stprf":"EwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==","tapl":11,"tapp":10,"tas":13,"tasp":12,"tbx":20,"tbxb":21,"teap":9,"tsch":{"nbs":8,"nui":7},"vote":"DgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","voteFst":16,"voteKD":18,"voteLst":17}`
+	expectedString := `{"onl":"Online","sel":"DwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","spend":"AYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMPKDZWI","stprf":"EwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==","tapl":11,"tapp":10,"tas":13,"tasp":12,"tbx":20,"tbxb":21,"teap":9,"tsch":{"num-byte-slice":8,"num-uint":7},"vote":"DgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","voteFst":16,"voteKD":18,"voteLst":17}`
 	assert.Equal(t, expectedString, string(buf))
 
 	decodedAd, err := DecodeTrimmedLcAccountData(buf)
