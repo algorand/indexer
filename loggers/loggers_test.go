@@ -2,8 +2,10 @@ package loggers
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"math/rand"
 	"path"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -24,8 +26,6 @@ func (f *FakeIoWriter) Write(p []byte) (n int, err error) {
 }
 
 func TestLogToFile(t *testing.T) {
-	fakeWriter := FakeIoWriter{}
-
 	logfile := path.Join(t.TempDir(), "mylogfile.txt")
 	require.NoFileExists(t, logfile)
 	logger, err := MakeThreadSafeLogger(log.InfoLevel, logfile)
@@ -34,8 +34,11 @@ func TestLogToFile(t *testing.T) {
 	testString := "1234abcd"
 	logger.Infof(testString)
 	assert.FileExists(t, logfile)
-	assert.Len(t, fakeWriter.Entries, 1)
-	assert.Contains(t, fakeWriter.Entries[0], testString)
+	data, err := ioutil.ReadFile(logfile)
+	assert.Contains(t, string(data), testString)
+	lines := strings.Split(string(data), "\n")
+	require.Len(t, lines, 2)
+	assert.Equal(t, "", lines[1])
 }
 
 // TestThreadSafetyOfLogger ensures that multiple threads writing to a single source
