@@ -11,6 +11,7 @@ import (
 	"github.com/algorand/indexer/conduit/pipeline"
 )
 
+// MakeThreadSafeLoggerWithWriter creates a logger using a ThreadSafeWriter output.
 func MakeThreadSafeLoggerWithWriter(level log.Level, writer io.Writer) *log.Logger {
 	formatter := pipeline.PluginLogFormatter{
 		Formatter: &log.JSONFormatter{

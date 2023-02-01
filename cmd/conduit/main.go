@@ -14,11 +14,10 @@ import (
 	"github.com/algorand/indexer/cmd/conduit/internal/list"
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/pipeline"
-	"github.com/algorand/indexer/loggers"
-	// We need to import these so that the package wide init() function gets called
 	_ "github.com/algorand/indexer/conduit/plugins/exporters/all"
 	_ "github.com/algorand/indexer/conduit/plugins/importers/all"
 	_ "github.com/algorand/indexer/conduit/plugins/processors/all"
+	"github.com/algorand/indexer/loggers"
 	"github.com/algorand/indexer/version"
 )
 
