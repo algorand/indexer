@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,7 +12,6 @@ import (
 
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/pipeline"
-	"github.com/algorand/indexer/loggers"
 )
 
 // TestInitDataDirectory tests the initialization of the data directory
@@ -41,8 +39,6 @@ func TestInitDataDirectory(t *testing.T) {
 func TestBanner(t *testing.T) {
 	test := func(t *testing.T, hideBanner bool) {
 		// Install test logger.
-		var logbuilder strings.Builder
-		loggerManager = loggers.MakeLoggerManager(&logbuilder)
 		stdout := os.Stdout
 		defer func() {
 			os.Stdout = stdout

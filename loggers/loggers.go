@@ -11,8 +11,7 @@ import (
 	"github.com/algorand/indexer/conduit/pipeline"
 )
 
-// MakeThreadSafeLogger returns a logger that is synchronized with the internal mutex
-func MakeThreadSafeLogger(level log.Level, logFile string) (*log.Logger, error) {
+func MakeThreadSafeLoggerWithWriter(level log.Level, writer io.Writer) *log.Logger {
 	formatter := pipeline.PluginLogFormatter{
 		Formatter: &log.JSONFormatter{
 			DisableHTMLEscape: true,
@@ -25,6 +24,17 @@ func MakeThreadSafeLogger(level log.Level, logFile string) (*log.Logger, error) 
 	logger.SetFormatter(&formatter)
 	logger.SetLevel(level)
 
+	logger.SetOutput(ThreadSafeWriter{
+		Writer: writer,
+		Mutex:  &sync.Mutex{},
+	})
+
+	return logger
+}
+
+// MakeThreadSafeLogger returns a logger that is synchronized with the internal mutex, if no file is provided write
+// to os.Stdout.
+func MakeThreadSafeLogger(level log.Level, logFile string) (*log.Logger, error) {
 	var writer io.Writer
 	// Write to a file or stdout
 	if logFile != "" {
@@ -37,12 +47,7 @@ func MakeThreadSafeLogger(level log.Level, logFile string) (*log.Logger, error) 
 		writer = os.Stdout
 	}
 
-	logger.SetOutput(ThreadSafeWriter{
-		Writer: writer,
-		Mutex:  &sync.Mutex{},
-	})
-
-	return logger, nil
+	return MakeThreadSafeLoggerWithWriter(level, writer), nil
 }
 
 // ThreadSafeWriter a struct that implements io.Writer in a threadsafe way
