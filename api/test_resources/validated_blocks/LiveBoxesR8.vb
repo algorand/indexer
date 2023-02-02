@@ -272,14 +272,14 @@
             "address": "OKUWMFFEKF4B4D7FRQYBVV3C2SNS54ZO4WZ2MJ3576UYKFDHM5P3AFMRWE",
             "amount": 999999499000,
             "amount-without-pending-rewards": 999999499000,
-            "min-balance": 100000,
+            "min-balance": 200000,
             "pending-rewards": 0,
             "rewards": 0,
             "round": 8,
             "status": "Offline",
             "total-apps-opted-in": 0,
             "total-assets-opted-in": 0,
-            "total-created-apps": 0,
+            "total-created-apps": 1,
             "total-created-assets": 0
           },
           "address": "OKUWMFFEKF4B4D7FRQYBVV3C2SNS54ZO4WZ2MJ3576UYKFDHM5P3AFMRWE"
@@ -288,12 +288,8 @@
     },
     "kv-mods": [
       {
-        "key": "Yng6AAAAAAAAAAVbJuxGerPlTHkzFbVIkj7DdmJNPSnnAIO9JVXvJNqDgw==",
-        "value": "WybsRnqz5Ux5MxW1SJI+w3ZiTT0p5wCDvSVV7yTag4M="
-      },
-      {
-        "key": "Yng6AAAAAAAAAAViNjQ=",
-        "value": "YjY0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+        "key": "Yng6AAAAAAAAAAViMzI=",
+        "value": "YjMyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
       },
       {
         "key": "Yng6AAAAAAAAAAViYXNlMzI=",
@@ -306,6 +302,10 @@
       {
         "key": "Yng6AAAAAAAAAAVieXRlIGJhc2UzMg==",
         "value": "Ynl0ZSBiYXNlMzIAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+      },
+      {
+        "key": "Yng6AAAAAAAAAAVzdHI=",
+        "value": "c3RyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
       },
       {
         "key": "Yng6AAAAAAAAAAVzdHJpbmc=",
@@ -324,16 +324,16 @@
         "value": "AAAAAAAAAY8ADAAWAAhwbHMgcGFzcwACgAAAAAAAAAA="
       },
       {
-        "key": "Yng6AAAAAAAAAAViMzI=",
-        "value": "YjMyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+        "key": "Yng6AAAAAAAAAAVbJuxGerPlTHkzFbVIkj7DdmJNPSnnAIO9JVXvJNqDgw==",
+        "value": "WybsRnqz5Ux5MxW1SJI+w3ZiTT0p5wCDvSVV7yTag4M="
+      },
+      {
+        "key": "Yng6AAAAAAAAAAViNjQ=",
+        "value": "YjY0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
       },
       {
         "key": "Yng6AAAAAAAAAAVieXRlIGJhc2U2NA==",
         "value": "Ynl0ZSBiYXNlNjQAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-      },
-      {
-        "key": "Yng6AAAAAAAAAAVzdHI=",
-        "value": "c3RyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
       },
       {
         "key": "Yng6AAAAAAAAAAUAAAAAAAAAKg==",

@@ -259,14 +259,14 @@
             "address": "OKUWMFFEKF4B4D7FRQYBVV3C2SNS54ZO4WZ2MJ3576UYKFDHM5P3AFMRWE",
             "amount": 999999499000,
             "amount-without-pending-rewards": 999999499000,
-            "min-balance": 100000,
+            "min-balance": 200000,
             "pending-rewards": 0,
             "rewards": 0,
             "round": 7,
             "status": "Offline",
             "total-apps-opted-in": 0,
             "total-assets-opted-in": 0,
-            "total-created-apps": 0,
+            "total-created-apps": 1,
             "total-created-assets": 0
           },
           "address": "OKUWMFFEKF4B4D7FRQYBVV3C2SNS54ZO4WZ2MJ3576UYKFDHM5P3AFMRWE"
@@ -294,31 +294,15 @@
     },
     "kv-mods": [
       {
-        "key": "Yng6AAAAAAAAAAVbJuxGerPlTHkzFbVIkj7DdmJNPSnnAIO9JVXvJNqDgw==",
+        "key": "Yng6AAAAAAAAAAXUsXLIWQQFn+EFoKmcOrH5vY3QJpJRafCZ4J25+tXE2A==",
         "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
       },
       {
-        "key": "Yng6AAAAAAAAAAVzdHJpbmc=",
-        "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-      },
-      {
-        "key": "Yng6AAAAAAAAAAUAAAAAAAAAKg==",
-        "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-      },
-      {
-        "key": "Yng6AAAAAAAAAAUAAAAAAAAAZA==",
-        "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-      },
-      {
-        "key": "Yng6AAAAAAAAAAViNjQ=",
+        "key": "Yng6AAAAAAAAAAUAAAAAAAABjwAMABYACHBscyBwYXNzAAKA",
         "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
       },
       {
         "key": "Yng6AAAAAAAAAAViYXNlMzI=",
-        "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-      },
-      {
-        "key": "Yng6AAAAAAAAAAViYXNlNjQ=",
         "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
       },
       {
@@ -330,11 +314,27 @@
         "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
       },
       {
+        "key": "Yng6AAAAAAAAAAVzdHJpbmc=",
+        "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+      },
+      {
+        "key": "Yng6AAAAAAAAAAViYXNlNjQ=",
+        "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+      },
+      {
         "key": "Yng6AAAAAAAAAAVzdHI=",
         "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
       },
       {
-        "key": "Yng6AAAAAAAAAAUAAAAAAAABjwAMABYACHBscyBwYXNzAAKA",
+        "key": "Yng6AAAAAAAAAAUAAAAAAAAAKg==",
+        "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+      },
+      {
+        "key": "Yng6AAAAAAAAAAUAAAAAAAAAZA==",
+        "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+      },
+      {
+        "key": "Yng6AAAAAAAAAAVbJuxGerPlTHkzFbVIkj7DdmJNPSnnAIO9JVXvJNqDgw==",
         "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
       },
       {
@@ -342,7 +342,7 @@
         "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
       },
       {
-        "key": "Yng6AAAAAAAAAAXUsXLIWQQFn+EFoKmcOrH5vY3QJpJRafCZ4J25+tXE2A==",
+        "key": "Yng6AAAAAAAAAAViNjQ=",
         "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
       }
     ],

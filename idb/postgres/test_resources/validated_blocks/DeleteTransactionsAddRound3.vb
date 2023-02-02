@@ -48,14 +48,14 @@
             "address": "OKUWMFFEKF4B4D7FRQYBVV3C2SNS54ZO4WZ2MJ3576UYKFDHM5P3AFMRWE",
             "amount": 1000000000000,
             "amount-without-pending-rewards": 1000000000000,
-            "min-balance": 100000,
+            "min-balance": 200000,
             "pending-rewards": 0,
             "rewards": 0,
             "round": 3,
             "status": "Offline",
             "total-apps-opted-in": 0,
             "total-assets-opted-in": 0,
-            "total-created-apps": 0,
+            "total-created-apps": 1,
             "total-created-assets": 0
           },
           "address": "OKUWMFFEKF4B4D7FRQYBVV3C2SNS54ZO4WZ2MJ3576UYKFDHM5P3AFMRWE"

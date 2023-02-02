@@ -89,14 +89,14 @@
             "address": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
             "amount": 999999499000,
             "amount-without-pending-rewards": 999999499000,
-            "min-balance": 100000,
+            "min-balance": 200000,
             "pending-rewards": 0,
             "rewards": 0,
             "round": 4,
             "status": "Offline",
             "total-apps-opted-in": 0,
             "total-assets-opted-in": 0,
-            "total-created-apps": 0,
+            "total-created-apps": 1,
             "total-created-assets": 0
           },
           "address": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY"
@@ -124,13 +124,13 @@
     },
     "kv-mods": [
       {
+        "key": "Yng6AAAAAAAAAAFkaXNhcHBvaW50aW5nIGJveA=="
+      },
+      {
         "key": "Yng6AAAAAAAAAAFub3Qgc28gZ3JlYXQgYm94"
       },
       {
         "key": "Yng6AAAAAAAAAAFJJ20gZGVzdGluZWQgZm9yIGRlbGV0aW9u"
-      },
-      {
-        "key": "Yng6AAAAAAAAAAFkaXNhcHBvaW50aW5nIGJveA=="
       }
     ],
     "prev-timestamp": 1674153362,

@@ -58,14 +58,14 @@
             "address": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
             "amount": 1000000000000,
             "amount-without-pending-rewards": 1000000000000,
-            "min-balance": 100000,
+            "min-balance": 300000,
             "pending-rewards": 0,
             "rewards": 0,
             "round": 5,
             "status": "Offline",
             "total-apps-opted-in": 0,
             "total-assets-opted-in": 0,
-            "total-created-apps": 0,
+            "total-created-apps": 2,
             "total-created-assets": 0
           },
           "address": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY"
@@ -75,14 +75,14 @@
             "address": "N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU",
             "amount": 1000000000000,
             "amount-without-pending-rewards": 1000000000000,
-            "min-balance": 100000,
+            "min-balance": 300000,
             "pending-rewards": 0,
             "rewards": 0,
             "round": 5,
             "status": "Offline",
             "total-apps-opted-in": 0,
             "total-assets-opted-in": 0,
-            "total-created-apps": 0,
+            "total-created-apps": 2,
             "total-created-assets": 0
           },
           "address": "N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU"
@@ -116,13 +116,13 @@
     "modified-apps": [
       {
         "created": true,
-        "creator": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
-        "id": 2
+        "creator": "N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU",
+        "id": 3
       },
       {
         "created": true,
-        "creator": "N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU",
-        "id": 3
+        "creator": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
+        "id": 2
       }
     ],
     "prev-timestamp": 1671468613,

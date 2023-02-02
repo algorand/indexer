@@ -643,15 +643,15 @@
             "address": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
             "amount": 999999985000,
             "amount-without-pending-rewards": 999999985000,
-            "min-balance": 100000,
+            "min-balance": 1600000,
             "pending-rewards": 0,
             "rewards": 0,
             "round": 1,
             "status": "Offline",
-            "total-apps-opted-in": 0,
-            "total-assets-opted-in": 0,
-            "total-created-apps": 0,
-            "total-created-assets": 0
+            "total-apps-opted-in": 5,
+            "total-assets-opted-in": 5,
+            "total-created-apps": 5,
+            "total-created-assets": 5
           },
           "address": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY"
         },
@@ -677,13 +677,13 @@
             "address": "N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU",
             "amount": 999999995000,
             "amount-without-pending-rewards": 999999995000,
-            "min-balance": 100000,
+            "min-balance": 1100000,
             "pending-rewards": 0,
             "rewards": 0,
             "round": 1,
             "status": "Offline",
-            "total-apps-opted-in": 0,
-            "total-assets-opted-in": 0,
+            "total-apps-opted-in": 5,
+            "total-assets-opted-in": 5,
             "total-created-apps": 0,
             "total-created-assets": 0
           },
@@ -1102,6 +1102,11 @@
         "id": 4
       },
       {
+        "created": false,
+        "creator": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
+        "id": 5
+      },
+      {
         "created": true,
         "creator": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
         "id": 11
@@ -1109,7 +1114,17 @@
       {
         "created": true,
         "creator": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
-        "id": 14
+        "id": 13
+      },
+      {
+        "created": true,
+        "creator": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
+        "id": 15
+      },
+      {
+        "created": false,
+        "creator": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
+        "id": 2
       },
       {
         "created": false,
@@ -1129,29 +1144,34 @@
       {
         "created": true,
         "creator": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
-        "id": 13
-      },
-      {
-        "created": false,
-        "creator": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
-        "id": 2
-      },
-      {
-        "created": false,
-        "creator": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
-        "id": 5
-      },
-      {
-        "created": true,
-        "creator": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
-        "id": 15
+        "id": 14
       }
     ],
     "modified-assets": [
       {
         "created": true,
         "creator": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
+        "id": 18
+      },
+      {
+        "created": false,
+        "creator": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
+        "id": 7
+      },
+      {
+        "created": false,
+        "creator": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
+        "id": 8
+      },
+      {
+        "created": true,
+        "creator": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
         "id": 16
+      },
+      {
+        "created": false,
+        "creator": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
+        "id": 10
       },
       {
         "created": true,
@@ -1161,7 +1181,7 @@
       {
         "created": true,
         "creator": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
-        "id": 18
+        "id": 19
       },
       {
         "created": true,
@@ -1172,26 +1192,6 @@
         "created": false,
         "creator": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
         "id": 6
-      },
-      {
-        "created": false,
-        "creator": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
-        "id": 7
-      },
-      {
-        "created": false,
-        "creator": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
-        "id": 10
-      },
-      {
-        "created": true,
-        "creator": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
-        "id": 19
-      },
-      {
-        "created": false,
-        "creator": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
-        "id": 8
       },
       {
         "created": false,

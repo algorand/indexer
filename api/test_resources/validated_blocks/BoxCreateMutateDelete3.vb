@@ -182,14 +182,14 @@
             "address": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
             "amount": 999999499000,
             "amount-without-pending-rewards": 999999499000,
-            "min-balance": 100000,
+            "min-balance": 200000,
             "pending-rewards": 0,
             "rewards": 0,
             "round": 3,
             "status": "Offline",
             "total-apps-opted-in": 0,
             "total-assets-opted-in": 0,
-            "total-created-apps": 0,
+            "total-created-apps": 1,
             "total-created-assets": 0
           },
           "address": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY"
@@ -197,6 +197,14 @@
       ]
     },
     "kv-mods": [
+      {
+        "key": "Yng6AAAAAAAAAAFJIHdpbGwgYmUgYXNzaW1pbGF0ZWQ=",
+        "value": "VEhFIEJPUkcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+      },
+      {
+        "key": "Yng6AAAAAAAAAAFJJ20gZGVzdGluZWQgZm9yIGRlbGV0aW9u",
+        "value": "SSdtIHN0aWxsIGFsaXZlISEhAAAAAAAAAAAAAAAAAAA="
+      },
       {
         "key": "Yng6AAAAAAAAAAFhIGdyZWF0IGJveA==",
         "value": "aXQncyBhIHdvbmRlcmZ1bCBib3gAAAAAAAAAAAAAAAA="
@@ -220,14 +228,6 @@
       {
         "key": "Yng6AAAAAAAAAAFub3Qgc28gZ3JlYXQgYm94",
         "value": "YnVtbWVyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-      },
-      {
-        "key": "Yng6AAAAAAAAAAFJIHdpbGwgYmUgYXNzaW1pbGF0ZWQ=",
-        "value": "VEhFIEJPUkcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-      },
-      {
-        "key": "Yng6AAAAAAAAAAFJJ20gZGVzdGluZWQgZm9yIGRlbGV0aW9u",
-        "value": "SSdtIHN0aWxsIGFsaXZlISEhAAAAAAAAAAAAAAAAAAA="
       }
     ],
     "prev-timestamp": 1674073254,

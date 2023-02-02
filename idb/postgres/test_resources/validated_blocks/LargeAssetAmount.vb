@@ -56,15 +56,15 @@
             "address": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
             "amount": 999999999000,
             "amount-without-pending-rewards": 999999999000,
-            "min-balance": 100000,
+            "min-balance": 200000,
             "pending-rewards": 0,
             "rewards": 0,
             "round": 1,
             "status": "Offline",
             "total-apps-opted-in": 0,
-            "total-assets-opted-in": 0,
+            "total-assets-opted-in": 1,
             "total-created-apps": 0,
-            "total-created-assets": 0
+            "total-created-assets": 1
           },
           "address": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY"
         },
