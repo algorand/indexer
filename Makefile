@@ -83,6 +83,9 @@ integration: cmd/algorand-indexer/algorand-indexer
 e2e: cmd/algorand-indexer/algorand-indexer conduit-docs
 	cd e2e_tests/docker/indexer/ && docker-compose build --build-arg GO_IMAGE=${GO_IMAGE} && docker-compose up --exit-code-from e2e
 
+e2e-nightly: cmd/algorand-indexer/algorand-indexer conduit-docs
+	cd e2e_tests/docker/indexer/ && docker-compose build --build-arg GO_IMAGE=${GO_IMAGE} --build-arg CHANNEL=nightly && docker-compose up --exit-code-from e2e
+
 # note: when running e2e tests manually be sure to set the e2e filename: 'export CI_E2E_FILENAME=rel-nightly'
 e2e-conduit: conduit
 	cd third_party/go-algorand && make install
