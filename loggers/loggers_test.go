@@ -2,8 +2,8 @@ package loggers
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"math/rand"
+	"os"
 	"path"
 	"strings"
 	"sync"
@@ -34,7 +34,7 @@ func TestLogToFile(t *testing.T) {
 	testString := "1234abcd"
 	logger.Infof(testString)
 	assert.FileExists(t, logfile)
-	data, err := ioutil.ReadFile(logfile)
+	data, err := os.ReadFile(logfile)
 	assert.Contains(t, string(data), testString)
 	lines := strings.Split(string(data), "\n")
 	require.Len(t, lines, 2)

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"testing"
@@ -111,7 +110,7 @@ func TestLogFile(t *testing.T) {
 		require.FileExists(t, configFile)
 
 		err = runConduitCmdWithConfig(cfg.ConduitArgs)
-		return ioutil.ReadFile(stdoutFilePath)
+		return os.ReadFile(stdoutFilePath)
 	}
 
 	// logging to stdout
@@ -129,7 +128,7 @@ func TestLogFile(t *testing.T) {
 		require.NoError(t, err)
 		dataStr := string(data)
 		require.NotContains(t, dataStr, "{")
-		logdata, err := ioutil.ReadFile(logfile)
+		logdata, err := os.ReadFile(logfile)
 		require.NoError(t, err)
 		logdataStr := string(logdata)
 		require.Contains(t, logdataStr, "{")
