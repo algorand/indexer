@@ -39,26 +39,16 @@ func TestImporterMetadata(t *testing.T) {
 }
 
 func TestCloseSuccess(t *testing.T) {
-	tests := []struct {
-		name string
-	}{
-		{"archival"},
-		{"follower"},
-	}
-	for _, ttest := range tests {
-		t.Run(ttest.name, func(t *testing.T) {
-			ts := test.NewAlgodServer(test.GenesisResponder)
-			testImporter := New()
-			cfgStr := fmt.Sprintf(`---
+	ts := test.NewAlgodServer(test.GenesisResponder)
+	testImporter := New()
+	cfgStr := fmt.Sprintf(`---
 mode: %s
 netaddr: %s
-`, ttest.name, ts.URL)
-			_, err := testImporter.Init(ctx, plugins.MakePluginConfig(cfgStr), logger)
-			assert.NoError(t, err)
-			err = testImporter.Close()
-			assert.NoError(t, err)
-		})
-	}
+`, archivalModeStr, ts.URL)
+	_, err := testImporter.Init(ctx, plugins.MakePluginConfig(cfgStr), logger)
+	assert.NoError(t, err)
+	err = testImporter.Close()
+	assert.NoError(t, err)
 }
 
 func TestInitSuccess(t *testing.T) {
@@ -85,89 +75,50 @@ netaddr: %s
 }
 
 func TestInitGenesisFailure(t *testing.T) {
-	tests := []struct {
-		name string
-	}{
-		{"archival"},
-		{"follower"},
-	}
-	for _, ttest := range tests {
-		t.Run(ttest.name, func(t *testing.T) {
-			ts := test.NewAlgodServer(test.MakeGenesisResponder(sdk.Genesis{}))
-			testImporter := New()
-			cfgStr := fmt.Sprintf(`---
+	ts := test.NewAlgodServer(test.MakeGenesisResponder(sdk.Genesis{}))
+	testImporter := New()
+	cfgStr := fmt.Sprintf(`---
 mode: %s
 netaddr: %s
-`, ttest.name, ts.URL)
-			_, err := testImporter.Init(ctx, plugins.MakePluginConfig(cfgStr), logger)
-			assert.Error(t, err)
-			assert.ErrorContains(t, err, "unable to fetch genesis file")
-			testImporter.Close()
-		})
-	}
+`, archivalModeStr, ts.URL)
+	_, err := testImporter.Init(ctx, plugins.MakePluginConfig(cfgStr), logger)
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "unable to fetch genesis file")
+	testImporter.Close()
 }
 
 func TestInitUnmarshalFailure(t *testing.T) {
-	tests := []struct {
-		name string
-	}{
-		{"archival"},
-		{"follower"},
-	}
-	for _, ttest := range tests {
-		t.Run(ttest.name, func(t *testing.T) {
-			testImporter := New()
-			_, err := testImporter.Init(ctx, plugins.MakePluginConfig("`"), logger)
-			assert.Error(t, err)
-			assert.ErrorContains(t, err, "connect failure in unmarshalConfig")
-			testImporter.Close()
-		})
-	}
+	testImporter := New()
+	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("`"), logger)
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "connect failure in unmarshalConfig")
+	testImporter.Close()
 }
 
 func TestConfigDefault(t *testing.T) {
-	tests := []struct {
-		name string
-	}{
-		{"archival"},
-		{"follower"},
+	testImporter := New()
+	expected, err := yaml.Marshal(&Config{})
+	if err != nil {
+		t.Fatalf("unable to Marshal default algodimporter.Config: %v", err)
 	}
-	for _, ttest := range tests {
-		t.Run(ttest.name, func(t *testing.T) {
-			testImporter := New()
-			expected, err := yaml.Marshal(&Config{})
-			if err != nil {
-				t.Fatalf("unable to Marshal default algodimporter.Config: %v", err)
-			}
-			assert.Equal(t, string(expected), testImporter.Config())
-		})
-	}
+	assert.Equal(t, string(expected), testImporter.Config())
 }
 
 func TestWaitForBlockBlockFailure(t *testing.T) {
-	tests := []struct {
-		name string
-	}{
-		{"archival"},
-		{"follower"},
-	}
-	for _, ttest := range tests {
-		t.Run(ttest.name, func(t *testing.T) {
-			ts := test.NewAlgodServer(test.GenesisResponder)
-			testImporter := New()
-			cfgStr := fmt.Sprintf(`---
+	ts := test.NewAlgodServer(test.GenesisResponder)
+	testImporter := New()
+	cfgStr := fmt.Sprintf(`---
 mode: %s
 netaddr: %s
-`, ttest.name, ts.URL)
-			_, err := testImporter.Init(ctx, plugins.MakePluginConfig(cfgStr), logger)
-			assert.NoError(t, err)
-			assert.NotEqual(t, testImporter, nil)
+`, archivalModeStr, ts.URL)
+	_, err := testImporter.Init(ctx, plugins.MakePluginConfig(cfgStr), logger)
+	assert.NoError(t, err)
+	assert.NotEqual(t, testImporter, nil)
 
-			blk, err := testImporter.GetBlock(uint64(10))
-			assert.Error(t, err)
-			assert.True(t, blk.Empty())
-		})
-	}
+	blk, err := testImporter.GetBlock(uint64(10))
+	assert.Error(t, err)
+	assert.True(t, blk.Empty())
+
 }
 
 func TestGetBlockSuccess(t *testing.T) {
@@ -175,6 +126,9 @@ func TestGetBlockSuccess(t *testing.T) {
 		name        string
 		algodServer *httptest.Server
 	}{
+		{"", test.NewAlgodServer(test.GenesisResponder,
+			test.BlockResponder,
+			test.BlockAfterResponder)},
 		{"archival", test.NewAlgodServer(test.GenesisResponder,
 			test.BlockResponder,
 			test.BlockAfterResponder)},
@@ -267,16 +221,6 @@ netaddr: %s
 }
 
 func TestAlgodImporter_ProvideMetrics(t *testing.T) {
-	tests := []struct {
-		name string
-	}{
-		{"archival"},
-		{"follower"},
-	}
-	for _, ttest := range tests {
-		t.Run(ttest.name, func(t *testing.T) {
-			testImporter := &algodImporter{}
-			assert.Len(t, testImporter.ProvideMetrics("blah"), 1)
-		})
-	}
+	testImporter := &algodImporter{}
+	assert.Len(t, testImporter.ProvideMetrics("blah"), 1)
 }

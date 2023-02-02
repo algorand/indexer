@@ -25,9 +25,14 @@ import (
 )
 
 const (
-	importerName = "algod"
-	archivalMode = "archival"
-	followerMode = "follower"
+	importerName    = "algod"
+	archivalModeStr = "archival"
+	followerModeStr = "follower"
+)
+
+const (
+	archivalMode = iota
+	followerMode
 )
 
 type algodImporter struct {
@@ -36,6 +41,7 @@ type algodImporter struct {
 	cfg     Config
 	ctx     context.Context
 	cancel  context.CancelFunc
+	mode    int
 }
 
 //go:embed sample.yaml
@@ -54,7 +60,7 @@ func New() importers.Importer {
 }
 
 func (algodImp *algodImporter) OnComplete(input data.BlockData) error {
-	if algodImp.cfg.Mode != followerMode {
+	if algodImp.mode != followerMode {
 		return nil
 	}
 	_, err := algodImp.aclient.SetSyncRound(input.Round() + 1).Do(algodImp.ctx)
@@ -82,10 +88,17 @@ func (algodImp *algodImporter) Init(ctx context.Context, cfg plugins.PluginConfi
 
 	// To support backwards compatibility with the daemon we default to archival mode
 	if algodImp.cfg.Mode == "" {
-		algodImp.cfg.Mode = archivalMode
+		algodImp.cfg.Mode = archivalModeStr
 	}
 
-	if algodImp.cfg.Mode != archivalMode && algodImp.cfg.Mode != followerMode {
+	switch algodImp.cfg.Mode {
+	case archivalModeStr:
+		algodImp.mode = archivalMode
+		break
+	case followerModeStr:
+		algodImp.mode = followerMode
+		break
+	default:
 		return nil, fmt.Errorf("algod importer was set to a mode (%s) that wasn't supported", algodImp.cfg.Mode)
 	}
 
@@ -166,7 +179,7 @@ func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 			return blk, err
 		}
 
-		if algodImp.cfg.Mode == followerMode {
+		if algodImp.mode == followerMode {
 			// We aren't going to do anything with the new delta until we get everything
 			// else converted over
 			// Round 0 has no delta associated with it
