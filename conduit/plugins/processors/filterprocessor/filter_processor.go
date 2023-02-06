@@ -4,19 +4,14 @@ import (
 	"context"
 	_ "embed" // used to embed config
 	"fmt"
-	"reflect"
-
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/processors"
-	"github.com/algorand/indexer/conduit/plugins/processors/filterprocessor/expression"
 	"github.com/algorand/indexer/conduit/plugins/processors/filterprocessor/fields"
 	"github.com/algorand/indexer/data"
-
-	"github.com/algorand/go-algorand/data/transactions"
 )
 
 const implementationName = "filter_processor"
@@ -84,23 +79,9 @@ func (a *FilterProcessor) Init(ctx context.Context, _ data.InitProvider, cfg plu
 			var searcherList []*fields.Searcher
 
 			for _, subConfig := range subConfigs {
-
-				t, err := fields.SignedTxnFunc(subConfig.FilterTag, &transactions.SignedTxnInBlock{})
+				searcher, err := fields.MakeSearcher(subConfig.FilterTag, subConfig.ExpressionType, subConfig.Expression)
 				if err != nil {
 					return err
-				}
-
-				// We need the Elem() here because SignedTxnFunc returns a pointer underneath the interface{}
-				targetKind := reflect.TypeOf(t).Elem().Kind()
-
-				exp, err := expression.MakeExpression(subConfig.ExpressionType, subConfig.Expression, targetKind)
-				if err != nil {
-					return fmt.Errorf("filter processor Init(): could not make expression with string %s for filter tag %s - %w", subConfig.Expression, subConfig.FilterTag, err)
-				}
-
-				searcher, err := fields.MakeFieldSearcher(exp, subConfig.ExpressionType, subConfig.FilterTag)
-				if err != nil {
-					return fmt.Errorf("filter processor Init(): error making field searcher - %w", err)
 				}
 
 				searcherList = append(searcherList, searcher)

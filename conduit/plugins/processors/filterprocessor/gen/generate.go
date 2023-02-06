@@ -85,9 +85,9 @@ import (
 "github.com/algorand/go-algorand/data/transactions"
 )
 
-// SignedTxnFunc takes a tag and associated SignedTxnInBlock and returns the value 
+// LookupFieldByTag takes a tag and associated SignedTxnInBlock and returns the value 
 // referenced by the tag.  An error is returned if the tag does not exist
-func SignedTxnFunc(tag string, input *transactions.SignedTxnInBlock) (interface{}, error) {
+func LookupFieldByTag(tag string, input *transactions.SignedTxnInBlock) (interface{}, error) {
 
 `
 	_, err = fmt.Fprintf(&bb, initialStr, packageName)

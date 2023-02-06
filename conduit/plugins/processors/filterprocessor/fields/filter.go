@@ -39,7 +39,7 @@ func (f Filter) SearchAndFilter(input data.BlockData) (data.BlockData, error) {
 
 			allFalse := true
 			for _, fs := range f.Searchers {
-				b, err := fs.search(txn)
+				b, err := fs.search(&txn)
 				if err != nil {
 					return data.BlockData{}, err
 				}
@@ -59,7 +59,7 @@ func (f Filter) SearchAndFilter(input data.BlockData) (data.BlockData, error) {
 	case anyFieldOperation:
 		for _, txn := range input.Payset {
 			for _, fs := range f.Searchers {
-				b, err := fs.search(txn)
+				b, err := fs.search(&txn)
 				if err != nil {
 					return data.BlockData{}, err
 				}
@@ -76,7 +76,7 @@ func (f Filter) SearchAndFilter(input data.BlockData) (data.BlockData, error) {
 
 			allTrue := true
 			for _, fs := range f.Searchers {
-				b, err := fs.search(txn)
+				b, err := fs.search(&txn)
 				if err != nil {
 					return data.BlockData{}, err
 				}

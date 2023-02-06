@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
@@ -33,7 +34,7 @@ func TestInternalSearch(t *testing.T) {
 	assert.NoError(t, err)
 
 	result, err := searcher.search(
-		transactions.SignedTxnInBlock{
+		&transactions.SignedTxnInBlock{
 			SignedTxnWithAD: transactions.SignedTxnWithAD{
 				SignedTxn: transactions.SignedTxn{
 					AuthAddr: address1,
@@ -46,7 +47,7 @@ func TestInternalSearch(t *testing.T) {
 	assert.True(t, result)
 
 	result, err = searcher.search(
-		transactions.SignedTxnInBlock{
+		&transactions.SignedTxnInBlock{
 			SignedTxnWithAD: transactions.SignedTxnWithAD{
 				SignedTxn: transactions.SignedTxn{
 					AuthAddr: address2,
@@ -97,4 +98,25 @@ func TestCheckTagExistsAndHasCorrectFunction(t *testing.T) {
 
 	err = checkTagExistsAndHasCorrectFunction("exact", "sgnr")
 	assert.NoError(t, err)
+}
+
+func BenchmarkSearch(b *testing.B) {
+	var addr basics.Address
+	addr[0] = 0x01
+	s, err := MakeSearcher("sgnr", expression.ExactFilter, addr.String())
+	require.NoError(b, err)
+
+	stib := transactions.SignedTxnInBlock{
+		SignedTxnWithAD: transactions.SignedTxnWithAD{
+			SignedTxn: transactions.SignedTxn{
+				AuthAddr: addr,
+			},
+		},
+	}
+
+	// Ignore the setup cost above.
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		(*s).search(&stib)
+	}
 }

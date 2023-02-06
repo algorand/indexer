@@ -48,11 +48,8 @@ filters:
       expression: "` + sampleAddr2.String() + `"
 `
 
-	fpBuilder, err := processors.ProcessorBuilderByName(implementationName)
-	assert.NoError(t, err)
-
-	fp := fpBuilder.New()
-	err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(sampleCfgStr), logrus.New())
+	fp := &FilterProcessor{}
+	err := fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(sampleCfgStr), logrus.New())
 	assert.NoError(t, err)
 
 	bd := data.BlockData{}
