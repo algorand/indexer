@@ -9,8 +9,13 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
 )
+
+func toInterface(field reflect.StructField) interface{} {
+	return reflect.New(field.Type).Elem().Interface()
+}
 
 // recursiveTagFields recursively gets all field names in a struct
 // Output will contain a key of the full tag along with the fully qualified struct
@@ -35,7 +40,14 @@ func recursiveTagFields(theStruct interface{}, output map[string]string, tagLeve
 			}
 
 			fullTag := strings.Join(append(tagLevel, tagValue), ".")
-			output[fullTag] = strings.Join(append(fieldLevel, name), ".")
+
+			parts := append(fieldLevel, name)
+
+			// If the type is microalgo, compare against the raw value instead of the struct
+			if _, ok := toInterface(field).(basics.MicroAlgos); ok {
+				parts = append(parts, "Raw")
+			}
+			output[fullTag] = strings.Join(parts, ".")
 		}
 
 		if field.Type.Kind() == reflect.Struct {

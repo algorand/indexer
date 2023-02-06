@@ -18,7 +18,7 @@ func LookupFieldByTag(tag string, input *transactions.SignedTxnInBlock) (interfa
 	case "apid":
 		return &input.SignedTxnWithAD.ApplyData.ApplicationID, nil
 	case "ca":
-		return &input.SignedTxnWithAD.ApplyData.ClosingAmount, nil
+		return &input.SignedTxnWithAD.ApplyData.ClosingAmount.Raw, nil
 	case "caid":
 		return &input.SignedTxnWithAD.ApplyData.ConfigAsset, nil
 	case "dt":
@@ -60,11 +60,11 @@ func LookupFieldByTag(tag string, input *transactions.SignedTxnInBlock) (interfa
 	case "msig.v":
 		return &input.SignedTxnWithAD.SignedTxn.Msig.Version, nil
 	case "rc":
-		return &input.SignedTxnWithAD.ApplyData.CloseRewards, nil
+		return &input.SignedTxnWithAD.ApplyData.CloseRewards.Raw, nil
 	case "rr":
-		return &input.SignedTxnWithAD.ApplyData.ReceiverRewards, nil
+		return &input.SignedTxnWithAD.ApplyData.ReceiverRewards.Raw, nil
 	case "rs":
-		return &input.SignedTxnWithAD.ApplyData.SenderRewards, nil
+		return &input.SignedTxnWithAD.ApplyData.SenderRewards.Raw, nil
 	case "sgnr":
 		return &input.SignedTxnWithAD.SignedTxn.AuthAddr, nil
 	case "sig":
@@ -78,7 +78,7 @@ func LookupFieldByTag(tag string, input *transactions.SignedTxnInBlock) (interfa
 	case "txn.afrz":
 		return &input.SignedTxnWithAD.SignedTxn.Txn.AssetFreezeTxnFields.AssetFrozen, nil
 	case "txn.amt":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount, nil
+		return &input.SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, nil
 	case "txn.apaa":
 		return &input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.ApplicationArgs, nil
 	case "txn.apan":
@@ -148,7 +148,7 @@ func LookupFieldByTag(tag string, input *transactions.SignedTxnInBlock) (interfa
 	case "txn.faid":
 		return &input.SignedTxnWithAD.SignedTxn.Txn.AssetFreezeTxnFields.FreezeAsset, nil
 	case "txn.fee":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.Header.Fee, nil
+		return &input.SignedTxnWithAD.SignedTxn.Txn.Header.Fee.Raw, nil
 	case "txn.fv":
 		return &input.SignedTxnWithAD.SignedTxn.Txn.Header.FirstValid, nil
 	case "txn.gen":

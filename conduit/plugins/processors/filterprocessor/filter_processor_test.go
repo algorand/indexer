@@ -6,6 +6,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
@@ -558,7 +559,7 @@ filters:
       expression: 4
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 1)
+			require.Len(t, output.Payset, 1)
 			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(2))
 		},
 		},
@@ -570,7 +571,7 @@ filters:
       expression: 5
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 2)
+			require.Len(t, output.Payset, 2)
 			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(4))
 			assert.Equal(t, output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(2))
 		},
@@ -584,7 +585,7 @@ filters:
       expression: 4
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 2)
+			require.Len(t, output.Payset, 2)
 			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(4))
 			assert.Equal(t, output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(2))
 		},
@@ -597,7 +598,7 @@ filters:
       expression: 11
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 1)
+			require.Len(t, output.Payset, 1)
 			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(11))
 		},
 		},
@@ -610,7 +611,7 @@ filters:
       expression: 11
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 2)
+			require.Len(t, output.Payset, 2)
 			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(4))
 			assert.Equal(t, output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(2))
 		},
@@ -624,7 +625,7 @@ filters:
       expression: 4
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 1)
+			require.Len(t, output.Payset, 1)
 			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(11))
 		},
 		},
@@ -636,7 +637,7 @@ filters:
       expression: 3
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 2)
+			require.Len(t, output.Payset, 2)
 			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(4))
 			assert.Equal(t, output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(11))
 		},
@@ -650,7 +651,7 @@ filters:
       expression: 4
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 2)
+			require.Len(t, output.Payset, 2)
 			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(4))
 			assert.Equal(t, output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(11))
 		},
@@ -706,7 +707,7 @@ filters:
 			)
 
 			output, err := fp.Process(bd)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			test.fxn(t, &output)
 		})
 	}
