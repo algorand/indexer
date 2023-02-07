@@ -373,6 +373,7 @@ func makeConduitConfig(dCfg *daemonConfig, nextRound uint64) pipeline.Config {
 			NextRoundOverride: nextRound,
 		},
 		HideBanner:       true,
+		Metrics:          pipeline.Metrics{Prefix: "conduit"},
 		PipelineLogLevel: logger.GetLevel().String(),
 		Importer: pipeline.NameConfigPair{
 			Name: "algod",

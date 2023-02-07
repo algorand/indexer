@@ -202,15 +202,15 @@ func (p *pipelineImpl) registerLifecycleCallbacks() {
 func (p *pipelineImpl) registerPluginMetricsCallbacks() {
 	var collectors []prometheus.Collector
 	if v, ok := (*p.importer).(conduit.PluginMetrics); ok {
-		collectors = append(collectors, v.ProvideMetrics()...)
+		collectors = append(collectors, v.ProvideMetrics(p.cfg.Metrics.Prefix)...)
 	}
 	for _, processor := range p.processors {
 		if v, ok := (*processor).(conduit.PluginMetrics); ok {
-			collectors = append(collectors, v.ProvideMetrics()...)
+			collectors = append(collectors, v.ProvideMetrics(p.cfg.Metrics.Prefix)...)
 		}
 	}
 	if v, ok := (*p.exporter).(conduit.PluginMetrics); ok {
-		collectors = append(collectors, v.ProvideMetrics()...)
+		collectors = append(collectors, v.ProvideMetrics(p.cfg.Metrics.Prefix)...)
 	}
 	for _, c := range collectors {
 		_ = prometheus.Register(c)
@@ -234,11 +234,10 @@ func (p *pipelineImpl) makeConfig(pluginType, pluginName string, cfg []byte) (co
 func (p *pipelineImpl) Init() error {
 	p.logger.Infof("Starting Pipeline Initialization")
 
-	prefix := p.cfg.Metrics.Prefix
-	if prefix == "" {
-		prefix = "conduit"
+	if p.cfg.Metrics.Prefix == "" {
+		p.cfg.Metrics.Prefix = conduit.DefaultMetricsPrefix
 	}
-	metrics.RegisterPrometheusMetrics(prefix)
+	metrics.RegisterPrometheusMetrics(p.cfg.Metrics.Prefix)
 
 	if p.cfg.CPUProfile != "" {
 		p.logger.Infof("Creating CPU Profile file at %s", p.cfg.CPUProfile)

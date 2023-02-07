@@ -1275,6 +1275,8 @@ func TestLookupInnerLogs(t *testing.T) {
 	err = db.AddBlock(&blk)
 	require.NoError(t, err)
 
+	appCall, _, err := vb.Blk.BlockHeader.DecodeSignedTxn(blk.Block().Payset[0])
+
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			//////////
@@ -1373,6 +1375,8 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 	err = db.AddBlock(&blk)
 	require.NoError(t, err)
+
+	appCall, _, err := vb.Blk.BlockHeader.DecodeSignedTxn(blk.Block().Payset[0])
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -9,16 +9,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
+
 	"github.com/algorand/indexer/conduit/plugins"
-	"github.com/algorand/indexer/conduit/plugins/importers"
 	"github.com/algorand/indexer/util/test"
 )
 
 var (
-	logger       *logrus.Logger
-	ctx          context.Context
-	cancel       context.CancelFunc
-	testImporter importers.Importer
+	logger *logrus.Logger
+	ctx    context.Context
+	cancel context.CancelFunc
 )
 
 func init() {
@@ -30,7 +30,7 @@ func init() {
 
 // TestImporterMetadata tests that metadata is correctly set
 func TestImporterMetadata(t *testing.T) {
-	testImporter = New()
+	testImporter := New()
 	metadata := testImporter.Metadata()
 	assert.Equal(t, metadata.Name, algodFollowerImporterMetadata.Name)
 	assert.Equal(t, metadata.Description, algodFollowerImporterMetadata.Description)
@@ -40,7 +40,7 @@ func TestImporterMetadata(t *testing.T) {
 // TestCloseSuccess tests that closing results in no error
 func TestCloseSuccess(t *testing.T) {
 	ts := test.NewAlgodServer(test.GenesisResponder)
-	testImporter = New()
+	testImporter := New()
 	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("netaddr: "+ts.URL), logger)
 	assert.NoError(t, err)
 	err = testImporter.Close()
@@ -50,16 +50,25 @@ func TestCloseSuccess(t *testing.T) {
 // TestInitSuccess tests that initializing results in no error
 func TestInitSuccess(t *testing.T) {
 	ts := test.NewAlgodServer(test.GenesisResponder)
-	testImporter = New()
+	testImporter := New()
 	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("netaddr: "+ts.URL), logger)
 	assert.NoError(t, err)
 	assert.NotEqual(t, testImporter, nil)
 	testImporter.Close()
 }
 
+func TestInitGenesisFailure(t *testing.T) {
+	ts := test.NewAlgodServer(test.MakeGenesisResponder(sdk.Genesis{}))
+	testImporter := New()
+	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("netaddr: "+ts.URL), logger)
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "unable to fetch genesis file")
+	testImporter.Close()
+}
+
 // TestInitUnmarshalFailure tests config marshaling failures
 func TestInitUnmarshalFailure(t *testing.T) {
-	testImporter = New()
+	testImporter := New()
 	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("`"), logger)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "connect failure in unmarshalConfig")
@@ -68,7 +77,7 @@ func TestInitUnmarshalFailure(t *testing.T) {
 
 // TestConfigDefault tests that configuration is correct by default
 func TestConfigDefault(t *testing.T) {
-	testImporter = New()
+	testImporter := New()
 	expected, err := yaml.Marshal(&Config{})
 	if err != nil {
 		t.Fatalf("unable to Marshal default algodimporter.Config: %v", err)
@@ -79,7 +88,7 @@ func TestConfigDefault(t *testing.T) {
 // TestWaitForBlockBlockFailure tests that GetBlock results in a failure
 func TestWaitForBlockBlockFailure(t *testing.T) {
 	ts := test.NewAlgodServer(test.GenesisResponder)
-	testImporter = New()
+	testImporter := New()
 	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("netaddr: "+ts.URL), logger)
 	assert.NoError(t, err)
 	assert.NotEqual(t, testImporter, nil)
@@ -96,7 +105,7 @@ func TestGetBlockSuccess(t *testing.T) {
 		test.GenesisResponder,
 		test.BlockResponder,
 		test.BlockAfterResponder, test.LedgerStateDeltaResponder)
-	testImporter = New()
+	testImporter := New()
 	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("netaddr: "+ts.URL), logger)
 	assert.NoError(t, err)
 	assert.NotEqual(t, testImporter, nil)
@@ -115,7 +124,7 @@ func TestGetBlockContextCancelled(t *testing.T) {
 		test.GenesisResponder,
 		test.BlockResponder,
 		test.BlockAfterResponder, test.LedgerStateDeltaResponder)
-	testImporter = New()
+	testImporter := New()
 	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("netaddr: "+ts.URL), logger)
 	assert.NoError(t, err)
 	assert.NotEqual(t, testImporter, nil)
@@ -131,7 +140,7 @@ func TestGetBlockFailureBlockResponder(t *testing.T) {
 	ts := test.NewAlgodServer(
 		test.GenesisResponder,
 		test.BlockAfterResponder, test.LedgerStateDeltaResponder)
-	testImporter = New()
+	testImporter := New()
 	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("netaddr: "+ts.URL), logger)
 	assert.NoError(t, err)
 	assert.NotEqual(t, testImporter, nil)
@@ -148,7 +157,7 @@ func TestGetBlockFailureLedgerStateDeltaResponder(t *testing.T) {
 		test.GenesisResponder,
 		test.BlockResponder,
 		test.BlockAfterResponder)
-	testImporter = New()
+	testImporter := New()
 	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("netaddr: "+ts.URL), logger)
 	assert.NoError(t, err)
 	assert.NotEqual(t, testImporter, nil)
@@ -156,4 +165,9 @@ func TestGetBlockFailureLedgerStateDeltaResponder(t *testing.T) {
 	_, err = testImporter.GetBlock(uint64(10))
 	assert.Error(t, err)
 	cancel()
+}
+
+func TestAlgodFollowerImporter_ProvideMetrics(t *testing.T) {
+	testImporter := &algodFollowerImporter{}
+	assert.Len(t, testImporter.ProvideMetrics("blah"), 1)
 }
