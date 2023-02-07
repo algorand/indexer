@@ -11,16 +11,15 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/avm-abi/apps"
-	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/idb/postgres/internal/encoding"
-	"github.com/algorand/indexer/idb/postgres/internal/writer"
-	"github.com/algorand/indexer/util/test"
-
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/idb/postgres/internal/encoding"
+	"github.com/algorand/indexer/idb/postgres/internal/writer"
+	"github.com/algorand/indexer/util/test"
 )
 
 type boxTestComparator func(t *testing.T, db *IndexerDb, appBoxes map[basics.AppIndex]map[string]string,

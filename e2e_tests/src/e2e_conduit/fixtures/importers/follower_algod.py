@@ -87,6 +87,8 @@ class FollowerAlgodImporter(ImporterPlugin):
             os.path.join(conduit_dir, "net", "Primary", "*", "*.block.sqlite")
         )
         self.last = countblocks(blockfiles[0])
+        # Reset the secondary node, and enable follow mode.
+        # This is what conduit will connect to for data access.
         for root, dirs, files in os.walk(os.path.join(tempnet, 'Node', 'tbd-v1')):
                 for f in files:
                     if ".sqlite" in f:
