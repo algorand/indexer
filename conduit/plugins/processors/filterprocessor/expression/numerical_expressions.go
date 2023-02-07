@@ -3,39 +3,7 @@ package expression
 import (
 	"fmt"
 	"reflect"
-
-	"github.com/algorand/go-algorand/data/basics"
 )
-
-type microAlgoExpression struct {
-	FilterValue basics.MicroAlgos
-	Op          FilterType
-}
-
-func (m microAlgoExpression) Search(input interface{}) (bool, error) {
-
-	inputValue, ok := input.(basics.MicroAlgos)
-	if !ok {
-		return false, fmt.Errorf("supplied type (%s) was not microalgos", reflect.TypeOf(input).String())
-	}
-
-	switch m.Op {
-	case LessThanFilter:
-		return inputValue.Raw < m.FilterValue.Raw, nil
-	case LessThanEqualFilter:
-		return inputValue.Raw <= m.FilterValue.Raw, nil
-	case EqualToFilter:
-		return inputValue.Raw == m.FilterValue.Raw, nil
-	case NotEqualToFilter:
-		return inputValue.Raw != m.FilterValue.Raw, nil
-	case GreaterThanFilter:
-		return inputValue.Raw > m.FilterValue.Raw, nil
-	case GreaterThanEqualFilter:
-		return inputValue.Raw >= m.FilterValue.Raw, nil
-	default:
-		return false, fmt.Errorf("unknown op: %s", m.Op)
-	}
-}
 
 type int64NumericalExpression struct {
 	FilterValue int64
@@ -43,6 +11,17 @@ type int64NumericalExpression struct {
 }
 
 func (s int64NumericalExpression) Search(input interface{}) (bool, error) {
+	var inputValue int64
+
+	switch value := input.(type) {
+	case int64:
+		inputValue = value
+	case uint64:
+		inputValue = int64(value)
+	default:
+		return false, fmt.Errorf("unhandled numeric type: %s", reflect.TypeOf(input))
+	}
+
 	inputValue, ok := input.(int64)
 	if !ok {
 		// If the input interface{} isn't int64 but an alias for int64, we want to check that

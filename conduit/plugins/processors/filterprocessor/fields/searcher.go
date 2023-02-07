@@ -24,10 +24,7 @@ func MakeSearcher(filterTag string, expressionType expression.FilterType, expres
 		return nil, err
 	}
 
-	// We need the Elem() here because LookupFieldByTag returns a pointer underneath the interface{}
-	targetKind := reflect.TypeOf(t).Elem().Kind()
-
-	exp, err := expression.MakeExpression(expressionType, expressionStr, targetKind)
+	exp, err := expression.MakeExpression(expressionType, expressionStr, t)
 	if err != nil {
 		return nil, fmt.Errorf("filter processor Init(): could not make expression with string %s for filter tag %s - %w", expressionStr, filterTag, err)
 	}
@@ -50,18 +47,7 @@ func (f Searcher) search(input *transactions.SignedTxnInBlock) (bool, error) {
 		return false, err
 	}
 
-	e := reflect.ValueOf(val).Elem()
-
-	var toSearch interface{}
-	if f.MethodToCall != "" {
-		// If there is a function, search what is returned
-		toSearch = e.MethodByName(f.MethodToCall).Call([]reflect.Value{})[0].Interface()
-	} else {
-		// Otherwise, get the original value
-		toSearch = e.Interface()
-	}
-
-	b, err := (*f.Exp).Search(toSearch)
+	b, err := (*f.Exp).Search(val)
 	if err != nil {
 		return false, err
 	}

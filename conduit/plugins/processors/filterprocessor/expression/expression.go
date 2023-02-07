@@ -2,7 +2,6 @@ package expression
 
 import (
 	"fmt"
-	"reflect"
 	"regexp"
 	"strconv"
 )
@@ -55,11 +54,11 @@ type regexExpression struct {
 }
 
 func (e regexExpression) Search(input interface{}) (bool, error) {
-	return e.Regex.MatchString(input.(string)), nil
+	return e.Regex.MatchString(fmt.Sprintf("%s", input)), nil
 }
 
 // MakeExpression creates an expression based on an expression type
-func MakeExpression(expressionType FilterType, expressionSearchStr string, targetKind reflect.Kind) (*Expression, error) {
+func MakeExpression(expressionType FilterType, expressionSearchStr string, target interface{}) (*Expression, error) {
 	switch expressionType {
 	case ExactFilter:
 		{
@@ -96,8 +95,8 @@ func MakeExpression(expressionType FilterType, expressionSearchStr string, targe
 		{
 			var exp Expression
 
-			switch targetKind {
-			case reflect.Int64:
+			switch targetType := target.(type) {
+			case int64:
 				{
 					v, err := strconv.ParseInt(expressionSearchStr, 10, 64)
 					if err != nil {
@@ -110,7 +109,7 @@ func MakeExpression(expressionType FilterType, expressionSearchStr string, targe
 					}
 				}
 
-			case reflect.Uint64:
+			case uint64:
 				{
 					v, err := strconv.ParseUint(expressionSearchStr, 10, 64)
 					if err != nil {
@@ -124,7 +123,7 @@ func MakeExpression(expressionType FilterType, expressionSearchStr string, targe
 				}
 
 			default:
-				return nil, fmt.Errorf("unknown target kind (%s) for filter type: %s", targetKind.String(), expressionType)
+				return nil, fmt.Errorf("unknown target kind (%T) for filter type: %s", targetType, expressionType)
 			}
 
 			return &exp, nil

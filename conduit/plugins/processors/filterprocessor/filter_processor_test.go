@@ -13,7 +13,6 @@ import (
 
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/plugins"
-	"github.com/algorand/indexer/conduit/plugins/processors"
 	"github.com/algorand/indexer/data"
 )
 
@@ -213,173 +212,9 @@ filters:
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-
-			fpBuilder, err := processors.ProcessorBuilderByName(implementationName)
-			assert.NoError(t, err)
-
-			fp := fpBuilder.New()
-			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(test.cfg), logrus.New())
+			fp := &FilterProcessor{}
+			err := fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(test.cfg), logrus.New())
 			assert.ErrorContains(t, err, test.errorContains)
-		})
-	}
-}
-
-// TestFilterProcessor_Alias tests the various numerical operations on integers that are aliased
-func TestFilterProcessor_Alias(t *testing.T) {
-	tests := []struct {
-		name string
-		cfg  string
-		fxn  func(t *testing.T, output *data.BlockData)
-	}{
-
-		{"alias 1", `---
-filters:
-  - any:
-    - tag: apid 
-      expression-type: less-than 
-      expression: 4
-`, func(t *testing.T, output *data.BlockData) {
-
-			assert.Equal(t, len(output.Payset), 1)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(2))
-		},
-		},
-		{"alias 2", `---
-filters:
-  - any:
-    - tag: apid
-      expression-type: less-than 
-      expression: 5
-`, func(t *testing.T, output *data.BlockData) {
-
-			assert.Equal(t, len(output.Payset), 2)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(4))
-			assert.Equal(t, output.Payset[1].SignedTxnWithAD.ApplicationID, basics.AppIndex(2))
-		},
-		},
-
-		{"alias 3", `---
-filters:
-  - any:
-    - tag: apid
-      expression-type: less-than-equal
-      expression: 4
-`, func(t *testing.T, output *data.BlockData) {
-
-			assert.Equal(t, len(output.Payset), 2)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(4))
-			assert.Equal(t, output.Payset[1].SignedTxnWithAD.ApplicationID, basics.AppIndex(2))
-		},
-		},
-		{"alias 4", `---
-filters:
-  - any:
-    - tag: apid
-      expression-type: equal
-      expression: 11
-`, func(t *testing.T, output *data.BlockData) {
-
-			assert.Equal(t, len(output.Payset), 1)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(11))
-		},
-		},
-
-		{"alias 5", `---
-filters:
-  - any:
-    - tag: apid
-      expression-type: not-equal
-      expression: 11
-`, func(t *testing.T, output *data.BlockData) {
-
-			assert.Equal(t, len(output.Payset), 2)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(4))
-			assert.Equal(t, output.Payset[1].SignedTxnWithAD.ApplicationID, basics.AppIndex(2))
-		},
-		},
-
-		{"alias 6", `---
-filters:
-  - any:
-    - tag: apid
-      expression-type: greater-than 
-      expression: 4
-`, func(t *testing.T, output *data.BlockData) {
-
-			assert.Equal(t, len(output.Payset), 1)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(11))
-		},
-		},
-		{"alias 7", `---
-filters:
-  - any:
-    - tag: apid
-      expression-type: greater-than 
-      expression: 3
-`, func(t *testing.T, output *data.BlockData) {
-
-			assert.Equal(t, len(output.Payset), 2)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(4))
-			assert.Equal(t, output.Payset[1].SignedTxnWithAD.ApplicationID, basics.AppIndex(11))
-		},
-		},
-
-		{"alias 8", `---
-filters:
-  - any:
-    - tag: apid
-      expression-type: greater-than-equal
-      expression: 4
-`, func(t *testing.T, output *data.BlockData) {
-
-			assert.Equal(t, len(output.Payset), 2)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(4))
-			assert.Equal(t, output.Payset[1].SignedTxnWithAD.ApplicationID, basics.AppIndex(11))
-		},
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-
-			fpBuilder, err := processors.ProcessorBuilderByName(implementationName)
-			assert.NoError(t, err)
-
-			fp := fpBuilder.New()
-			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(test.cfg), logrus.New())
-			assert.NoError(t, err)
-
-			bd := data.BlockData{}
-			bd.Payset = append(bd.Payset,
-
-				transactions.SignedTxnInBlock{
-					SignedTxnWithAD: transactions.SignedTxnWithAD{
-						ApplyData: transactions.ApplyData{
-							ApplicationID: 4,
-						},
-					},
-				},
-				transactions.SignedTxnInBlock{
-
-					SignedTxnWithAD: transactions.SignedTxnWithAD{
-						ApplyData: transactions.ApplyData{
-							ApplicationID: 2,
-						},
-					},
-				},
-				transactions.SignedTxnInBlock{
-
-					SignedTxnWithAD: transactions.SignedTxnWithAD{
-						ApplyData: transactions.ApplyData{
-							ApplicationID: 11,
-						},
-					},
-				},
-			)
-
-			output, err := fp.Process(bd)
-			assert.NoError(t, err)
-			test.fxn(t, &output)
 		})
 	}
 }
@@ -501,12 +336,8 @@ filters:
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-
-			fpBuilder, err := processors.ProcessorBuilderByName(implementationName)
-			assert.NoError(t, err)
-
-			fp := fpBuilder.New()
-			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(test.cfg), logrus.New())
+			fp := &FilterProcessor{}
+			err := fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(test.cfg), logrus.New())
 			assert.NoError(t, err)
 
 			bd := data.BlockData{}
@@ -660,12 +491,8 @@ filters:
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-
-			fpBuilder, err := processors.ProcessorBuilderByName(implementationName)
-			assert.NoError(t, err)
-
-			fp := fpBuilder.New()
-			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(test.cfg), logrus.New())
+			fp := &FilterProcessor{}
+			err := fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(test.cfg), logrus.New())
 			assert.NoError(t, err)
 
 			bd := data.BlockData{}
@@ -762,11 +589,7 @@ filters:
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-
-			fpBuilder, err := processors.ProcessorBuilderByName(implementationName)
-			assert.NoError(t, err)
-
-			fp := fpBuilder.New()
+			fp := &FilterProcessor{}
 			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(test.sampleCfgStr), logrus.New())
 			assert.ErrorContains(t, err, test.errorContainsStr)
 		})
@@ -805,11 +628,8 @@ filters:
       expression: "` + sampleAddr2.String() + `"
 `
 
-	fpBuilder, err := processors.ProcessorBuilderByName(implementationName)
-	assert.NoError(t, err)
-
-	fp := fpBuilder.New()
-	err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(sampleCfgStr), logrus.New())
+	fp := &FilterProcessor{}
+	err := fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(sampleCfgStr), logrus.New())
 	assert.NoError(t, err)
 
 	bd := data.BlockData{}
@@ -904,11 +724,8 @@ filters:
       expression: "` + sampleAddr2.String() + `"
 `
 
-	fpBuilder, err := processors.ProcessorBuilderByName(implementationName)
-	assert.NoError(t, err)
-
-	fp := fpBuilder.New()
-	err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(sampleCfgStr), logrus.New())
+	fp := &FilterProcessor{}
+	err := fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(sampleCfgStr), logrus.New())
 	assert.NoError(t, err)
 
 	bd := data.BlockData{}
@@ -977,11 +794,8 @@ filters:
       expression: "` + sampleAddr2.String() + `"
 `
 
-	fpBuilder, err := processors.ProcessorBuilderByName(implementationName)
-	assert.NoError(t, err)
-
-	fp := fpBuilder.New()
-	err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(sampleCfgStr), logrus.New())
+	fp := &FilterProcessor{}
+	err := fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(sampleCfgStr), logrus.New())
 	assert.NoError(t, err)
 
 	bd := data.BlockData{}
