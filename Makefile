@@ -88,7 +88,6 @@ e2e-nightly: cmd/algorand-indexer/algorand-indexer conduit-docs
 
 # note: when running e2e tests manually be sure to set the e2e filename: 'export CI_E2E_FILENAME=rel-nightly'
 e2e-conduit: conduit
-	cd third_party/go-algorand && make install
 	export PATH=$(PATH):$(shell go env GOPATH)/bin; pip3 install e2e_tests/ && e2econduit --s3-source-net ${CI_E2E_FILENAME} --conduit-bin cmd/conduit/conduit
 
 deploy:
