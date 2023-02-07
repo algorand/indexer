@@ -14,6 +14,7 @@ import (
 	"time"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
+	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
@@ -207,6 +208,7 @@ type mockImporter struct {
 	finalRound      basics.Round
 	returnError     bool
 	onCompleteError bool
+	subsystem       string
 }
 
 func (m *mockImporter) Init(_ context.Context, cfg plugins.PluginConfig, _ *log.Logger) (*sdk.Genesis, error) {
@@ -240,6 +242,11 @@ func (m *mockImporter) OnComplete(input data.BlockData) error {
 	m.finalRound = input.BlockHeader.Round
 	m.Called(input)
 	return err
+}
+
+func (m *mockImporter) ProvideMetrics(subsystem string) []prometheus.Collector {
+	m.subsystem = subsystem
+	return nil
 }
 
 type mockProcessor struct {
@@ -814,7 +821,7 @@ func TestPipelineMetricsConfigs(t *testing.T) {
 	_, err = getMetrics()
 	assert.Error(t, err)
 
-	// metrics mode OFF
+	// metrics mode OFF, default prefix
 	pImpl.cfg.Metrics = Metrics{
 		Mode: "OFF",
 		Addr: ":8081",
@@ -823,17 +830,21 @@ func TestPipelineMetricsConfigs(t *testing.T) {
 	time.Sleep(1 * time.Second)
 	_, err = getMetrics()
 	assert.Error(t, err)
+	assert.Equal(t, pImpl.cfg.Metrics.Prefix, "conduit")
 
-	// metrics mode ON
+	// metrics mode ON, override prefix
+	prefixOverride := "asdfasdf"
 	pImpl.cfg.Metrics = Metrics{
-		Mode: "ON",
-		Addr: ":8081",
+		Mode:   "ON",
+		Addr:   ":8081",
+		Prefix: prefixOverride,
 	}
 	pImpl.Init()
 	time.Sleep(1 * time.Second)
 	resp, err := getMetrics()
 	assert.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
+	assert.Equal(t, pImpl.cfg.Metrics.Prefix, prefixOverride)
 }
 
 func TestRoundOverwrite(t *testing.T) {
@@ -898,11 +909,6 @@ var errorImporterMetadata = conduit.Metadata{
 	Description:  "An importer that errors out whenever GetBlock() is called",
 	Deprecated:   false,
 	SampleConfig: "",
-}
-
-// New initializes an importer
-func New() importers.Importer {
-	return &errorImporter{}
 }
 
 func (e *errorImporter) Metadata() conduit.Metadata {
@@ -985,7 +991,6 @@ func TestPipelineRetryVariables(t *testing.T) {
 				wg: sync.WaitGroup{},
 			}
 
-			// pipeline should initialize if NextRoundOverride is not set
 			err := pImpl.Init()
 			assert.Nil(t, err)
 			before := time.Now()
@@ -1000,4 +1005,36 @@ func TestPipelineRetryVariables(t *testing.T) {
 
 		})
 	}
+}
+
+func TestMetricPrefixApplied(t *testing.T) {
+	// Note: the default prefix is applied during `Init`, so no need to test that here.
+	prefix := "test_prefix"
+	tempDir := t.TempDir()
+	mImporter := mockImporter{}
+
+	var pImporter importers.Importer = &mImporter
+	var pExporter exporters.Exporter = &mockExporter{}
+
+	ctx, cf := context.WithCancel(context.Background())
+	l, _ := test.NewNullLogger()
+	pImpl := pipelineImpl{
+		ctx: ctx,
+		cf:  cf,
+		cfg: &Config{
+			ConduitArgs: &conduit.Args{
+				ConduitDataDir: tempDir,
+			},
+			Metrics: Metrics{
+				Prefix: prefix,
+			},
+		},
+		logger:       l,
+		initProvider: nil,
+		importer:     &pImporter,
+		exporter:     &pExporter,
+	}
+
+	pImpl.registerPluginMetricsCallbacks()
+	assert.Equal(t, prefix, mImporter.subsystem)
 }

@@ -1,18 +1,19 @@
 package algodimporter
 
-import "github.com/prometheus/client_golang/prometheus"
+import (
+	"github.com/prometheus/client_golang/prometheus"
 
-// Prometheus metric names
-const (
-	GetAlgodRawBlockTimeName = "get_algod_raw_block_time_sec"
+	"github.com/algorand/indexer/conduit"
 )
 
-// Initialize the prometheus objects
-var (
-	GetAlgodRawBlockTimeSeconds = prometheus.NewSummary(
+// getAlgodRawBlockTimeSeconds is used to record how long it took to fetch the block.
+var getAlgodRawBlockTimeSeconds = initGetAlgodRawBlockTimeSeconds(conduit.DefaultMetricsPrefix)
+
+func initGetAlgodRawBlockTimeSeconds(subsystem string) prometheus.Summary {
+	return prometheus.NewSummary(
 		prometheus.SummaryOpts{
-			Subsystem: "algod_importer",
-			Name:      GetAlgodRawBlockTimeName,
+			Subsystem: subsystem,
+			Name:      "get_algod_raw_block_time_sec",
 			Help:      "Total response time from Algod's raw block endpoint in seconds.",
 		})
-)
+}

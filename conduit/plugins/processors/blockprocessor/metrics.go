@@ -1,18 +1,19 @@
 package blockprocessor
 
-import "github.com/prometheus/client_golang/prometheus"
+import (
+	"github.com/prometheus/client_golang/prometheus"
 
-// Prometheus metric names
-const (
-	EvalTimeName = "eval_time_sec"
+	"github.com/algorand/indexer/conduit"
 )
 
-// Initialize the prometheus objects
-var (
-	EvalTimeSeconds = prometheus.NewSummary(
+// evalTimeSeconds is used to record how much time is spent running eval.
+var evalTimeSeconds = initEvalTimeSeconds(conduit.DefaultMetricsPrefix)
+
+func initEvalTimeSeconds(subsystem string) prometheus.Summary {
+	return prometheus.NewSummary(
 		prometheus.SummaryOpts{
-			Subsystem: "indexer_daemon",
-			Name:      EvalTimeName,
+			Subsystem: subsystem,
+			Name:      "eval_time_sec",
 			Help:      "Time spent calling Eval function in seconds.",
 		})
-)
+}

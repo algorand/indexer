@@ -15,6 +15,9 @@ var DefaultConfigName = fmt.Sprintf("%s.yml", DefaultConfigBaseName)
 // DefaultLogLevel is the default conduit log level if none is provided.
 var DefaultLogLevel = log.InfoLevel
 
+// DefaultMetricsPrefix is the default prometheus subsystem if no Prefix option is provided.
+var DefaultMetricsPrefix = "conduit"
+
 // Args configuration for conduit running.
 // This is needed to support a CONDUIT_DATA_DIR environment variable.
 type Args struct {

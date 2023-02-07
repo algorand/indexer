@@ -21,7 +21,7 @@ const (
 
 // PruneConfigurations contains the configurations for data pruning
 type PruneConfigurations struct {
-	// Rounds to keep
+	// Rounds to keep, a value of zero results in no data pruning
 	Rounds uint64 `yaml:"rounds"`
 	// Interval used to prune the data. The values can be -1 to run at startup,
 	// 0 to disable or N to run every N rounds.
@@ -59,6 +59,16 @@ func MakeDataManager(ctx context.Context, cfg *PruneConfigurations, db idb.Index
 func (p *postgresql) DeleteLoop(wg *sync.WaitGroup, nextRound *uint64) {
 
 	defer wg.Done()
+	// If the interval is disabled
+	if p.config.Interval == disabled {
+		// A helpful warning to say that despite a number of rounds being above 0
+		// data pruning isn't going to occur
+		if p.config.Rounds > 0 {
+			p.logger.Warnf("DeleteLoop(): Round value was above 0 (%d) but interval was disabled. No data pruning will occur.", p.config.Rounds)
+		}
+		return
+	}
+
 	// round value used for interval calculation
 	round := *nextRound
 	for {
@@ -73,7 +83,7 @@ func (p *postgresql) DeleteLoop(wg *sync.WaitGroup, nextRound *uint64) {
 				if currentRound > p.config.Rounds {
 					err := p.db.DeleteTransactions(p.ctx, keep)
 					if err != nil {
-						p.logger.Warnf("MakeDataManager(): data pruning err: %v", err)
+						p.logger.Warnf("DeleteLoop(): data pruning err: %v", err)
 					}
 				}
 				return

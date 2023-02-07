@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"fmt"
 	"net/url"
+	"reflect"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -94,9 +95,13 @@ func (af *algodFollowerImporter) Init(ctx context.Context, cfg plugins.PluginCon
 
 	genesis := sdk.Genesis{}
 
-	err = json.Decode([]byte(genesisResponse), &genesis)
+	// Don't fail on unknown properties here since the go-algorand and SDK genesis types differ slightly
+	err = json.LenientDecode([]byte(genesisResponse), &genesis)
 	if err != nil {
 		return nil, err
+	}
+	if reflect.DeepEqual(genesis, sdk.Genesis{}) {
+		return nil, fmt.Errorf("unable to fetch genesis file from API at %s", af.cfg.NetAddr)
 	}
 
 	return &genesis, err
@@ -134,7 +139,7 @@ func (af *algodFollowerImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 		start := time.Now()
 		blockbytes, err = af.aclient.BlockRaw(rnd).Do(af.ctx)
 		dt := time.Since(start)
-		GetAlgodRawBlockTimeSeconds.Observe(dt.Seconds())
+		getAlgodRawBlockTimeSeconds.Observe(dt.Seconds())
 		if err != nil {
 			return blk, err
 		}
@@ -165,8 +170,9 @@ func (af *algodFollowerImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 	return blk, fmt.Errorf("finished retries without fetching a block.  Check that the indexer is set to start at a round that the current algod node can handle")
 }
 
-func (af *algodFollowerImporter) ProvideMetrics() []prometheus.Collector {
+func (af *algodFollowerImporter) ProvideMetrics(subsystem string) []prometheus.Collector {
+	getAlgodRawBlockTimeSeconds = initGetAlgodRawBlockTimeSeconds(subsystem)
 	return []prometheus.Collector{
-		GetAlgodRawBlockTimeSeconds,
+		getAlgodRawBlockTimeSeconds,
 	}
 }

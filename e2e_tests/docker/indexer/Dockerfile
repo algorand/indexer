@@ -1,12 +1,13 @@
 ARG GO_IMAGE=golang:1.14.7
 FROM $GO_IMAGE
+ARG CHANNEL=stable
 
 RUN echo "Go image: $GO_IMAGE"
 
 # Misc dependencies
 ENV HOME /opt
 ENV DEBIAN_FRONTEND noninteractive
-RUN apt-get update && apt-get install -y apt-utils curl git git-core bsdmainutils python3 python3-pip make bash libtool libboost-math-dev libffi-dev
+RUN apt-get update && apt-get install -y apt-utils curl git git-core bsdmainutils python3 python3-pip make bash libtool libboost-math-dev libffi-dev wget
 
 # Setup files for test
 RUN mkdir -p /opt/go/indexer
@@ -14,8 +15,9 @@ COPY . /opt/go/indexer
 WORKDIR /opt/go/indexer
 RUN rm -f $HOME/go/bin/algod
 RUN rm -f /opt/go/indexer/cmd/algorand-indexer/algorand-indexer
-WORKDIR /opt/go/indexer/third_party/go-algorand
-RUN make install
+WORKDIR /opt/go/node
+RUN wget https://raw.githubusercontent.com/algorand/go-algorand/rel/stable/cmd/updater/update.sh && chmod 744 update.sh
+RUN ./update.sh -i -c $CHANNEL -n -d ./ -p /go/bin/
 WORKDIR /opt/go/indexer
 RUN make
 ENV PATH="${HOME}/go/bin/:${PATH}"
