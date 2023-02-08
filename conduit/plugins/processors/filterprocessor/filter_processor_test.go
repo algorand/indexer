@@ -590,7 +590,7 @@ filters:
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			fp := &FilterProcessor{}
-			err = fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(test.sampleCfgStr), logrus.New())
+			err := fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(test.sampleCfgStr), logrus.New())
 			assert.ErrorContains(t, err, test.errorContainsStr)
 		})
 	}
