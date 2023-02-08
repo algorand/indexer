@@ -609,6 +609,7 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 		LocalStateDelta:          localStateDelta,
 		Logs:                     logs,
 		InnerTxns:                inners,
+		AuthAddr:                 addrPtr(stxn.AuthAddr),
 	}
 
 	if stxn.Txn.Type == sdk.AssetConfigTx {
