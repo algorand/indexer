@@ -18,6 +18,7 @@ type Searcher struct {
 	MethodToCall string
 }
 
+// MakeSearcher constructs the searcher object from the SubConfig fields. They are split up here to avoid a circular dependency.
 func MakeSearcher(filterTag string, expressionType expression.FilterType, expressionStr string) (*Searcher, error) {
 	t, err := LookupFieldByTag(filterTag, &transactions.SignedTxnInBlock{})
 	if err != nil {

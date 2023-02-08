@@ -11,17 +11,6 @@ type int64NumericalExpression struct {
 }
 
 func (s int64NumericalExpression) Search(input interface{}) (bool, error) {
-	var inputValue int64
-
-	switch value := input.(type) {
-	case int64:
-		inputValue = value
-	case uint64:
-		inputValue = int64(value)
-	default:
-		return false, fmt.Errorf("unhandled numeric type: %s", reflect.TypeOf(input))
-	}
-
 	inputValue, ok := input.(int64)
 	if !ok {
 		// If the input interface{} isn't int64 but an alias for int64, we want to check that

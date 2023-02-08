@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed" // used to embed config
 	"fmt"
+
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
