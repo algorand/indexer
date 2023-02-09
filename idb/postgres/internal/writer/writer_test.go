@@ -1598,6 +1598,7 @@ func addBoxInfoToStats(t *testing.T, fullKey string, value sdk.KvValueDelta,
 
 	acctData.TotalBoxes++
 	acctData.TotalBoxBytes += uint64(len(name) + len(value.Data))
+	acctData.MicroAlgos = 1
 
 	boxTotals[addr] = sdk.AccountBaseData{
 		TotalBoxes:    acctData.TotalBoxes,
@@ -1615,6 +1616,7 @@ func subtractBoxInfoToStats(t *testing.T, fullKey string, value sdk.KvValueDelta
 
 	acctData.TotalBoxes--
 	acctData.TotalBoxBytes -= prevBoxBytes
+	acctData.MicroAlgos = 1
 
 	boxTotals[addr] = sdk.AccountBaseData{
 		TotalBoxes:    acctData.TotalBoxes,
