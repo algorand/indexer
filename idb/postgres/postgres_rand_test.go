@@ -100,7 +100,7 @@ func TestWriteReadAccountData(t *testing.T) {
 		if reflect.DeepEqual(expected, sdk.AccountData{}) {
 			require.Nil(t, account)
 		} else {
-			require.Equal(t, expected.AccountBaseData.MicroAlgos, account.Amount)
+			require.Equal(t, uint64(expected.AccountBaseData.MicroAlgos), account.Amount)
 		}
 	}
 }
@@ -304,7 +304,7 @@ func TestWriteReadResources(t *testing.T) {
 		appParams := apps.Params
 		require.Equal(t, datum.appParams, appParams)
 		localState := apps.State
-		require.Equal(t, datum.localState.LocalState, localState)
+		require.Equal(t, datum.localState, localState)
 	}
 }
 

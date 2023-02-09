@@ -232,7 +232,7 @@ func TestAllResourcesMultipleAccounts(t *testing.T) {
 	numAccounts := 14
 
 	for i := 0; i < numAccounts; i++ {
-		insertAccount(t, db, makeAddress(i), &sdk.AccountData{VotingData: sdk.VotingData{VoteKeyDilution: 1}})
+		insertAccount(t, db, makeAddress(i), &sdk.AccountData{VotingData: sdk.VotingData{VoteKeyDilution: uint64(i)}})
 		for j := uint64(20); j < 30; j++ {
 			insertAccountAsset(t, db, makeAddress(i), j, j%2 == 0)
 		}
