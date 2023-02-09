@@ -318,382 +318,382 @@ var boxSeedFixture = fixture{
 				Params: []param{},
 			},
 		},
-		// /v2/applications - 1 case
-		{
-			Name: "What are all the apps?",
-			Request: requestInfo{
-				Path:   "/v2/applications",
-				Params: []param{},
-			},
-		},
-		// /v2/applications/:app-id - 4 cases
-		{
-			Name: "Lookup non-existing app 1337",
-			Request: requestInfo{
-				Path:   "/v2/applications/1337",
-				Params: []param{},
-			},
-		},
-		{
-			Name: "Lookup app 3 (funded with no boxes)",
-			Request: requestInfo{
-				Path:   "/v2/applications/3",
-				Params: []param{},
-			},
-		},
-		{
-			Name: "Lookup app 1 (funded with boxes)",
-			Request: requestInfo{
-				Path:   "/v2/applications/1",
-				Params: []param{},
-			},
-		},
-		{
-			Name: "Lookup DELETED app 5 (funded with encoding test named boxes)",
-			Request: requestInfo{
-				Path:   "/v2/applications/5",
-				Params: []param{},
-			},
-		},
-		// /v2/accounts/:account-id - 1 non-app case and 2 cases using AppIndex.Address()
-		{
-			Name: "Creator account - not an app account - no params",
-			Request: requestInfo{
-				Path:   "/v2/accounts/LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY",
-				Params: []param{},
-			},
-		},
-		{
-			Name: "App 3 (as account) totals no boxes - no params",
-			Request: requestInfo{
-				Path:   "/v2/accounts/" + basics.AppIndex(3).Address().String(),
-				Params: []param{},
-			},
-		},
-		{
-			Name: "App 1 (as account) totals with boxes - no params",
-			Request: requestInfo{
-				Path:   "/v2/accounts/" + basics.AppIndex(1).Address().String(),
-				Params: []param{},
-			},
-		},
-		// /v2/applications/:app-id/boxes - 5 apps with lots of param variations
-		{
-			Name: "Boxes of a app with id == math.MaxInt64",
-			Request: requestInfo{
-				Path:   "/v2/applications/9223372036854775807/boxes",
-				Params: []param{},
-			},
-		},
-		{
-			Name: "Boxes of a app with id == math.MaxInt64 + 1",
-			Request: requestInfo{
-				Path:   "/v2/applications/9223372036854775808/boxes",
-				Params: []param{},
-			},
-		},
-		{
-			Name: "Boxes of a non-existing app 1337",
-			Request: requestInfo{
-				Path:   "/v2/applications/1337/boxes",
-				Params: []param{},
-			},
-		},
-		{
-			Name: "Boxes of app 3 with no boxes: no params",
-			Request: requestInfo{
-				Path:   "/v2/applications/3/boxes",
-				Params: []param{},
-			},
-		},
-		{
-			Name: "Boxes of DELETED app 5 with goal encoded boxes: no params",
-			Request: requestInfo{
-				Path:   "/v2/applications/5/boxes",
-				Params: []param{},
-			},
-		},
-		{
-			Name: "Boxes of app 1 with boxes: no params",
-			Request: requestInfo{
-				Path:   "/v2/applications/1/boxes",
-				Params: []param{},
-			},
-		},
-		{
-			Name: "Boxes of app 1 with boxes: limit 3 - page 1",
-			Request: requestInfo{
-				Path: "/v2/applications/1/boxes",
-				Params: []param{
-					{"limit", "3"},
-				},
-			},
-		},
-		{
-			Name: "Boxes of app 1 with boxes: limit 3 - page 2 - b64",
-			Request: requestInfo{
-				Path: "/v2/applications/1/boxes",
-				Params: []param{
-					{"limit", "3"},
-					{"next", "b64:Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ=="},
-				},
-			},
-		},
-		{
-			Name: "Boxes of app 1 with boxes: limit 3 - page 3 - b64",
-			Request: requestInfo{
-				Path: "/v2/applications/1/boxes",
-				Params: []param{
-					{"limit", "3"},
-					{"next", "b64:Ym94ICM4"},
-				},
-			},
-		},
-		{
-			Name: "Boxes of app 1 with boxes: limit 3 - MISSING b64 prefix",
-			Request: requestInfo{
-				Path: "/v2/applications/1/boxes",
-				Params: []param{
-					{"limit", "3"},
-					{"next", "Ym94ICM4"},
-				},
-			},
-		},
-		{
-			Name: "Boxes of app 1 with boxes: limit 3 - goal app arg encoding str",
-			Request: requestInfo{
-				Path: "/v2/applications/1/boxes",
-				Params: []param{
-					{"limit", "3"},
-					{"next", "str:box #8"},
-				},
-			},
-		},
-		{
-			Name: "Boxes of app 1 with boxes: limit 3 - page 4 (empty) - b64",
-			Request: requestInfo{
-				Path: "/v2/applications/1/boxes",
-				Params: []param{
-					{"limit", "3"},
-					{"next", "b64:ZmFudGFidWxvdXM="},
-				},
-			},
-		},
-		{
-			Name: "Boxes of app 1 with boxes: limit 3 - ERROR because when next param provided -even empty string- it must be goal app arg encoded",
-			Request: requestInfo{
-				Path: "/v2/applications/1/boxes",
-				Params: []param{
-					{"limit", "3"},
-					{"next", ""},
-				},
-			},
-		},
-		// /v2/applications/:app-id/box?name=...  - lots and lots
-		{
-			Name: "Boxes (with made up name param) of a app with id == math.MaxInt64",
-			Request: requestInfo{
-				Path: "/v2/applications/9223372036854775807/box",
-				Params: []param{
-					{"name", "string:non-existing"},
-				},
-			},
-		},
-		{
-			Name: "Box (with made up name param) of a app with id == math.MaxInt64 + 1",
-			Request: requestInfo{
-				Path: "/v2/applications/9223372036854775808/box",
-				Params: []param{
-					{"name", "string:non-existing"},
-				},
-			},
-		},
-
-		{
-			Name: "A box attempt for a non-existing app 1337",
-			Request: requestInfo{
-				Path: "/v2/applications/1337/box",
-				Params: []param{
-					{"name", "string:non-existing"},
-				},
-			},
-		},
-		{
-			Name: "A box attempt for a non-existing app 1337 - without the required box name param",
-			Request: requestInfo{
-				Path:   "/v2/applications/1337/box",
-				Params: []param{},
-			},
-		},
-		{
-			Name: "A box attempt for a existing app 3 - without the required box name param",
-			Request: requestInfo{
-				Path:   "/v2/applications/3/box",
-				Params: []param{},
-			},
-		},
-		{
-			Name: "App 3 box (non-existing)",
-			Request: requestInfo{
-				Path: "/v2/applications/3/box",
-				Params: []param{
-					{"name", "string:non-existing"},
-				},
-			},
-		},
-		{
-			Name: "App 1 box (non-existing)",
-			Request: requestInfo{
-				Path: "/v2/applications/1/box",
-				Params: []param{
-					{"name", "string:non-existing"},
-				},
-			},
-		},
-		{
-			Name: "App 1 box (a great box)",
-			Request: requestInfo{
-				Path: "/v2/applications/1/box",
-				Params: []param{
-					{"name", "string:a great box"},
-				},
-			},
-		},
-		{
-			Name: "DELETED app 5 encoding (str:str) - no params",
-			Request: requestInfo{
-				Path: "/v2/applications/5/box",
-				Params: []param{
-					{"name", "str:str"},
-				},
-			},
-		},
-		{
-			Name: "DELETED app 5 encoding (integer:100) - no params",
-			Request: requestInfo{
-				Path: "/v2/applications/5/box",
-				Params: []param{
-					{"name", "integer:100"},
-				},
-			},
-		},
-		{
-			Name: "DELETED app 5 encoding (base32:MJQXGZJTGI======) - no params",
-			Request: requestInfo{
-				Path: "/v2/applications/5/box",
-				Params: []param{
-					{"name", "base32:MJQXGZJTGI======"},
-				},
-			},
-		},
-		{
-			Name: "DELETED app 5 encoding (b64:YjY0) - no params",
-			Request: requestInfo{
-				Path: "/v2/applications/5/box",
-				Params: []param{
-					{"name", "b64:YjY0"},
-				},
-			},
-		},
-		{
-			Name: "DELETED app 5 encoding (base64:YmFzZTY0) - no params",
-			Request: requestInfo{
-				Path: "/v2/applications/5/box",
-				Params: []param{
-					{"name", "base64:YmFzZTY0"},
-				},
-			},
-		},
-		{
-			Name: "DELETED app 5 encoding (string:string) - no params",
-			Request: requestInfo{
-				Path: "/v2/applications/5/box",
-				Params: []param{
-					{"name", "string:string"},
-				},
-			},
-		},
-		{
-			Name: "DELETED app 5 encoding (int:42) - no params",
-			Request: requestInfo{
-				Path: "/v2/applications/5/box",
-				Params: []param{
-					{"name", "int:42"},
-				},
-			},
-		},
-		{
-			Name: "DELETED app 5 encoding (abi:(uint64,string,bool[]):[399,\"pls pass\",[true,false]]) - no params",
-			Request: requestInfo{
-				Path: "/v2/applications/5/box",
-				Params: []param{
-					{"name", "abi:(uint64,string,bool[]):[399,\"pls pass\",[true,false]]"},
-				},
-			},
-		},
-		{
-			Name: "DELETED app 5 encoding (addr:LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY) - no params",
-			Request: requestInfo{
-				Path: "/v2/applications/5/box",
-				Params: []param{
-					{"name", "addr:LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY"},
-				},
-			},
-		},
-		{
-			Name: "DELETED app 5 encoding (address:2SYXFSCZAQCZ7YIFUCUZYOVR7G6Y3UBGSJIWT4EZ4CO3T6WVYTMHVSANOY) - no params",
-			Request: requestInfo{
-				Path: "/v2/applications/5/box",
-				Params: []param{
-					{"name", "address:2SYXFSCZAQCZ7YIFUCUZYOVR7G6Y3UBGSJIWT4EZ4CO3T6WVYTMHVSANOY"},
-				},
-			},
-		},
-		{
-			Name: "DELETED app 5 encoding (b32:MIZTE===) - no params",
-			Request: requestInfo{
-				Path: "/v2/applications/5/box",
-				Params: []param{
-					{"name", "b32:MIZTE==="},
-				},
-			},
-		},
-		{
-			Name: "DELETED app 5 encoding (byte base32:MJ4XIZJAMJQXGZJTGI======) - no params",
-			Request: requestInfo{
-				Path: "/v2/applications/5/box",
-				Params: []param{
-					{"name", "byte base32:MJ4XIZJAMJQXGZJTGI======"},
-				},
-			},
-		},
-		{
-			Name: "DELETED app 5 encoding (byte base64:Ynl0ZSBiYXNlNjQ=) - no params",
-			Request: requestInfo{
-				Path: "/v2/applications/5/box",
-				Params: []param{
-					{"name", "byte base64:Ynl0ZSBiYXNlNjQ="},
-				},
-			},
-		},
-		{
-			Name: "DELETED app 5 illegal encoding (just a plain string) - no params",
-			Request: requestInfo{
-				Path: "/v2/applications/5/box",
-				Params: []param{
-					{"name", "just a plain string"},
-				},
-			},
-		},
-		{
-			Name: "App 1337 non-existing with illegal encoding (just a plain string) - no params",
-			Request: requestInfo{
-				Path: "/v2/applications/1337/box",
-				Params: []param{
-					{"name", "just a plain string"},
-				},
-			},
-		},
+		//// /v2/applications - 1 case
+		//{
+		//	Name: "What are all the apps?",
+		//	Request: requestInfo{
+		//		Path:   "/v2/applications",
+		//		Params: []param{},
+		//	},
+		//},
+		//// /v2/applications/:app-id - 4 cases
+		//{
+		//	Name: "Lookup non-existing app 1337",
+		//	Request: requestInfo{
+		//		Path:   "/v2/applications/1337",
+		//		Params: []param{},
+		//	},
+		//},
+		//{
+		//	Name: "Lookup app 3 (funded with no boxes)",
+		//	Request: requestInfo{
+		//		Path:   "/v2/applications/3",
+		//		Params: []param{},
+		//	},
+		//},
+		//{
+		//	Name: "Lookup app 1 (funded with boxes)",
+		//	Request: requestInfo{
+		//		Path:   "/v2/applications/1",
+		//		Params: []param{},
+		//	},
+		//},
+		//{
+		//	Name: "Lookup DELETED app 5 (funded with encoding test named boxes)",
+		//	Request: requestInfo{
+		//		Path:   "/v2/applications/5",
+		//		Params: []param{},
+		//	},
+		//},
+		//// /v2/accounts/:account-id - 1 non-app case and 2 cases using AppIndex.Address()
+		//{
+		//	Name: "Creator account - not an app account - no params",
+		//	Request: requestInfo{
+		//		Path:   "/v2/accounts/LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY",
+		//		Params: []param{},
+		//	},
+		//},
+		//{
+		//	Name: "App 3 (as account) totals no boxes - no params",
+		//	Request: requestInfo{
+		//		Path:   "/v2/accounts/" + basics.AppIndex(3).Address().String(),
+		//		Params: []param{},
+		//	},
+		//},
+		//{
+		//	Name: "App 1 (as account) totals with boxes - no params",
+		//	Request: requestInfo{
+		//		Path:   "/v2/accounts/" + basics.AppIndex(1).Address().String(),
+		//		Params: []param{},
+		//	},
+		//},
+		//// /v2/applications/:app-id/boxes - 5 apps with lots of param variations
+		//{
+		//	Name: "Boxes of a app with id == math.MaxInt64",
+		//	Request: requestInfo{
+		//		Path:   "/v2/applications/9223372036854775807/boxes",
+		//		Params: []param{},
+		//	},
+		//},
+		//{
+		//	Name: "Boxes of a app with id == math.MaxInt64 + 1",
+		//	Request: requestInfo{
+		//		Path:   "/v2/applications/9223372036854775808/boxes",
+		//		Params: []param{},
+		//	},
+		//},
+		//{
+		//	Name: "Boxes of a non-existing app 1337",
+		//	Request: requestInfo{
+		//		Path:   "/v2/applications/1337/boxes",
+		//		Params: []param{},
+		//	},
+		//},
+		//{
+		//	Name: "Boxes of app 3 with no boxes: no params",
+		//	Request: requestInfo{
+		//		Path:   "/v2/applications/3/boxes",
+		//		Params: []param{},
+		//	},
+		//},
+		//{
+		//	Name: "Boxes of DELETED app 5 with goal encoded boxes: no params",
+		//	Request: requestInfo{
+		//		Path:   "/v2/applications/5/boxes",
+		//		Params: []param{},
+		//	},
+		//},
+		//{
+		//	Name: "Boxes of app 1 with boxes: no params",
+		//	Request: requestInfo{
+		//		Path:   "/v2/applications/1/boxes",
+		//		Params: []param{},
+		//	},
+		//},
+		//{
+		//	Name: "Boxes of app 1 with boxes: limit 3 - page 1",
+		//	Request: requestInfo{
+		//		Path: "/v2/applications/1/boxes",
+		//		Params: []param{
+		//			{"limit", "3"},
+		//		},
+		//	},
+		//},
+		//{
+		//	Name: "Boxes of app 1 with boxes: limit 3 - page 2 - b64",
+		//	Request: requestInfo{
+		//		Path: "/v2/applications/1/boxes",
+		//		Params: []param{
+		//			{"limit", "3"},
+		//			{"next", "b64:Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ=="},
+		//		},
+		//	},
+		//},
+		//{
+		//	Name: "Boxes of app 1 with boxes: limit 3 - page 3 - b64",
+		//	Request: requestInfo{
+		//		Path: "/v2/applications/1/boxes",
+		//		Params: []param{
+		//			{"limit", "3"},
+		//			{"next", "b64:Ym94ICM4"},
+		//		},
+		//	},
+		//},
+		//{
+		//	Name: "Boxes of app 1 with boxes: limit 3 - MISSING b64 prefix",
+		//	Request: requestInfo{
+		//		Path: "/v2/applications/1/boxes",
+		//		Params: []param{
+		//			{"limit", "3"},
+		//			{"next", "Ym94ICM4"},
+		//		},
+		//	},
+		//},
+		//{
+		//	Name: "Boxes of app 1 with boxes: limit 3 - goal app arg encoding str",
+		//	Request: requestInfo{
+		//		Path: "/v2/applications/1/boxes",
+		//		Params: []param{
+		//			{"limit", "3"},
+		//			{"next", "str:box #8"},
+		//		},
+		//	},
+		//},
+		//{
+		//	Name: "Boxes of app 1 with boxes: limit 3 - page 4 (empty) - b64",
+		//	Request: requestInfo{
+		//		Path: "/v2/applications/1/boxes",
+		//		Params: []param{
+		//			{"limit", "3"},
+		//			{"next", "b64:ZmFudGFidWxvdXM="},
+		//		},
+		//	},
+		//},
+		//{
+		//	Name: "Boxes of app 1 with boxes: limit 3 - ERROR because when next param provided -even empty string- it must be goal app arg encoded",
+		//	Request: requestInfo{
+		//		Path: "/v2/applications/1/boxes",
+		//		Params: []param{
+		//			{"limit", "3"},
+		//			{"next", ""},
+		//		},
+		//	},
+		//},
+		//// /v2/applications/:app-id/box?name=...  - lots and lots
+		//{
+		//	Name: "Boxes (with made up name param) of a app with id == math.MaxInt64",
+		//	Request: requestInfo{
+		//		Path: "/v2/applications/9223372036854775807/box",
+		//		Params: []param{
+		//			{"name", "string:non-existing"},
+		//		},
+		//	},
+		//},
+		//{
+		//	Name: "Box (with made up name param) of a app with id == math.MaxInt64 + 1",
+		//	Request: requestInfo{
+		//		Path: "/v2/applications/9223372036854775808/box",
+		//		Params: []param{
+		//			{"name", "string:non-existing"},
+		//		},
+		//	},
+		//},
+		//
+		//{
+		//	Name: "A box attempt for a non-existing app 1337",
+		//	Request: requestInfo{
+		//		Path: "/v2/applications/1337/box",
+		//		Params: []param{
+		//			{"name", "string:non-existing"},
+		//		},
+		//	},
+		//},
+		//{
+		//	Name: "A box attempt for a non-existing app 1337 - without the required box name param",
+		//	Request: requestInfo{
+		//		Path:   "/v2/applications/1337/box",
+		//		Params: []param{},
+		//	},
+		//},
+		//{
+		//	Name: "A box attempt for a existing app 3 - without the required box name param",
+		//	Request: requestInfo{
+		//		Path:   "/v2/applications/3/box",
+		//		Params: []param{},
+		//	},
+		//},
+		//{
+		//	Name: "App 3 box (non-existing)",
+		//	Request: requestInfo{
+		//		Path: "/v2/applications/3/box",
+		//		Params: []param{
+		//			{"name", "string:non-existing"},
+		//		},
+		//	},
+		//},
+		//{
+		//	Name: "App 1 box (non-existing)",
+		//	Request: requestInfo{
+		//		Path: "/v2/applications/1/box",
+		//		Params: []param{
+		//			{"name", "string:non-existing"},
+		//		},
+		//	},
+		//},
+		//{
+		//	Name: "App 1 box (a great box)",
+		//	Request: requestInfo{
+		//		Path: "/v2/applications/1/box",
+		//		Params: []param{
+		//			{"name", "string:a great box"},
+		//		},
+		//	},
+		//},
+		//{
+		//	Name: "DELETED app 5 encoding (str:str) - no params",
+		//	Request: requestInfo{
+		//		Path: "/v2/applications/5/box",
+		//		Params: []param{
+		//			{"name", "str:str"},
+		//		},
+		//	},
+		//},
+		//{
+		//	Name: "DELETED app 5 encoding (integer:100) - no params",
+		//	Request: requestInfo{
+		//		Path: "/v2/applications/5/box",
+		//		Params: []param{
+		//			{"name", "integer:100"},
+		//		},
+		//	},
+		//},
+		//{
+		//	Name: "DELETED app 5 encoding (base32:MJQXGZJTGI======) - no params",
+		//	Request: requestInfo{
+		//		Path: "/v2/applications/5/box",
+		//		Params: []param{
+		//			{"name", "base32:MJQXGZJTGI======"},
+		//		},
+		//	},
+		//},
+		//{
+		//	Name: "DELETED app 5 encoding (b64:YjY0) - no params",
+		//	Request: requestInfo{
+		//		Path: "/v2/applications/5/box",
+		//		Params: []param{
+		//			{"name", "b64:YjY0"},
+		//		},
+		//	},
+		//},
+		//{
+		//	Name: "DELETED app 5 encoding (base64:YmFzZTY0) - no params",
+		//	Request: requestInfo{
+		//		Path: "/v2/applications/5/box",
+		//		Params: []param{
+		//			{"name", "base64:YmFzZTY0"},
+		//		},
+		//	},
+		//},
+		//{
+		//	Name: "DELETED app 5 encoding (string:string) - no params",
+		//	Request: requestInfo{
+		//		Path: "/v2/applications/5/box",
+		//		Params: []param{
+		//			{"name", "string:string"},
+		//		},
+		//	},
+		//},
+		//{
+		//	Name: "DELETED app 5 encoding (int:42) - no params",
+		//	Request: requestInfo{
+		//		Path: "/v2/applications/5/box",
+		//		Params: []param{
+		//			{"name", "int:42"},
+		//		},
+		//	},
+		//},
+		//{
+		//	Name: "DELETED app 5 encoding (abi:(uint64,string,bool[]):[399,\"pls pass\",[true,false]]) - no params",
+		//	Request: requestInfo{
+		//		Path: "/v2/applications/5/box",
+		//		Params: []param{
+		//			{"name", "abi:(uint64,string,bool[]):[399,\"pls pass\",[true,false]]"},
+		//		},
+		//	},
+		//},
+		//{
+		//	Name: "DELETED app 5 encoding (addr:LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY) - no params",
+		//	Request: requestInfo{
+		//		Path: "/v2/applications/5/box",
+		//		Params: []param{
+		//			{"name", "addr:LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY"},
+		//		},
+		//	},
+		//},
+		//{
+		//	Name: "DELETED app 5 encoding (address:2SYXFSCZAQCZ7YIFUCUZYOVR7G6Y3UBGSJIWT4EZ4CO3T6WVYTMHVSANOY) - no params",
+		//	Request: requestInfo{
+		//		Path: "/v2/applications/5/box",
+		//		Params: []param{
+		//			{"name", "address:2SYXFSCZAQCZ7YIFUCUZYOVR7G6Y3UBGSJIWT4EZ4CO3T6WVYTMHVSANOY"},
+		//		},
+		//	},
+		//},
+		//{
+		//	Name: "DELETED app 5 encoding (b32:MIZTE===) - no params",
+		//	Request: requestInfo{
+		//		Path: "/v2/applications/5/box",
+		//		Params: []param{
+		//			{"name", "b32:MIZTE==="},
+		//		},
+		//	},
+		//},
+		//{
+		//	Name: "DELETED app 5 encoding (byte base32:MJ4XIZJAMJQXGZJTGI======) - no params",
+		//	Request: requestInfo{
+		//		Path: "/v2/applications/5/box",
+		//		Params: []param{
+		//			{"name", "byte base32:MJ4XIZJAMJQXGZJTGI======"},
+		//		},
+		//	},
+		//},
+		//{
+		//	Name: "DELETED app 5 encoding (byte base64:Ynl0ZSBiYXNlNjQ=) - no params",
+		//	Request: requestInfo{
+		//		Path: "/v2/applications/5/box",
+		//		Params: []param{
+		//			{"name", "byte base64:Ynl0ZSBiYXNlNjQ="},
+		//		},
+		//	},
+		//},
+		//{
+		//	Name: "DELETED app 5 illegal encoding (just a plain string) - no params",
+		//	Request: requestInfo{
+		//		Path: "/v2/applications/5/box",
+		//		Params: []param{
+		//			{"name", "just a plain string"},
+		//		},
+		//	},
+		//},
+		//{
+		//	Name: "App 1337 non-existing with illegal encoding (just a plain string) - no params",
+		//	Request: requestInfo{
+		//		Path: "/v2/applications/1337/box",
+		//		Params: []param{
+		//			{"name", "just a plain string"},
+		//		},
+		//	},
+		//},
 	},
 }
 

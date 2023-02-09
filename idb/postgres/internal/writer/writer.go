@@ -285,15 +285,15 @@ func writeAccountDeltas(round sdk.Round, accountDeltas *sdk.AccountDeltas, sigty
 
 	// Update `asset` and `account_asset` tables.
 	{
-		for _, assetResource := range accountDeltas.AssetResources {
-			writeAssetResource(round, &assetResource, batch)
+		for i := range accountDeltas.AssetResources {
+			writeAssetResource(round, &accountDeltas.AssetResources[i], batch)
 		}
 	}
 
 	// Update `app` and `account_app` tables.
 	{
-		for _, appResource := range accountDeltas.AppResources {
-			writeAppResource(round, &appResource, batch)
+		for i := range accountDeltas.AppResources {
+			writeAppResource(round, &accountDeltas.AppResources[i], batch)
 		}
 	}
 
