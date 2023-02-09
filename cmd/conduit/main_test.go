@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,7 +12,6 @@ import (
 
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/pipeline"
-	"github.com/algorand/indexer/loggers"
 )
 
 // TestInitDataDirectory tests the initialization of the data directory
@@ -40,9 +38,7 @@ func TestInitDataDirectory(t *testing.T) {
 
 func TestBanner(t *testing.T) {
 	test := func(t *testing.T, hideBanner bool) {
-		// Install test logger.
-		var logbuilder strings.Builder
-		loggerManager = loggers.MakeLoggerManager(&logbuilder)
+		// Capture stdout.
 		stdout := os.Stdout
 		defer func() {
 			os.Stdout = stdout
@@ -83,5 +79,58 @@ func TestBanner(t *testing.T) {
 
 	t.Run("Banner_shown", func(t *testing.T) {
 		test(t, false)
+	})
+}
+
+func TestLogFile(t *testing.T) {
+	// returns stdout
+	test := func(t *testing.T, logfile string) ([]byte, error) {
+		// Capture stdout.
+		stdout := os.Stdout
+		defer func() {
+			os.Stdout = stdout
+		}()
+		stdoutFilePath := path.Join(t.TempDir(), "stdout.txt")
+		f, err := os.Create(stdoutFilePath)
+		require.NoError(t, err)
+		defer f.Close()
+		os.Stdout = f
+
+		cfg := pipeline.Config{
+			LogFile:     logfile,
+			ConduitArgs: &conduit.Args{ConduitDataDir: t.TempDir()},
+			Importer:    pipeline.NameConfigPair{Name: "test", Config: map[string]interface{}{"a": "a"}},
+			Processors:  nil,
+			Exporter:    pipeline.NameConfigPair{Name: "test", Config: map[string]interface{}{"a": "a"}},
+		}
+		data, err := yaml.Marshal(&cfg)
+		require.NoError(t, err)
+		configFile := path.Join(cfg.ConduitArgs.ConduitDataDir, conduit.DefaultConfigName)
+		os.WriteFile(configFile, data, 0755)
+		require.FileExists(t, configFile)
+
+		err = runConduitCmdWithConfig(cfg.ConduitArgs)
+		return os.ReadFile(stdoutFilePath)
+	}
+
+	// logging to stdout
+	t.Run("conduit-logging-stdout", func(t *testing.T) {
+		data, err := test(t, "")
+		require.NoError(t, err)
+		dataStr := string(data)
+		require.Contains(t, dataStr, "{")
+	})
+
+	// logging to file
+	t.Run("conduit-logging-file", func(t *testing.T) {
+		logfile := path.Join(t.TempDir(), "logfile.txt")
+		data, err := test(t, logfile)
+		require.NoError(t, err)
+		dataStr := string(data)
+		require.NotContains(t, dataStr, "{")
+		logdata, err := os.ReadFile(logfile)
+		require.NoError(t, err)
+		logdataStr := string(logdata)
+		require.Contains(t, logdataStr, "{")
 	})
 }
