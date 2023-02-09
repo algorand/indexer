@@ -6,9 +6,6 @@ import (
 
 	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/crypto"
-	"github.com/algorand/go-algorand/crypto/merklesignature"
-	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	itypes "github.com/algorand/indexer/types"
 	"github.com/stretchr/testify/assert"
@@ -375,12 +372,14 @@ func TestSignedTxnWithADEncoding(t *testing.T) {
 // Test that encoding of AccountData is as expected and that decoding results in the
 // same object.
 func TestAccountDataEncoding(t *testing.T) {
-	var addr basics.Address
+	var addr sdk.Address
 	addr[0] = 3
 
-	ad := basics.AccountData{
-		MicroAlgos: basics.MicroAlgos{Raw: 22},
-		AuthAddr:   addr,
+	ad := sdk.AccountData{
+		AccountBaseData: sdk.AccountBaseData{
+			MicroAlgos: 22,
+			AuthAddr:   addr,
+		},
 	}
 
 	buf := EncodeTrimmedAccountData(ad)
@@ -396,11 +395,11 @@ func TestAccountDataEncoding(t *testing.T) {
 // Test that encoding of AppLocalState is as expected and that decoding results in the
 // same object.
 func TestAppLocalStateEncoding(t *testing.T) {
-	state := basics.AppLocalState{
-		Schema: basics.StateSchema{
+	state := sdk.AppLocalState{
+		Schema: sdk.StateSchema{
 			NumUint: 2,
 		},
-		KeyValue: map[string]basics.TealValue{
+		KeyValue: map[string]sdk.TealValue{
 			string([]byte{0xff}): { // try a non-utf8 key
 				Type: 3,
 			},
@@ -420,9 +419,9 @@ func TestAppLocalStateEncoding(t *testing.T) {
 // Test that encoding of AppLocalState is as expected and that decoding results in the
 // same object.
 func TestAppParamsEncoding(t *testing.T) {
-	params := basics.AppParams{
+	params := sdk.AppParams{
 		ApprovalProgram: []byte{0xff}, // try a non-utf8 key
-		GlobalState: map[string]basics.TealValue{
+		GlobalState: map[string]sdk.TealValue{
 			string([]byte{0xff}): { // try a non-utf8 key
 				Type: 3,
 			},
@@ -527,23 +526,23 @@ func TestNetworkStateEncoding(t *testing.T) {
 // Test that encoding of ledgercore.AccountData is as expected and that decoding
 // results in the same object.
 func TestLcAccountDataEncoding(t *testing.T) {
-	var authAddr basics.Address
+	var authAddr sdk.Address
 	authAddr[0] = 6
 
-	var voteID crypto.OneTimeSignatureVerifier
+	var voteID sdk.OneTimeSignatureVerifier
 	voteID[0] = 14
 
-	var selectionID crypto.VRFVerifier
+	var selectionID sdk.VRFVerifier
 	selectionID[0] = 15
 
-	var stateProofID merklesignature.Commitment
+	var stateProofID sdk.Commitment
 	stateProofID[0] = 19
 
-	ad := ledgercore.AccountData{
-		AccountBaseData: ledgercore.AccountBaseData{
-			Status:   basics.Online,
+	ad := sdk.AccountData{
+		AccountBaseData: sdk.AccountBaseData{
+			Status:   1,
 			AuthAddr: authAddr,
-			TotalAppSchema: basics.StateSchema{
+			TotalAppSchema: sdk.StateSchema{
 				NumUint:      7,
 				NumByteSlice: 8,
 			},
@@ -555,7 +554,7 @@ func TestLcAccountDataEncoding(t *testing.T) {
 			TotalBoxes:          20,
 			TotalBoxBytes:       21,
 		},
-		VotingData: ledgercore.VotingData{
+		VotingData: sdk.VotingData{
 			VoteID:          voteID,
 			SelectionID:     selectionID,
 			StateProofID:    stateProofID,
@@ -594,7 +593,7 @@ func structFields(theStruct interface{}, skip map[string]bool, names map[string]
 	}
 }
 
-// Test that all fields in go-algorand's AccountBaseData are either in local baseAccountData
+// Test that all fields in go-algorand's AccountBaseData are either in local BaseAccountData
 // or are accounted for explicitly in "skip"
 func TestBaseAccountDataVersusAccountBaseDataParity(t *testing.T) {
 

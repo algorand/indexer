@@ -2,6 +2,8 @@ package test
 
 import (
 	"context"
+	"crypto/sha512"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -157,4 +159,16 @@ func ReadValidatedBlockFromFile(filename string) (types.LegercoreValidatedBlock,
 	dat, _ := os.ReadFile(filename)
 	err := msgpack.Decode(dat, &vb)
 	return vb, err
+}
+
+// AppAddress generates Address for the given appID
+func AppAddress(app sdk.AppIndex) sdk.Address {
+	hashid := "appID"
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, uint64(app))
+	b := []byte(hashid)
+	b = append(b, buf...)
+	account := sha512.Sum512_256(b)
+
+	return account
 }

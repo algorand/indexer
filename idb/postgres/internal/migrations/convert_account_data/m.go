@@ -4,20 +4,19 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
-
 	"github.com/jackc/pgx/v4"
 
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
+
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 type aad struct {
-	address            basics.Address
-	trimmedAccountData basics.AccountData
+	address            sdk.Address
+	trimmedAccountData sdk.AccountData
 }
 
-func getAccounts(tx pgx.Tx, batchSize uint, lastAddress *basics.Address) ([]aad, error) {
+func getAccounts(tx pgx.Tx, batchSize uint, lastAddress *sdk.Address) ([]aad, error) {
 	var rows pgx.Rows
 	var err error
 	if lastAddress == nil {
@@ -58,10 +57,10 @@ func getAccounts(tx pgx.Tx, batchSize uint, lastAddress *basics.Address) ([]aad,
 	return res, nil
 }
 
-func computeLcAccountData(tx pgx.Tx, accounts []aad) ([]ledgercore.AccountData, error) {
-	res := make([]ledgercore.AccountData, 0, len(accounts))
+func computeLcAccountData(tx pgx.Tx, accounts []aad) ([]sdk.AccountData, error) {
+	res := make([]sdk.AccountData, 0, len(accounts))
 	for i := range accounts {
-		res = append(res, ledgercore.ToAccountData(accounts[i].trimmedAccountData))
+		res = append(res, accounts[i].trimmedAccountData)
 	}
 
 	var batch pgx.Batch
@@ -122,12 +121,12 @@ func computeLcAccountData(tx pgx.Tx, accounts []aad) ([]ledgercore.AccountData, 
 	return res, nil
 }
 
-func writeLcAccountData(tx pgx.Tx, accounts []aad, lcAccountData []ledgercore.AccountData) error {
+func writeLcAccountData(tx pgx.Tx, accounts []aad, sdkAccountData []sdk.AccountData) error {
 	var batch pgx.Batch
 	for i := range accounts {
 		query := "UPDATE account SET account_data = $1 WHERE addr = $2"
 		batch.Queue(
-			query, encoding.EncodeTrimmedLcAccountData(lcAccountData[i]),
+			query, encoding.EncodeTrimmedLcAccountData(sdkAccountData[i]),
 			accounts[i].address[:])
 	}
 

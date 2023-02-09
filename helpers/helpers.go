@@ -1,7 +1,6 @@
 package helpers
 
 import (
-	"encoding/base64"
 	"fmt"
 
 	"github.com/algorand/indexer/protocol"
@@ -38,12 +37,11 @@ func ConvertParams(params basics.AssetParams) sdk.AssetParams {
 // ConvertValidatedBlock converts ledgercore.ValidatedBlock to types.ValidatedBlock
 func ConvertValidatedBlock(vb ledgercore.ValidatedBlock) (types.ValidatedBlock, error) {
 	var ret types.ValidatedBlock
-	b64data := base64.StdEncoding.EncodeToString(msgpack.Encode(vb.Block()))
-	err := ret.Block.FromBase64String(b64data)
+	b := msgpack.Encode(vb.Block())
+	err := msgpack.Decode(b, &ret)
 	if err != nil {
 		return ret, fmt.Errorf("ConvertValidatedBlock err: %v", err)
 	}
-	ret.Delta = vb.Delta()
 	return ret, nil
 }
 
