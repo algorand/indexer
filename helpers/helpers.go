@@ -37,11 +37,22 @@ func ConvertParams(params basics.AssetParams) sdk.AssetParams {
 // ConvertValidatedBlock converts ledgercore.ValidatedBlock to types.ValidatedBlock
 func ConvertValidatedBlock(vb ledgercore.ValidatedBlock) (types.ValidatedBlock, error) {
 	var ret types.ValidatedBlock
+	var block sdk.Block
+	var delta sdk.LedgerStateDelta
+	// block
 	b := msgpack.Encode(vb.Block())
-	err := msgpack.Decode(b, &ret)
+	err := msgpack.Decode(b, &block)
 	if err != nil {
-		return ret, fmt.Errorf("ConvertValidatedBlock err: %v", err)
+		return ret, fmt.Errorf("ConvertValidatedBlock block err: %v", err)
 	}
+	//delta
+	d := msgpack.Encode(vb.Delta())
+	err = msgpack.Decode(d, &delta)
+	if err != nil {
+		return ret, fmt.Errorf("ConvertValidatedBlock delta err: %v", err)
+	}
+	ret.Block = block
+	ret.Delta = delta
 	return ret, nil
 }
 
