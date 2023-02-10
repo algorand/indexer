@@ -365,9 +365,32 @@ func DecodeSignedTxnWithAD(data []byte) (sdk.SignedTxnWithAD, error) {
 }
 
 func unconvertTrimmedAccountData(ad trimmedAccountData) sdk.AccountData {
-	res := ad.AccountData
-	res.AuthAddr = sdk.Address(ad.AuthAddrOverride)
-	return res
+	return sdk.AccountData{
+		AccountBaseData: sdk.AccountBaseData{
+			Status:              ad.Status,
+			MicroAlgos:          sdk.MicroAlgos(ad.MicroAlgos),
+			RewardsBase:         ad.RewardsBase,
+			RewardedMicroAlgos:  sdk.MicroAlgos(ad.RewardedMicroAlgos),
+			AuthAddr:            sdk.Address(ad.AuthAddr),
+			TotalAppSchema:      ad.TotalAppSchema,
+			TotalExtraAppPages:  ad.TotalExtraAppPages,
+			TotalAppParams:      ad.TotalAppParams,
+			TotalAppLocalStates: ad.TotalAppLocalStates,
+			TotalAssetParams:    ad.TotalAssetParams,
+			TotalAssets:         ad.TotalAssets,
+			TotalBoxes:          ad.TotalBoxes,
+			TotalBoxBytes:       ad.TotalBoxBytes,
+		},
+		VotingData: sdk.VotingData{
+			VoteID:          ad.VoteID,
+			SelectionID:     ad.SelectionID,
+			StateProofID:    ad.StateProofID,
+			VoteFirstValid:  ad.VoteFirstValid,
+			VoteLastValid:   ad.VoteLastValid,
+			VoteKeyDilution: ad.VoteKeyDilution,
+		},
+	}
+
 }
 
 // DecodeTrimmedAccountData decodes account data from json.

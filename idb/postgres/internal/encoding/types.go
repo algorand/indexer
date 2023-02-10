@@ -79,8 +79,11 @@ type signedTxnWithAD struct {
 }
 
 type trimmedAccountData struct {
-	sdk.AccountData
-	AuthAddrOverride sdk.Digest `codec:"spend"`
+	baseAccountData
+	AuthAddrOverride   sdk.Digest `codec:"spend"`
+	MicroAlgos         uint64     `codec:"algo"`
+	RewardsBase        uint64     `codec:"ebase"`
+	RewardedMicroAlgos uint64     `codec:"ern"`
 }
 
 type tealValue struct {
