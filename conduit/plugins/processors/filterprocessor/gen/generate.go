@@ -3,18 +3,40 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"github.com/algorand/go-algorand/data/transactions"
 	"go/format"
 	"os"
 	"reflect"
 	"sort"
 	"strings"
-
-	"github.com/algorand/go-algorand/data/transactions"
 )
+
+const InputName = "input"
+
+type StructField struct {
+	Tag      string
+	Path     string
+	CastPre  string
+	CastPost string
+}
+
+func (sf StructField) toReturnValue(varName string) string {
+	return fmt.Sprintf("%s(%s.%s)%s", sf.CastPre, varName, sf.Path, sf.CastPost)
+}
+
+func Cast(t reflect.StructField) (pre string, post string, err error) {
+	return
+}
+
+func getFields(theStruct interface{}) map[string]StructField {
+	output := make(map[string]StructField)
+	recursiveTagFields(transactions.SignedTxnInBlock{}, output, nil, nil)
+	return output
+}
 
 // recursiveTagFields recursively gets all field names in a struct
 // Output will contain a key of the full tag along with the fully qualified struct
-func recursiveTagFields(theStruct interface{}, output map[string]string, tagLevel []string, fieldLevel []string) {
+func recursiveTagFields(theStruct interface{}, output map[string]StructField, tagLevel []string, fieldLevel []string) {
 	rStruct := reflect.TypeOf(theStruct)
 	numFields := rStruct.NumField()
 	for i := 0; i < numFields; i++ {
@@ -35,7 +57,16 @@ func recursiveTagFields(theStruct interface{}, output map[string]string, tagLeve
 			}
 
 			fullTag := strings.Join(append(tagLevel, tagValue), ".")
-			output[fullTag] = strings.Join(append(fieldLevel, name), ".")
+			sf := StructField{
+				Tag:  fullTag,
+				Path: strings.Join(append(fieldLevel, name), "."),
+			}
+			var err error
+			sf.CastPre, sf.CastPost, err = Cast(field)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Problem casting %s: %s\n", fullTag, err)
+			}
+			output[fullTag] = sf
 		}
 
 		if field.Type.Kind() == reflect.Struct {
@@ -49,6 +80,50 @@ func recursiveTagFields(theStruct interface{}, output map[string]string, tagLeve
 		}
 	}
 }
+
+const template = `// Code generated via go generate. DO NOT EDIT.
+
+package %s
+
+import (
+"fmt"
+
+"github.com/algorand/go-algorand/data/transactions"
+)
+
+// LookupFieldByTagj takes a tag and associated SignedTxnInBlock and returns the value 
+// referenced by the tag.  An error is returned if the tag does not exist
+func LookupFieldByTag(tag string, {{ .InputName }} *transactions.SignedTxnInBlock) (interface{}, error) {
+	switch tag {
+{{ range .StructFields }}	case "{{ .Tag }}":
+		return &{{ .Path }}{{ end }}
+	default:
+		return nil, fmt.Errorf(\"unknown tag: %s\", tag)
+	}
+}
+`
+
+/*
+// usage:
+// go run generate.go packagename outputfile
+func main() {
+	var packageName string
+	var outputFilepath string
+
+	if len(os.Args) == 3 {
+		packageName = os.Args[1]
+		outputFilepath = os.Args[2]
+	}
+
+	if packageName == "" {
+		packageName = "NULL"
+	}
+
+	recursiveTagFields(transactions.SignedTxnInBlock{}, output, tagLevel, fieldLevel)
+
+}
+
+*/
 
 // usage:
 // go run generate.go packagename outputfile
@@ -66,11 +141,7 @@ func main() {
 		packageName = "NULL"
 	}
 
-	output := make(map[string]string)
-	tagLevel := []string{}
-	fieldLevel := []string{}
-
-	recursiveTagFields(transactions.SignedTxnInBlock{}, output, tagLevel, fieldLevel)
+	output := getFields(transactions.SignedTxnInBlock{})
 
 	var err error
 	var bb bytes.Buffer
@@ -85,7 +156,7 @@ import (
 "github.com/algorand/go-algorand/data/transactions"
 )
 
-// SignedTxnFunc takes a tag and associated SignedTxnInBlock and returns the value 
+// SignedTxnFunc takes a tag and associated SignedTxnInBlock and returns the value
 // referenced by the tag.  An error is returned if the tag does not exist
 func SignedTxnFunc(tag string, input *transactions.SignedTxnInBlock) (interface{}, error) {
 
@@ -111,7 +182,7 @@ func SignedTxnFunc(tag string, input *transactions.SignedTxnInBlock) (interface{
 	}
 
 	for _, k := range keys {
-		fmt.Fprintf(&bb, "case \"%s\":\nreturn &input.%s, nil\n", k, output[k])
+		fmt.Fprintf(&bb, "case \"%s\":\nreturn &input.%s, nil\n", k, output[k].Path)
 	}
 
 	//nolint:govet
@@ -142,5 +213,4 @@ func SignedTxnFunc(tag string, input *transactions.SignedTxnInBlock) (interface{
 		defer fout.Close()
 		fmt.Fprintf(fout, "%s", outputStr)
 	}
-
 }
