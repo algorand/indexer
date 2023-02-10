@@ -143,6 +143,8 @@ commands:
           command: |
             wget https://raw.githubusercontent.com/algorand/go-algorand/rel/stable/cmd/updater/update.sh && chmod 744 update.sh
             ./update.sh -i -c stable -n -d ./ -p $(go env GOPATH)/bin
+            echo $(go env GOPATH)
+            ls $(go env GOPATH)/bin/
       - run: make e2e
       - run: make e2e-conduit
 
