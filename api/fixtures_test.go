@@ -411,10 +411,10 @@ func validateLiveVsSaved(t *testing.T, seed *fixture, live *fixture) {
 	// sanity check:
 	require.Equal(t, seed.File, saved.File, "unexpected discrepancy in File")
 
-	//numSeedCases, numSavedCases, numLiveCases := len(seed.Cases), len(saved.Cases), len(live.Cases)
-	//require.Equal(t, numSavedCases, numLiveCases, "numSavedCases=%d but numLiveCases=%d", numSavedCases, numLiveCases)
+	numSeedCases, numSavedCases, numLiveCases := len(seed.Cases), len(saved.Cases), len(live.Cases)
+	require.Equal(t, numSavedCases, numLiveCases, "numSavedCases=%d but numLiveCases=%d", numSavedCases, numLiveCases)
 	// sanity check:
-	//require.Equal(t, numSeedCases, numSavedCases, "numSeedCases=%d but numSavedCases=%d", numSeedCases, numSavedCases)
+	require.Equal(t, numSeedCases, numSavedCases, "numSeedCases=%d but numSavedCases=%d", numSeedCases, numSavedCases)
 
 	for i, seedCase := range seed.Cases {
 		savedCase, liveCase := saved.Cases[i], live.Cases[i]
