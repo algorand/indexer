@@ -30,7 +30,7 @@ func insertAccount(t *testing.T, db *pgxpool.Pool, address basics.Address, trimm
 		created_at, account_data) VALUES ($1, 0, 0, 0, false, 0, $2)`
 	_, err := db.Exec(
 		context.Background(), query, address[:],
-		encoding.EncodeTrimmedAccountData(*trimmedAccountData))
+		encoding.EncodeTrimmedLcAccountData(*trimmedAccountData))
 	require.NoError(t, err)
 }
 

@@ -364,59 +364,6 @@ func DecodeSignedTxnWithAD(data []byte) (sdk.SignedTxnWithAD, error) {
 	return unconvertSignedTxnWithAD(stxn), nil
 }
 
-func convertTrimmedAccountData(ad sdk.AccountData) trimmedAccountData {
-	return trimmedAccountData{
-		baseAccountData:    convertTrimmedLcAccountData(ad),
-		MicroAlgos:         uint64(ad.MicroAlgos),
-		RewardsBase:        ad.RewardsBase,
-		RewardedMicroAlgos: uint64(ad.RewardedMicroAlgos),
-	}
-}
-
-func unconvertTrimmedAccountData(ad trimmedAccountData) sdk.AccountData {
-	return sdk.AccountData{
-		AccountBaseData: sdk.AccountBaseData{
-			Status:              ad.Status,
-			MicroAlgos:          sdk.MicroAlgos(ad.MicroAlgos),
-			RewardsBase:         ad.RewardsBase,
-			RewardedMicroAlgos:  sdk.MicroAlgos(ad.RewardedMicroAlgos),
-			AuthAddr:            sdk.Address(ad.AuthAddr),
-			TotalAppSchema:      ad.TotalAppSchema,
-			TotalExtraAppPages:  ad.TotalExtraAppPages,
-			TotalAppParams:      ad.TotalAppParams,
-			TotalAppLocalStates: ad.TotalAppLocalStates,
-			TotalAssetParams:    ad.TotalAssetParams,
-			TotalAssets:         ad.TotalAssets,
-			TotalBoxes:          ad.TotalBoxes,
-			TotalBoxBytes:       ad.TotalBoxBytes,
-		},
-		VotingData: sdk.VotingData{
-			VoteID:          ad.VoteID,
-			SelectionID:     ad.SelectionID,
-			StateProofID:    ad.StateProofID,
-			VoteFirstValid:  ad.VoteFirstValid,
-			VoteLastValid:   ad.VoteLastValid,
-			VoteKeyDilution: ad.VoteKeyDilution,
-		},
-	}
-}
-
-// EncodeTrimmedAccountData encodes account data into json.
-func EncodeTrimmedAccountData(ad sdk.AccountData) []byte {
-	return encodeJSON(convertTrimmedAccountData(ad))
-}
-
-// DecodeTrimmedAccountData decodes account data from json.
-func DecodeTrimmedAccountData(data []byte) (sdk.AccountData, error) {
-	var ado trimmedAccountData // ado - account data with override
-	err := DecodeJSON(data, &ado)
-	if err != nil {
-		return sdk.AccountData{}, err
-	}
-
-	return unconvertTrimmedAccountData(ado), nil
-}
-
 func convertTealValue(tv sdk.TealValue) tealValue {
 	return tealValue{
 		TealValue:     tv,

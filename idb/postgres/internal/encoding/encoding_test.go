@@ -369,29 +369,6 @@ func TestSignedTxnWithADEncoding(t *testing.T) {
 	assert.Equal(t, stxn, newStxn)
 }
 
-// Test that encoding of AccountData is as expected and that decoding results in the
-// same object.
-func TestAccountDataEncoding(t *testing.T) {
-	var addr sdk.Address
-	addr[0] = 3
-
-	ad := sdk.AccountData{
-		AccountBaseData: sdk.AccountBaseData{
-			MicroAlgos: 22,
-			AuthAddr:   addr,
-		},
-	}
-
-	buf := EncodeTrimmedAccountData(ad)
-
-	expectedString := `{"algo":22,"spend":"AwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}`
-	assert.Equal(t, expectedString, string(buf))
-
-	adNew, err := DecodeTrimmedAccountData(buf)
-	require.NoError(t, err)
-	assert.Equal(t, ad, adNew)
-}
-
 // Test that encoding of AppLocalState is as expected and that decoding results in the
 // same object.
 func TestAppLocalStateEncoding(t *testing.T) {
