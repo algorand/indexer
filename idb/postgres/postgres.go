@@ -946,29 +946,18 @@ var statusStrings = []string{"Offline", "Online", "NotParticipating"}
 const offlineStatusIdx = 0
 
 func tealValueToModel(tv sdk.TealValue) models.TealValue {
-	if tv.Type == 1 {
-		return models.TealValue{
-			Bytes: encoding.Base64([]byte(tv.Bytes)),
-			Type:  uint64(tv.Type),
-		}
-	} else if tv.Type == 2 {
+	switch tv.Type {
+	case sdk.TealUintType:
 		return models.TealValue{
 			Uint: tv.Uint,
 			Type: uint64(tv.Type),
 		}
+	case sdk.TealBytesType:
+		return models.TealValue{
+			Bytes: encoding.Base64([]byte(tv.Bytes)),
+			Type:  uint64(tv.Type),
+		}
 	}
-	//switch tv.Type {
-	//case sdk.TealUintType:
-	//	return models.TealValue{
-	//		Uint: tv.Uint,
-	//		Type: uint64(tv.Type),
-	//	}
-	//case sdk.TealBytesType:
-	//	return models.TealValue{
-	//		Bytes: encoding.Base64([]byte(tv.Bytes)),
-	//		Type:  uint64(tv.Type),
-	//	}
-	//}
 	return models.TealValue{}
 }
 

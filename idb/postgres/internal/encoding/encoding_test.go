@@ -593,7 +593,7 @@ func structFields(theStruct interface{}, skip map[string]bool, names map[string]
 	}
 }
 
-// Test that all fields in go-algorand's AccountBaseData are either in local BaseAccountData
+// Test that all fields in go-algorand's AccountBaseData are either in local baseAccountData
 // or are accounted for explicitly in "skip"
 func TestBaseAccountDataVersusAccountBaseDataParity(t *testing.T) {
 
