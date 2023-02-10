@@ -364,6 +364,23 @@ func DecodeSignedTxnWithAD(data []byte) (sdk.SignedTxnWithAD, error) {
 	return unconvertSignedTxnWithAD(stxn), nil
 }
 
+func unconvertTrimmedAccountData(ad trimmedAccountData) sdk.AccountData {
+	res := ad.AccountData
+	res.AuthAddr = sdk.Address(ad.AuthAddrOverride)
+	return res
+}
+
+// DecodeTrimmedAccountData decodes account data from json.
+func DecodeTrimmedAccountData(data []byte) (sdk.AccountData, error) {
+	var ado trimmedAccountData // ado - account data with override
+	err := DecodeJSON(data, &ado)
+	if err != nil {
+		return sdk.AccountData{}, err
+	}
+
+	return unconvertTrimmedAccountData(ado), nil
+}
+
 func convertTealValue(tv sdk.TealValue) tealValue {
 	return tealValue{
 		TealValue:     tv,
