@@ -11,7 +11,38 @@ import (
 	"github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/protocol"
 )
+
+// ignoreTags are things that we specifically want to exclude from the output.
+var ignoreTags = map[string]bool{
+	// no point5 in filtering on signatures
+	"sig":              true,
+	"msig.subsig":      true,
+	"lsig.sig":         true,
+	"lsig.arg":         true,
+	"lsig.l":           true,
+	"lsig.msig.subsig": true,
+	// no point in filtering on keys
+	"txn.votekey": true,
+	"txn.selkey":  true,
+	"txn.sprfkey": true,
+	// no point in filtering on state proof things?
+	"txn.sp.c":       true,
+	"txn.sp.S.pth":   true,
+	"txn.sp.S.hsh.t": true,
+	"txn.sp.P.pth":   true,
+	"txn.sp.P.hsh.t": true,
+	"txn.sp.r":       true,
+	"txn.sp.pr":      true,
+	"txn.spmsg.b":    true,
+	"txn.spmsg.v":    true,
+	// inner transactions are handled differently
+	"dt.itx": true,
+	// might be worth adding map types eventually
+	"dt.gd": true,
+	"dt.ld": true,
+}
 
 type StructField struct {
 	TagPath    string
@@ -57,12 +88,30 @@ func simpleCast(t reflect.StructField) string {
 	case int32:
 		return "int64" //
 	// alias
+	// SDK types
 	case types.MicroAlgos:
 		// SDK microalgo does not need ".Raw"
 		return "uint64"
+	case types.AssetIndex:
+		return "uint64"
+	case types.AppIndex:
+		return "uint64"
+	case types.Round:
+		return "uint64"
+	case types.OnCompletion:
+		return "uint64"
+	case types.StateProofType:
+		return "uint64"
+	// go-algorand types
 	case basics.AssetIndex:
 		return "uint64"
 	case basics.AppIndex:
+		return "uint64"
+	case basics.Round:
+		return "uint64"
+	case transactions.OnCompletion:
+		return "uint64"
+	case protocol.StateProofType:
 		return "uint64"
 
 	}
@@ -89,6 +138,12 @@ func CastParts(t reflect.StructField) (prefix, postfix string, err error) {
 	case bool:
 		prefix = "fmt.Sprintf(\"%t\", "
 		postfix = ")"
+	case types.Address:
+		prefix = ""
+		postfix = ".String()"
+	case basics.Address:
+		prefix = ""
+		postfix = ".String()"
 	default:
 		prefix = "NOT "
 		postfix = " HANDLED"
@@ -112,12 +167,24 @@ func recursiveTagFields(theStruct interface{}, output map[string]StructField, ta
 	for i := 0; i < numFields; i++ {
 		field := rStruct.Field(i)
 		name := field.Name
+		numOutputsBefore := len(output)
 
-		var tagValue string
-		var foundTag bool
-		// If there is a codec tag...
-		if tagValue, foundTag = field.Tag.Lookup("codec"); foundTag {
+		// Lookup codec tag
+		tagValue, foundTag := field.Tag.Lookup("codec")
 
+		if field.Type.Kind() == reflect.Struct {
+			var passedTagLevel []string
+			if foundTag {
+				passedTagLevel = append(tagLevel, tagValue)
+			} else {
+				passedTagLevel = tagLevel
+			}
+			errors = append(errors, recursiveTagFields(reflect.New(field.Type).Elem().Interface(), output, passedTagLevel, append(fieldLevel, name))...)
+		}
+
+		// Add to output if there is a tag, and there were no subtags (i.e. this is a leaf)
+		foundSubtag := numOutputsBefore < len(output)
+		if foundTag && !foundSubtag {
 			vals := strings.Split(tagValue, ",")
 			// Get the first value (the one we care about)
 			tagValue = vals[0]
@@ -127,6 +194,10 @@ func recursiveTagFields(theStruct interface{}, output map[string]StructField, ta
 			}
 
 			fullTag := strings.Join(append(tagLevel, tagValue), ".")
+			if ignoreTags[fullTag] {
+				fmt.Printf("Skipping tag: %s\n", fullTag)
+				continue
+			}
 			sf := StructField{
 				TagPath:   fullTag,
 				FieldPath: strings.Join(append(fieldLevel, name), "."),
@@ -137,16 +208,6 @@ func recursiveTagFields(theStruct interface{}, output map[string]StructField, ta
 				errors = append(errors, fmt.Errorf("problem casting %s: %s", fullTag, err))
 			}
 			output[fullTag] = sf
-		}
-
-		if field.Type.Kind() == reflect.Struct {
-			var passedTagLevel []string
-			if foundTag {
-				passedTagLevel = append(tagLevel, tagValue)
-			} else {
-				passedTagLevel = tagLevel
-			}
-			errors = append(errors, recursiveTagFields(reflect.New(field.Type).Elem().Interface(), output, passedTagLevel, append(fieldLevel, name))...)
 		}
 	}
 	return errors
