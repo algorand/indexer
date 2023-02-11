@@ -55,10 +55,14 @@ func simpleCast(t reflect.StructField) string {
 	case int16:
 		return "int64"
 	case int32:
-		return "int64"
+		return "int64" //
 	// alias
 	case types.MicroAlgos:
 		// SDK microalgo does not need ".Raw"
+		return "uint64"
+	case basics.AssetIndex:
+		return "uint64"
+	case basics.AppIndex:
 		return "uint64"
 
 	}
@@ -78,26 +82,31 @@ func CastParts(t reflect.StructField) (prefix, postfix string, err error) {
 	}
 
 	// all the rest... custom things
-	switch reflect.New(t.Type).Elem().Interface().(type) {
+	switch v := reflect.New(t.Type).Elem().Interface().(type) {
 	case basics.MicroAlgos:
 		prefix = "uint64("
 		postfix = ".Raw)"
+	case bool:
+		prefix = "fmt.Sprintf(\"%t\", "
+		postfix = ")"
 	default:
 		prefix = "NOT "
 		postfix = " HANDLED"
+		err = fmt.Errorf("failed to cast type: %T", v)
 	}
 	return
 }
 
-func getFields(theStruct interface{}) (map[string]StructField, error) {
+func getFields(theStruct interface{}) (map[string]StructField, []error) {
 	output := make(map[string]StructField)
-	err := recursiveTagFields(theStruct, output, nil, nil)
-	return output, err
+	errors := recursiveTagFields(theStruct, output, nil, nil)
+	return output, errors
 }
 
 // recursiveTagFields recursively gets all field names in a struct
 // Output will contain a key of the full tag along with the fully qualified struct
-func recursiveTagFields(theStruct interface{}, output map[string]StructField, tagLevel []string, fieldLevel []string) error {
+func recursiveTagFields(theStruct interface{}, output map[string]StructField, tagLevel []string, fieldLevel []string) []error {
+	var errors []error
 	rStruct := reflect.TypeOf(theStruct)
 	numFields := rStruct.NumField()
 	for i := 0; i < numFields; i++ {
@@ -125,7 +134,7 @@ func recursiveTagFields(theStruct interface{}, output map[string]StructField, ta
 			var err error
 			sf.CastPrefix, sf.CastPost, err = CastParts(field)
 			if err != nil {
-				return fmt.Errorf("problem casting %s: %s", fullTag, err)
+				errors = append(errors, fmt.Errorf("problem casting %s: %s", fullTag, err))
 			}
 			output[fullTag] = sf
 		}
@@ -137,10 +146,10 @@ func recursiveTagFields(theStruct interface{}, output map[string]StructField, ta
 			} else {
 				passedTagLevel = tagLevel
 			}
-			recursiveTagFields(reflect.New(field.Type).Elem().Interface(), output, passedTagLevel, append(fieldLevel, name))
+			errors = append(errors, recursiveTagFields(reflect.New(field.Type).Elem().Interface(), output, passedTagLevel, append(fieldLevel, name))...)
 		}
 	}
-	return nil
+	return errors
 }
 
 const templateStr = `// Code generated via go generate. DO NOT EDIT.
@@ -193,9 +202,12 @@ func main() {
 	}
 
 	// Process fields.
-	fields, err := getFields(transactions.SignedTxnInBlock{})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to get fields for struct: %s", err)
+	fields, errors := getFields(transactions.SignedTxnInBlock{})
+	if len(errors) != 0 {
+		fmt.Fprintln(os.Stderr, "Errors returned while getting struct fields:")
+		for _, err := range errors {
+			fmt.Fprintf(os.Stderr, "  * %s\n", err)
+		}
 		os.Exit(1)
 	}
 
