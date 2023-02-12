@@ -195,7 +195,6 @@ func recursiveTagFields(theStruct interface{}, output map[string]StructField, ta
 
 			fullTag := strings.Join(append(tagLevel, tagValue), ".")
 			if ignoreTags[fullTag] {
-				fmt.Printf("Skipping tag: %s\n", fullTag)
 				continue
 			}
 			sf := StructField{
@@ -228,9 +227,9 @@ import (
 func LookupFieldByTag(tag string, input *transactions.SignedTxnInBlock) (interface{}, error) {
 	switch tag {
 {{ range .StructFields }}	case "{{ .TagPath }}":
-		return {{ ReturnValue . "input" }}
+		return {{ ReturnValue . "input" }}, nil
 {{ end }}default:
-		return nil, fmt.Errorf(\"unknown tag: %s\", tag)
+		return nil, fmt.Errorf("unknown tag: %s", tag)
 	}
 }
 `
