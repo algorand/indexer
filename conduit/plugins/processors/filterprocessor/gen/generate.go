@@ -9,6 +9,7 @@ import (
 	"text/template"
 
 	"github.com/algorand/go-algorand-sdk/v2/types"
+	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/protocol"
@@ -16,7 +17,11 @@ import (
 
 // ignoreTags are things that we specifically want to exclude from the output.
 var ignoreTags = map[string]bool{
-	// no point5 in filtering on signatures
+	// this is a constant
+	"txn.gh": true,
+	// no point to filtering on a lease
+	"txn.lx": true,
+	// no point to filter on signatures
 	"sig":              true,
 	"msig.subsig":      true,
 	"lsig.sig":         true,
@@ -30,8 +35,10 @@ var ignoreTags = map[string]bool{
 	// no point in filtering on state proof things?
 	"txn.sp.c":       true,
 	"txn.sp.S.pth":   true,
+	"txn.sp.S.hsh":   true,
 	"txn.sp.S.hsh.t": true,
 	"txn.sp.P.pth":   true,
+	"txn.sp.P.hsh":   true,
 	"txn.sp.P.hsh.t": true,
 	"txn.sp.r":       true,
 	"txn.sp.pr":      true,
@@ -39,9 +46,20 @@ var ignoreTags = map[string]bool{
 	"txn.spmsg.v":    true,
 	// inner transactions are handled differently
 	"dt.itx": true,
-	// might be worth adding map types eventually
+	// TODO: this can be removed if the sub fields are supported
+	"dt": true,
+	// TODO: support map types?
 	"dt.gd": true,
 	"dt.ld": true,
+	// TODO: support array types?
+	"txn.apaa": true,
+	"txn.apat": true,
+	"txn.apfa": true,
+	"txn.apbx": true,
+	"txn.apas": true,
+	"txn.apap": true,
+	"txn.apsu": true,
+	"dt.lg":    true,
 }
 
 type StructField struct {
@@ -102,6 +120,8 @@ func simpleCast(t reflect.StructField) string {
 		return "uint64"
 	case types.StateProofType:
 		return "uint64"
+	case types.TxType:
+		return "string"
 	// go-algorand types
 	case basics.AssetIndex:
 		return "uint64"
@@ -113,6 +133,8 @@ func simpleCast(t reflect.StructField) string {
 		return "uint64"
 	case protocol.StateProofType:
 		return "uint64"
+	case protocol.TxType:
+		return "string"
 
 	}
 	return ""
@@ -130,20 +152,35 @@ func CastParts(t reflect.StructField) (prefix, postfix string, err error) {
 		return
 	}
 
+	encodeB64 := func() {
+		prefix = "base64.StdEncoding.EncodeToString("
+		postfix = "[:])"
+	}
+
 	// all the rest... custom things
 	switch v := reflect.New(t.Type).Elem().Interface().(type) {
-	case basics.MicroAlgos:
-		prefix = "uint64("
-		postfix = ".Raw)"
 	case bool:
 		prefix = "fmt.Sprintf(\"%t\", "
 		postfix = ")"
+	// go-algorand-sdk types
 	case types.Address:
 		prefix = ""
 		postfix = ".String()"
+	case types.Digest:
+		encodeB64()
+	case []uint8: // note field
+		encodeB64()
+	case [32]uint8: // asset metadata, lease
+		encodeB64()
+	// go-algorand types
+	case basics.MicroAlgos:
+		prefix = "uint64("
+		postfix = ".Raw)"
 	case basics.Address:
 		prefix = ""
 		postfix = ".String()"
+	case crypto.Digest:
+		encodeB64()
 	default:
 		prefix = "NOT "
 		postfix = " HANDLED"
