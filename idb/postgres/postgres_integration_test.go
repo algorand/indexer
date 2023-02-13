@@ -392,7 +392,6 @@ func TestRekeyBasic(t *testing.T) {
 	//	1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountB)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/RekeyBasic.vb")
 	require.NoError(t, err)
-
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 	//////////
@@ -419,7 +418,6 @@ func TestRekeyToItself(t *testing.T) {
 	//	1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountB)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/RekeyToItself.vb")
 	require.NoError(t, err)
-
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
@@ -453,7 +451,6 @@ func TestRekeyThreeTimesInSameRound(t *testing.T) {
 	//	1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountC)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/RekeyThreeTimesInSameRound.vb")
 	require.NoError(t, err)
-
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
@@ -482,10 +479,6 @@ func TestRekeyToItselfHasNotBeenRekeyed(t *testing.T) {
 	//	basics.Address{})
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/RekeyToItselfHasNotBeenRekeyed.vb")
 	require.NoError(t, err)
-
-	//////////
-	// Then // No error when committing to the DB.
-	//////////
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 }
@@ -510,7 +503,6 @@ func TestIgnoreDefaultFrozenConfigUpdate(t *testing.T) {
 	// optin := test.MakeAssetOptInTxn(assetid, test.AccountB)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/IgnoreDefaultFrozenConfigUpdate.vb")
 	require.NoError(t, err)
-
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
@@ -537,7 +529,6 @@ func TestZeroTotalAssetCreate(t *testing.T) {
 	//	test.AccountA)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/ZeroTotalAssetCreate.vb")
 	require.NoError(t, err)
-
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
@@ -591,7 +582,6 @@ func TestDestroyAssetBasic(t *testing.T) {
 	// txn := test.MakeAssetConfigTxn(0, 4, 0, false, "uu", "aa", "", test.AccountA)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/DestroyAssetBasicCreate.vb")
 	require.NoError(t, err)
-
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
@@ -627,7 +617,6 @@ func TestDestroyAssetZeroSupply(t *testing.T) {
 	//txn1 := test.MakeAssetDestroyTxn(assetID, test.AccountA)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/DestroyAssetZeroSupply.vb")
 	require.NoError(t, err)
-
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
@@ -679,7 +668,6 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 	//txn2 := test.MakeAssetDestroyTxn(assetID, test.AccountB)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/DestroyAssetDeleteCreatorsHolding.vb")
 	require.NoError(t, err)
-
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
@@ -718,7 +706,6 @@ func TestAssetFreezeTxnParticipation(t *testing.T) {
 	//freeze := test.MakeAssetFreezeTxn(assetid, true, test.AccountA, test.AccountB)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AssetFreezeTxnParticipation.vb")
 	require.NoError(t, err)
-
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
@@ -755,7 +742,6 @@ func TestInnerTxnParticipation(t *testing.T) {
 	// createApp := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/InnerTxnParticipation.vb")
 	require.NoError(t, err)
-
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
@@ -805,7 +791,6 @@ func TestAppExtraPages(t *testing.T) {
 	const extraPages = 1
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AppExtraPages.vb")
 	require.NoError(t, err)
-
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
@@ -878,7 +863,6 @@ func TestKeytypeBasic(t *testing.T) {
 	//	0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/KeytypeBasicSig.vb")
 	require.NoError(t, err)
-
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
@@ -908,7 +892,6 @@ func TestLargeAssetAmount(t *testing.T) {
 	assetid := uint64(1)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LargeAssetAmount.vb")
 	require.NoError(t, err)
-
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
@@ -1060,7 +1043,6 @@ func TestNonDisplayableUTF8(t *testing.T) {
 			// Test 1: import/accounting should work.
 			vb, err := test.ReadValidatedBlockFromFile(testcase.ValidatedBlockFilePath)
 			require.NoError(t, err)
-
 			err = db.AddBlock(&vb)
 			require.NoError(t, err)
 
@@ -1140,7 +1122,6 @@ func TestReconfigAsset(t *testing.T) {
 	//	0, math.MaxUint64, 0, false, unit, name, url, test.AccountA)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/ReconfigAsset.vb")
 	require.NoError(t, err)
-
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
@@ -1172,7 +1153,6 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 	//	0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/KeytypeResetsOnRekeySig.vb")
 	require.NoError(t, err)
-
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
@@ -1212,7 +1192,6 @@ func TestKeytypeDeletedAccount(t *testing.T) {
 	//	0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, test.AccountB, basics.Address{})
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/KeytypeDeletedAccount.vb")
 	require.NoError(t, err)
-
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
@@ -1352,7 +1331,6 @@ func TestAddBlockCreateDeleteAccountSameRound(t *testing.T) {
 	//	0, 2, 3, 0, 0, 0, test.AccountE, test.AccountB, test.AccountC, basics.Address{})
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AddBlockCreateDeleteAccountSameRound.vb")
 	require.NoError(t, err)
-
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
@@ -1384,7 +1362,6 @@ func TestAddBlockCreateDeleteAssetSameRound(t *testing.T) {
 	// deleteTxn := test.MakeAssetDestroyTxn(assetid, test.AccountA)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AddBlockCreateDeleteAssetSameRound.vb")
 	require.NoError(t, err)
-
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
@@ -1440,7 +1417,6 @@ func TestAddBlockCreateDeleteAppSameRound(t *testing.T) {
 	// deleteTxn := test.MakeAppDestroyTxn(appid, test.AccountA)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AddBlockCreateDeleteAppSameRound.vb")
 	require.NoError(t, err)
-
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
@@ -1473,7 +1449,6 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 	appid := uint64(1)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AddBlockAppOptInOutSameRound.vb")
 	require.NoError(t, err)
-
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
@@ -1750,7 +1725,6 @@ func TestTxnAssetID(t *testing.T) {
 	appid := uint64(3)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/TxnAssetID.vb")
 	require.NoError(t, err)
-
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
@@ -1776,7 +1750,6 @@ func TestBadTxnJsonEncoding(t *testing.T) {
 	// Need to import a block header because the transactions query joins on it.
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BadTxnJsonEncoding.vb")
 	require.NoError(t, err)
-
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
@@ -1845,7 +1818,6 @@ func TestKeytypeDoNotResetReceiver(t *testing.T) {
 	//	0, 0, 0, 0, 0, 0, test.AccountB, test.AccountB, basics.Address{}, basics.Address{})
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/KeytypeDoNotResetReceiver1.vb")
 	require.NoError(t, err)
-
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
@@ -1883,7 +1855,6 @@ func TestAddBlockTxnTxnParticipationAhead(t *testing.T) {
 	//	0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AddBlockTxnTxnParticipationAhead.vb")
 	require.NoError(t, err)
-
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 }
@@ -1897,7 +1868,6 @@ func TestAddBlockTxnParticipationAdded(t *testing.T) {
 	//	0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AddBlockTxnParticipationAdded.vb")
 	require.NoError(t, err)
-
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
@@ -1943,7 +1913,6 @@ func TestTransactionsTxnAhead(t *testing.T) {
 	{
 		vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/TransactionsTxnAhead.vb")
 		require.NoError(t, err)
-
 		err = db.AddBlock(&vb)
 		require.NoError(t, err)
 	}
@@ -2120,7 +2089,6 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 	// txnC := test.MakeAssetTransferTxn(1, 10, test.AccountA, test.AccountB, basics.Address{})
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/TransactionFilterAssetAmount1.vb")
 	require.NoError(t, err)
-
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
@@ -2219,7 +2187,6 @@ func TestDeleteTransactions(t *testing.T) {
 	// add 2 txns for round 5
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/DeleteTransactions.vb")
 	require.NoError(t, err)
-
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
