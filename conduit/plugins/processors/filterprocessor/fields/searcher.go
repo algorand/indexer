@@ -36,16 +36,6 @@ func (f Searcher) search(input transactions.SignedTxnInBlock) (bool, error) {
 
 // checks that the supplied tag exists in the struct and recovers from any panics
 func checkTagAndExpressionExist(expressionType expression.FilterType, tag string) (outError error) {
-	defer func() {
-		// This defer'd function is a belt and suspenders type thing.  We check every reflected
-		// evaluation's IsValid() function to make sure not to operate on a zero value.  Therfore we can't
-		// actually reach inside the if conditional unless we intentionally panic.
-		// However, having this function gives additional safety to a critical function
-		if r := recover(); r != nil {
-			outError = fmt.Errorf("error occurred regarding tag %s - %v", tag, r)
-		}
-	}()
-
 	_, err := LookupFieldByTag(tag, &transactions.SignedTxnInBlock{})
 
 	if err != nil {
