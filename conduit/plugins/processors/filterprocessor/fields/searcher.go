@@ -4,6 +4,7 @@ package fields
 
 import (
 	"fmt"
+
 	"github.com/algorand/indexer/conduit/plugins/processors/filterprocessor/expression"
 
 	"github.com/algorand/go-algorand/data/transactions"
