@@ -1,7 +1,6 @@
 package fields
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -27,7 +26,7 @@ func TestInternalSearch(t *testing.T) {
 
 	var expressionType expression.FilterType = "exact"
 	tag := "sgnr"
-	exp, err := expression.MakeExpression(expressionType, address1.String(), reflect.String)
+	exp, err := expression.MakeExpression(expressionType, address1.String(), "")
 	assert.NoError(t, err)
 	searcher, err := MakeFieldSearcher(exp, expressionType, tag)
 	assert.NoError(t, err)
@@ -64,7 +63,7 @@ func TestMakeFieldSearcher(t *testing.T) {
 	var expressionType expression.FilterType = "exact"
 	tag := "sgnr"
 	sampleExpressionStr := "sample"
-	exp, err := expression.MakeExpression(expressionType, sampleExpressionStr, reflect.String)
+	exp, err := expression.MakeExpression(expressionType, sampleExpressionStr, "")
 	assert.NoError(t, err)
 	searcher, err := MakeFieldSearcher(exp, expressionType, tag)
 	assert.NoError(t, err)

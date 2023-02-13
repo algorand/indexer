@@ -4,8 +4,6 @@ package fields
 
 import (
 	"fmt"
-	"reflect"
-
 	"github.com/algorand/indexer/conduit/plugins/processors/filterprocessor/expression"
 
 	"github.com/algorand/go-algorand/data/transactions"
@@ -27,9 +25,7 @@ func (f Searcher) search(input transactions.SignedTxnInBlock) (bool, error) {
 		return false, err
 	}
 
-	e := reflect.ValueOf(val).Elem()
-
-	b, err := (*f.Exp).Search(e.Interface())
+	b, err := (*f.Exp).Search(val)
 	if err != nil {
 		return false, err
 	}

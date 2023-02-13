@@ -165,7 +165,7 @@ filters:
     - tag: txn.type
       expression-type: less-than 
       expression: 4
-`, "unknown target kind"},
+`, "unknown target type (string) for filter type: less-than"},
 
 		{
 			"illegal 2", `---
@@ -174,7 +174,7 @@ filters:
     - tag: txn.type
       expression-type: less-than-equal
       expression: 4
-`, "unknown target kind"},
+`, "unknown target type (string) for filter type: less-than-equal"},
 
 		{
 			"illegal 3", `---
@@ -183,7 +183,7 @@ filters:
     - tag: txn.type
       expression-type: greater-than 
       expression: 4
-`, "unknown target kind"},
+`, "unknown target type (string) for filter type: greater-than"},
 
 		{
 			"illegal 4", `---
@@ -192,7 +192,7 @@ filters:
     - tag: txn.type
       expression-type: greater-than-equal
       expression: 4
-`, "unknown target kind"},
+`, "unknown target type (string) for filter type: greater-than-equal"},
 
 		{
 			"illegal 4", `---
@@ -201,7 +201,7 @@ filters:
     - tag: txn.type
       expression-type: equal
       expression: 4
-`, "unknown target kind"},
+`, "unknown target type (string) for filter type: equal"},
 
 		{
 			"illegal 5", `---
@@ -210,7 +210,7 @@ filters:
     - tag: txn.type
       expression-type: not-equal
       expression: 4
-`, "unknown target kind"},
+`, "unknown target type (string) for filter type: not-equal"},
 	}
 
 	for _, test := range tests {

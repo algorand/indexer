@@ -2,11 +2,8 @@ package expression
 
 import (
 	"fmt"
-	"reflect"
 	"regexp"
 	"strconv"
-
-	"github.com/algorand/go-algorand/data/basics"
 )
 
 // FilterType is the type of the filter (i.e. const, regex, etc)
@@ -58,27 +55,37 @@ func (e regexExpression) Search(input interface{}) (bool, error) {
 }
 
 // MakeExpression creates an expression based on an expression type
-func MakeExpression(expressionType FilterType, expressionSearchStr string, targetKind reflect.Kind) (*Expression, error) {
+func MakeExpression(expressionType FilterType, expressionSearchStr string, target interface{}) (*Expression, error) {
 	switch expressionType {
 	case ExactFilter:
 		{
-			r, err := regexp.Compile("^" + expressionSearchStr + "$")
-			if err != nil {
-				return nil, err
-			}
+			switch t := target.(type) {
+			case string:
+				r, err := regexp.Compile("^" + expressionSearchStr + "$")
+				if err != nil {
+					return nil, err
+				}
 
-			var exp Expression = regexExpression{Regex: r}
-			return &exp, nil
+				var exp Expression = regexExpression{Regex: r}
+				return &exp, nil
+			default:
+				return nil, fmt.Errorf("unknown target type (%T) for filter type: %s", t, expressionType)
+			}
 		}
 	case RegexFilter:
 		{
-			r, err := regexp.Compile(expressionSearchStr)
-			if err != nil {
-				return nil, err
-			}
+			switch t := target.(type) {
+			case string:
+				r, err := regexp.Compile(expressionSearchStr)
+				if err != nil {
+					return nil, err
+				}
 
-			var exp Expression = regexExpression{Regex: r}
-			return &exp, nil
+				var exp Expression = regexExpression{Regex: r}
+				return &exp, nil
+			default:
+				return nil, fmt.Errorf("unknown target type (%T) for filter type: %s", t, expressionType)
+			}
 		}
 
 	case LessThanFilter:
@@ -95,21 +102,8 @@ func MakeExpression(expressionType FilterType, expressionSearchStr string, targe
 		{
 			var exp Expression
 
-			switch targetKind {
-			case reflect.TypeOf(basics.MicroAlgos{}).Kind():
-				{
-					v, err := strconv.ParseUint(expressionSearchStr, 10, 64)
-					if err != nil {
-						return nil, err
-					}
-
-					exp = microAlgoExpression{
-						FilterValue: basics.MicroAlgos{Raw: v},
-						Op:          expressionType,
-					}
-				}
-
-			case reflect.Int64:
+			switch t := target.(type) {
+			case int64:
 				{
 					v, err := strconv.ParseInt(expressionSearchStr, 10, 64)
 					if err != nil {
@@ -122,7 +116,7 @@ func MakeExpression(expressionType FilterType, expressionSearchStr string, targe
 					}
 				}
 
-			case reflect.Uint64:
+			case uint64:
 				{
 					v, err := strconv.ParseUint(expressionSearchStr, 10, 64)
 					if err != nil {
@@ -136,7 +130,7 @@ func MakeExpression(expressionType FilterType, expressionSearchStr string, targe
 				}
 
 			default:
-				return nil, fmt.Errorf("unknown target kind (%s) for filter type: %s", targetKind.String(), expressionType)
+				return nil, fmt.Errorf("unknown target type (%T) for filter type: %s", t, expressionType)
 			}
 
 			return &exp, nil

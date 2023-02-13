@@ -261,7 +261,7 @@ func LookupFieldByTag(tag string, input *transactions.SignedTxnInBlock) (interfa
 	switch tag {
 {{ range .StructFields }}	case "{{ .TagPath }}":
 		value := {{ ReturnValue . "input" }}
-		return &value, nil
+		return value, nil
 {{ end }}	default:
 		return nil, fmt.Errorf("unknown tag: %s", tag)
 	}
