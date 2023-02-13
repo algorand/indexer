@@ -142,22 +142,25 @@ func simpleCast(t reflect.StructField) string {
 }
 
 func CastParts(t reflect.StructField) (prefix, postfix string, err error) {
+	// if no cast is needed... do not add a prefix / postfix.
 	if noCast(t) {
 		return
 	}
 
+	// for simple casts, get a simple type and do them all at once.
 	if simple := simpleCast(t); simple != "" {
 		prefix = fmt.Sprintf("%s(", simple)
 		postfix = ")"
 		return
 	}
 
+	// otherwise the cast is more complex, handle them case by case.
+
 	encodeB64 := func() {
 		prefix = "base64.StdEncoding.EncodeToString("
 		postfix = "[:])"
 	}
 
-	// all the rest... custom things
 	switch v := reflect.New(t.Type).Elem().Interface().(type) {
 	case bool:
 		prefix = "fmt.Sprintf(\"%t\", "
@@ -174,6 +177,7 @@ func CastParts(t reflect.StructField) (prefix, postfix string, err error) {
 		encodeB64()
 	// go-algorand types
 	case basics.MicroAlgos:
+		// This is a weird struct object with a nested type. Add the cast and subtype.
 		prefix = "uint64("
 		postfix = ".Raw)"
 	case basics.Address:
@@ -254,18 +258,20 @@ const templateStr = `// Code generated via go generate. DO NOT EDIT.
 package {{ .PackageName }}
 
 import (
+	"encoding/base64"
 	"fmt"
 
 	"github.com/algorand/go-algorand/data/transactions"
 )
 
-// LookupFieldByTag takes a tag and associated SignedTxnInBlock and returns the value 
+// LookupFieldByTag takes a tag and associated SignedTxnInBlock and returns the value
 // referenced by the tag.  An error is returned if the tag does not exist
 func LookupFieldByTag(tag string, input *transactions.SignedTxnInBlock) (interface{}, error) {
 	switch tag {
 {{ range .StructFields }}	case "{{ .TagPath }}":
-		return {{ ReturnValue . "input" }}, nil
-{{ end }}default:
+		value := {{ ReturnValue . "input" }}
+		return &value, nil
+{{ end }}	default:
 		return nil, fmt.Errorf("unknown tag: %s", tag)
 	}
 }

@@ -3,236 +3,211 @@
 package fields
 
 import (
+	"encoding/base64"
 	"fmt"
 
 	"github.com/algorand/go-algorand/data/transactions"
 )
 
-// SignedTxnFunc takes a tag and associated SignedTxnInBlock and returns the value
+// LookupFieldByTag takes a tag and associated SignedTxnInBlock and returns the value
 // referenced by the tag.  An error is returned if the tag does not exist
-func SignedTxnFunc(tag string, input *transactions.SignedTxnInBlock) (interface{}, error) {
-
+func LookupFieldByTag(tag string, input *transactions.SignedTxnInBlock) (interface{}, error) {
 	switch tag {
 	case "aca":
-		return &input.SignedTxnWithAD.ApplyData.AssetClosingAmount, nil
+		value := input.SignedTxnWithAD.ApplyData.AssetClosingAmount
+		return &value, nil
 	case "apid":
-		return &input.SignedTxnWithAD.ApplyData.ApplicationID, nil
+		value := uint64(input.SignedTxnWithAD.ApplyData.ApplicationID)
+		return &value, nil
 	case "ca":
-		return &input.SignedTxnWithAD.ApplyData.ClosingAmount, nil
+		value := uint64(input.SignedTxnWithAD.ApplyData.ClosingAmount.Raw)
+		return &value, nil
 	case "caid":
-		return &input.SignedTxnWithAD.ApplyData.ConfigAsset, nil
-	case "dt":
-		return &input.SignedTxnWithAD.ApplyData.EvalDelta, nil
-	case "dt.gd":
-		return &input.SignedTxnWithAD.ApplyData.EvalDelta.GlobalDelta, nil
-	case "dt.itx":
-		return &input.SignedTxnWithAD.ApplyData.EvalDelta.InnerTxns, nil
-	case "dt.ld":
-		return &input.SignedTxnWithAD.ApplyData.EvalDelta.LocalDeltas, nil
-	case "dt.lg":
-		return &input.SignedTxnWithAD.ApplyData.EvalDelta.Logs, nil
+		value := uint64(input.SignedTxnWithAD.ApplyData.ConfigAsset)
+		return &value, nil
 	case "hgh":
-		return &input.HasGenesisHash, nil
+		value := fmt.Sprintf("%t", input.HasGenesisHash)
+		return &value, nil
 	case "hgi":
-		return &input.HasGenesisID, nil
-	case "lsig":
-		return &input.SignedTxnWithAD.SignedTxn.Lsig, nil
-	case "lsig.arg":
-		return &input.SignedTxnWithAD.SignedTxn.Lsig.Args, nil
-	case "lsig.l":
-		return &input.SignedTxnWithAD.SignedTxn.Lsig.Logic, nil
-	case "lsig.msig":
-		return &input.SignedTxnWithAD.SignedTxn.Lsig.Msig, nil
-	case "lsig.msig.subsig":
-		return &input.SignedTxnWithAD.SignedTxn.Lsig.Msig.Subsigs, nil
+		value := fmt.Sprintf("%t", input.HasGenesisID)
+		return &value, nil
 	case "lsig.msig.thr":
-		return &input.SignedTxnWithAD.SignedTxn.Lsig.Msig.Threshold, nil
+		value := uint64(input.SignedTxnWithAD.SignedTxn.Lsig.Msig.Threshold)
+		return &value, nil
 	case "lsig.msig.v":
-		return &input.SignedTxnWithAD.SignedTxn.Lsig.Msig.Version, nil
-	case "lsig.sig":
-		return &input.SignedTxnWithAD.SignedTxn.Lsig.Sig, nil
-	case "msig":
-		return &input.SignedTxnWithAD.SignedTxn.Msig, nil
-	case "msig.subsig":
-		return &input.SignedTxnWithAD.SignedTxn.Msig.Subsigs, nil
+		value := uint64(input.SignedTxnWithAD.SignedTxn.Lsig.Msig.Version)
+		return &value, nil
 	case "msig.thr":
-		return &input.SignedTxnWithAD.SignedTxn.Msig.Threshold, nil
+		value := uint64(input.SignedTxnWithAD.SignedTxn.Msig.Threshold)
+		return &value, nil
 	case "msig.v":
-		return &input.SignedTxnWithAD.SignedTxn.Msig.Version, nil
+		value := uint64(input.SignedTxnWithAD.SignedTxn.Msig.Version)
+		return &value, nil
 	case "rc":
-		return &input.SignedTxnWithAD.ApplyData.CloseRewards, nil
+		value := uint64(input.SignedTxnWithAD.ApplyData.CloseRewards.Raw)
+		return &value, nil
 	case "rr":
-		return &input.SignedTxnWithAD.ApplyData.ReceiverRewards, nil
+		value := uint64(input.SignedTxnWithAD.ApplyData.ReceiverRewards.Raw)
+		return &value, nil
 	case "rs":
-		return &input.SignedTxnWithAD.ApplyData.SenderRewards, nil
+		value := uint64(input.SignedTxnWithAD.ApplyData.SenderRewards.Raw)
+		return &value, nil
 	case "sgnr":
-		return &input.SignedTxnWithAD.SignedTxn.AuthAddr, nil
-	case "sig":
-		return &input.SignedTxnWithAD.SignedTxn.Sig, nil
-	case "txn":
-		return &input.SignedTxnWithAD.SignedTxn.Txn, nil
+		value := input.SignedTxnWithAD.SignedTxn.AuthAddr.String()
+		return &value, nil
 	case "txn.aamt":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.AssetAmount, nil
+		value := input.SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.AssetAmount
+		return &value, nil
 	case "txn.aclose":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.AssetCloseTo, nil
+		value := input.SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.AssetCloseTo.String()
+		return &value, nil
 	case "txn.afrz":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.AssetFreezeTxnFields.AssetFrozen, nil
+		value := fmt.Sprintf("%t", input.SignedTxnWithAD.SignedTxn.Txn.AssetFreezeTxnFields.AssetFrozen)
+		return &value, nil
 	case "txn.amt":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount, nil
-	case "txn.apaa":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.ApplicationArgs, nil
+		value := uint64(input.SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw)
+		return &value, nil
 	case "txn.apan":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.OnCompletion, nil
-	case "txn.apap":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.ApprovalProgram, nil
-	case "txn.apar":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.AssetConfigTxnFields.AssetParams, nil
+		value := uint64(input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.OnCompletion)
+		return &value, nil
 	case "txn.apar.am":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.AssetConfigTxnFields.AssetParams.MetadataHash, nil
+		value := base64.StdEncoding.EncodeToString(input.SignedTxnWithAD.SignedTxn.Txn.AssetConfigTxnFields.AssetParams.MetadataHash[:])
+		return &value, nil
 	case "txn.apar.an":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.AssetConfigTxnFields.AssetParams.AssetName, nil
+		value := input.SignedTxnWithAD.SignedTxn.Txn.AssetConfigTxnFields.AssetParams.AssetName
+		return &value, nil
 	case "txn.apar.au":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.AssetConfigTxnFields.AssetParams.URL, nil
+		value := input.SignedTxnWithAD.SignedTxn.Txn.AssetConfigTxnFields.AssetParams.URL
+		return &value, nil
 	case "txn.apar.c":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.AssetConfigTxnFields.AssetParams.Clawback, nil
+		value := input.SignedTxnWithAD.SignedTxn.Txn.AssetConfigTxnFields.AssetParams.Clawback.String()
+		return &value, nil
 	case "txn.apar.dc":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.AssetConfigTxnFields.AssetParams.Decimals, nil
+		value := uint64(input.SignedTxnWithAD.SignedTxn.Txn.AssetConfigTxnFields.AssetParams.Decimals)
+		return &value, nil
 	case "txn.apar.df":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.AssetConfigTxnFields.AssetParams.DefaultFrozen, nil
+		value := fmt.Sprintf("%t", input.SignedTxnWithAD.SignedTxn.Txn.AssetConfigTxnFields.AssetParams.DefaultFrozen)
+		return &value, nil
 	case "txn.apar.f":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.AssetConfigTxnFields.AssetParams.Freeze, nil
+		value := input.SignedTxnWithAD.SignedTxn.Txn.AssetConfigTxnFields.AssetParams.Freeze.String()
+		return &value, nil
 	case "txn.apar.m":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.AssetConfigTxnFields.AssetParams.Manager, nil
+		value := input.SignedTxnWithAD.SignedTxn.Txn.AssetConfigTxnFields.AssetParams.Manager.String()
+		return &value, nil
 	case "txn.apar.r":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.AssetConfigTxnFields.AssetParams.Reserve, nil
+		value := input.SignedTxnWithAD.SignedTxn.Txn.AssetConfigTxnFields.AssetParams.Reserve.String()
+		return &value, nil
 	case "txn.apar.t":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.AssetConfigTxnFields.AssetParams.Total, nil
+		value := input.SignedTxnWithAD.SignedTxn.Txn.AssetConfigTxnFields.AssetParams.Total
+		return &value, nil
 	case "txn.apar.un":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.AssetConfigTxnFields.AssetParams.UnitName, nil
-	case "txn.apas":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.ForeignAssets, nil
-	case "txn.apat":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.Accounts, nil
-	case "txn.apbx":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.Boxes, nil
+		value := input.SignedTxnWithAD.SignedTxn.Txn.AssetConfigTxnFields.AssetParams.UnitName
+		return &value, nil
 	case "txn.apep":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.ExtraProgramPages, nil
-	case "txn.apfa":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.ForeignApps, nil
-	case "txn.apgs":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.GlobalStateSchema, nil
+		value := uint64(input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.ExtraProgramPages)
+		return &value, nil
 	case "txn.apgs.nbs":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.GlobalStateSchema.NumByteSlice, nil
+		value := input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.GlobalStateSchema.NumByteSlice
+		return &value, nil
 	case "txn.apgs.nui":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.GlobalStateSchema.NumUint, nil
+		value := input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.GlobalStateSchema.NumUint
+		return &value, nil
 	case "txn.apid":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.ApplicationID, nil
-	case "txn.apls":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.LocalStateSchema, nil
+		value := uint64(input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.ApplicationID)
+		return &value, nil
 	case "txn.apls.nbs":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.LocalStateSchema.NumByteSlice, nil
+		value := input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.LocalStateSchema.NumByteSlice
+		return &value, nil
 	case "txn.apls.nui":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.LocalStateSchema.NumUint, nil
-	case "txn.apsu":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.ClearStateProgram, nil
+		value := input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.LocalStateSchema.NumUint
+		return &value, nil
 	case "txn.arcv":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.AssetReceiver, nil
+		value := input.SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.AssetReceiver.String()
+		return &value, nil
 	case "txn.asnd":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.AssetSender, nil
+		value := input.SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.AssetSender.String()
+		return &value, nil
 	case "txn.caid":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.AssetConfigTxnFields.ConfigAsset, nil
+		value := uint64(input.SignedTxnWithAD.SignedTxn.Txn.AssetConfigTxnFields.ConfigAsset)
+		return &value, nil
 	case "txn.close":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.CloseRemainderTo, nil
+		value := input.SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.CloseRemainderTo.String()
+		return &value, nil
 	case "txn.fadd":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.AssetFreezeTxnFields.FreezeAccount, nil
+		value := input.SignedTxnWithAD.SignedTxn.Txn.AssetFreezeTxnFields.FreezeAccount.String()
+		return &value, nil
 	case "txn.faid":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.AssetFreezeTxnFields.FreezeAsset, nil
+		value := uint64(input.SignedTxnWithAD.SignedTxn.Txn.AssetFreezeTxnFields.FreezeAsset)
+		return &value, nil
 	case "txn.fee":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.Header.Fee, nil
+		value := uint64(input.SignedTxnWithAD.SignedTxn.Txn.Header.Fee.Raw)
+		return &value, nil
 	case "txn.fv":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.Header.FirstValid, nil
+		value := uint64(input.SignedTxnWithAD.SignedTxn.Txn.Header.FirstValid)
+		return &value, nil
 	case "txn.gen":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.Header.GenesisID, nil
-	case "txn.gh":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.Header.GenesisHash, nil
+		value := input.SignedTxnWithAD.SignedTxn.Txn.Header.GenesisID
+		return &value, nil
 	case "txn.grp":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.Header.Group, nil
+		value := base64.StdEncoding.EncodeToString(input.SignedTxnWithAD.SignedTxn.Txn.Header.Group[:])
+		return &value, nil
 	case "txn.lv":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.Header.LastValid, nil
-	case "txn.lx":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.Header.Lease, nil
+		value := uint64(input.SignedTxnWithAD.SignedTxn.Txn.Header.LastValid)
+		return &value, nil
 	case "txn.nonpart":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.KeyregTxnFields.Nonparticipation, nil
+		value := fmt.Sprintf("%t", input.SignedTxnWithAD.SignedTxn.Txn.KeyregTxnFields.Nonparticipation)
+		return &value, nil
 	case "txn.note":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.Header.Note, nil
+		value := base64.StdEncoding.EncodeToString(input.SignedTxnWithAD.SignedTxn.Txn.Header.Note[:])
+		return &value, nil
 	case "txn.rcv":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Receiver, nil
+		value := input.SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Receiver.String()
+		return &value, nil
 	case "txn.rekey":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.Header.RekeyTo, nil
-	case "txn.selkey":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.KeyregTxnFields.SelectionPK, nil
+		value := input.SignedTxnWithAD.SignedTxn.Txn.Header.RekeyTo.String()
+		return &value, nil
 	case "txn.snd":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.Header.Sender, nil
-	case "txn.sp":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.StateProof, nil
-	case "txn.sp.P":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.StateProof.PartProofs, nil
-	case "txn.sp.P.hsh":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.StateProof.PartProofs.HashFactory, nil
-	case "txn.sp.P.hsh.t":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.StateProof.PartProofs.HashFactory.HashType, nil
-	case "txn.sp.P.pth":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.StateProof.PartProofs.Path, nil
+		value := input.SignedTxnWithAD.SignedTxn.Txn.Header.Sender.String()
+		return &value, nil
 	case "txn.sp.P.td":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.StateProof.PartProofs.TreeDepth, nil
-	case "txn.sp.S":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.StateProof.SigProofs, nil
-	case "txn.sp.S.hsh":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.StateProof.SigProofs.HashFactory, nil
-	case "txn.sp.S.hsh.t":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.StateProof.SigProofs.HashFactory.HashType, nil
-	case "txn.sp.S.pth":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.StateProof.SigProofs.Path, nil
+		value := uint64(input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.StateProof.PartProofs.TreeDepth)
+		return &value, nil
 	case "txn.sp.S.td":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.StateProof.SigProofs.TreeDepth, nil
-	case "txn.sp.c":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.StateProof.SigCommit, nil
-	case "txn.sp.pr":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.StateProof.PositionsToReveal, nil
-	case "txn.sp.r":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.StateProof.Reveals, nil
+		value := uint64(input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.StateProof.SigProofs.TreeDepth)
+		return &value, nil
 	case "txn.sp.v":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.StateProof.MerkleSignatureSaltVersion, nil
+		value := uint64(input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.StateProof.MerkleSignatureSaltVersion)
+		return &value, nil
 	case "txn.sp.w":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.StateProof.SignedWeight, nil
-	case "txn.spmsg":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.Message, nil
+		value := input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.StateProof.SignedWeight
+		return &value, nil
 	case "txn.spmsg.P":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.Message.LnProvenWeight, nil
-	case "txn.spmsg.b":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.Message.BlockHeadersCommitment, nil
+		value := input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.Message.LnProvenWeight
+		return &value, nil
 	case "txn.spmsg.f":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.Message.FirstAttestedRound, nil
+		value := input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.Message.FirstAttestedRound
+		return &value, nil
 	case "txn.spmsg.l":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.Message.LastAttestedRound, nil
-	case "txn.spmsg.v":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.Message.VotersCommitment, nil
-	case "txn.sprfkey":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.KeyregTxnFields.StateProofPK, nil
+		value := input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.Message.LastAttestedRound
+		return &value, nil
 	case "txn.sptype":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.StateProofType, nil
+		value := uint64(input.SignedTxnWithAD.SignedTxn.Txn.StateProofTxnFields.StateProofType)
+		return &value, nil
 	case "txn.type":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.Type, nil
+		value := string(input.SignedTxnWithAD.SignedTxn.Txn.Type)
+		return &value, nil
 	case "txn.votefst":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.KeyregTxnFields.VoteFirst, nil
+		value := uint64(input.SignedTxnWithAD.SignedTxn.Txn.KeyregTxnFields.VoteFirst)
+		return &value, nil
 	case "txn.votekd":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.KeyregTxnFields.VoteKeyDilution, nil
-	case "txn.votekey":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.KeyregTxnFields.VotePK, nil
+		value := input.SignedTxnWithAD.SignedTxn.Txn.KeyregTxnFields.VoteKeyDilution
+		return &value, nil
 	case "txn.votelst":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.KeyregTxnFields.VoteLast, nil
+		value := uint64(input.SignedTxnWithAD.SignedTxn.Txn.KeyregTxnFields.VoteLast)
+		return &value, nil
 	case "txn.xaid":
-		return &input.SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.XferAsset, nil
+		value := uint64(input.SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.XferAsset)
+		return &value, nil
 	default:
 		return nil, fmt.Errorf("unknown tag: %s", tag)
 	}

@@ -32,19 +32,16 @@ const (
 	NotEqualToFilter FilterType = "not-equal"
 )
 
-// TypeToFunctionMap maps the expression-type with the needed function for the expression.
-// For instance the exact or regex expression-type might need the String() function
-// A blank string means a function is not required
-// Can't make this const because there are no constant maps in go...
-var TypeToFunctionMap = map[FilterType]string{
-	ExactFilter:            "String",
-	RegexFilter:            "String",
-	LessThanFilter:         "",
-	LessThanEqualFilter:    "",
-	GreaterThanFilter:      "",
-	GreaterThanEqualFilter: "",
-	EqualToFilter:          "",
-	NotEqualToFilter:       "",
+// TypeMap contains all the expression types for validation.
+var TypeMap = map[FilterType]interface{}{
+	ExactFilter:            struct{}{},
+	RegexFilter:            struct{}{},
+	LessThanFilter:         struct{}{},
+	LessThanEqualFilter:    struct{}{},
+	GreaterThanFilter:      struct{}{},
+	GreaterThanEqualFilter: struct{}{},
+	EqualToFilter:          struct{}{},
+	NotEqualToFilter:       struct{}{},
 }
 
 // Expression the expression interface
