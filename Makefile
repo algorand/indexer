@@ -9,6 +9,8 @@ export CPATH=/opt/homebrew/include
 export LIBRARY_PATH=/opt/homebrew/lib
 endif
 endif
+export GOPATH := $(shell go env GOPATH)
+GOPATH1 := $(firstword $(subst :, ,$(GOPATH)))
 
 # TODO: ensure any additions here are mirrored in misc/release.py
 GOLDFLAGS += -X github.com/algorand/indexer/version.Hash=$(shell git log -n 1 --pretty="%H")
@@ -88,7 +90,7 @@ e2e-nightly: cmd/algorand-indexer/algorand-indexer conduit-docs
 
 # note: when running e2e tests manually be sure to set the e2e filename: 'export CI_E2E_FILENAME=rel-nightly'
 e2e-conduit: conduit
-	export PATH=$(shell go env GOPATH)/bin:$$PATH; pip3 install e2e_tests/ && e2econduit --s3-source-net ${CI_E2E_FILENAME} --conduit-bin cmd/conduit/conduit
+	export PATH=$(GOPATH1)/bin:$(PATH); pip3 install e2e_tests/ && e2econduit --s3-source-net ${CI_E2E_FILENAME} --conduit-bin cmd/conduit/conduit
 
 deploy:
 	mule/deploy.sh
