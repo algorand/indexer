@@ -12,7 +12,7 @@ import (
 // A ValidatedBlock represents an Block that has been successfully validated
 // and can now be recorded in the ledger.
 type ValidatedBlock struct {
-	Block sdk.Block
+	Block sdk.Block `codec:"Blk"`
 	Delta sdk.LedgerStateDelta
 }
 

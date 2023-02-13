@@ -14,6 +14,9 @@ import (
 	"testing"
 	"time"
 
+	crypto2 "github.com/algorand/go-algorand-sdk/v2/crypto"
+	"github.com/algorand/indexer/types"
+	"github.com/algorand/indexer/util"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -26,7 +29,6 @@ import (
 	"github.com/algorand/go-algorand/crypto/merklesignature"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres"
@@ -77,8 +79,10 @@ func setupIdb(t *testing.T, genesis sdk.Genesis) (*postgres.IndexerDb, func()) {
 	}
 
 	err = db.LoadGenesis(genesis)
-	// todo: update when AddBlock interface gets updated
-	vb := ledgercore.MakeValidatedBlock(test.MakeGenesisBlock(), ledgercore.StateDelta{})
+	vb := types.ValidatedBlock{
+		Block: test.MakeGenesisBlockV2(),
+		Delta: sdk.LedgerStateDelta{},
+	}
 	db.AddBlock(&vb)
 	require.NoError(t, err)
 
@@ -119,8 +123,7 @@ func TestApplicationHandlers(t *testing.T) {
 	const extraPages = 2
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/ApplicationHandlers.vb")
 	require.NoError(t, err)
-	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&blk)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	//////////
@@ -244,8 +247,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AccountExcludeParameters.vb")
 	require.NoError(t, err)
-	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&blk)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	//////////
@@ -450,8 +452,7 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AccountMaxResultsLimit.vb")
 	require.NoError(t, err)
-	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&blk)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	//////////
@@ -836,13 +837,12 @@ func TestInnerTxn(t *testing.T) {
 
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/InnerTxn.vb")
 	require.NoError(t, err)
-	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&blk)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
-	stxn, _, err := vb.Blk.BlockHeader.DecodeSignedTxn(vb.Blk.Payset[0])
+	stxn, _, err := util.DecodeSignedTxn(vb.Block.BlockHeader, vb.Block.Payset[0])
 	require.NoError(t, err)
-	expectedID := stxn.Txn.ID().String()
+	expectedID := crypto2.TransactionIDString(stxn.Txn)
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -892,13 +892,12 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/PagingRootTxnDeduplication.vb")
 	require.NoError(t, err)
-	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&blk)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
-	stxn, _, err := vb.Blk.BlockHeader.DecodeSignedTxn(vb.Blk.Payset[0])
+	stxn, _, err := util.DecodeSignedTxn(vb.Block.BlockHeader, vb.Block.Payset[0])
 	require.NoError(t, err)
-	expectedID := stxn.Txn.ID().String()
+	expectedID := crypto2.TransactionIDString(stxn.Txn)
 
 	testcases := []struct {
 		name   string
@@ -985,7 +984,7 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 		// Get first page with limit 1.
 		// Address filter causes results to return newest to oldest.
 		api := testServerImplementation(db)
-		err = api.LookupBlock(c, uint64(vb.Blk.Round()), generated.LookupBlockParams{})
+		err = api.LookupBlock(c, uint64(vb.Block.Round), generated.LookupBlockParams{})
 		require.NoError(t, err)
 
 		//////////
@@ -1044,11 +1043,10 @@ func TestKeyregTransactionWithStateProofKeys(t *testing.T) {
 
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/KeyregTransactionWithStateProofKeys.vb")
 	require.NoError(t, err)
-	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&blk)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
-	txn, _, err := vb.Blk.BlockHeader.DecodeSignedTxn(vb.Blk.Payset[0])
+	txn, _, err := util.DecodeSignedTxn(vb.Block.BlockHeader, vb.Block.Payset[0])
 	require.NoError(t, err)
 
 	e := echo.New()
@@ -1061,7 +1059,7 @@ func TestKeyregTransactionWithStateProofKeys(t *testing.T) {
 		c := e.NewContext(req, rec)
 		c.SetPath("/v2/transactions/:txid")
 		api := &ServerImplementation{db: db}
-		err = api.LookupTransaction(c, txn.Txn.ID().String())
+		err = api.LookupTransaction(c, crypto2.TransactionIDString(txn.Txn))
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, rec.Code)
 		//////////
@@ -1150,8 +1148,7 @@ func TestAccountClearsNonUTF8(t *testing.T) {
 
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AccountClearsNonUTF8.vb")
 	require.NoError(t, err)
-	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&blk)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	verify := func(params generated.AssetParams) {
@@ -1271,11 +1268,10 @@ func TestLookupInnerLogs(t *testing.T) {
 
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LookupInnerLogs.vb")
 	require.NoError(t, err)
-	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&blk)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
-	appCall, _, err := vb.Blk.BlockHeader.DecodeSignedTxn(blk.Block().Payset[0])
+	appCall, _, err := util.DecodeSignedTxn(vb.Block.BlockHeader, vb.Block.Payset[0])
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1306,7 +1302,7 @@ func TestLookupInnerLogs(t *testing.T) {
 			require.NotNil(t, response.LogData)
 			ld := *response.LogData
 			require.Equal(t, 1, len(ld))
-			require.Equal(t, appCall.Txn.ID().String(), ld[0].Txid)
+			require.Equal(t, crypto2.TransactionIDString(appCall.Txn), ld[0].Txid)
 			require.Equal(t, len(tc.logs), len(ld[0].Logs))
 			for i, log := range ld[0].Logs {
 				require.Equal(t, []byte(tc.logs[i]), log)
@@ -1372,11 +1368,10 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LookupMultiInnerLogs.vb")
 	require.NoError(t, err)
-	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&blk)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
-	appCall, _, err := vb.Blk.BlockHeader.DecodeSignedTxn(blk.Block().Payset[0])
+	appCall, _, err := util.DecodeSignedTxn(vb.Block.BlockHeader, vb.Block.Payset[0])
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1410,7 +1405,7 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 
 			logCount := 0
 			for txnIndex, result := range ld {
-				require.Equal(t, appCall.Txn.ID().String(), result.Txid)
+				require.Equal(t, crypto2.TransactionIDString(appCall.Txn), result.Txid)
 				for logIndex, log := range result.Logs {
 					require.Equal(t, []byte(tc.logs[txnIndex*2+logIndex]), log)
 					logCount++
@@ -1431,8 +1426,7 @@ func TestFetchBlockWithExpiredPartAccts(t *testing.T) {
 	//appCreate := test.MakeCreateAppTxn(test.AccountA)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/FetchBlockWithExpiredPartAccts.vb")
 	require.NoError(t, err)
-	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&blk)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	////////////
@@ -1498,8 +1492,7 @@ func TestFetchBlockWithOptions(t *testing.T) {
 	//txnC := test.MakeCreateAppTxn(test.AccountC)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/FetchBlockWithOptions.vb")
 	require.NoError(t, err)
-	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&blk)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	//////////
@@ -1567,8 +1560,7 @@ func TestGetBlocksTransactionsLimit(t *testing.T) {
 	for _, n := range []int{2, 10, 20} {
 		vb, err := test.ReadValidatedBlockFromFile(fmt.Sprintf("test_resources/validated_blocks/GetBlocksTransactionsLimit%d.vb", n))
 		require.NoError(t, err)
-		blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-		err = db.AddBlock(&blk)
+		err = db.AddBlock(&vb)
 		require.NoError(t, err)
 	}
 
@@ -1661,8 +1653,7 @@ func TestGetBlockWithCompression(t *testing.T) {
 	//}
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/GetBlockWithCompression.vb")
 	require.NoError(t, err)
-	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&blk)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	//////////
@@ -1939,8 +1930,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 
 	vb1, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDelete1.vb")
 	require.NoError(t, err)
-	blk1 := ledgercore.MakeValidatedBlock(vb1.Blk, vb1.Delta)
-	err = db.AddBlock(&blk1)
+	err = db.AddBlock(&vb1)
 	require.NoError(t, err)
 
 	opts := idb.ApplicationQuery{ApplicationID: uint64(appid)}
@@ -1989,8 +1979,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 
 	vb2, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDelete2.vb")
 	require.NoError(t, err)
-	blk2 := ledgercore.MakeValidatedBlock(vb2.Blk, vb2.Delta)
-	err = db.AddBlock(&blk2)
+	err = db.AddBlock(&vb2)
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
@@ -2029,8 +2018,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	}
 	vb3, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDelete3.vb")
 	require.NoError(t, err)
-	blk3 := ledgercore.MakeValidatedBlock(vb3.Blk, vb3.Delta)
-	err = db.AddBlock(&blk3)
+	err = db.AddBlock(&vb3)
 	require.NoError(t, err)
 
 	_, round = db.Applications(context.Background(), opts)
@@ -2062,8 +2050,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	}
 	vb4, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDelete4.vb")
 	require.NoError(t, err)
-	blk4 := ledgercore.MakeValidatedBlock(vb4.Blk, vb4.Delta)
-	err = db.AddBlock(&blk4)
+	err = db.AddBlock(&vb4)
 	require.NoError(t, err)
 
 	_, round = db.Applications(context.Background(), opts)
@@ -2099,8 +2086,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	}
 	vb5, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDelete5.vb")
 	require.NoError(t, err)
-	blk5 := ledgercore.MakeValidatedBlock(vb5.Blk, vb5.Delta)
-	err = db.AddBlock(&blk5)
+	err = db.AddBlock(&vb5)
 	require.NoError(t, err)
 
 	_, round = db.Applications(context.Background(), opts)
@@ -2132,8 +2118,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	}
 	vb6, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDelete6.vb")
 	require.NoError(t, err)
-	blk6 := ledgercore.MakeValidatedBlock(vb6.Blk, vb6.Delta)
-	err = db.AddBlock(&blk6)
+	err = db.AddBlock(&vb6)
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)

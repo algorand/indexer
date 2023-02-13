@@ -14,7 +14,6 @@ import (
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
@@ -122,8 +121,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 
 	vb1, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDeleteR1.vb")
 	require.NoError(t, err)
-	blk1 := ledgercore.MakeValidatedBlock(vb1.Blk, vb1.Delta)
-	err = db.AddBlock(&blk1)
+	err = db.AddBlock(&vb1)
 	require.NoError(t, err)
 
 	opts := idb.ApplicationQuery{ApplicationID: uint64(appid)}
@@ -170,8 +168,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 
 	vb2, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDeleteR2.vb")
 	require.NoError(t, err)
-	blk2 := ledgercore.MakeValidatedBlock(vb2.Blk, vb2.Delta)
-	err = db.AddBlock(&blk2)
+	err = db.AddBlock(&vb2)
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
@@ -211,8 +208,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 
 	vb3, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDeleteR3.vb")
 	require.NoError(t, err)
-	blk3 := ledgercore.MakeValidatedBlock(vb3.Blk, vb3.Delta)
-	err = db.AddBlock(&blk3)
+	err = db.AddBlock(&vb3)
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
@@ -245,8 +241,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 
 	vb4, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDeleteR4.vb")
 	require.NoError(t, err)
-	blk4 := ledgercore.MakeValidatedBlock(vb4.Blk, vb4.Delta)
-	err = db.AddBlock(&blk4)
+	err = db.AddBlock(&vb4)
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
@@ -282,8 +277,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 
 	vb5, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDeleteR5.vb")
 	require.NoError(t, err)
-	blk5 := ledgercore.MakeValidatedBlock(vb5.Blk, vb5.Delta)
-	err = db.AddBlock(&blk5)
+	err = db.AddBlock(&vb5)
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
@@ -314,8 +308,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 
 	vb6, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDeleteR6.vb")
 	require.NoError(t, err)
-	blk6 := ledgercore.MakeValidatedBlock(vb6.Blk, vb6.Delta)
-	err = db.AddBlock(&blk6)
+	err = db.AddBlock(&vb6)
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)

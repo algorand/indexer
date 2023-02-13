@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/indexer/idb/postgres"
 	"github.com/stretchr/testify/require"
 
@@ -66,8 +65,7 @@ func setupLiveBoxes(t *testing.T, db *postgres.IndexerDb) {
 
 	vb1, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LiveBoxesR1.vb")
 	require.NoError(t, err)
-	blk1 := ledgercore.MakeValidatedBlock(vb1.Blk, vb1.Delta)
-	err = db.AddBlock(&blk1)
+	err = db.AddBlock(&vb1)
 	require.NoError(t, err)
 
 	// ---- ROUND 2: create 8 boxes for appid == 1  ---- //
@@ -99,8 +97,7 @@ func setupLiveBoxes(t *testing.T, db *postgres.IndexerDb) {
 
 	vb2, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LiveBoxesR2.vb")
 	require.NoError(t, err)
-	blk2 := ledgercore.MakeValidatedBlock(vb2.Blk, vb2.Delta)
-	err = db.AddBlock(&blk2)
+	err = db.AddBlock(&vb2)
 	require.NoError(t, err)
 
 	// ---- ROUND 3: populate the boxes appropriately  ---- //
@@ -132,8 +129,7 @@ func setupLiveBoxes(t *testing.T, db *postgres.IndexerDb) {
 
 	vb3, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LiveBoxesR3.vb")
 	require.NoError(t, err)
-	blk3 := ledgercore.MakeValidatedBlock(vb3.Blk, vb3.Delta)
-	err = db.AddBlock(&blk3)
+	err = db.AddBlock(&vb3)
 	require.NoError(t, err)
 
 	// ---- ROUND 4: delete the unhappy boxes  ---- //
@@ -159,8 +155,7 @@ func setupLiveBoxes(t *testing.T, db *postgres.IndexerDb) {
 
 	vb4, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LiveBoxesR4.vb")
 	require.NoError(t, err)
-	blk4 := ledgercore.MakeValidatedBlock(vb4.Blk, vb4.Delta)
-	err = db.AddBlock(&blk4)
+	err = db.AddBlock(&vb4)
 	require.NoError(t, err)
 
 	// ---- ROUND 5: create 4 new boxes, overwriting one of the former boxes  ---- //
@@ -187,8 +182,7 @@ func setupLiveBoxes(t *testing.T, db *postgres.IndexerDb) {
 
 	vb5, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LiveBoxesR5.vb")
 	require.NoError(t, err)
-	blk5 := ledgercore.MakeValidatedBlock(vb5.Blk, vb5.Delta)
-	err = db.AddBlock(&blk5)
+	err = db.AddBlock(&vb5)
 	require.NoError(t, err)
 
 	// ---- ROUND 6: populate the 4 new boxes  ---- //
@@ -215,8 +209,7 @@ func setupLiveBoxes(t *testing.T, db *postgres.IndexerDb) {
 
 	vb6, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LiveBoxesR6.vb")
 	require.NoError(t, err)
-	blk6 := ledgercore.MakeValidatedBlock(vb6.Blk, vb6.Delta)
-	err = db.AddBlock(&blk6)
+	err = db.AddBlock(&vb6)
 	require.NoError(t, err)
 
 	// ---- ROUND 7: create GOAL-encoding boxes for appid == 5  ---- //
@@ -243,8 +236,7 @@ func setupLiveBoxes(t *testing.T, db *postgres.IndexerDb) {
 
 	vb7, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LiveBoxesR7.vb")
 	require.NoError(t, err)
-	blk7 := ledgercore.MakeValidatedBlock(vb7.Blk, vb7.Delta)
-	err = db.AddBlock(&blk7)
+	err = db.AddBlock(&vb7)
 	require.NoError(t, err)
 
 	// ---- ROUND 8: populate GOAL-encoding boxes for appid == 5  ---- //
@@ -267,8 +259,7 @@ func setupLiveBoxes(t *testing.T, db *postgres.IndexerDb) {
 
 	vb8, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LiveBoxesR8.vb")
 	require.NoError(t, err)
-	blk8 := ledgercore.MakeValidatedBlock(vb8.Blk, vb8.Delta)
-	err = db.AddBlock(&blk8)
+	err = db.AddBlock(&vb8)
 	require.NoError(t, err)
 
 	//---- ROUND 9: delete appid == 5 thus orphaning the boxes
@@ -278,8 +269,7 @@ func setupLiveBoxes(t *testing.T, db *postgres.IndexerDb) {
 
 	vb9, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LiveBoxesR9.vb")
 	require.NoError(t, err)
-	blk9 := ledgercore.MakeValidatedBlock(vb9.Blk, vb9.Delta)
-	err = db.AddBlock(&blk9)
+	err = db.AddBlock(&vb9)
 	require.NoError(t, err)
 
 	// ---- SUMMARY ---- //
