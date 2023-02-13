@@ -8,6 +8,8 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/algorand/indexer/conduit/plugins/processors/filterprocessor/gen/internal"
+
 	"github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
@@ -60,17 +62,6 @@ var ignoreTags = map[string]bool{
 	"txn.apap": true,
 	"txn.apsu": true,
 	"dt.lg":    true,
-}
-
-type StructField struct {
-	TagPath    string
-	FieldPath  string
-	CastPrefix string
-	CastPost   string
-}
-
-func ReturnValue(sf StructField, varName string) string {
-	return fmt.Sprintf("%s%s.%s%s", sf.CastPrefix, varName, sf.FieldPath, sf.CastPost)
 }
 
 func noCast(t reflect.StructField) bool {
@@ -141,7 +132,7 @@ func simpleCast(t reflect.StructField) string {
 
 }
 
-func CastParts(t reflect.StructField) (prefix, postfix string, err error) {
+func castParts(t reflect.StructField) (prefix, postfix string, err error) {
 	// if no cast is needed... do not add a prefix / postfix.
 	if noCast(t) {
 		return
@@ -193,15 +184,15 @@ func CastParts(t reflect.StructField) (prefix, postfix string, err error) {
 	return
 }
 
-func getFields(theStruct interface{}) (map[string]StructField, []error) {
-	output := make(map[string]StructField)
+func getFields(theStruct interface{}) (map[string]internal.StructField, []error) {
+	output := make(map[string]internal.StructField)
 	errors := recursiveTagFields(theStruct, output, nil, nil)
 	return output, errors
 }
 
 // recursiveTagFields recursively gets all field names in a struct
 // Output will contain a key of the full tag along with the fully qualified struct
-func recursiveTagFields(theStruct interface{}, output map[string]StructField, tagLevel []string, fieldLevel []string) []error {
+func recursiveTagFields(theStruct interface{}, output map[string]internal.StructField, tagLevel []string, fieldLevel []string) []error {
 	var errors []error
 	rStruct := reflect.TypeOf(theStruct)
 	numFields := rStruct.NumField()
@@ -238,12 +229,12 @@ func recursiveTagFields(theStruct interface{}, output map[string]StructField, ta
 			if ignoreTags[fullTag] {
 				continue
 			}
-			sf := StructField{
+			sf := internal.StructField{
 				TagPath:   fullTag,
 				FieldPath: strings.Join(append(fieldLevel, name), "."),
 			}
 			var err error
-			sf.CastPrefix, sf.CastPost, err = CastParts(field)
+			sf.CastPrefix, sf.CastPost, err = castParts(field)
 			if err != nil {
 				errors = append(errors, fmt.Errorf("problem casting %s: %s", fullTag, err))
 			}
@@ -296,7 +287,7 @@ func main() {
 	ut, err := template.
 		New("LookupFieldByTag").
 		Funcs(map[string]interface{}{
-			"ReturnValue": ReturnValue,
+			"ReturnValue": internal.ReturnValue,
 		}).
 		Parse(templateStr)
 	if err != nil {
@@ -330,7 +321,7 @@ func main() {
 
 	// Prepare template inputs.
 	data := struct {
-		StructFields map[string]StructField
+		StructFields map[string]internal.StructField
 		PackageName  string
 	}{
 		StructFields: fields,
