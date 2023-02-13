@@ -12,7 +12,7 @@ import (
 
 // Searcher searches the struct with an expression and method to call
 type Searcher struct {
-	Exp *expression.Expression
+	Exp expression.Expression
 	Tag string
 }
 
@@ -26,7 +26,7 @@ func (f Searcher) search(input transactions.SignedTxnInBlock) (bool, error) {
 		return false, err
 	}
 
-	b, err := (*f.Exp).Search(val)
+	b, err := f.Exp.Search(val)
 	if err != nil {
 		return false, err
 	}
@@ -60,7 +60,7 @@ func checkTagAndExpressionExist(expressionType expression.FilterType, tag string
 }
 
 // MakeFieldSearcher will check that the field exists and that it contains the necessary "conversion" function
-func MakeFieldSearcher(e *expression.Expression, expressionType expression.FilterType, tag string) (*Searcher, error) {
+func MakeFieldSearcher(e expression.Expression, expressionType expression.FilterType, tag string) (*Searcher, error) {
 
 	if err := checkTagAndExpressionExist(expressionType, tag); err != nil {
 		return nil, err
