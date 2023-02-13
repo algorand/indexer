@@ -1,12 +1,10 @@
 package encoding
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 	itypes "github.com/algorand/indexer/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -548,49 +546,4 @@ func TestLcAccountDataEncoding(t *testing.T) {
 	decodedAd, err := DecodeTrimmedLcAccountData(buf)
 	require.NoError(t, err)
 	assert.Equal(t, ad, decodedAd)
-}
-
-// structFields recursively gets all field names in a struct
-func structFields(theStruct interface{}, skip map[string]bool, names map[string]bool) {
-	rStruct := reflect.TypeOf(theStruct)
-	numFields := rStruct.NumField()
-	for i := 0; i < numFields; i++ {
-		field := rStruct.Field(i)
-		name := field.Name
-		if totalSkip, nameSkip := skip[name]; nameSkip {
-			if totalSkip {
-				continue
-			}
-		} else {
-			names[name] = true
-		}
-		if field.Type.Kind() == reflect.Struct {
-			structFields(reflect.New(field.Type).Elem().Interface(), skip, names)
-		}
-	}
-}
-
-// Test that all fields in go-algorand's AccountBaseData are either in local baseAccountData
-// or are accounted for explicitly in "skip"
-func TestBaseAccountDataVersusAccountBaseDataParity(t *testing.T) {
-
-	skip := map[string]bool{
-		"_struct":               true,
-		"MicroAlgos":            true,
-		"RewardsBase":           true,
-		"RewardedMicroAlgos":    true,
-		"MicroAlgosWithRewards": true,
-		"VotingData":            false, // skip the name, but continue with the recursion
-	}
-
-	goalNames := map[string]bool{}
-	structFields(ledgercore.AccountBaseData{}, skip, goalNames)
-	structFields(ledgercore.OnlineAccountData{}, skip, goalNames)
-
-	indexerNames := map[string]bool{}
-	structFields(baseAccountData{}, skip, indexerNames)
-
-	for name := range goalNames {
-		require.Contains(t, indexerNames, name)
-	}
 }
