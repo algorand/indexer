@@ -4,9 +4,6 @@ import (
 	"github.com/algorand/indexer/types"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/crypto"
-	"github.com/algorand/go-algorand/crypto/merklesignature"
-	"github.com/algorand/go-algorand/data/basics"
 )
 
 type blockHeader struct {
@@ -82,24 +79,27 @@ type signedTxnWithAD struct {
 }
 
 type trimmedAccountData struct {
-	basics.AccountData
-	AuthAddrOverride crypto.Digest `codec:"spend"`
+	baseAccountData
+	AuthAddrOverride   sdk.Digest `codec:"spend"`
+	MicroAlgos         uint64     `codec:"algo"`
+	RewardsBase        uint64     `codec:"ebase"`
+	RewardedMicroAlgos uint64     `codec:"ern"`
 }
 
 type tealValue struct {
-	basics.TealValue
+	sdk.TealValue
 	BytesOverride []byte `codec:"tb"`
 }
 
 type tealKeyValue map[byteArray]tealValue
 
 type appLocalState struct {
-	basics.AppLocalState
+	sdk.AppLocalState
 	KeyValueOverride tealKeyValue `codec:"tkv"`
 }
 
 type appParams struct {
-	basics.AppParams
+	sdk.AppParams
 	GlobalStateOverride tealKeyValue `codec:"gs"`
 }
 
@@ -112,27 +112,27 @@ type specialAddresses struct {
 type baseOnlineAccountData struct {
 	_struct struct{} `codec:",omitempty,omitemptyarray"`
 
-	VoteID          crypto.OneTimeSignatureVerifier `codec:"vote"`
-	SelectionID     crypto.VRFVerifier              `codec:"sel"`
-	StateProofID    merklesignature.Commitment      `codec:"stprf"`
-	VoteFirstValid  basics.Round                    `codec:"voteFst"`
-	VoteLastValid   basics.Round                    `codec:"voteLst"`
-	VoteKeyDilution uint64                          `codec:"voteKD"`
+	VoteID          sdk.OneTimeSignatureVerifier `codec:"vote"`
+	SelectionID     sdk.VRFVerifier              `codec:"sel"`
+	StateProofID    sdk.Commitment               `codec:"stprf"`
+	VoteFirstValid  sdk.Round                    `codec:"voteFst"`
+	VoteLastValid   sdk.Round                    `codec:"voteLst"`
+	VoteKeyDilution uint64                       `codec:"voteKD"`
 }
 
 type baseAccountData struct {
 	_struct struct{} `codec:",omitempty,omitemptyarray"`
 
-	Status              basics.Status      `codec:"onl"`
-	AuthAddr            crypto.Digest      `codec:"spend"`
-	TotalAppSchema      basics.StateSchema `codec:"tsch"`
-	TotalExtraAppPages  uint32             `codec:"teap"`
-	TotalAssetParams    uint64             `codec:"tasp"`
-	TotalAssets         uint64             `codec:"tas"`
-	TotalAppParams      uint64             `codec:"tapp"`
-	TotalAppLocalStates uint64             `codec:"tapl"`
-	TotalBoxes          uint64             `codec:"tbx"`
-	TotalBoxBytes       uint64             `codec:"tbxb"`
+	Status              sdk.Status      `codec:"onl"`
+	AuthAddr            sdk.Digest      `codec:"spend"`
+	TotalAppSchema      sdk.StateSchema `codec:"tsch"`
+	TotalExtraAppPages  uint32          `codec:"teap"`
+	TotalAssetParams    uint64          `codec:"tasp"`
+	TotalAssets         uint64          `codec:"tas"`
+	TotalAppParams      uint64          `codec:"tapp"`
+	TotalAppLocalStates uint64          `codec:"tapl"`
+	TotalBoxes          uint64          `codec:"tbx"`
+	TotalBoxBytes       uint64          `codec:"tbxb"`
 
 	baseOnlineAccountData
 }

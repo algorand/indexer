@@ -7,7 +7,7 @@ replace github.com/algorand/go-algorand => ./third_party/go-algorand
 require (
 	github.com/algorand/avm-abi v0.2.0
 	github.com/algorand/go-algorand v0.0.0-20220211161928-53b157beb10f
-	github.com/algorand/go-algorand-sdk/v2 v2.0.0-20230111184032-153c9ac26286
+	github.com/algorand/go-algorand-sdk/v2 v2.0.0-20230209164439-140b997ed9ee
 	github.com/algorand/go-codec/codec v1.1.8
 	github.com/algorand/go-deadlock v0.2.2
 	github.com/algorand/oapi-codegen v1.12.0-algorand.0
@@ -39,7 +39,7 @@ require (
 	github.com/algorand/msgp v1.1.53 // indirect
 	github.com/algorand/websocket v1.4.5 // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
-	github.com/aws/aws-sdk-go v1.30.19 // indirect
+	github.com/aws/aws-sdk-go v1.33.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/consensys/gnark-crypto v0.7.0 // indirect
