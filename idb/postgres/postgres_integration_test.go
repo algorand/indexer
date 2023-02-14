@@ -343,7 +343,6 @@ func TestBlockWithTransactions(t *testing.T) {
 	//	&txn1, &txn2, &txn3, &txn4, &txn5, &txn6, &txn7, &txn8}
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BlockWithTransactions.vb")
 	require.NoError(t, err)
-
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
@@ -2137,7 +2136,6 @@ func TestDeleteTransactions(t *testing.T) {
 
 	txns := []sdk.SignedTxn{}
 
-	//genBlock := ledgercore.MakeValidatedBlock(test.MakeGenesisBlock(), ledgercore.StateDelta{})
 	genBlock := types.ValidatedBlock{
 		Block: test.MakeGenesisBlockV2(),
 		Delta: sdk.LedgerStateDelta{},
