@@ -9,15 +9,12 @@ import (
 	"github.com/jackc/pgx/v4"
 
 	"github.com/algorand/avm-abi/apps"
-	"github.com/algorand/indexer/helpers"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
 	"github.com/algorand/indexer/types"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
 const (
@@ -186,7 +183,7 @@ type optionalSigTypeDelta struct {
 	value   sigTypeDelta
 }
 
-func writeAccount(round sdk.Round, address basics.Address, accountData ledgercore.AccountData, sigtypeDelta optionalSigTypeDelta, batch *pgx.Batch) {
+func writeAccount(round sdk.Round, address sdk.Address, accountData sdk.AccountData, sigtypeDelta optionalSigTypeDelta, batch *pgx.Batch) {
 	sigtypeFunc := func(delta sigTypeDelta) *idb.SigType {
 		if !delta.present {
 			return nil
@@ -197,7 +194,7 @@ func writeAccount(round sdk.Round, address basics.Address, accountData ledgercor
 		return res
 	}
 
-	if accountData.IsZero() {
+	if accountData.MicroAlgos == 0 {
 		// Delete account.
 		if sigtypeDelta.present {
 			batch.Queue(
@@ -214,20 +211,20 @@ func writeAccount(round sdk.Round, address basics.Address, accountData ledgercor
 		if sigtypeDelta.present {
 			batch.Queue(
 				upsertAccountWithKeytypeStmtName,
-				address[:], accountData.MicroAlgos.Raw, accountData.RewardsBase,
-				accountData.RewardedMicroAlgos.Raw, uint64(round),
+				address[:], accountData.MicroAlgos, accountData.RewardsBase,
+				accountData.RewardedMicroAlgos, uint64(round),
 				sigtypeFunc(sigtypeDelta.value), accountDataJSON)
 		} else {
 			batch.Queue(
 				upsertAccountStmtName,
-				address[:], accountData.MicroAlgos.Raw, accountData.RewardsBase,
-				accountData.RewardedMicroAlgos.Raw, uint64(round),
+				address[:], accountData.MicroAlgos, accountData.RewardsBase,
+				accountData.RewardedMicroAlgos, uint64(round),
 				accountDataJSON)
 		}
 	}
 }
 
-func writeAssetResource(round sdk.Round, resource *ledgercore.AssetResourceRecord, batch *pgx.Batch) {
+func writeAssetResource(round sdk.Round, resource *sdk.AssetResourceRecord, batch *pgx.Batch) {
 	if resource.Params.Deleted {
 		batch.Queue(deleteAssetStmtName, resource.Aidx, resource.Addr[:], round)
 	} else {
@@ -235,7 +232,7 @@ func writeAssetResource(round sdk.Round, resource *ledgercore.AssetResourceRecor
 			batch.Queue(
 				upsertAssetStmtName, resource.Aidx, resource.Addr[:],
 
-				encoding.EncodeAssetParams(helpers.ConvertParams(*resource.Params.Params)), round)
+				encoding.EncodeAssetParams(*resource.Params.Params), round)
 		}
 	}
 
@@ -251,7 +248,7 @@ func writeAssetResource(round sdk.Round, resource *ledgercore.AssetResourceRecor
 	}
 }
 
-func writeAppResource(round sdk.Round, resource *ledgercore.AppResourceRecord, batch *pgx.Batch) {
+func writeAppResource(round sdk.Round, resource *sdk.AppResourceRecord, batch *pgx.Batch) {
 	if resource.Params.Deleted {
 		batch.Queue(deleteAppStmtName, resource.Aidx, resource.Addr[:], round)
 	} else {
@@ -273,37 +270,36 @@ func writeAppResource(round sdk.Round, resource *ledgercore.AppResourceRecord, b
 	}
 }
 
-func writeAccountDeltas(round sdk.Round, accountDeltas *ledgercore.AccountDeltas, sigtypeDeltas map[sdk.Address]sigTypeDelta, batch *pgx.Batch) {
+func writeAccountDeltas(round sdk.Round, accountDeltas *sdk.AccountDeltas, sigtypeDeltas map[sdk.Address]sigTypeDelta, batch *pgx.Batch) {
 	// Update `account` table.
-	for i := 0; i < accountDeltas.Len(); i++ {
+	for i := 0; i < len(accountDeltas.Accts); i++ {
 
-		address, accountData := accountDeltas.GetByIdx(i)
+		address := accountDeltas.Accts[i].Addr
+		accountData := accountDeltas.Accts[i].AccountData
 
 		var sigtypeDelta optionalSigTypeDelta
-		sigtypeDelta.value, sigtypeDelta.present = sigtypeDeltas[sdk.Address(address)]
+		sigtypeDelta.value, sigtypeDelta.present = sigtypeDeltas[address]
 
 		writeAccount(round, address, accountData, sigtypeDelta, batch)
 	}
 
 	// Update `asset` and `account_asset` tables.
 	{
-		assetResources := accountDeltas.GetAllAssetResources()
-		for i := range assetResources {
-			writeAssetResource(round, &assetResources[i], batch)
+		for i := range accountDeltas.AssetResources {
+			writeAssetResource(round, &accountDeltas.AssetResources[i], batch)
 		}
 	}
 
 	// Update `app` and `account_app` tables.
 	{
-		appResources := accountDeltas.GetAllAppResources()
-		for i := range appResources {
-			writeAppResource(round, &appResources[i], batch)
+		for i := range accountDeltas.AppResources {
+			writeAppResource(round, &accountDeltas.AppResources[i], batch)
 		}
 	}
 
 }
 
-func writeBoxMods(kvMods map[string]ledgercore.KvValueDelta, batch *pgx.Batch) error {
+func writeBoxMods(kvMods map[string]sdk.KvValueDelta, batch *pgx.Batch) error {
 	// INSERT INTO / UPDATE / DELETE FROM `app_box`
 	// WARNING: kvMods can in theory support more general storage types than app boxes.
 	// However, here we assume that all the provided kvMods represent app boxes.
@@ -355,7 +351,7 @@ func (w *Writer) AddBlock0(block *sdk.Block) error {
 // AddBlock writes the block and accounting state deltas to the database, except for
 // transactions and transaction participation. Those are imported by free functions in
 // the writer/ directory.
-func (w *Writer) AddBlock(block *sdk.Block, delta ledgercore.StateDelta) error {
+func (w *Writer) AddBlock(block *sdk.Block, delta sdk.LedgerStateDelta) error {
 	var batch pgx.Batch
 	addBlockHeader(&block.BlockHeader, &batch)
 	specialAddresses := types.SpecialAddresses{

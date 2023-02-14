@@ -11,13 +11,8 @@ import (
 	"github.com/algorand/indexer/conduit/pipeline"
 )
 
-// LoggerManager a manager that can produce loggers that are synchronized internally
-type LoggerManager struct {
-	internalWriter ThreadSafeWriter
-}
-
-// MakeRootLogger returns a logger that is synchronized with the internal mutex
-func (l *LoggerManager) MakeRootLogger(level log.Level, logFile string) (*log.Logger, error) {
+// MakeThreadSafeLoggerWithWriter creates a logger using a ThreadSafeWriter output.
+func MakeThreadSafeLoggerWithWriter(level log.Level, writer io.Writer) *log.Logger {
 	formatter := pipeline.PluginLogFormatter{
 		Formatter: &log.JSONFormatter{
 			DisableHTMLEscape: true,
@@ -29,28 +24,31 @@ func (l *LoggerManager) MakeRootLogger(level log.Level, logFile string) (*log.Lo
 	logger := log.New()
 	logger.SetFormatter(&formatter)
 	logger.SetLevel(level)
-	logger.SetOutput(l.internalWriter)
 
+	logger.SetOutput(ThreadSafeWriter{
+		Writer: writer,
+		Mutex:  &sync.Mutex{},
+	})
+
+	return logger
+}
+
+// MakeThreadSafeLogger returns a logger that is synchronized with the internal mutex, if no file is provided write
+// to os.Stdout.
+func MakeThreadSafeLogger(level log.Level, logFile string) (*log.Logger, error) {
+	var writer io.Writer
+	// Write to a file or stdout
 	if logFile != "" {
 		f, err := os.OpenFile(logFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 		if err != nil {
 			return nil, fmt.Errorf("runConduitCmdWithConfig(): %w", err)
 		}
-		l.internalWriter.Mutex.Lock()
-		defer l.internalWriter.Mutex.Unlock()
-		l.internalWriter.Writer = f
+		writer = f
+	} else {
+		writer = os.Stdout
 	}
-	return logger, nil
-}
 
-// MakeLoggerManager returns a logger manager
-func MakeLoggerManager(writer io.Writer) *LoggerManager {
-	return &LoggerManager{
-		internalWriter: ThreadSafeWriter{
-			Writer: writer,
-			Mutex:  &sync.Mutex{},
-		},
-	}
+	return MakeThreadSafeLoggerWithWriter(level, writer), nil
 }
 
 // ThreadSafeWriter a struct that implements io.Writer in a threadsafe way

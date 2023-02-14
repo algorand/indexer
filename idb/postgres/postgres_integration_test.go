@@ -411,7 +411,7 @@ func TestRekeyBasic(t *testing.T) {
 
 	ad, err := encoding.DecodeTrimmedLcAccountData(accountDataStr)
 	require.NoError(t, err, "failed to parse account data json")
-	assert.Equal(t, test.AccountB, ad.AuthAddr)
+	assert.Equal(t, sdk.Address(test.AccountB), ad.AuthAddr)
 }
 
 func TestRekeyToItself(t *testing.T) {
@@ -439,7 +439,7 @@ func TestRekeyToItself(t *testing.T) {
 
 	ad, err := encoding.DecodeTrimmedLcAccountData(accountDataStr)
 	require.NoError(t, err, "failed to parse account data json")
-	assert.Equal(t, basics.Address{}, ad.AuthAddr)
+	assert.Equal(t, sdk.Address{}, ad.AuthAddr)
 }
 
 func TestRekeyThreeTimesInSameRound(t *testing.T) {
@@ -473,7 +473,7 @@ func TestRekeyThreeTimesInSameRound(t *testing.T) {
 
 	ad, err := encoding.DecodeTrimmedLcAccountData(accountDataStr)
 	require.NoError(t, err, "failed to parse account data json")
-	assert.Equal(t, test.AccountC, ad.AuthAddr)
+	assert.Equal(t, sdk.Address(test.AccountC), ad.AuthAddr)
 }
 
 func TestRekeyToItselfHasNotBeenRekeyed(t *testing.T) {

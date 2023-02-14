@@ -299,7 +299,7 @@ func (db *IndexerDb) LoadGenesis(genesis sdk.Genesis) error {
 			if err != nil {
 				return fmt.Errorf("LoadGenesis() decode address err: %w", err)
 			}
-			accountData := ledgercore.ToAccountData(helpers.ConvertAccountType(alloc.State))
+			accountData := accountToAccountData(alloc.State)
 			_, err = tx.Exec(
 				context.Background(), setAccountStatementName,
 				addr[:], alloc.State.MicroAlgos,
@@ -326,6 +326,22 @@ func (db *IndexerDb) LoadGenesis(genesis sdk.Genesis) error {
 	}
 
 	return nil
+}
+
+func accountToAccountData(acct sdk.Account) sdk.AccountData {
+	return sdk.AccountData{
+		AccountBaseData: sdk.AccountBaseData{
+			Status:     sdk.Status(acct.Status),
+			MicroAlgos: 0,
+		},
+		VotingData: sdk.VotingData{
+			VoteID:          acct.VoteID,
+			SelectionID:     acct.SelectionID,
+			StateProofID:    acct.StateProofID,
+			VoteLastValid:   sdk.Round(acct.VoteLastValid),
+			VoteKeyDilution: acct.VoteKeyDilution,
+		},
+	}
 }
 
 // Returns `idb.ErrorNotInitialized` if uninitialized.
@@ -929,14 +945,14 @@ var statusStrings = []string{"Offline", "Online", "NotParticipating"}
 
 const offlineStatusIdx = 0
 
-func tealValueToModel(tv basics.TealValue) models.TealValue {
+func tealValueToModel(tv sdk.TealValue) models.TealValue {
 	switch tv.Type {
-	case basics.TealUintType:
+	case sdk.TealUintType:
 		return models.TealValue{
 			Uint: tv.Uint,
 			Type: uint64(tv.Type),
 		}
-	case basics.TealBytesType:
+	case sdk.TealBytesType:
 		return models.TealValue{
 			Bytes: encoding.Base64([]byte(tv.Bytes)),
 			Type:  uint64(tv.Type),
@@ -945,7 +961,7 @@ func tealValueToModel(tv basics.TealValue) models.TealValue {
 	return models.TealValue{}
 }
 
-func tealKeyValueToModel(tkv basics.TealKeyValue) *models.TealKeyValueStore {
+func tealKeyValueToModel(tkv sdk.TealKeyValue) *models.TealKeyValueStore {
 	if len(tkv) == 0 {
 		return nil
 	}
@@ -1053,7 +1069,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		}
 
 		{
-			var accountData ledgercore.AccountData
+			var accountData sdk.AccountData
 			accountData, err = encoding.DecodeTrimmedLcAccountData(accountDataJSONStr)
 			if err != nil {
 				err = fmt.Errorf("account decode err (%s) %v", accountDataJSONStr, err)
@@ -1703,7 +1719,7 @@ func (db *IndexerDb) checkAccountResourceLimit(ctx context.Context, tx pgx.Tx, o
 			return fmt.Errorf("account limit scan err %v", err)
 		}
 
-		var ad ledgercore.AccountData
+		var ad sdk.AccountData
 		ad, err = encoding.DecodeTrimmedLcAccountData(accountDataJSONStr)
 		if err != nil {
 			return fmt.Errorf("account limit decode err (%s) %v", accountDataJSONStr, err)

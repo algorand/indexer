@@ -12,9 +12,6 @@ import (
 	"github.com/algorand/indexer/util"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/crypto"
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
 var jsonCodecHandle *codec.JsonHandle
@@ -367,49 +364,60 @@ func DecodeSignedTxnWithAD(data []byte) (sdk.SignedTxnWithAD, error) {
 	return unconvertSignedTxnWithAD(stxn), nil
 }
 
-func convertTrimmedAccountData(ad basics.AccountData) trimmedAccountData {
-	return trimmedAccountData{
-		AccountData:      ad,
-		AuthAddrOverride: crypto.Digest(ad.AuthAddr),
+func unconvertTrimmedAccountData(ad trimmedAccountData) sdk.AccountData {
+	return sdk.AccountData{
+		AccountBaseData: sdk.AccountBaseData{
+			Status:              ad.Status,
+			MicroAlgos:          sdk.MicroAlgos(ad.MicroAlgos),
+			RewardsBase:         ad.RewardsBase,
+			RewardedMicroAlgos:  sdk.MicroAlgos(ad.RewardedMicroAlgos),
+			AuthAddr:            sdk.Address(ad.AuthAddr),
+			TotalAppSchema:      ad.TotalAppSchema,
+			TotalExtraAppPages:  ad.TotalExtraAppPages,
+			TotalAppParams:      ad.TotalAppParams,
+			TotalAppLocalStates: ad.TotalAppLocalStates,
+			TotalAssetParams:    ad.TotalAssetParams,
+			TotalAssets:         ad.TotalAssets,
+			TotalBoxes:          ad.TotalBoxes,
+			TotalBoxBytes:       ad.TotalBoxBytes,
+		},
+		VotingData: sdk.VotingData{
+			VoteID:          ad.VoteID,
+			SelectionID:     ad.SelectionID,
+			StateProofID:    ad.StateProofID,
+			VoteFirstValid:  ad.VoteFirstValid,
+			VoteLastValid:   ad.VoteLastValid,
+			VoteKeyDilution: ad.VoteKeyDilution,
+		},
 	}
-}
 
-func unconvertTrimmedAccountData(ad trimmedAccountData) basics.AccountData {
-	res := ad.AccountData
-	res.AuthAddr = basics.Address(ad.AuthAddrOverride)
-	return res
-}
-
-// EncodeTrimmedAccountData encodes account data into json.
-func EncodeTrimmedAccountData(ad basics.AccountData) []byte {
-	return encodeJSON(convertTrimmedAccountData(ad))
 }
 
 // DecodeTrimmedAccountData decodes account data from json.
-func DecodeTrimmedAccountData(data []byte) (basics.AccountData, error) {
+func DecodeTrimmedAccountData(data []byte) (sdk.AccountData, error) {
 	var ado trimmedAccountData // ado - account data with override
 	err := DecodeJSON(data, &ado)
 	if err != nil {
-		return basics.AccountData{}, err
+		return sdk.AccountData{}, err
 	}
 
 	return unconvertTrimmedAccountData(ado), nil
 }
 
-func convertTealValue(tv basics.TealValue) tealValue {
+func convertTealValue(tv sdk.TealValue) tealValue {
 	return tealValue{
 		TealValue:     tv,
 		BytesOverride: []byte(tv.Bytes),
 	}
 }
 
-func unconvertTealValue(tv tealValue) basics.TealValue {
+func unconvertTealValue(tv tealValue) sdk.TealValue {
 	res := tv.TealValue
 	res.Bytes = string(tv.BytesOverride)
 	return res
 }
 
-func convertTealKeyValue(tkv basics.TealKeyValue) tealKeyValue {
+func convertTealKeyValue(tkv sdk.TealKeyValue) tealKeyValue {
 	if tkv == nil {
 		return nil
 	}
@@ -421,71 +429,71 @@ func convertTealKeyValue(tkv basics.TealKeyValue) tealKeyValue {
 	return res
 }
 
-func unconvertTealKeyValue(tkv tealKeyValue) basics.TealKeyValue {
+func unconvertTealKeyValue(tkv tealKeyValue) sdk.TealKeyValue {
 	if tkv == nil {
 		return nil
 	}
 
-	res := make(map[string]basics.TealValue, len(tkv))
+	res := make(map[string]sdk.TealValue, len(tkv))
 	for k, tv := range tkv {
 		res[k.data] = unconvertTealValue(tv)
 	}
 	return res
 }
 
-func convertAppLocalState(state basics.AppLocalState) appLocalState {
+func convertAppLocalState(state sdk.AppLocalState) appLocalState {
 	return appLocalState{
 		AppLocalState:    state,
 		KeyValueOverride: convertTealKeyValue(state.KeyValue),
 	}
 }
 
-func unconvertAppLocalState(state appLocalState) basics.AppLocalState {
+func unconvertAppLocalState(state appLocalState) sdk.AppLocalState {
 	res := state.AppLocalState
 	res.KeyValue = unconvertTealKeyValue(state.KeyValueOverride)
 	return res
 }
 
 // EncodeAppLocalState encodes local application state into json.
-func EncodeAppLocalState(state basics.AppLocalState) []byte {
+func EncodeAppLocalState(state sdk.AppLocalState) []byte {
 	return encodeJSON(convertAppLocalState(state))
 }
 
 // DecodeAppLocalState decodes local application state from json.
-func DecodeAppLocalState(data []byte) (basics.AppLocalState, error) {
+func DecodeAppLocalState(data []byte) (sdk.AppLocalState, error) {
 	var state appLocalState
 	err := DecodeJSON(data, &state)
 	if err != nil {
-		return basics.AppLocalState{}, err
+		return sdk.AppLocalState{}, err
 	}
 
 	return unconvertAppLocalState(state), nil
 }
 
-func convertAppParams(params basics.AppParams) appParams {
+func convertAppParams(params sdk.AppParams) appParams {
 	return appParams{
 		AppParams:           params,
 		GlobalStateOverride: convertTealKeyValue(params.GlobalState),
 	}
 }
 
-func unconvertAppParams(params appParams) basics.AppParams {
+func unconvertAppParams(params appParams) sdk.AppParams {
 	res := params.AppParams
 	res.GlobalState = unconvertTealKeyValue(params.GlobalStateOverride)
 	return res
 }
 
 // EncodeAppParams encodes application params into json.
-func EncodeAppParams(params basics.AppParams) []byte {
+func EncodeAppParams(params sdk.AppParams) []byte {
 	return encodeJSON(convertAppParams(params))
 }
 
 // DecodeAppParams decodes application params from json.
-func DecodeAppParams(data []byte) (basics.AppParams, error) {
+func DecodeAppParams(data []byte) (sdk.AppParams, error) {
 	var params appParams
 	err := DecodeJSON(data, &params)
 	if err != nil {
-		return basics.AppParams{}, nil
+		return sdk.AppParams{}, nil
 	}
 
 	return unconvertAppParams(params), nil
@@ -514,12 +522,12 @@ func DecodeAssetParamsArray(data []byte) ([]sdk.AssetParams, error) {
 	return unconvertAssetParamsArray(paramsArr), nil
 }
 
-func unconvertAppParamsArray(paramsArr []appParams) []basics.AppParams {
+func unconvertAppParamsArray(paramsArr []appParams) []sdk.AppParams {
 	if paramsArr == nil {
 		return nil
 	}
 
-	res := make([]basics.AppParams, 0, len(paramsArr))
+	res := make([]sdk.AppParams, 0, len(paramsArr))
 	for _, params := range paramsArr {
 		res = append(res, unconvertAppParams(params))
 	}
@@ -527,7 +535,7 @@ func unconvertAppParamsArray(paramsArr []appParams) []basics.AppParams {
 }
 
 // DecodeAppParamsArray decodes an array of application params from a json array.
-func DecodeAppParamsArray(data []byte) ([]basics.AppParams, error) {
+func DecodeAppParamsArray(data []byte) ([]sdk.AppParams, error) {
 	var paramsArr []appParams
 	err := DecodeJSON(data, &paramsArr)
 	if err != nil {
@@ -537,12 +545,12 @@ func DecodeAppParamsArray(data []byte) ([]basics.AppParams, error) {
 	return unconvertAppParamsArray(paramsArr), nil
 }
 
-func unconvertAppLocalStateArray(array []appLocalState) []basics.AppLocalState {
+func unconvertAppLocalStateArray(array []appLocalState) []sdk.AppLocalState {
 	if array == nil {
 		return nil
 	}
 
-	res := make([]basics.AppLocalState, 0, len(array))
+	res := make([]sdk.AppLocalState, 0, len(array))
 	for _, state := range array {
 		res = append(res, unconvertAppLocalState(state))
 	}
@@ -551,7 +559,7 @@ func unconvertAppLocalStateArray(array []appLocalState) []basics.AppLocalState {
 
 // DecodeAppLocalStateArray decodes an array of local application states from a json
 // array.
-func DecodeAppLocalStateArray(data []byte) ([]basics.AppLocalState, error) {
+func DecodeAppLocalStateArray(data []byte) ([]sdk.AppLocalState, error) {
 	var array []appLocalState
 	err := DecodeJSON(data, &array)
 	if err != nil {
@@ -657,17 +665,17 @@ func DecodeNetworkState(data []byte) (types.NetworkState, error) {
 
 // TrimLcAccountData deletes various information from account data that we do not write
 // to `account.account_data`.
-func TrimLcAccountData(ad ledgercore.AccountData) ledgercore.AccountData {
-	ad.MicroAlgos = basics.MicroAlgos{}
+func TrimLcAccountData(ad sdk.AccountData) sdk.AccountData {
+	ad.MicroAlgos = 0
 	ad.RewardsBase = 0
-	ad.RewardedMicroAlgos = basics.MicroAlgos{}
+	ad.RewardedMicroAlgos = 0
 	return ad
 }
 
-func convertTrimmedLcAccountData(ad ledgercore.AccountData) baseAccountData {
+func convertTrimmedLcAccountData(ad sdk.AccountData) baseAccountData {
 	return baseAccountData{
 		Status:              ad.Status,
-		AuthAddr:            crypto.Digest(ad.AuthAddr),
+		AuthAddr:            sdk.Digest(ad.AuthAddr),
 		TotalAppSchema:      ad.TotalAppSchema,
 		TotalExtraAppPages:  ad.TotalExtraAppPages,
 		TotalAssetParams:    ad.TotalAssetParams,
@@ -687,11 +695,11 @@ func convertTrimmedLcAccountData(ad ledgercore.AccountData) baseAccountData {
 	}
 }
 
-func unconvertTrimmedLcAccountData(ba baseAccountData) ledgercore.AccountData {
-	return ledgercore.AccountData{
-		AccountBaseData: ledgercore.AccountBaseData{
+func unconvertTrimmedLcAccountData(ba baseAccountData) sdk.AccountData {
+	return sdk.AccountData{
+		AccountBaseData: sdk.AccountBaseData{
 			Status:              ba.Status,
-			AuthAddr:            basics.Address(ba.AuthAddr),
+			AuthAddr:            sdk.Address(ba.AuthAddr),
 			TotalAppSchema:      ba.TotalAppSchema,
 			TotalExtraAppPages:  ba.TotalExtraAppPages,
 			TotalAppParams:      ba.TotalAppParams,
@@ -701,7 +709,7 @@ func unconvertTrimmedLcAccountData(ba baseAccountData) ledgercore.AccountData {
 			TotalBoxes:          ba.TotalBoxes,
 			TotalBoxBytes:       ba.TotalBoxBytes,
 		},
-		VotingData: ledgercore.VotingData{
+		VotingData: sdk.VotingData{
 			VoteID:          ba.VoteID,
 			SelectionID:     ba.SelectionID,
 			StateProofID:    ba.StateProofID,
@@ -713,16 +721,16 @@ func unconvertTrimmedLcAccountData(ba baseAccountData) ledgercore.AccountData {
 }
 
 // EncodeTrimmedLcAccountData encodes ledgercore account data into json.
-func EncodeTrimmedLcAccountData(ad ledgercore.AccountData) []byte {
+func EncodeTrimmedLcAccountData(ad sdk.AccountData) []byte {
 	return encodeJSON(convertTrimmedLcAccountData(ad))
 }
 
 // DecodeTrimmedLcAccountData decodes ledgercore account data from json.
-func DecodeTrimmedLcAccountData(data []byte) (ledgercore.AccountData, error) {
+func DecodeTrimmedLcAccountData(data []byte) (sdk.AccountData, error) {
 	var ba baseAccountData
 	err := DecodeJSON(data, &ba)
 	if err != nil {
-		return ledgercore.AccountData{}, err
+		return sdk.AccountData{}, err
 	}
 
 	return unconvertTrimmedLcAccountData(ba), nil
