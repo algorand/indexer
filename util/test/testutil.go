@@ -177,15 +177,3 @@ func AppAddress(app sdk.AppIndex) sdk.Address {
 
 	return account
 }
-
-// AppAddress generates Address for the given appID
-func AppAddress(app sdk.AppIndex) sdk.Address {
-	hashid := "appID"
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, uint64(app))
-	b := []byte(hashid)
-	b = append(b, buf...)
-	account := sha512.Sum512_256(b)
-
-	return account
-}
