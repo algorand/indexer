@@ -91,7 +91,7 @@ func (a *FilterProcessor) Init(ctx context.Context, _ data.InitProvider, cfg plu
 
 				exp, err := expression.MakeExpression(subConfig.ExpressionType, subConfig.Expression, t)
 				if err != nil {
-					return fmt.Errorf("filter processor Init(): could not make expression with string %s for filter tag %s: %w", subConfig.Expression, subConfig.FilterTag, err)
+					return fmt.Errorf("filter processor Init(): could not make expression: %w", err)
 				}
 
 				searcher, err := fields.MakeFieldSearcher(exp, subConfig.ExpressionType, subConfig.FilterTag)

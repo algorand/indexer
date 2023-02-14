@@ -48,12 +48,17 @@ type regexExpression struct {
 }
 
 func (e *regexExpression) Search(input interface{}) (bool, error) {
-	return e.Regex.MatchString(input.(string)), nil
+	switch v := input.(type) {
+	case string:
+		return e.Regex.MatchString(input.(string)), nil
+	default:
+		return false, fmt.Errorf("unexpected regex search input type (%T)", v)
+	}
 }
 
 func makeRegexExpression(searchStr string, expressionType FilterType) (Expression, error) {
 	if expressionType != EqualToFilter && expressionType != RegexFilter {
-		return nil, fmt.Errorf("regex expressions do not support %s filters", expressionType)
+		return nil, fmt.Errorf("target type (string) does not support %s filters", expressionType)
 	}
 	r, err := regexp.Compile(searchStr)
 	if err != nil {
@@ -64,9 +69,13 @@ func makeRegexExpression(searchStr string, expressionType FilterType) (Expressio
 }
 
 func makeSignedExpression(searchStr string, expressionType FilterType) (Expression, error) {
+	if expressionType == RegexFilter {
+		return nil, fmt.Errorf("target type (numeric) does not support %s filters", expressionType)
+	}
+
 	v, err := strconv.ParseInt(searchStr, 10, 64)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("search string \"%s\" is not numeric: %w", searchStr, err)
 	}
 
 	return &int64NumericalExpression{
@@ -76,9 +85,13 @@ func makeSignedExpression(searchStr string, expressionType FilterType) (Expressi
 }
 
 func makeUnsignedExpression(searchStr string, expressionType FilterType) (Expression, error) {
+	if expressionType == RegexFilter {
+		return nil, fmt.Errorf("target type (numeric) does not support %s filters", expressionType)
+	}
+
 	v, err := strconv.ParseUint(searchStr, 10, 64)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("search string \"%s\" is not numeric: %w", searchStr, err)
 	}
 
 	return &uint64NumericalExpression{
@@ -88,27 +101,22 @@ func makeUnsignedExpression(searchStr string, expressionType FilterType) (Expres
 }
 
 // MakeExpression creates an expression based on an expression type
-func MakeExpression(expressionType FilterType, expressionSearchStr string, target interface{}) (exp Expression, err error) {
+func MakeExpression(filterType FilterType, expressionSearchStr string, target interface{}) (exp Expression, err error) {
 	switch t := target.(type) {
 	case uint64:
-		exp, err = makeSignedExpression(expressionSearchStr, expressionType)
+		return makeUnsignedExpression(expressionSearchStr, filterType)
 	case int64:
-		exp, err = makeUnsignedExpression(expressionSearchStr, expressionType)
+		return makeSignedExpression(expressionSearchStr, filterType)
 	case string:
-		if expressionType == EqualToFilter {
-			fmt.Sprintf("^%s$", expressionSearchStr)
+		if filterType == EqualToFilter {
+			// Equal to for strings is a special case of the regex pattern.
+			expressionSearchStr = fmt.Sprintf("^%s$", regexp.QuoteMeta(expressionSearchStr))
 		}
-		exp, err = makeRegexExpression(expressionSearchStr, expressionType)
+		return makeRegexExpression(expressionSearchStr, filterType)
 
 	default:
 		return nil, fmt.Errorf("unknown expression type: %s", t)
 	}
 
-	if err != nil {
-		switch t := target.(type) {
-		default:
-			err = fmt.Errorf("target with type (%T) is not valid for filter type %s: %w", t, expressionType, err)
-		}
-	}
 	return
 }

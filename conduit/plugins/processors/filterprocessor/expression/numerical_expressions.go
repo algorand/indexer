@@ -45,7 +45,7 @@ type int64NumericalExpression struct {
 func (s int64NumericalExpression) Search(input interface{}) (bool, error) {
 	inputValue, ok := input.(int64)
 	if !ok {
-		return false, fmt.Errorf("supplied type (%s) was not int64", reflect.TypeOf(input).String())
+		return false, fmt.Errorf("unexpected numeric search input \"%v\"", input)
 	}
 
 	switch s.Op {
@@ -75,7 +75,7 @@ type uint64NumericalExpression struct {
 func (u uint64NumericalExpression) Search(input interface{}) (bool, error) {
 	inputValue, ok := input.(uint64)
 	if !ok {
-		return false, fmt.Errorf("supplied type (%s) was not uint64", reflect.TypeOf(input).String())
+		return false, fmt.Errorf("unexpected numeric search input \"%v\"", input)
 	}
 
 	switch u.Op {
