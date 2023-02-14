@@ -5,14 +5,13 @@ import (
 	"encoding/base64"
 	"fmt"
 	"math/rand"
+	"reflect"
 	"testing"
 
 	"github.com/jackc/pgx/v4"
 	"github.com/stretchr/testify/require"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 
 	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
@@ -20,30 +19,30 @@ import (
 	"github.com/algorand/indexer/util/test"
 )
 
-func generateAddress(t *testing.T) basics.Address {
-	var res basics.Address
+func generateAddress(t *testing.T) sdk.Address {
+	var res sdk.Address
 	_, err := rand.Read(res[:])
 	require.NoError(t, err)
 
 	return res
 }
 
-func generateAccountData() ledgercore.AccountData {
+func generateAccountData() sdk.AccountData {
 	// Return empty account data with probability 50%.
 	if rand.Uint32()%2 == 0 {
-		return ledgercore.AccountData{}
+		return sdk.AccountData{}
 	}
 
-	res := ledgercore.AccountData{
-		AccountBaseData: ledgercore.AccountBaseData{
-			MicroAlgos: basics.MicroAlgos{Raw: uint64(rand.Int63())},
+	res := sdk.AccountData{
+		AccountBaseData: sdk.AccountBaseData{
+			MicroAlgos: sdk.MicroAlgos(rand.Int63()),
 		},
 	}
 
 	return res
 }
 
-func maybeGetAccount(t *testing.T, db *IndexerDb, address basics.Address) *models.Account {
+func maybeGetAccount(t *testing.T, db *IndexerDb, address sdk.Address) *models.Account {
 	resultCh, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: address[:]})
 	num := 0
 	var result *models.Account
@@ -65,14 +64,18 @@ func TestWriteReadAccountData(t *testing.T) {
 	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
-	data := make(map[basics.Address]ledgercore.AccountData)
-	var delta ledgercore.StateDelta
+	data := make(map[sdk.Address]sdk.AccountData)
+	var delta sdk.LedgerStateDelta
 	for i := 0; i < 1000; i++ {
 		address := generateAddress(t)
 
 		acctData := generateAccountData()
 		data[address] = acctData
-		delta.Accts.Upsert(address, acctData)
+		abr := sdk.BalanceRecord{
+			AccountData: acctData,
+			Addr:        address,
+		}
+		delta.Accts.Accts = append(delta.Accts.Accts, abr)
 	}
 
 	f := func(tx pgx.Tx) error {
@@ -94,30 +97,29 @@ func TestWriteReadAccountData(t *testing.T) {
 
 	for address, expected := range data {
 		account := maybeGetAccount(t, db, address)
-
-		if expected.IsZero() {
+		if reflect.DeepEqual(expected, sdk.AccountData{}) {
 			require.Nil(t, account)
 		} else {
-			require.Equal(t, expected.AccountBaseData.MicroAlgos.Raw, account.Amount)
+			require.Equal(t, uint64(expected.AccountBaseData.MicroAlgos), account.Amount)
 		}
 	}
 }
 
-func generateAssetParams() basics.AssetParams {
-	return basics.AssetParams{
+func generateAssetParams() sdk.AssetParams {
+	return sdk.AssetParams{
 		Total: rand.Uint64(),
 	}
 }
 
-func generateAssetParamsDelta() ledgercore.AssetParamsDelta {
-	var res ledgercore.AssetParamsDelta
+func generateAssetParamsDelta() sdk.AssetParamsDelta {
+	var res sdk.AssetParamsDelta
 
 	r := rand.Uint32() % 3
 	switch r {
 	case 0:
 		res.Deleted = true
 	case 1:
-		res.Params = new(basics.AssetParams)
+		res.Params = new(sdk.AssetParams)
 		*res.Params = generateAssetParams()
 	case 2:
 		// do nothing
@@ -126,21 +128,21 @@ func generateAssetParamsDelta() ledgercore.AssetParamsDelta {
 	return res
 }
 
-func generateAssetHolding() basics.AssetHolding {
-	return basics.AssetHolding{
+func generateAssetHolding() sdk.AssetHolding {
+	return sdk.AssetHolding{
 		Amount: rand.Uint64(),
 	}
 }
 
-func generateAssetHoldingDelta() ledgercore.AssetHoldingDelta {
-	var res ledgercore.AssetHoldingDelta
+func generateAssetHoldingDelta() sdk.AssetHoldingDelta {
+	var res sdk.AssetHoldingDelta
 
 	r := rand.Uint32() % 3
 	switch r {
 	case 0:
 		res.Deleted = true
 	case 1:
-		res.Holding = new(basics.AssetHolding)
+		res.Holding = new(sdk.AssetHolding)
 		*res.Holding = generateAssetHolding()
 	case 2:
 		// do nothing
@@ -149,25 +151,25 @@ func generateAssetHoldingDelta() ledgercore.AssetHoldingDelta {
 	return res
 }
 
-func generateAppParams(t *testing.T) basics.AppParams {
+func generateAppParams(t *testing.T) sdk.AppParams {
 	p := make([]byte, 100)
 	_, err := rand.Read(p)
 	require.NoError(t, err)
 
-	return basics.AppParams{
+	return sdk.AppParams{
 		ApprovalProgram: p,
 	}
 }
 
-func generateAppParamsDelta(t *testing.T) ledgercore.AppParamsDelta {
-	var res ledgercore.AppParamsDelta
+func generateAppParamsDelta(t *testing.T) sdk.AppParamsDelta {
+	var res sdk.AppParamsDelta
 
 	r := rand.Uint32() % 3
 	switch r {
 	case 0:
 		res.Deleted = true
 	case 1:
-		res.Params = new(basics.AppParams)
+		res.Params = new(sdk.AppParams)
 		*res.Params = generateAppParams(t)
 	case 2:
 		// do nothing
@@ -176,7 +178,7 @@ func generateAppParamsDelta(t *testing.T) ledgercore.AppParamsDelta {
 	return res
 }
 
-func generateAppLocalState(t *testing.T) basics.AppLocalState {
+func generateAppLocalState(t *testing.T) sdk.AppLocalState {
 	k := make([]byte, 100)
 	_, err := rand.Read(k)
 	require.NoError(t, err)
@@ -185,8 +187,8 @@ func generateAppLocalState(t *testing.T) basics.AppLocalState {
 	_, err = rand.Read(v)
 	require.NoError(t, err)
 
-	return basics.AppLocalState{
-		KeyValue: map[string]basics.TealValue{
+	return sdk.AppLocalState{
+		KeyValue: map[string]sdk.TealValue{
 			string(k): {
 				Bytes: string(v),
 			},
@@ -194,15 +196,15 @@ func generateAppLocalState(t *testing.T) basics.AppLocalState {
 	}
 }
 
-func generateAppLocalStateDelta(t *testing.T) ledgercore.AppLocalStateDelta {
-	var res ledgercore.AppLocalStateDelta
+func generateAppLocalStateDelta(t *testing.T) sdk.AppLocalStateDelta {
+	var res sdk.AppLocalStateDelta
 
 	r := rand.Uint32() % 3
 	switch r {
 	case 0:
 		res.Deleted = true
 	case 1:
-		res.LocalState = new(basics.AppLocalState)
+		res.LocalState = new(sdk.AppLocalState)
 		*res.LocalState = generateAppLocalState(t)
 	case 2:
 		// do nothing
@@ -220,24 +222,24 @@ func TestWriteReadResources(t *testing.T) {
 	defer shutdownFunc()
 
 	type datum struct {
-		assetIndex  basics.AssetIndex
-		assetParams ledgercore.AssetParamsDelta
-		holding     ledgercore.AssetHoldingDelta
-		appIndex    basics.AppIndex
-		appParams   ledgercore.AppParamsDelta
-		localState  ledgercore.AppLocalStateDelta
+		assetIndex  sdk.AssetIndex
+		assetParams sdk.AssetParamsDelta
+		holding     sdk.AssetHoldingDelta
+		appIndex    sdk.AppIndex
+		appParams   sdk.AppParamsDelta
+		localState  sdk.AppLocalStateDelta
 	}
 
-	data := make(map[basics.Address]datum)
-	var delta ledgercore.StateDelta
+	data := make(map[sdk.Address]datum)
+	var delta sdk.LedgerStateDelta
 	for i := 0; i < 1000; i++ {
 		address := generateAddress(t)
 
-		assetIndex := basics.AssetIndex(rand.Int63())
+		assetIndex := sdk.AssetIndex(rand.Int63())
 		assetParams := generateAssetParamsDelta()
 		holding := generateAssetHoldingDelta()
 
-		appIndex := basics.AppIndex(rand.Int63())
+		appIndex := sdk.AppIndex(rand.Int63())
 		appParamsDelta := generateAppParamsDelta(t)
 		localState := generateAppLocalStateDelta(t)
 
@@ -250,8 +252,22 @@ func TestWriteReadResources(t *testing.T) {
 			localState:  localState,
 		}
 
-		delta.Accts.UpsertAssetResource(address, assetIndex, assetParams, holding)
-		delta.Accts.UpsertAppResource(address, appIndex, appParamsDelta, localState)
+		assetResRec := sdk.AssetResourceRecord{
+			Aidx:    assetIndex,
+			Addr:    address,
+			Params:  assetParams,
+			Holding: holding,
+		}
+
+		appsResRec := sdk.AppResourceRecord{
+			Aidx:   appIndex,
+			Addr:   address,
+			Params: appParamsDelta,
+			State:  localState,
+		}
+
+		delta.Accts.AssetResources = append(delta.Accts.AssetResources, assetResRec)
+		delta.Accts.AppResources = append(delta.Accts.AppResources, appsResRec)
 	}
 
 	f := func(tx pgx.Tx) error {
@@ -271,19 +287,54 @@ func TestWriteReadResources(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
+	assetMap := getAssetResource(delta.Accts.AssetResources)
+	appMap := getAppResource(delta.Accts.AppResources)
 	for address, datum := range data {
 		fmt.Println(base64.StdEncoding.EncodeToString(address[:]))
 
 		// asset info
-		assetParams, _ := delta.Accts.GetAssetParams(address, datum.assetIndex)
+		asset := assetMap[key{address, uint64(datum.assetIndex)}]
+		assetParams := asset.Params
 		require.Equal(t, datum.assetParams, assetParams)
-		holding, _ := delta.Accts.GetAssetHolding(address, datum.assetIndex)
+		holding := asset.Holding
 		require.Equal(t, datum.holding, holding)
 
 		// app info
-		appParams, _ := delta.Accts.GetAppParams(address, datum.appIndex)
+		apps := appMap[key{address, uint64(datum.appIndex)}]
+		appParams := apps.Params
 		require.Equal(t, datum.appParams, appParams)
-		localState, _ := delta.Accts.GetAppLocalState(address, datum.appIndex)
+		localState := apps.State
 		require.Equal(t, datum.localState, localState)
 	}
+}
+
+type key struct {
+	address sdk.Address
+	idx     uint64
+}
+
+func getAssetResource(assetsRecord []sdk.AssetResourceRecord) map[key]sdk.AssetResourceRecord {
+
+	ret := make(map[key]sdk.AssetResourceRecord)
+	for _, resource := range assetsRecord {
+		k := key{
+			address: resource.Addr,
+			idx:     uint64(resource.Aidx),
+		}
+		ret[k] = resource
+	}
+	return ret
+}
+
+func getAppResource(appRecord []sdk.AppResourceRecord) map[key]sdk.AppResourceRecord {
+
+	ret := make(map[key]sdk.AppResourceRecord)
+	for _, resource := range appRecord {
+		k := key{
+			address: resource.Addr,
+			idx:     uint64(resource.Aidx),
+		}
+		ret[k] = resource
+	}
+	return ret
 }

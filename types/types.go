@@ -13,8 +13,7 @@ import (
 // and can now be recorded in the ledger.
 type ValidatedBlock struct {
 	Block sdk.Block
-	// TODO: replace when state delta endpoint is available
-	Delta ledgercore.StateDelta
+	Delta sdk.LedgerStateDelta
 }
 
 // EncodedBlockCert contains the encoded block and the corresponding encoded certificate
