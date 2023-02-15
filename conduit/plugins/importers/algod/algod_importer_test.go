@@ -74,6 +74,45 @@ netaddr: %s
 	}
 }
 
+func TestInitParseUrlFailure(t *testing.T) {
+	tests := []struct {
+		url string
+	}{
+		{".0.0.0.0.0.0.0:1234"},
+	}
+	for _, ttest := range tests {
+		t.Run(ttest.url, func(t *testing.T) {
+			testImporter := New()
+			cfgStr := fmt.Sprintf(`---
+mode: %s
+netaddr: %s
+`, "follower", ttest.url)
+			_, err := testImporter.Init(ctx, plugins.MakePluginConfig(cfgStr), logger)
+			assert.ErrorContains(t, err, "parse")
+		})
+	}
+}
+
+func TestInitModeFailure(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{"foobar"},
+	}
+	for _, ttest := range tests {
+		t.Run(ttest.name, func(t *testing.T) {
+			ts := test.NewAlgodServer(test.GenesisResponder)
+			testImporter := New()
+			cfgStr := fmt.Sprintf(`---
+mode: %s
+netaddr: %s
+`, ttest.name, ts.URL)
+			_, err := testImporter.Init(ctx, plugins.MakePluginConfig(cfgStr), logger)
+			assert.EqualError(t, err, fmt.Sprintf("algod importer was set to a mode (%s) that wasn't supported", ttest.name))
+		})
+	}
+}
+
 func TestInitGenesisFailure(t *testing.T) {
 	ts := test.NewAlgodServer(test.MakeGenesisResponder(sdk.Genesis{}))
 	testImporter := New()
@@ -149,10 +188,22 @@ netaddr: %s
 			assert.NoError(t, err)
 			assert.NotEqual(t, testImporter, nil)
 
-			downloadedBlk, err := testImporter.GetBlock(uint64(10))
+			downloadedBlk, err := testImporter.GetBlock(uint64(0))
+			assert.NoError(t, err)
+			assert.Equal(t, downloadedBlk.Round(), uint64(0))
+			assert.True(t, downloadedBlk.Empty())
+			assert.Nil(t, downloadedBlk.Delta)
+
+			downloadedBlk, err = testImporter.GetBlock(uint64(10))
 			assert.NoError(t, err)
 			assert.Equal(t, downloadedBlk.Round(), uint64(10))
 			assert.True(t, downloadedBlk.Empty())
+			if ttest.name == followerModeStr {
+				// We're not setting the delta yet, but in the future we will
+				// assert.NotNil(t, downloadedBlk.Delta)
+			} else {
+				assert.Nil(t, downloadedBlk.Delta)
+			}
 			cancel()
 		})
 	}
