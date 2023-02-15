@@ -155,23 +155,18 @@ func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 	var blk data.BlockData
 
 	for retries := 0; retries < 3; retries++ {
-		// nextRound - 1 because the endpoint waits until the subsequent block is committed to return
-		_, err = algodImp.aclient.StatusAfterBlock(rnd - 1).Do(algodImp.ctx)
-		if err != nil {
-			// If context has expired.
-			if algodImp.ctx.Err() != nil {
-				return blk, fmt.Errorf("GetBlock ctx error: %w", err)
-			}
-			algodImp.logger.Errorf(
-				"r=%d error getting status %d", retries, rnd)
-			continue
+		// If context has expired.
+		if algodImp.ctx.Err() != nil {
+			return blk, fmt.Errorf("GetBlock ctx error: %w", err)
 		}
 		start := time.Now()
 		blockbytes, err = algodImp.aclient.BlockRaw(rnd).Do(algodImp.ctx)
 		dt := time.Since(start)
 		getAlgodRawBlockTimeSeconds.Observe(dt.Seconds())
 		if err != nil {
-			return blk, err
+			algodImp.logger.Errorf(
+				"r=%d error getting block %d", retries, rnd)
+			continue
 		}
 		tmpBlk := new(rpcs.EncodedBlockCert)
 		err = protocol.Decode(blockbytes, tmpBlk)
@@ -186,7 +181,9 @@ func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 			if rnd != 0 {
 				_, err = algodImp.aclient.GetLedgerStateDelta(rnd).Do(algodImp.ctx)
 				if err != nil {
-					return blk, err
+					algodImp.logger.Errorf(
+						"r=%d error getting delta %d", retries, rnd)
+					continue
 				}
 			}
 		}
