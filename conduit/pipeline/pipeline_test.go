@@ -20,9 +20,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
-
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/exporters"
@@ -195,7 +192,7 @@ exporter:
 
 // a unique block data to validate with tests
 var uniqueBlockData = data.BlockData{
-	BlockHeader: bookkeeping.BlockHeader{
+	BlockHeader: sdk.BlockHeader{
 		Round: 1337,
 	},
 }
@@ -205,7 +202,7 @@ type mockImporter struct {
 	importers.Importer
 	cfg             plugins.PluginConfig
 	genesis         sdk.Genesis
-	finalRound      basics.Round
+	finalRound      sdk.Round
 	returnError     bool
 	onCompleteError bool
 	subsystem       string
@@ -239,7 +236,7 @@ func (m *mockImporter) OnComplete(input data.BlockData) error {
 	if m.onCompleteError {
 		err = fmt.Errorf("on complete")
 	}
-	m.finalRound = input.BlockHeader.Round
+	m.finalRound = sdk.Round(input.BlockHeader.Round)
 	m.Called(input)
 	return err
 }
@@ -253,7 +250,7 @@ type mockProcessor struct {
 	mock.Mock
 	processors.Processor
 	cfg             plugins.PluginConfig
-	finalRound      basics.Round
+	finalRound      sdk.Round
 	returnError     bool
 	onCompleteError bool
 }
@@ -288,7 +285,7 @@ func (m *mockProcessor) OnComplete(input data.BlockData) error {
 	if m.onCompleteError {
 		err = fmt.Errorf("on complete")
 	}
-	m.finalRound = input.BlockHeader.Round
+	m.finalRound = sdk.Round(input.BlockHeader.Round)
 	m.Called(input)
 	return err
 }
@@ -297,7 +294,7 @@ type mockExporter struct {
 	mock.Mock
 	exporters.Exporter
 	cfg             plugins.PluginConfig
-	finalRound      basics.Round
+	finalRound      sdk.Round
 	returnError     bool
 	onCompleteError bool
 }
@@ -331,7 +328,7 @@ func (m *mockExporter) OnComplete(input data.BlockData) error {
 	if m.onCompleteError {
 		err = fmt.Errorf("on complete")
 	}
-	m.finalRound = input.BlockHeader.Round
+	m.finalRound = sdk.Round(input.BlockHeader.Round)
 	m.Called(input)
 	return err
 }

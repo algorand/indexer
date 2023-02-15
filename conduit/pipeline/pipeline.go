@@ -27,7 +27,7 @@ import (
 	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/metrics"
 
-	"github.com/algorand/go-algorand/data/basics"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 // NameConfigPair is a generic structure used across plugin configuration ser/de
@@ -301,7 +301,7 @@ func (p *pipelineImpl) Init() error {
 	p.logger.Infof("Initialized Importer: %s", importerName)
 
 	// InitProvider
-	round := basics.Round(p.pipelineMetadata.NextRound)
+	round := sdk.Round(p.pipelineMetadata.NextRound)
 	var initProvider data.InitProvider = conduit.MakePipelineInitProvider(&round, genesis)
 	p.initProvider = &initProvider
 

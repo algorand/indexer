@@ -6,17 +6,14 @@ import (
 	"path"
 	"testing"
 
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
-	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
-
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/exporters"
 	"github.com/algorand/indexer/data"
@@ -29,7 +26,7 @@ var fileCons = exporters.ExporterConstructorFunc(func() exporters.Exporter {
 	return &fileExporter{}
 })
 var configTemplate = "block-dir: %s/blocks\n"
-var round = basics.Round(2)
+var round = sdk.Round(2)
 
 func init() {
 	logger, _ = test.NewNullLogger()
@@ -112,7 +109,7 @@ func TestExporterInit(t *testing.T) {
 func sendData(t *testing.T, fileExp exporters.Exporter, config string, numRounds int) {
 	// Test invalid block receive
 	block := data.BlockData{
-		BlockHeader: bookkeeping.BlockHeader{
+		BlockHeader: sdk.BlockHeader{
 			Round: 3,
 		},
 		Payset:      nil,
@@ -124,7 +121,7 @@ func sendData(t *testing.T, fileExp exporters.Exporter, config string, numRounds
 	require.Contains(t, err.Error(), "exporter not initialized")
 
 	// initialize
-	rnd := basics.Round(0)
+	rnd := sdk.Round(0)
 	err = fileExp.Init(context.Background(), testutil.MockedInitProvider(&rnd), plugins.MakePluginConfig(config), logger)
 	require.NoError(t, err)
 
@@ -135,17 +132,17 @@ func sendData(t *testing.T, fileExp exporters.Exporter, config string, numRounds
 	// write block to file
 	for i := 0; i < numRounds; i++ {
 		block = data.BlockData{
-			BlockHeader: bookkeeping.BlockHeader{
-				Round: basics.Round(i),
+			BlockHeader: sdk.BlockHeader{
+				Round: sdk.Round(i),
 			},
 			Payset: nil,
-			Delta: &ledgercore.StateDelta{
+			Delta: &sdk.LedgerStateDelta{
 				PrevTimestamp: 1234,
 			},
-			Certificate: &agreement.Certificate{
-				Round:  basics.Round(i),
-				Period: 2,
-				Step:   2,
+			Certificate: &map[string]interface{}{
+				"Round":  sdk.Round(i),
+				"Period": 2,
+				"Step":   2,
 			},
 		}
 		err = fileExp.Receive(block)
@@ -178,7 +175,7 @@ func TestExporterReceive(t *testing.T) {
 func TestExporterClose(t *testing.T) {
 	config, _ := getConfig(t)
 	fileExp := fileCons.New()
-	rnd := basics.Round(0)
+	rnd := sdk.Round(0)
 	fileExp.Init(context.Background(), testutil.MockedInitProvider(&rnd), plugins.MakePluginConfig(config), logger)
 	require.NoError(t, fileExp.Close())
 }

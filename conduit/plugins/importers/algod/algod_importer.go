@@ -16,12 +16,12 @@ import (
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/importers"
 	"github.com/algorand/indexer/data"
+	"github.com/algorand/indexer/types"
 
 	"github.com/algorand/go-algorand-sdk/v2/client/v2/algod"
 	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
+	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/protocol"
-	"github.com/algorand/go-algorand/rpcs"
 )
 
 const importerName = "algod"
@@ -138,8 +138,8 @@ func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 		if err != nil {
 			return blk, err
 		}
-		tmpBlk := new(rpcs.EncodedBlockCert)
-		err = protocol.Decode(blockbytes, tmpBlk)
+		tmpBlk := new(types.EncodedBlockCert)
+		err = msgpack.Decode(blockbytes, tmpBlk)
 
 		blk = data.BlockData{
 			BlockHeader: tmpBlk.Block.BlockHeader,

@@ -238,8 +238,11 @@ func addGenesisBlock(l *ledger.Ledger, handler func(block *ledgercore.ValidatedB
 
 func (proc *blockProcessor) Process(input data.BlockData) (data.BlockData, error) {
 	start := time.Now()
-	blockCert := input.EncodedBlockCertificate()
-
+	iblockCert := input.EncodedBlockCertificate()
+	blockCert, err := helpers.ConvertEncodedBlockCert(iblockCert)
+	if err != nil {
+		return data.BlockData{}, fmt.Errorf("processing error: %w", err)
+	}
 	vb, modifiedTxns, err := proc.extractValidatedBlockAndPayset(&blockCert)
 
 	if err != nil {
@@ -250,8 +253,16 @@ func (proc *blockProcessor) Process(input data.BlockData) (data.BlockData, error
 	proc.saveLastValidatedInformation(vb, blockCert.Block.Round(), blockCert.Certificate)
 
 	delta := vb.Delta()
-	input.Payset = modifiedTxns
-	input.Delta = &delta
+	sdkModifiedTxns, err := helpers.ConvertPayset(modifiedTxns)
+	if err != nil {
+		return data.BlockData{}, fmt.Errorf("processing error: %w", err)
+	}
+	sdkDelta, err := helpers.ConvertLedgerStateDelta(delta)
+	if err != nil {
+		return data.BlockData{}, fmt.Errorf("processing error: %w", err)
+	}
+	input.Payset = sdkModifiedTxns
+	input.Delta = &sdkDelta
 
 	proc.logger.Debugf("Block processor: processed block %d (%s)", input.Round(), time.Since(start))
 
@@ -369,7 +380,11 @@ func MakeBlockProcessorHandlerAdapter(proc *BlockProcessor, handler func(block *
 		vb := blockData.ValidatedBlock()
 
 		if handler != nil {
-			err = handler(&vb)
+			lcvb, err := helpers.UnconvertValidatedBlock(vb)
+			if err != nil {
+				return err
+			}
+			err = handler(&lcvb)
 			if err != nil {
 				return err
 			}

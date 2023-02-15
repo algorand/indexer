@@ -11,8 +11,10 @@ import (
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	protocol2 "github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/go-algorand/rpcs"
 )
 
 // TODO: remove this file once all types have been converted to sdk types.
@@ -56,6 +58,25 @@ func ConvertValidatedBlock(vb ledgercore.ValidatedBlock) (types.ValidatedBlock, 
 	return ret, nil
 }
 
+// UnconvertValidatedBlock converts types.ValidatedBlock to ledgercore.ValidatedBlock
+func UnconvertValidatedBlock(vb types.ValidatedBlock) (ledgercore.ValidatedBlock, error) {
+	var block bookkeeping.Block
+	var delta ledgercore.StateDelta
+	// block
+	b := msgpack.Encode(vb.Block)
+	err := msgpack.Decode(b, &block)
+	if err != nil {
+		return ledgercore.ValidatedBlock{}, fmt.Errorf("ConvertValidatedBlock block err: %v", err)
+	}
+	//delta
+	d := msgpack.Encode(vb.Delta)
+	err = msgpack.Decode(d, &delta)
+	if err != nil {
+		return ledgercore.ValidatedBlock{}, fmt.Errorf("ConvertValidatedBlock delta err: %v", err)
+	}
+	return ledgercore.MakeValidatedBlock(block, delta), nil
+}
+
 // ConvertConsensusType returns a go-algorand/protocol.ConsensusVersion type
 func ConvertConsensusType(v protocol.ConsensusVersion) protocol2.ConsensusVersion {
 	return protocol2.ConsensusVersion(v)
@@ -82,4 +103,48 @@ func ConvertGenesis(genesis *sdk.Genesis) (*bookkeeping.Genesis, error) {
 		return &ret, fmt.Errorf("ConvertGenesis err: %v", err)
 	}
 	return &ret, nil
+}
+
+// ConvertEncodedBlockCert returns rpcs.EncodedBlockCert
+func ConvertEncodedBlockCert(blockCert types.EncodedBlockCert) (rpcs.EncodedBlockCert, error) {
+	var ret rpcs.EncodedBlockCert
+	b := json.Encode(blockCert)
+	err := json.Decode(b, &ret)
+	if err != nil {
+		return ret, fmt.Errorf("ConvertGenesis err: %v", err)
+	}
+	return ret, nil
+}
+
+// UnonvertEncodedBlockCert returns types.EncodedBlockCert
+func UnonvertEncodedBlockCert(blockCert rpcs.EncodedBlockCert) (types.EncodedBlockCert, error) {
+	var ret types.EncodedBlockCert
+	b := json.Encode(blockCert)
+	err := json.Decode(b, &ret)
+	if err != nil {
+		return ret, fmt.Errorf("ConvertGenesis err: %v", err)
+	}
+	return ret, nil
+}
+
+// ConvertPayset returns sdk.SignedTxnInBlock
+func ConvertPayset(payset transactions.Payset) ([]sdk.SignedTxnInBlock, error) {
+	var ret []sdk.SignedTxnInBlock
+	b := json.Encode(payset)
+	err := json.Decode(b, &ret)
+	if err != nil {
+		return ret, fmt.Errorf("ConvertGenesis err: %v", err)
+	}
+	return ret, nil
+}
+
+// ConvertLedgerStateDelta returns sdk.LedgerStateDelta
+func ConvertLedgerStateDelta(payset ledgercore.StateDelta) (sdk.LedgerStateDelta, error) {
+	var ret sdk.LedgerStateDelta
+	b := json.Encode(payset)
+	err := json.Decode(b, &ret)
+	if err != nil {
+		return ret, fmt.Errorf("ConvertGenesis err: %v", err)
+	}
+	return ret, nil
 }
