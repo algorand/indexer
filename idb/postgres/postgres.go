@@ -22,7 +22,6 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	models "github.com/algorand/indexer/api/generated/v2"
-	"github.com/algorand/indexer/helpers"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/migration"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
@@ -37,7 +36,6 @@ import (
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
 var serializable = pgx.TxOptions{IsoLevel: pgx.Serializable} // be a real ACID database
@@ -177,12 +175,7 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 }
 
 // AddBlock is part of idb.IndexerDb.
-func (db *IndexerDb) AddBlock(vblk *ledgercore.ValidatedBlock) error {
-	// TODO: use a converter util until vblk type is changed
-	vb, err := helpers.ConvertValidatedBlock(*vblk)
-	if err != nil {
-		return fmt.Errorf("AddBlock() err: %w", err)
-	}
+func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 	block := vb.Block
 	round := block.BlockHeader.Round
 	db.log.Printf("adding block %d", round)
@@ -258,7 +251,7 @@ func (db *IndexerDb) AddBlock(vblk *ledgercore.ValidatedBlock) error {
 
 		return nil
 	}
-	err = db.txWithRetry(serializable, f)
+	err := db.txWithRetry(serializable, f)
 	if err != nil {
 		return fmt.Errorf("AddBlock() err: %w", err)
 	}

@@ -9,7 +9,6 @@ import (
 	"github.com/algorand/indexer/types"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
 type dummyIndexerDb struct {
@@ -24,7 +23,7 @@ func IndexerDb() idb.IndexerDb {
 func (db *dummyIndexerDb) Close() {
 }
 
-func (db *dummyIndexerDb) AddBlock(block *ledgercore.ValidatedBlock) error {
+func (db *dummyIndexerDb) AddBlock(block *types.ValidatedBlock) error {
 	db.log.Printf("AddBlock")
 	return nil
 }

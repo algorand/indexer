@@ -5,10 +5,10 @@ import (
 	"testing"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
+	"github.com/algorand/indexer/types"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/stretchr/testify/require"
 
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/indexer/idb"
 	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
 	"github.com/algorand/indexer/util/test"
@@ -33,8 +33,10 @@ func setupIdb(t *testing.T, genesis sdk.Genesis) (*IndexerDb, func()) {
 		db.Close()
 		shutdownFunc()
 	}
-	// todo: update when AddBlock interface gets updated
-	vb := ledgercore.MakeValidatedBlock(test.MakeGenesisBlock(), ledgercore.StateDelta{})
+	vb := types.ValidatedBlock{
+		Block: test.MakeGenesisBlockV2(),
+		Delta: sdk.LedgerStateDelta{},
+	}
 	db.AddBlock(&vb)
 
 	return db, newShutdownFunc
