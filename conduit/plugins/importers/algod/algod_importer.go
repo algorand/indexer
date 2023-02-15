@@ -35,6 +35,13 @@ const (
 	followerMode
 )
 
+// Retry w/ exponential backoff
+const (
+	initialWait    = time.Millisecond * 200
+	waitMultiplier = 1.5
+	retries        = 5
+)
+
 type algodImporter struct {
 	aclient *algod.Client
 	logger  *logrus.Logger
@@ -154,7 +161,8 @@ func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 	var err error
 	var blk data.BlockData
 
-	for retries := 0; retries < 3; retries++ {
+	for r := 0; r < retries; r++ {
+		time.Sleep(time.Duration(waitMultiplier*float64(r)) * initialWait)
 		// If context has expired.
 		if algodImp.ctx.Err() != nil {
 			return blk, fmt.Errorf("GetBlock ctx error: %w", err)
@@ -165,7 +173,7 @@ func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 		getAlgodRawBlockTimeSeconds.Observe(dt.Seconds())
 		if err != nil {
 			algodImp.logger.Errorf(
-				"r=%d error getting block %d", retries, rnd)
+				"r=%d error getting block %d", r, rnd)
 			continue
 		}
 		tmpBlk := new(rpcs.EncodedBlockCert)
@@ -182,7 +190,7 @@ func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 				_, err = algodImp.aclient.GetLedgerStateDelta(rnd).Do(algodImp.ctx)
 				if err != nil {
 					algodImp.logger.Errorf(
-						"r=%d error getting delta %d", retries, rnd)
+						"r=%d error getting delta %d", r, rnd)
 					continue
 				}
 			}
