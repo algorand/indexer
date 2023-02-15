@@ -108,10 +108,10 @@ func ConvertGenesis(genesis *sdk.Genesis) (*bookkeeping.Genesis, error) {
 // ConvertEncodedBlockCert returns rpcs.EncodedBlockCert
 func ConvertEncodedBlockCert(blockCert types.EncodedBlockCert) (rpcs.EncodedBlockCert, error) {
 	var ret rpcs.EncodedBlockCert
-	b := json.Encode(blockCert)
-	err := json.Decode(b, &ret)
+	b := msgpack.Encode(blockCert)
+	err := msgpack.Decode(b, &ret)
 	if err != nil {
-		return ret, fmt.Errorf("ConvertGenesis err: %v", err)
+		return ret, fmt.Errorf("ConvertEncodedBlockCert err: %v", err)
 	}
 	return ret, nil
 }
@@ -119,10 +119,10 @@ func ConvertEncodedBlockCert(blockCert types.EncodedBlockCert) (rpcs.EncodedBloc
 // UnonvertEncodedBlockCert returns types.EncodedBlockCert
 func UnonvertEncodedBlockCert(blockCert rpcs.EncodedBlockCert) (types.EncodedBlockCert, error) {
 	var ret types.EncodedBlockCert
-	b := json.Encode(blockCert)
-	err := json.Decode(b, &ret)
+	b := msgpack.Encode(blockCert)
+	err := msgpack.Decode(b, &ret)
 	if err != nil {
-		return ret, fmt.Errorf("ConvertGenesis err: %v", err)
+		return ret, fmt.Errorf("UnonvertEncodedBlockCert err: %v", err)
 	}
 	return ret, nil
 }
@@ -130,10 +130,10 @@ func UnonvertEncodedBlockCert(blockCert rpcs.EncodedBlockCert) (types.EncodedBlo
 // ConvertPayset returns sdk.SignedTxnInBlock
 func ConvertPayset(payset transactions.Payset) ([]sdk.SignedTxnInBlock, error) {
 	var ret []sdk.SignedTxnInBlock
-	b := json.Encode(payset)
-	err := json.Decode(b, &ret)
+	b := msgpack.Encode(payset)
+	err := msgpack.Decode(b, &ret)
 	if err != nil {
-		return ret, fmt.Errorf("ConvertGenesis err: %v", err)
+		return ret, fmt.Errorf("ConvertPayset err: %v", err)
 	}
 	return ret, nil
 }
@@ -141,10 +141,10 @@ func ConvertPayset(payset transactions.Payset) ([]sdk.SignedTxnInBlock, error) {
 // ConvertLedgerStateDelta returns sdk.LedgerStateDelta
 func ConvertLedgerStateDelta(payset ledgercore.StateDelta) (sdk.LedgerStateDelta, error) {
 	var ret sdk.LedgerStateDelta
-	b := json.Encode(payset)
-	err := json.Decode(b, &ret)
+	b := msgpack.Encode(payset)
+	err := msgpack.Decode(b, &ret)
 	if err != nil {
-		return ret, fmt.Errorf("ConvertGenesis err: %v", err)
+		return ret, fmt.Errorf("ConvertLedgerStateDelta err: %v", err)
 	}
 	return ret, nil
 }

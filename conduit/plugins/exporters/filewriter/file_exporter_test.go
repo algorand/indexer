@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
-	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/exporters"
 	"github.com/algorand/indexer/data"
@@ -166,7 +165,7 @@ func TestExporterReceive(t *testing.T) {
 
 		var blockData data.BlockData
 		err := util.DecodeFromFile(path, &blockData, true)
-		require.Equal(t, basics.Round(i), blockData.BlockHeader.Round)
+		require.Equal(t, sdk.Round(i), blockData.BlockHeader.Round)
 		require.NoError(t, err)
 		require.NotNil(t, blockData.Certificate)
 	}
@@ -198,7 +197,7 @@ func TestPatternOverride(t *testing.T) {
 
 		var blockData data.BlockData
 		err := util.DecodeFromFile(path, &blockData, true)
-		require.Equal(t, basics.Round(i), blockData.BlockHeader.Round)
+		require.Equal(t, sdk.Round(i), blockData.BlockHeader.Round)
 		require.NoError(t, err)
 		require.NotNil(t, blockData.Certificate)
 	}

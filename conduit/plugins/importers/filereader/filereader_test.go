@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
-	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/exporters/filewriter"
 	"github.com/algorand/indexer/conduit/plugins/importers"
@@ -123,7 +122,7 @@ func TestGetBlockSuccess(t *testing.T) {
 	for i := 0; i < numRounds; i++ {
 		block, err := importer.GetBlock(uint64(i))
 		require.NoError(t, err)
-		require.Equal(t, basics.Round(i), block.BlockHeader.Round)
+		require.Equal(t, sdk.Round(i), block.BlockHeader.Round)
 	}
 }
 
