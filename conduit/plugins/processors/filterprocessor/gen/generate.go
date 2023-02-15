@@ -184,15 +184,15 @@ func castParts(t reflect.StructField) (prefix, postfix string, err error) {
 	return
 }
 
-func getFields(theStruct interface{}) (map[string]internal.StructField, []error) {
+func getFields(theStruct interface{}, ignoreTags map[string]bool) (map[string]internal.StructField, []error) {
 	output := make(map[string]internal.StructField)
-	errors := recursiveTagFields(theStruct, output, nil, nil)
+	errors := recursiveTagFields(theStruct, ignoreTags, output, nil, nil)
 	return output, errors
 }
 
 // recursiveTagFields recursively gets all field names in a struct
 // Output will contain a key of the full tag along with the fully qualified struct
-func recursiveTagFields(theStruct interface{}, output map[string]internal.StructField, tagLevel []string, fieldLevel []string) []error {
+func recursiveTagFields(theStruct interface{}, ignoreTags map[string]bool, output map[string]internal.StructField, tagLevel []string, fieldLevel []string) []error {
 	var errors []error
 	rStruct := reflect.TypeOf(theStruct)
 	numFields := rStruct.NumField()
@@ -211,7 +211,7 @@ func recursiveTagFields(theStruct interface{}, output map[string]internal.Struct
 			} else {
 				passedTagLevel = tagLevel
 			}
-			errors = append(errors, recursiveTagFields(reflect.New(field.Type).Elem().Interface(), output, passedTagLevel, append(fieldLevel, name))...)
+			errors = append(errors, recursiveTagFields(reflect.New(field.Type).Elem().Interface(), ignoreTags, output, passedTagLevel, append(fieldLevel, name))...)
 		}
 
 		// Add to output if there is a tag, and there were no subtags (i.e. this is a leaf)
@@ -296,7 +296,7 @@ func main() {
 	}
 
 	// Process fields.
-	fields, errors := getFields(transactions.SignedTxnInBlock{})
+	fields, errors := getFields(transactions.SignedTxnInBlock{}, ignoreTags)
 	if len(errors) != 0 {
 		fmt.Fprintln(os.Stderr, "Errors returned while getting struct fields:")
 		for _, err := range errors {

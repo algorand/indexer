@@ -12,17 +12,18 @@ import (
 )
 
 func TestIgnoreTags(t *testing.T) {
+	t.Parallel()
 	testStruct := struct {
 		One   string `codec:"one"`
 		Two   string `codec:"two"`
 		Three string `codec:"three"`
 	}{}
 
-	ignoreTags = map[string]bool{
+	ignore := map[string]bool{
 		"one":   true,
 		"three": true,
 	}
-	f, errs := getFields(testStruct)
+	f, errs := getFields(testStruct, ignore)
 	require.Len(t, errs, 0)
 	assert.Len(t, f, 1)
 	// Make sure it found the field which wasn't ignored.
@@ -35,12 +36,13 @@ func TestIgnoreTags(t *testing.T) {
 }
 
 func TestIgnoreMiddleTags(t *testing.T) {
+	t.Parallel()
 	testStruct := struct {
 		Parent struct {
 			Child string `codec:"child"`
 		} `codec:"parent"`
 	}{}
-	f, errs := getFields(testStruct)
+	f, errs := getFields(testStruct, ignoreTags)
 	require.Len(t, errs, 0)
 	assert.Len(t, f, 1)
 	// Make sure parent is not returned on its own.
@@ -53,10 +55,11 @@ func TestIgnoreMiddleTags(t *testing.T) {
 }
 
 func TestNoCast(t *testing.T) {
+	t.Parallel()
 	testStruct := struct {
 		One string `codec:"one"`
 	}{}
-	f, errs := getFields(testStruct)
+	f, errs := getFields(testStruct, ignoreTags)
 	require.Len(t, errs, 0)
 	assert.Len(t, f, 1)
 	// Make sure it found the field which wasn't ignored.
@@ -69,10 +72,11 @@ func TestNoCast(t *testing.T) {
 }
 
 func TestSimpleCast(t *testing.T) {
+	t.Parallel()
 	testStruct := struct {
 		One int32 `codec:"one"`
 	}{}
-	f, errs := getFields(testStruct)
+	f, errs := getFields(testStruct, ignoreTags)
 	require.Len(t, errs, 0)
 	assert.Len(t, f, 1)
 	// Make sure it found the field which wasn't ignored.
@@ -120,7 +124,8 @@ func TestComplexCast(t *testing.T) {
 	for _, tc := range testcases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			f, errs := getFields(tc.testStruct)
+			t.Parallel()
+			f, errs := getFields(tc.testStruct, ignoreTags)
 			require.Len(t, errs, 0)
 			assert.Len(t, f, 1)
 			for _, v := range f {
