@@ -70,7 +70,6 @@ func TestMakeFieldSearcher(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, searcher)
 	assert.Equal(t, searcher.Tag, tag)
-	assert.Equal(t, searcher.MethodToCall, expression.TypeToFunctionMap[expressionType])
 
 	searcher, err = MakeFieldSearcher(exp, "made-up-expression-type", sampleExpressionStr)
 	assert.Error(t, err)
@@ -81,20 +80,16 @@ func TestMakeFieldSearcher(t *testing.T) {
 // TestCheckTagExistsAndHasCorrectFunction tests that the check tag exists and function relation works
 func TestCheckTagExistsAndHasCorrectFunction(t *testing.T) {
 	// check that something that doesn't exist throws an error
-	err := checkTagExistsAndHasCorrectFunction("exact", "SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.LoreumIpsum.SDF")
+	err := checkTagAndExpressionExist("exact", "SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.LoreumIpsum.SDF")
 	assert.ErrorContains(t, err, "does not exist in transactions")
 
-	err = checkTagExistsAndHasCorrectFunction("exact", "LoreumIpsum")
+	err = checkTagAndExpressionExist("exact", "LoreumIpsum")
 	assert.ErrorContains(t, err, "does not exist in transactions")
-
-	// Fee does not have a "String" Function so we cant use exact with it.
-	err = checkTagExistsAndHasCorrectFunction("exact", "txn.fee")
-	assert.ErrorContains(t, err, "does not contain the needed method")
 
 	// a made up expression type should throw an error
-	err = checkTagExistsAndHasCorrectFunction("made-up-expression-type", "sgnr")
+	err = checkTagAndExpressionExist("made-up-expression-type", "sgnr")
 	assert.ErrorContains(t, err, "is not supported")
 
-	err = checkTagExistsAndHasCorrectFunction("exact", "sgnr")
+	err = checkTagAndExpressionExist("exact", "sgnr")
 	assert.NoError(t, err)
 }

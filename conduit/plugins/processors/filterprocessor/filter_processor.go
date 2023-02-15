@@ -85,12 +85,12 @@ func (a *FilterProcessor) Init(ctx context.Context, _ data.InitProvider, cfg plu
 
 			for _, subConfig := range subConfigs {
 
-				t, err := fields.SignedTxnFunc(subConfig.FilterTag, &transactions.SignedTxnInBlock{})
+				t, err := fields.LookupFieldByTag(subConfig.FilterTag, &transactions.SignedTxnInBlock{})
 				if err != nil {
 					return err
 				}
 
-				// We need the Elem() here because SignedTxnFunc returns a pointer underneath the interface{}
+				// We need the Elem() here because LookupFieldByTag returns a pointer underneath the interface{}
 				targetKind := reflect.TypeOf(t).Elem().Kind()
 
 				exp, err := expression.MakeExpression(subConfig.ExpressionType, subConfig.Expression, targetKind)
