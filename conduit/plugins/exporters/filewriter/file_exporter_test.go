@@ -6,7 +6,6 @@ import (
 	"path"
 	"testing"
 
-	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
@@ -18,6 +17,8 @@ import (
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/util"
 	testutil "github.com/algorand/indexer/util/test"
+
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 var logger *logrus.Logger

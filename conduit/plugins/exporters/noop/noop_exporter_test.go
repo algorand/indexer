@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 
@@ -12,6 +11,8 @@ import (
 	"github.com/algorand/indexer/conduit/plugins/exporters"
 	"github.com/algorand/indexer/data"
 	testutil "github.com/algorand/indexer/util/test"
+
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 var nc = exporters.ExporterConstructorFunc(func() exporters.Exporter {
