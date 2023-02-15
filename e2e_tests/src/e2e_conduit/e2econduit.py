@@ -13,6 +13,7 @@ import e2e_conduit.fixtures.exporters as exporters
 from e2e_conduit.runner import ConduitE2ETestRunner
 from e2e_conduit.scenarios import scenarios
 from e2e_conduit.scenarios.indexer_scenario import indexer_scenario
+from e2e_conduit.scenarios.follower_indexer_scenario import follower_indexer_scenario
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,7 @@ def main():
     importer_source = sourcenet if sourcenet else args.s3_source_net
     if importer_source:
         scenarios.append(indexer_scenario(importer_source))
+        scenarios.append(follower_indexer_scenario(importer_source))
 
     runner = ConduitE2ETestRunner(args.conduit_bin, keep_temps=args.keep_temps)
 
