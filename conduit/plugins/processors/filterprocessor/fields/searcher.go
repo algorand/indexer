@@ -10,7 +10,7 @@ import (
 	"github.com/algorand/go-algorand/data/transactions"
 )
 
-// Searcher searches the struct with an expression and method to call
+// Searcher searches the struct with an expression
 type Searcher struct {
 	Exp expression.Expression
 	Tag string

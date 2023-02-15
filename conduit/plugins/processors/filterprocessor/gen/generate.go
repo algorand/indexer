@@ -10,7 +10,7 @@ import (
 
 	"github.com/algorand/indexer/conduit/plugins/processors/filterprocessor/gen/internal"
 
-	"github.com/algorand/go-algorand-sdk/v2/types"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
@@ -98,20 +98,20 @@ func simpleCast(t reflect.StructField) string {
 		return "int64" //
 	// alias
 	// SDK types
-	case types.MicroAlgos:
+	case sdk.MicroAlgos:
 		// SDK microalgo does not need ".Raw"
 		return "uint64"
-	case types.AssetIndex:
+	case sdk.AssetIndex:
 		return "uint64"
-	case types.AppIndex:
+	case sdk.AppIndex:
 		return "uint64"
-	case types.Round:
+	case sdk.Round:
 		return "uint64"
-	case types.OnCompletion:
+	case sdk.OnCompletion:
 		return "uint64"
-	case types.StateProofType:
+	case sdk.StateProofType:
 		return "uint64"
-	case types.TxType:
+	case sdk.TxType:
 		return "string"
 	// go-algorand types
 	case basics.AssetIndex:
@@ -157,10 +157,10 @@ func castParts(t reflect.StructField) (prefix, postfix string, err error) {
 		prefix = "fmt.Sprintf(\"%t\", "
 		postfix = ")"
 	// go-algorand-sdk types
-	case types.Address:
+	case sdk.Address:
 		prefix = ""
 		postfix = ".String()"
-	case types.Digest:
+	case sdk.Digest:
 		encodeB64()
 	case []uint8: // note field
 		encodeB64()
