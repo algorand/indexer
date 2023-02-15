@@ -29,6 +29,7 @@ class PostgresqlExporter(PluginFixture):
         self.container_name = "".join(
             random.choice(string.ascii_lowercase) for i in range(10)
         )
+        self.port = f"{random.randint(1150, 65535)}"
         try:
             xrun(
                 [

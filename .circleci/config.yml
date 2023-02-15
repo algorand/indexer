@@ -53,6 +53,8 @@ jobs:
       - install_dependencies
       - install_linter
       - run_tests
+      # Change this to run_e2e_tests once we have stable algod binaries containing delta APIs
+      - run_e2e_tests_nightly
       - codecov/upload
   test_nightly:
     machine:
@@ -68,6 +70,7 @@ jobs:
       - install_dependencies
       - install_linter
       - run_tests
+      - run_e2e_tests_nightly
       - codecov/upload
       - slack/notify: &slack-fail-event
           event: fail
@@ -133,6 +136,28 @@ commands:
           name: Install golangci-lint
           command: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.47.3
 
+  run_e2e_tests:
+    steps:
+      - run:
+          name: Install go-algorand stable binaries
+          command: |
+            wget https://raw.githubusercontent.com/algorand/go-algorand/rel/stable/cmd/updater/update.sh && chmod 744 update.sh
+            ./update.sh -i -c stable -n -d ./ -p /usr/local/go/bin
+            export GOPATH=/usr/local/go/
+      - run: make e2e
+      - run: make e2e-conduit
+
+  run_e2e_tests_nightly:
+    steps:
+      - run:
+          name: Install go-algorand nightly binaries
+          command: |
+            wget https://raw.githubusercontent.com/algorand/go-algorand/rel/stable/cmd/updater/update.sh && chmod 744 update.sh
+            ./update.sh -i -c nightly -n -d ./ -p /usr/local/go/bin
+            export GOPATH=/usr/local/go/
+      - run: make e2e-nightly
+      - run: make e2e-conduit
+
   run_tests:
     steps:
       - run: test -z `go fmt ./...`
@@ -148,8 +173,6 @@ commands:
       - run: make integration
       - run: make test-generate
       - run: make fakepackage
-      - run: make e2e-nightly
-      - run: make e2e-conduit
 
   run_indexer_vs_algod:
     steps:
