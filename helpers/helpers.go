@@ -117,14 +117,14 @@ func ConvertEncodedBlockCert(blockCert types.EncodedBlockCert) (rpcs.EncodedBloc
 }
 
 // UnonvertEncodedBlockCert returns types.EncodedBlockCert
-func UnonvertEncodedBlockCert(blockCert rpcs.EncodedBlockCert) (types.EncodedBlockCert, error) {
+func UnonvertEncodedBlockCert(blockCert *rpcs.EncodedBlockCert) (*types.EncodedBlockCert, error) {
 	var ret types.EncodedBlockCert
-	b := msgpack.Encode(blockCert)
+	b := msgpack.Encode(*blockCert)
 	err := msgpack.Decode(b, &ret)
 	if err != nil {
-		return ret, fmt.Errorf("UnonvertEncodedBlockCert err: %v", err)
+		return &ret, fmt.Errorf("UnonvertEncodedBlockCert err: %v", err)
 	}
-	return ret, nil
+	return &ret, nil
 }
 
 // ConvertPayset returns sdk.SignedTxnInBlock

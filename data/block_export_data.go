@@ -67,9 +67,12 @@ func (blkData *BlockData) UpdateFromEncodedBlockCertificate(input *types.Encoded
 
 // MakeBlockDataFromEncodedBlockCertificate makes BlockData from rpcs.EncodedBlockCert
 func MakeBlockDataFromEncodedBlockCertificate(input *rpcs.EncodedBlockCert) BlockData {
+	if input == nil {
+		return BlockData{}
+	}
 	blkData := BlockData{}
-	iBlockCert, _ := helpers.UnonvertEncodedBlockCert(*input)
-	blkData.UpdateFromEncodedBlockCertificate(&iBlockCert)
+	iBlockCert, _ := helpers.UnonvertEncodedBlockCert(input)
+	blkData.UpdateFromEncodedBlockCertificate(iBlockCert)
 	return blkData
 }
 
