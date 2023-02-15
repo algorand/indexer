@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
+
 	"github.com/algorand/indexer/conduit/plugins/processors/filterprocessor/gen/internal"
 )
 
