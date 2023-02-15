@@ -2,6 +2,8 @@ package test
 
 import (
 	"context"
+	"crypto/sha512"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -152,9 +154,26 @@ func MockedInitProvider(round *basics.Round) *MockInitProvider {
 }
 
 // ReadValidatedBlockFromFile reads a validated block from file
-func ReadValidatedBlockFromFile(filename string) (types.LegercoreValidatedBlock, error) {
-	var vb types.LegercoreValidatedBlock
+func ReadValidatedBlockFromFile(filename string) (types.ValidatedBlock, error) {
+	var vb types.ValidatedBlock
 	dat, _ := os.ReadFile(filename)
 	err := msgpack.Decode(dat, &vb)
-	return vb, err
+	if err != nil {
+		return vb, fmt.Errorf("ReadValidatedBlockFromFile err: %v", err)
+	}
+
+	return vb, nil
+
+}
+
+// AppAddress generates Address for the given appID
+func AppAddress(app sdk.AppIndex) sdk.Address {
+	hashid := "appID"
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, uint64(app))
+	b := []byte(hashid)
+	b = append(b, buf...)
+	account := sha512.Sum512_256(b)
+
+	return account
 }

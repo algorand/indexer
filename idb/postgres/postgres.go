@@ -22,7 +22,6 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	models "github.com/algorand/indexer/api/generated/v2"
-	"github.com/algorand/indexer/helpers"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/migration"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
@@ -37,7 +36,6 @@ import (
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
 var serializable = pgx.TxOptions{IsoLevel: pgx.Serializable} // be a real ACID database
@@ -177,12 +175,7 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 }
 
 // AddBlock is part of idb.IndexerDb.
-func (db *IndexerDb) AddBlock(vblk *ledgercore.ValidatedBlock) error {
-	// TODO: use a converter util until vblk type is changed
-	vb, err := helpers.ConvertValidatedBlock(*vblk)
-	if err != nil {
-		return fmt.Errorf("AddBlock() err: %w", err)
-	}
+func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 	block := vb.Block
 	round := block.BlockHeader.Round
 	db.log.Printf("adding block %d", round)
@@ -258,7 +251,7 @@ func (db *IndexerDb) AddBlock(vblk *ledgercore.ValidatedBlock) error {
 
 		return nil
 	}
-	err = db.txWithRetry(serializable, f)
+	err := db.txWithRetry(serializable, f)
 	if err != nil {
 		return fmt.Errorf("AddBlock() err: %w", err)
 	}
@@ -299,7 +292,7 @@ func (db *IndexerDb) LoadGenesis(genesis sdk.Genesis) error {
 			if err != nil {
 				return fmt.Errorf("LoadGenesis() decode address err: %w", err)
 			}
-			accountData := ledgercore.ToAccountData(helpers.ConvertAccountType(alloc.State))
+			accountData := accountToAccountData(alloc.State)
 			_, err = tx.Exec(
 				context.Background(), setAccountStatementName,
 				addr[:], alloc.State.MicroAlgos,
@@ -326,6 +319,22 @@ func (db *IndexerDb) LoadGenesis(genesis sdk.Genesis) error {
 	}
 
 	return nil
+}
+
+func accountToAccountData(acct sdk.Account) sdk.AccountData {
+	return sdk.AccountData{
+		AccountBaseData: sdk.AccountBaseData{
+			Status:     sdk.Status(acct.Status),
+			MicroAlgos: 0,
+		},
+		VotingData: sdk.VotingData{
+			VoteID:          acct.VoteID,
+			SelectionID:     acct.SelectionID,
+			StateProofID:    acct.StateProofID,
+			VoteLastValid:   sdk.Round(acct.VoteLastValid),
+			VoteKeyDilution: acct.VoteKeyDilution,
+		},
+	}
 }
 
 // Returns `idb.ErrorNotInitialized` if uninitialized.
@@ -929,14 +938,14 @@ var statusStrings = []string{"Offline", "Online", "NotParticipating"}
 
 const offlineStatusIdx = 0
 
-func tealValueToModel(tv basics.TealValue) models.TealValue {
+func tealValueToModel(tv sdk.TealValue) models.TealValue {
 	switch tv.Type {
-	case basics.TealUintType:
+	case sdk.TealUintType:
 		return models.TealValue{
 			Uint: tv.Uint,
 			Type: uint64(tv.Type),
 		}
-	case basics.TealBytesType:
+	case sdk.TealBytesType:
 		return models.TealValue{
 			Bytes: encoding.Base64([]byte(tv.Bytes)),
 			Type:  uint64(tv.Type),
@@ -945,7 +954,7 @@ func tealValueToModel(tv basics.TealValue) models.TealValue {
 	return models.TealValue{}
 }
 
-func tealKeyValueToModel(tkv basics.TealKeyValue) *models.TealKeyValueStore {
+func tealKeyValueToModel(tkv sdk.TealKeyValue) *models.TealKeyValueStore {
 	if len(tkv) == 0 {
 		return nil
 	}
@@ -1053,7 +1062,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		}
 
 		{
-			var accountData ledgercore.AccountData
+			var accountData sdk.AccountData
 			accountData, err = encoding.DecodeTrimmedLcAccountData(accountDataJSONStr)
 			if err != nil {
 				err = fmt.Errorf("account decode err (%s) %v", accountDataJSONStr, err)
@@ -1703,7 +1712,7 @@ func (db *IndexerDb) checkAccountResourceLimit(ctx context.Context, tx pgx.Tx, o
 			return fmt.Errorf("account limit scan err %v", err)
 		}
 
-		var ad ledgercore.AccountData
+		var ad sdk.AccountData
 		ad, err = encoding.DecodeTrimmedLcAccountData(accountDataJSONStr)
 		if err != nil {
 			return fmt.Errorf("account limit decode err (%s) %v", accountDataJSONStr, err)
