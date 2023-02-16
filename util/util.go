@@ -47,6 +47,7 @@ func EncodeToFile(filename string, v interface{}, pretty bool) error {
 	}
 
 	handle := json.CodecHandle
+	handle.MapKeyAsString = true
 	if pretty {
 		handle.Indent = 2
 	} else {
