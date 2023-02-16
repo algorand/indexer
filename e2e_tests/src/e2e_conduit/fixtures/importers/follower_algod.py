@@ -25,7 +25,7 @@ class FollowerAlgodImporter(ImporterPlugin):
 
     @property
     def name(self):
-        return "algod_follower"
+        return "algod"
 
     @property
     def lastblock(self):
@@ -34,6 +34,7 @@ class FollowerAlgodImporter(ImporterPlugin):
         return self.last
 
     def resolve_config_input(self):
+        self.config_input["mode"] = "follower"
         with open(os.path.join(self.algoddir, "algod.net"), "r") as algod_net:
             self.config_input["netaddr"] = "http://" + algod_net.read().strip()
         with open(os.path.join(self.algoddir, "algod.token"), "r") as algod_token:

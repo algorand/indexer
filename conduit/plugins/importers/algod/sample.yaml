@@ -1,5 +1,7 @@
 name: algod
 config:
+  # The mode of operation, either "archival" or "follower"
+  mode: "archival"
   # Algod netaddr string
   netaddr: "http://url"
   # Algod rest endpoint token
