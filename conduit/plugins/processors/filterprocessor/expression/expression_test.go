@@ -384,3 +384,13 @@ func TestExpression(t *testing.T) {
 		require.EqualValues(t, TypeMap, allCovered)
 	})
 }
+
+func BenchmarkSearch(b *testing.B) {
+	exp, err := MakeExpression(EqualToFilter, "10", "")
+	require.NoError(b, err)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		exp.Search("11")
+	}
+}
