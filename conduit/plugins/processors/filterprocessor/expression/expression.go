@@ -50,7 +50,7 @@ type regexExpression struct {
 func (e *regexExpression) Search(input interface{}) (bool, error) {
 	switch v := input.(type) {
 	case string:
-		return e.Regex.MatchString(input.(string)), nil
+		return e.Regex.MatchString(v), nil
 	default:
 		return false, fmt.Errorf("unexpected regex search input type (%T)", v)
 	}
