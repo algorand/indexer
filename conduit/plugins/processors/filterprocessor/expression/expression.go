@@ -75,7 +75,7 @@ func makeSignedExpression(searchStr string, expressionType FilterType) (Expressi
 
 	v, err := strconv.ParseInt(searchStr, 10, 64)
 	if err != nil {
-		return nil, fmt.Errorf("search string \"%s\" is not numeric: %w", searchStr, err)
+		return nil, fmt.Errorf("search string \"%s\" is not a valid int64: %w", searchStr, err)
 	}
 
 	return &int64NumericalExpression{
@@ -91,7 +91,7 @@ func makeUnsignedExpression(searchStr string, expressionType FilterType) (Expres
 
 	v, err := strconv.ParseUint(searchStr, 10, 64)
 	if err != nil {
-		return nil, fmt.Errorf("search string \"%s\" is not numeric: %w", searchStr, err)
+		return nil, fmt.Errorf("search string \"%s\" is not a valid uint64: %w", searchStr, err)
 	}
 
 	return &uint64NumericalExpression{

@@ -1,6 +1,8 @@
 package expression
 
 import (
+	"fmt"
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -56,14 +58,28 @@ func TestExpression(t *testing.T) {
 			filterType:      GreaterThanFilter,
 			searchString:    "not a number",
 			targetInterface: uint64(0),
-			makeErr:         "search string \"not a number\" is not numeric:",
+			makeErr:         "search string \"not a number\" is not a valid uint64:",
 		},
 		{
 			name:            "error_Int-not-a-number",
 			filterType:      GreaterThanEqualFilter,
 			searchString:    "not a number",
 			targetInterface: int64(0),
-			makeErr:         "search string \"not a number\" is not numeric:",
+			makeErr:         "search string \"not a number\" is not a valid int64:",
+		},
+		{
+			name:            "error_Uint-signed-number",
+			filterType:      GreaterThanFilter,
+			searchString:    "-1",
+			targetInterface: uint64(0),
+			makeErr:         "search string \"-1\" is not a valid uint64:",
+		},
+		{
+			name:            "error_Int-overflow",
+			filterType:      GreaterThanEqualFilter,
+			searchString:    fmt.Sprintf("%d", uint64(math.MaxInt)+1),
+			targetInterface: int64(0),
+			makeErr:         fmt.Sprintf("search string \"%d\" is not a valid int64:", uint64(math.MaxInt)+1),
 		},
 		{
 			name:            "error_Regex-bad-pattern",
