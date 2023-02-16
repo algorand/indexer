@@ -8,7 +8,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/processors"
@@ -233,7 +232,7 @@ filters:
 `, func(t *testing.T, output *data.BlockData) {
 
 			assert.Equal(t, len(output.Payset), 1)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(2))
+			assert.Equal(t, uint64(2), output.Payset[0].SignedTxnWithAD.ApplicationID)
 		},
 		},
 		{"alias 2", `---
@@ -245,8 +244,8 @@ filters:
 `, func(t *testing.T, output *data.BlockData) {
 
 			assert.Equal(t, len(output.Payset), 2)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(4))
-			assert.Equal(t, output.Payset[1].SignedTxnWithAD.ApplicationID, basics.AppIndex(2))
+			assert.Equal(t, uint64(4), output.Payset[0].SignedTxnWithAD.ApplicationID)
+			assert.Equal(t, uint64(2), output.Payset[1].SignedTxnWithAD.ApplicationID)
 		},
 		},
 
@@ -259,8 +258,8 @@ filters:
 `, func(t *testing.T, output *data.BlockData) {
 
 			assert.Equal(t, len(output.Payset), 2)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(4))
-			assert.Equal(t, output.Payset[1].SignedTxnWithAD.ApplicationID, basics.AppIndex(2))
+			assert.Equal(t, uint64(4), output.Payset[0].SignedTxnWithAD.ApplicationID)
+			assert.Equal(t, uint64(2), output.Payset[1].SignedTxnWithAD.ApplicationID)
 		},
 		},
 		{"alias 4", `---
@@ -272,7 +271,7 @@ filters:
 `, func(t *testing.T, output *data.BlockData) {
 
 			assert.Equal(t, len(output.Payset), 1)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(11))
+			assert.Equal(t, uint64(11), output.Payset[0].SignedTxnWithAD.ApplicationID)
 		},
 		},
 
@@ -285,8 +284,8 @@ filters:
 `, func(t *testing.T, output *data.BlockData) {
 
 			assert.Equal(t, len(output.Payset), 2)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(4))
-			assert.Equal(t, output.Payset[1].SignedTxnWithAD.ApplicationID, basics.AppIndex(2))
+			assert.Equal(t, uint64(4), output.Payset[0].SignedTxnWithAD.ApplicationID)
+			assert.Equal(t, uint64(2), output.Payset[1].SignedTxnWithAD.ApplicationID)
 		},
 		},
 
@@ -299,7 +298,7 @@ filters:
 `, func(t *testing.T, output *data.BlockData) {
 
 			assert.Equal(t, len(output.Payset), 1)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(11))
+			assert.Equal(t, uint64(11), output.Payset[0].SignedTxnWithAD.ApplicationID)
 		},
 		},
 		{"alias 7", `---
@@ -311,8 +310,8 @@ filters:
 `, func(t *testing.T, output *data.BlockData) {
 
 			assert.Equal(t, len(output.Payset), 2)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(4))
-			assert.Equal(t, output.Payset[1].SignedTxnWithAD.ApplicationID, basics.AppIndex(11))
+			assert.Equal(t, uint64(4), output.Payset[0].SignedTxnWithAD.ApplicationID)
+			assert.Equal(t, uint64(11), output.Payset[1].SignedTxnWithAD.ApplicationID)
 		},
 		},
 
@@ -325,8 +324,8 @@ filters:
 `, func(t *testing.T, output *data.BlockData) {
 
 			assert.Equal(t, len(output.Payset), 2)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(4))
-			assert.Equal(t, output.Payset[1].SignedTxnWithAD.ApplicationID, basics.AppIndex(11))
+			assert.Equal(t, uint64(4), output.Payset[0].SignedTxnWithAD.ApplicationID)
+			assert.Equal(t, uint64(11), output.Payset[1].SignedTxnWithAD.ApplicationID)
 		},
 		},
 	}
@@ -552,7 +551,7 @@ filters:
 `, func(t *testing.T, output *data.BlockData) {
 
 			assert.Equal(t, len(output.Payset), 1)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount, uint64(2))
+			assert.Equal(t, uint64(2), uint64(output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount))
 		},
 		},
 		{"micro algo 2", `---
@@ -564,8 +563,8 @@ filters:
 `, func(t *testing.T, output *data.BlockData) {
 
 			assert.Equal(t, len(output.Payset), 2)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount, uint64(4))
-			assert.Equal(t, output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount, uint64(2))
+			assert.Equal(t, uint64(4), uint64(output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount))
+			assert.Equal(t, uint64(2), uint64(output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount))
 		},
 		},
 
@@ -578,8 +577,8 @@ filters:
 `, func(t *testing.T, output *data.BlockData) {
 
 			assert.Equal(t, len(output.Payset), 2)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount, uint64(4))
-			assert.Equal(t, output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount, uint64(2))
+			assert.Equal(t, uint64(4), uint64(output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount))
+			assert.Equal(t, uint64(2), uint64(output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount))
 		},
 		},
 		{"micro algo 4", `---
@@ -591,7 +590,7 @@ filters:
 `, func(t *testing.T, output *data.BlockData) {
 
 			assert.Equal(t, len(output.Payset), 1)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount, uint64(11))
+			assert.Equal(t, uint64(11), uint64(output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount))
 		},
 		},
 
@@ -604,8 +603,8 @@ filters:
 `, func(t *testing.T, output *data.BlockData) {
 
 			assert.Equal(t, len(output.Payset), 2)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount, uint64(4))
-			assert.Equal(t, output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount, uint64(2))
+			assert.Equal(t, uint64(4), uint64(output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount))
+			assert.Equal(t, uint64(2), uint64(output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount))
 		},
 		},
 
@@ -618,7 +617,7 @@ filters:
 `, func(t *testing.T, output *data.BlockData) {
 
 			assert.Equal(t, len(output.Payset), 1)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount, uint64(11))
+			assert.Equal(t, uint64(11), uint64(output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount))
 		},
 		},
 		{"micro algo 7", `---
@@ -630,8 +629,8 @@ filters:
 `, func(t *testing.T, output *data.BlockData) {
 
 			assert.Equal(t, len(output.Payset), 2)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount, uint64(4))
-			assert.Equal(t, output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount, uint64(11))
+			assert.Equal(t, uint64(4), uint64(output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount))
+			assert.Equal(t, uint64(11), uint64(output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount))
 		},
 		},
 
@@ -644,8 +643,8 @@ filters:
 `, func(t *testing.T, output *data.BlockData) {
 
 			assert.Equal(t, len(output.Payset), 2)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount, uint64(4))
-			assert.Equal(t, output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount, uint64(11))
+			assert.Equal(t, uint64(4), uint64(output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount))
+			assert.Equal(t, uint64(11), uint64(output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount))
 		},
 		},
 	}
