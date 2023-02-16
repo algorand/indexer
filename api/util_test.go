@@ -8,6 +8,10 @@ import (
 
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
+
+	"github.com/algorand/go-algorand-sdk/v2/types"
+
+	"github.com/algorand/indexer/idb"
 )
 
 func TestCallWithTimeoutTimesOut(t *testing.T) {
@@ -44,4 +48,12 @@ func TestCallWithTimeoutExitsWhenHandlerFinishes(t *testing.T) {
 
 	require.Error(t, err)
 	require.ErrorIs(t, err, callError)
+}
+
+func TestInvalidTxnRow(t *testing.T) {
+	stxn := types.SignedTxnWithAD{}
+	invalidRow := idb.TxnRow{Txn: &stxn, RootTxn: &stxn}
+	_, err := txnRowToTransaction(invalidRow)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "Txn and RootTxn should be mutually exclusive")
 }

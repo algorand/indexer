@@ -15,7 +15,6 @@ import (
 	"github.com/algorand/indexer/cmd/conduit/internal/list"
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/pipeline"
-	// We need to import these so that the package wide init() function gets called
 	_ "github.com/algorand/indexer/conduit/plugins/exporters/all"
 	_ "github.com/algorand/indexer/conduit/plugins/importers/all"
 	_ "github.com/algorand/indexer/conduit/plugins/processors/all"
@@ -24,7 +23,6 @@ import (
 )
 
 var (
-	loggerManager        *loggers.LoggerManager
 	logger               *log.Logger
 	conduitCmd           = makeConduitCmd()
 	initCmd              = makeInitCmd()
@@ -35,7 +33,6 @@ var (
 
 // init() function for main package
 func init() {
-	loggerManager = loggers.MakeLoggerManager(os.Stdout)
 	conduitCmd.AddCommand(initCmd)
 }
 
@@ -58,7 +55,7 @@ func runConduitCmdWithConfig(args *conduit.Args) error {
 		return fmt.Errorf("runConduitCmdWithConfig(): invalid log level: %s", err)
 	}
 
-	logger, err = loggerManager.MakeRootLogger(level, pCfg.LogFile)
+	logger, err = loggers.MakeThreadSafeLogger(level, pCfg.LogFile)
 	if err != nil {
 		return fmt.Errorf("runConduitCmdWithConfig(): failed to create logger: %w", err)
 	}

@@ -129,17 +129,18 @@ def main():
     except Exception:
         logger.error("failed to start private network, looking for node.log")
         found = False
+        log_files = ("node.log", "algod-err.log",)
         for root, dirs, files in os.walk(tempnet):
             for f in files:
-                if f == "node.log":
+                if f in log_files:
                     found = True
                     p = os.path.join(root, f)
-                    logger.error("found node.log: {}".format(p))
+                    logger.error("Found {}: {}".format(f, p))
                     with open(p) as nf:
                         for line in nf:
                             logger.error("   {}".format(line))
         if found is False:
-            logger.error("unable to find node.log")
+            logger.error("Unable to find log file")
         raise
 
     atexitrun(["goal", "network", "stop", "-r", tempnet])

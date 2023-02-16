@@ -11,12 +11,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/algorand/indexer/types"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
-	test2 "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	crypto2 "github.com/algorand/go-algorand-sdk/v2/crypto"
+	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
@@ -28,13 +31,8 @@ import (
 	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/test"
 
-	crypto2 "github.com/algorand/go-algorand-sdk/v2/crypto"
 	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
-	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
-	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-codec/codec"
 )
 
@@ -156,9 +154,8 @@ func assertAccountAsset(t *testing.T, db *pgxpool.Pool, addr basics.Address, ass
 
 // TestAssetCloseReopenTransfer tests a scenario that requires asset subround accounting
 func TestAssetCloseReopenTransfer(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	assetid := uint64(1)
 	amt := uint64(10000)
@@ -177,8 +174,7 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	// payMain := test.MakeAssetTransferTxn(assetid, amt, test.AccountD, test.AccountA, basics.Address{})
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AssetCloseReopenTransfer.vb")
 	require.NoError(t, err)
-	blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&blk)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	//////////
@@ -196,9 +192,9 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 
 // TestReCreateAssetHolding checks the optin value of a defunct
 func TestReCreateAssetHolding(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
+
 	///////////
 	// Given //
 	// A new asset with default-frozen, AccountB opts-in and has its frozen state
@@ -217,8 +213,7 @@ func TestReCreateAssetHolding(t *testing.T) {
 		// frozen:true
 		vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/ReCreateAssetHoldingFrozen.vb")
 		require.NoError(t, err)
-		blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-		err = db.AddBlock(&blk)
+		err = db.AddBlock(&vb)
 		require.NoError(t, err)
 		//////////
 		// Then // AccountB should have its frozen state set back to the default value
@@ -229,8 +224,7 @@ func TestReCreateAssetHolding(t *testing.T) {
 		// frozen:false
 		vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/ReCreateAssetHolding.vb")
 		require.NoError(t, err)
-		blk := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-		err = db.AddBlock(&blk)
+		err = db.AddBlock(&vb)
 		require.NoError(t, err)
 		//////////
 		// Then // AccountB should have its frozen state set back to the default value
@@ -241,9 +235,8 @@ func TestReCreateAssetHolding(t *testing.T) {
 
 // TestMultipleAssetOptins make sure no-op transactions don't reset the default frozen value.
 func TestNoopOptins(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given //
@@ -259,8 +252,7 @@ func TestNoopOptins(t *testing.T) {
 	// unfreezeB := test.MakeAssetFreezeTxn(assetid, false, test.AccountD, test.AccountB)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/NoopOptins.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	//////////
@@ -271,9 +263,8 @@ func TestNoopOptins(t *testing.T) {
 
 // TestMultipleWriters tests that accounting cannot be double committed.
 func TestMultipleWriters(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	amt := uint64(10000)
 
@@ -285,7 +276,6 @@ func TestMultipleWriters(t *testing.T) {
 	//	basics.Address{})
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/MultipleWriters.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 
 	//////////
 	// When // We attempt commit the round accounting multiple times.
@@ -299,7 +289,7 @@ func TestMultipleWriters(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			<-start
-			errors <- db.AddBlock(&block)
+			errors <- db.AddBlock(&vb)
 		}()
 	}
 	close(start)
@@ -328,9 +318,8 @@ func TestMultipleWriters(t *testing.T) {
 
 // TestBlockWithTransactions tests that the block with transactions endpoint works.
 func TestBlockWithTransactions(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	round := uint64(1)
 	///////////
@@ -354,8 +343,7 @@ func TestBlockWithTransactions(t *testing.T) {
 	//	&txn1, &txn2, &txn3, &txn4, &txn5, &txn6, &txn7, &txn8}
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BlockWithTransactions.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	//////////
@@ -374,9 +362,9 @@ func TestBlockWithTransactions(t *testing.T) {
 	//////////
 	// Then // They should have the correct transactions
 	//////////
-	var txns []transactions.SignedTxn
-	for _, stxib := range vb.Blk.Payset {
-		stxn, _, err := vb.Blk.BlockHeader.DecodeSignedTxn(stxib)
+	var txns []sdk.SignedTxn
+	for _, stxib := range vb.Block.Payset {
+		stxn, _, err := util.DecodeSignedTxn(vb.Block.BlockHeader, stxib)
 		require.NoError(t, err)
 		txns = append(txns, stxn)
 	}
@@ -393,9 +381,8 @@ func TestBlockWithTransactions(t *testing.T) {
 }
 
 func TestRekeyBasic(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // Send rekey transaction
@@ -404,8 +391,7 @@ func TestRekeyBasic(t *testing.T) {
 	//	1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountB)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/RekeyBasic.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 	//////////
 	// Then // Account A is rekeyed to account B
@@ -417,13 +403,12 @@ func TestRekeyBasic(t *testing.T) {
 
 	ad, err := encoding.DecodeTrimmedLcAccountData(accountDataStr)
 	require.NoError(t, err, "failed to parse account data json")
-	assert.Equal(t, test.AccountB, ad.AuthAddr)
+	assert.Equal(t, sdk.Address(test.AccountB), ad.AuthAddr)
 }
 
 func TestRekeyToItself(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // Send rekey transactions
@@ -432,8 +417,7 @@ func TestRekeyToItself(t *testing.T) {
 	//	1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountB)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/RekeyToItself.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	//////////
@@ -446,13 +430,12 @@ func TestRekeyToItself(t *testing.T) {
 
 	ad, err := encoding.DecodeTrimmedLcAccountData(accountDataStr)
 	require.NoError(t, err, "failed to parse account data json")
-	assert.Equal(t, basics.Address{}, ad.AuthAddr)
+	assert.Equal(t, sdk.Address{}, ad.AuthAddr)
 }
 
 func TestRekeyThreeTimesInSameRound(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // Send rekey transaction
@@ -467,8 +450,7 @@ func TestRekeyThreeTimesInSameRound(t *testing.T) {
 	//	1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountC)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/RekeyThreeTimesInSameRound.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	//////////
@@ -481,13 +463,12 @@ func TestRekeyThreeTimesInSameRound(t *testing.T) {
 
 	ad, err := encoding.DecodeTrimmedLcAccountData(accountDataStr)
 	require.NoError(t, err, "failed to parse account data json")
-	assert.Equal(t, test.AccountC, ad.AuthAddr)
+	assert.Equal(t, sdk.Address(test.AccountC), ad.AuthAddr)
 }
 
 func TestRekeyToItselfHasNotBeenRekeyed(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // Send rekey transaction
@@ -497,20 +478,14 @@ func TestRekeyToItselfHasNotBeenRekeyed(t *testing.T) {
 	//	basics.Address{})
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/RekeyToItselfHasNotBeenRekeyed.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-
-	//////////
-	// Then // No error when committing to the DB.
-	//////////
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 }
 
 // TestIgnoreDefaultFrozenConfigUpdate the creator asset holding should ignore default-frozen = true.
 func TestIgnoreDefaultFrozenConfigUpdate(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	assetid := uint64(1)
 	total := uint64(1000000)
@@ -527,8 +502,7 @@ func TestIgnoreDefaultFrozenConfigUpdate(t *testing.T) {
 	// optin := test.MakeAssetOptInTxn(assetid, test.AccountB)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/IgnoreDefaultFrozenConfigUpdate.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	//////////
@@ -541,9 +515,8 @@ func TestIgnoreDefaultFrozenConfigUpdate(t *testing.T) {
 
 // TestZeroTotalAssetCreate tests that the asset holding with total of 0 is created.
 func TestZeroTotalAssetCreate(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	assetid := uint64(1)
 
@@ -555,8 +528,7 @@ func TestZeroTotalAssetCreate(t *testing.T) {
 	//	test.AccountA)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/ZeroTotalAssetCreate.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	//////////
@@ -600,9 +572,8 @@ func assertAssetHoldingDates(t *testing.T, db *pgxpool.Pool, address basics.Addr
 }
 
 func TestDestroyAssetBasic(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	assetID := uint64(1)
 
@@ -610,17 +581,15 @@ func TestDestroyAssetBasic(t *testing.T) {
 	// txn := test.MakeAssetConfigTxn(0, 4, 0, false, "uu", "aa", "", test.AccountA)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/DestroyAssetBasicCreate.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	// Destroy an asset.
 	// txn0: AssetDestroyTxn
 	vb2, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/DestroyAssetBasicDelete.vb")
 	require.NoError(t, err)
-	vb2.Blk.BlockHeader.Round = basics.Round(2)
-	block = ledgercore.MakeValidatedBlock(vb2.Blk, vb2.Delta)
-	err = db.AddBlock(&block)
+	vb2.Block.BlockHeader.Round = sdk.Round(2)
+	err = db.AddBlock(&vb2)
 	require.NoError(t, err)
 
 	// Check that the asset is deleted.
@@ -637,9 +606,8 @@ func TestDestroyAssetBasic(t *testing.T) {
 }
 
 func TestDestroyAssetZeroSupply(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	assetID := uint64(1)
 
@@ -648,8 +616,7 @@ func TestDestroyAssetZeroSupply(t *testing.T) {
 	//txn1 := test.MakeAssetDestroyTxn(assetID, test.AccountA)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/DestroyAssetZeroSupply.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	// Check that the asset is deleted.
@@ -666,9 +633,8 @@ func TestDestroyAssetZeroSupply(t *testing.T) {
 }
 
 func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	assetID := uint64(1)
 	//// Create an asset. Create a transaction where all special addresses are different
@@ -701,8 +667,7 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 	//txn2 := test.MakeAssetDestroyTxn(assetID, test.AccountB)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/DestroyAssetDeleteCreatorsHolding.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	// Check that the creator's asset holding is deleted.
@@ -725,10 +690,8 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 
 // Test that block import adds the freeze/sender accounts to txn_participation.
 func TestAssetFreezeTxnParticipation(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-
-	defer l.Close()
 
 	///////////
 	// Given // A block containing an asset freeze txn
@@ -742,8 +705,7 @@ func TestAssetFreezeTxnParticipation(t *testing.T) {
 	//freeze := test.MakeAssetFreezeTxn(assetid, true, test.AccountA, test.AccountB)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AssetFreezeTxnParticipation.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	//////////
@@ -763,10 +725,8 @@ func TestAssetFreezeTxnParticipation(t *testing.T) {
 
 // Test that block import adds accounts from inner txns to txn_participation.
 func TestInnerTxnParticipation(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-
-	defer l.Close()
 
 	///////////
 	// Given // A block containing an app call txn with inners
@@ -781,8 +741,7 @@ func TestInnerTxnParticipation(t *testing.T) {
 	// createApp := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/InnerTxnParticipation.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	//////////
@@ -805,10 +764,8 @@ func TestInnerTxnParticipation(t *testing.T) {
 }
 
 func TestAppExtraPages(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-
-	defer l.Close()
 
 	// Create an app.
 
@@ -833,8 +790,7 @@ func TestAppExtraPages(t *testing.T) {
 	const extraPages = 1
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AppExtraPages.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	row := db.db.QueryRow(context.Background(), "SELECT index, params FROM app WHERE creator = $1", test.AccountA[:])
@@ -896,10 +852,8 @@ func assertKeytype(t *testing.T, db *IndexerDb, address basics.Address, keytype 
 }
 
 func TestKeytypeBasic(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-
-	defer l.Close()
 
 	assertKeytype(t, db, test.AccountA, nil)
 
@@ -908,8 +862,7 @@ func TestKeytypeBasic(t *testing.T) {
 	//	0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/KeytypeBasicSig.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	keytype := generated.AccountSigTypeSig
@@ -920,8 +873,7 @@ func TestKeytypeBasic(t *testing.T) {
 	//	0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	vb2, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/KeytypeBasicMsig.vb")
 	require.NoError(t, err)
-	block = ledgercore.MakeValidatedBlock(vb2.Blk, vb2.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb2)
 	require.NoError(t, err)
 
 	keytype = "msig"
@@ -931,18 +883,15 @@ func TestKeytypeBasic(t *testing.T) {
 // Test that asset amount >= 2^63 is handled correctly. Due to the specifics of
 // postgres it might be a problem.
 func TestLargeAssetAmount(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-
-	defer l.Close()
 
 	// txn := test.MakeAssetConfigTxn(
 	//	0, math.MaxUint64, 0, false, "mc", "mycoin", "", test.AccountA)
 	assetid := uint64(1)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LargeAssetAmount.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	{
@@ -1078,10 +1027,8 @@ func TestNonDisplayableUTF8(t *testing.T) {
 		url := testcase.AssetURL
 
 		t.Run(testcase.Name, func(t *testing.T) {
-			db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+			db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 			defer shutdownFunc()
-
-			defer l.Close()
 
 			// txn := test.MakeAssetConfigTxn(
 			//	0, math.MaxUint64, 0, false, unit, name, url, test.AccountA)
@@ -1095,8 +1042,7 @@ func TestNonDisplayableUTF8(t *testing.T) {
 			// Test 1: import/accounting should work.
 			vb, err := test.ReadValidatedBlockFromFile(testcase.ValidatedBlockFilePath)
 			require.NoError(t, err)
-			block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-			err = db.AddBlock(&block)
+			err = db.AddBlock(&vb)
 			require.NoError(t, err)
 
 			// Test 2: asset results properly serialized
@@ -1163,10 +1109,8 @@ func TestNonDisplayableUTF8(t *testing.T) {
 
 // TestReconfigAsset make sure we properly handle asset param merges.
 func TestReconfigAsset(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-
-	defer l.Close()
 
 	unit := "co\000in"
 	name := "algo"
@@ -1177,8 +1121,7 @@ func TestReconfigAsset(t *testing.T) {
 	//	0, math.MaxUint64, 0, false, unit, name, url, test.AccountA)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/ReconfigAsset.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	// Test 2: asset results properly serialized
@@ -1201,17 +1144,15 @@ func TestReconfigAsset(t *testing.T) {
 }
 
 func TestKeytypeResetsOnRekey(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	// Sig
 	// txn := test.MakePaymentTxn(
 	//	0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/KeytypeResetsOnRekeySig.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	keytype := generated.AccountSigTypeSig
@@ -1222,8 +1163,7 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 	//	0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountB)
 	vb2, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/KeytypeResetsOnRekeyRekey.vb")
 	require.NoError(t, err)
-	block = ledgercore.MakeValidatedBlock(vb2.Blk, vb2.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb2)
 	require.NoError(t, err)
 
 	assertKeytype(t, db, test.AccountA, nil)
@@ -1233,8 +1173,7 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 	//	0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	vb3, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/KeytypeResetsOnRekeyMsig.vb")
 	require.NoError(t, err)
-	block = ledgercore.MakeValidatedBlock(vb3.Blk, vb3.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb3)
 	require.NoError(t, err)
 
 	keytype = generated.AccountSigTypeMsig
@@ -1243,10 +1182,8 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 
 // Test that after closing the account, keytype will be correctly set.
 func TestKeytypeDeletedAccount(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-
-	defer l.Close()
 
 	assertKeytype(t, db, test.AccountA, nil)
 
@@ -1254,8 +1191,7 @@ func TestKeytypeDeletedAccount(t *testing.T) {
 	//	0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, test.AccountB, basics.Address{})
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/KeytypeDeletedAccount.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	keytype := generated.AccountSigTypeSig
@@ -1264,9 +1200,8 @@ func TestKeytypeDeletedAccount(t *testing.T) {
 
 // TestAddBlockGenesis tests that adding block 0 is successful.
 func TestAddBlockGenesis(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	opts := idb.GetBlockOptions{
 		Transactions: true,
@@ -1290,9 +1225,8 @@ func TestAddBlockAssetCloseAmountInTxnExtra(t *testing.T) {
 	genesis := test.MakeGenesisV2()
 	genesis.Proto = string(protocol.ConsensusV24)
 
-	db, shutdownFunc, _, l := setupIdb(t, genesis)
+	db, shutdownFunc := setupIdb(t, genesis)
 	defer shutdownFunc()
-	defer l.Close()
 
 	// createAsset := test.MakeAssetConfigTxn(
 	//	0, uint64(1000000), uint64(6), false, "mcn", "my coin", "http://antarctica.com",
@@ -1306,8 +1240,8 @@ func TestAddBlockAssetCloseAmountInTxnExtra(t *testing.T) {
 	//	assetid, 30, test.AccountB, test.AccountA, test.AccountC)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AddBlockAssetCloseAmountInTxnExtra.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	// Check asset close amount in the `closeB` transaction.
@@ -1344,24 +1278,25 @@ func TestAddBlockIncrementsMaxRoundAccounted(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, uint64(0), round)
 
-	logger, _ := test2.NewNullLogger()
-	l, err := test.MakeTestLedger(logger)
-	require.NoError(t, err)
-	defer l.Close()
-
 	// add genesis block
-	block := test.MakeGenesisBlock()
-	vb := ledgercore.MakeValidatedBlock(block, ledgercore.StateDelta{})
+	block := test.MakeGenesisBlockV2()
+	vb := types.ValidatedBlock{
+		Block: block,
+		Delta: sdk.LedgerStateDelta{},
+	}
 	db.AddBlock(&vb)
 
 	round, err = db.GetNextRoundToAccount()
 	require.NoError(t, err)
 	assert.Equal(t, uint64(1), round)
 
-	block, err = test.MakeBlockForTxns(block.BlockHeader)
+	block, err = test.MakeBlockForTxnsV2(block.BlockHeader)
 	require.NoError(t, err)
 	block.BlockHeader.Round = 1
-	vb = ledgercore.MakeValidatedBlock(block, ledgercore.StateDelta{})
+	vb = types.ValidatedBlock{
+		Block: block,
+		Delta: sdk.LedgerStateDelta{},
+	}
 	db.AddBlock(&vb)
 	require.NoError(t, err)
 
@@ -1369,10 +1304,13 @@ func TestAddBlockIncrementsMaxRoundAccounted(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, uint64(2), round)
 
-	block, err = test.MakeBlockForTxns(block.BlockHeader)
+	block, err = test.MakeBlockForTxnsV2(block.BlockHeader)
 	require.NoError(t, err)
 	block.BlockHeader.Round = 2
-	vb = ledgercore.MakeValidatedBlock(block, ledgercore.StateDelta{})
+	vb = types.ValidatedBlock{
+		Block: block,
+		Delta: sdk.LedgerStateDelta{},
+	}
 	db.AddBlock(&vb)
 
 	round, err = db.GetNextRoundToAccount()
@@ -1383,10 +1321,8 @@ func TestAddBlockIncrementsMaxRoundAccounted(t *testing.T) {
 // Test that AddBlock makes a record of an account that gets created and deleted in
 // the same round.
 func TestAddBlockCreateDeleteAccountSameRound(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-
-	defer l.Close()
 
 	// createTxn := test.MakePaymentTxn(
 	//	0, 5, 0, 0, 0, 0, test.AccountA, test.AccountE, basics.Address{}, basics.Address{})
@@ -1394,8 +1330,7 @@ func TestAddBlockCreateDeleteAccountSameRound(t *testing.T) {
 	//	0, 2, 3, 0, 0, 0, test.AccountE, test.AccountB, test.AccountC, basics.Address{})
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AddBlockCreateDeleteAccountSameRound.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	opts := idb.AccountQueryOptions{
@@ -1418,18 +1353,15 @@ func TestAddBlockCreateDeleteAccountSameRound(t *testing.T) {
 // Test that AddBlock makes a record of an asset that is created and deleted in
 // the same round.
 func TestAddBlockCreateDeleteAssetSameRound(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-
-	defer l.Close()
 
 	assetid := uint64(1)
 	// createTxn := test.MakeAssetConfigTxn(0, 3, 0, false, "", "", "", test.AccountA)
 	// deleteTxn := test.MakeAssetDestroyTxn(assetid, test.AccountA)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AddBlockCreateDeleteAssetSameRound.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	// Asset global state.
@@ -1475,10 +1407,8 @@ func TestAddBlockCreateDeleteAssetSameRound(t *testing.T) {
 //the same round.
 func TestAddBlockCreateDeleteAppSameRound(t *testing.T) {
 
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-
-	defer l.Close()
 
 	appid := uint64(1)
 
@@ -1486,8 +1416,7 @@ func TestAddBlockCreateDeleteAppSameRound(t *testing.T) {
 	// deleteTxn := test.MakeAppDestroyTxn(appid, test.AccountA)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AddBlockCreateDeleteAppSameRound.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	opts := idb.ApplicationQuery{
@@ -1510,10 +1439,8 @@ func TestAddBlockCreateDeleteAppSameRound(t *testing.T) {
 // Test that AddBlock makes a record of an app that is created and deleted in
 // the same round.
 func TestAddBlockAppOptInOutSameRound(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-
-	defer l.Close()
 
 	// createTxn := test.MakeCreateAppTxn(test.AccountA)
 	// optInTxn := test.MakeAppOptInTxn(appid, test.AccountB)
@@ -1521,8 +1448,7 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 	appid := uint64(1)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AddBlockAppOptInOutSameRound.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	opts := idb.AccountQueryOptions{
@@ -1608,25 +1534,25 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 			name:        "match on root, inner, and inner-inners, return inners",
 			matches:     3,
 			returnInner: true,
-			filter:      idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumApplication, ReturnInnerTxnOnly: true},
+			filter:      idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumApplication, SkipInnerTransactionConversion: true},
 		},
 		{
 			name:        "match on inner, return inners",
 			matches:     1,
 			returnInner: true,
-			filter:      idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumPay, ReturnInnerTxnOnly: true},
+			filter:      idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumPay, SkipInnerTransactionConversion: true},
 		},
 		{
 			name:        "match on inner-inner, return inners",
 			matches:     1,
 			returnInner: true,
-			filter:      idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumAssetTransfer, ReturnInnerTxnOnly: true},
+			filter:      idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumAssetTransfer, SkipInnerTransactionConversion: true},
 		},
 		{
 			name:        "match all, return inners",
 			matches:     5,
 			returnInner: true,
-			filter:      idb.TransactionFilter{Address: appAddr[:], ReturnInnerTxnOnly: true},
+			filter:      idb.TransactionFilter{Address: appAddr[:], SkipInnerTransactionConversion: true},
 		},
 	}
 
@@ -1640,15 +1566,18 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 	// appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/SearchForInnerTransactionReturnsRootTransaction.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	stxn, _, err := vb.Blk.BlockHeader.DecodeSignedTxn(vb.Blk.Payset[0])
+
+	stxn, _, err := util.DecodeSignedTxn(vb.Block.BlockHeader, vb.Block.Payset[0])
 	require.NoError(t, err)
-	rootTxid := stxn.Txn.ID()
+	rootTxid := crypto2.TransactionIDString(stxn.Txn)
 
 	err = pgutil.TxWithRetry(pdb, serializable, func(tx pgx.Tx) error {
-		genblk := ledgercore.MakeValidatedBlock(test.MakeGenesisBlock(), ledgercore.StateDelta{})
+		genblk := types.ValidatedBlock{
+			Block: test.MakeGenesisBlockV2(),
+			Delta: sdk.LedgerStateDelta{},
+		}
 		db.AddBlock(&genblk)
-		return db.AddBlock(&block)
+		return db.AddBlock(&vb)
 	}, nil)
 	require.NoError(t, err)
 
@@ -1657,8 +1586,8 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 			// When: searching for a transaction that matches part of the transaction.
 			results, _ := db.Transactions(context.Background(), tc.filter)
 
-			// Then: only the root transaction should be returned if the ReturnInnerTxnOnly flag is true.
-			// Else if ReturnInnerTxnOnly is false, then the inner txn should be returned.
+			// Then: only the root transaction should be returned if the SkipInnerTransactionConversion flag is true.
+			// Else if SkipInnerTransactionConversion is false, then the inner txn should be returned.
 			num := 0
 			for result := range results {
 				num++
@@ -1681,7 +1610,7 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 					if result.RootTxn != nil {
 						stxn = result.RootTxn
 					}
-					require.Equal(t, rootTxid.String(), crypto2.TransactionIDString(stxn.Txn))
+					require.Equal(t, rootTxid, crypto2.TransactionIDString(stxn.Txn))
 				}
 			}
 
@@ -1725,10 +1654,8 @@ func TestNonUTF8Logs(t *testing.T) {
 		testcase := testcase
 
 		t.Run(testcase.Name, func(t *testing.T) {
-			db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+			db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 			defer shutdownFunc()
-
-			defer l.Close()
 
 			// createAppTxn := test.MakeCreateAppTxn(test.AccountA)
 			// createAppTxn.ApplyData.EvalDelta = transactions.EvalDelta{
@@ -1759,10 +1686,9 @@ func TestNonUTF8Logs(t *testing.T) {
 
 			vb, err := test.ReadValidatedBlockFromFile(testcase.ValidatedBlockFilePath)
 			require.NoError(t, err)
-			block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
 
 			// Test 1: import/accounting should work.
-			err = db.AddBlock(&block)
+			err = db.AddBlock(&vb)
 			require.NoError(t, err)
 
 			// Test 2: transaction results properly serialized
@@ -1783,10 +1709,8 @@ func TestNonUTF8Logs(t *testing.T) {
 }
 
 func TestTxnAssetID(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-
-	defer l.Close()
 
 	// createAssetTxn := test.MakeAssetConfigTxn(
 	//	0, 0, 0, false, "myasset", "ma", "", test.AccountA)
@@ -1800,8 +1724,7 @@ func TestTxnAssetID(t *testing.T) {
 	appid := uint64(3)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/TxnAssetID.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	txnRowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
@@ -1820,16 +1743,13 @@ func TestTxnAssetID(t *testing.T) {
 }
 
 func TestBadTxnJsonEncoding(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-
-	defer l.Close()
 
 	// Need to import a block header because the transactions query joins on it.
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BadTxnJsonEncoding.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	rootTxid := "abc"
@@ -1887,10 +1807,8 @@ func TestBadTxnJsonEncoding(t *testing.T) {
 }
 
 func TestKeytypeDoNotResetReceiver(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-
-	defer l.Close()
 
 	assertKeytype(t, db, test.AccountA, nil)
 
@@ -1899,15 +1817,13 @@ func TestKeytypeDoNotResetReceiver(t *testing.T) {
 	//	0, 0, 0, 0, 0, 0, test.AccountB, test.AccountB, basics.Address{}, basics.Address{})
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/KeytypeDoNotResetReceiver1.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	// Sigtype of account A becomes "sig" and B remains the same.
 	vb2, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/KeytypeDoNotResetReceiver2.vb")
 	require.NoError(t, err)
-	block = ledgercore.MakeValidatedBlock(vb2.Blk, vb2.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb2)
 	require.NoError(t, err)
 
 	keytype := generated.AccountSigTypeSig
@@ -1918,10 +1834,8 @@ func TestKeytypeDoNotResetReceiver(t *testing.T) {
 //Test that if information in `txn` and `txn_participation` tables is ahead of
 //the current round, AddBlock() still runs successfully.
 func TestAddBlockTxnTxnParticipationAhead(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-
-	defer l.Close()
 
 	{
 		query := `INSERT INTO txn (round, intra, typeenum, asset, txn, extra)
@@ -1940,24 +1854,20 @@ func TestAddBlockTxnTxnParticipationAhead(t *testing.T) {
 	//	0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AddBlockTxnTxnParticipationAhead.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 }
 
 // Test that AddBlock() writes to `txn_participation` table.
 func TestAddBlockTxnParticipationAdded(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-
-	defer l.Close()
 
 	// txn := test.MakePaymentTxn(
 	//	0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AddBlockTxnParticipationAdded.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	tf := idb.TransactionFilter{
@@ -1970,7 +1880,7 @@ func TestAddBlockTxnParticipationAdded(t *testing.T) {
 	require.NoError(t, row.Error)
 	require.NotNil(t, row.Txn)
 
-	stxn, _, err := vb.Blk.BlockHeader.DecodeSignedTxn(vb.Blk.Payset[0])
+	stxn, _, err := util.DecodeSignedTxn(vb.Block.BlockHeader, vb.Block.Payset[0])
 	require.NoError(t, err)
 	expected := base64.StdEncoding.EncodeToString(msgpack.Encode(stxn))
 	actual := base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
@@ -1980,9 +1890,8 @@ func TestAddBlockTxnParticipationAdded(t *testing.T) {
 // Test that if information in the `txn` table is ahead of the current round,
 // Transactions() doesn't return the rows ahead of the state.
 func TestTransactionsTxnAhead(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	// Insert a transaction row at round 1 and check that Transactions() does not return
 	// it.
@@ -2003,8 +1912,7 @@ func TestTransactionsTxnAhead(t *testing.T) {
 	{
 		vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/TransactionsTxnAhead.vb")
 		require.NoError(t, err)
-		block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-		err = db.AddBlock(&block)
+		err = db.AddBlock(&vb)
 		require.NoError(t, err)
 	}
 	{
@@ -2104,9 +2012,8 @@ func getResults(ctx context.Context, rows <-chan idb.AccountRow) (result []idb.A
 }
 
 func TestIndexerDb_GetAccounts(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
@@ -2172,9 +2079,8 @@ func TestIndexerDb_GetAccounts(t *testing.T) {
 
 // Test transaction filter asset amount
 func TestTransactionFilterAssetAmount(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	// AssetAmountLT
 	// txnA := test.MakeAssetConfigTxn(0, 100, 0, false, "test", "test", "", test.AccountA)
@@ -2182,8 +2088,7 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 	// txnC := test.MakeAssetTransferTxn(1, 10, test.AccountA, test.AccountB, basics.Address{})
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/TransactionFilterAssetAmount1.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	// query
@@ -2194,7 +2099,7 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 	require.True(t, ok)
 	require.NoError(t, row.Error)
 	require.NotNil(t, row.Txn)
-	txnC, _, err := vb.Blk.BlockHeader.DecodeSignedTxn(vb.Blk.Payset[2])
+	txnC, _, err := util.DecodeSignedTxn(vb.Block.BlockHeader, vb.Block.Payset[2])
 	require.NoError(t, err)
 	expected := base64.StdEncoding.EncodeToString(msgpack.Encode(txnC))
 	actual := base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
@@ -2206,8 +2111,7 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 	// txnF := test.MakeAssetTransferTxn(4, math.MaxUint64, test.AccountA, test.AccountB, basics.Address{})
 	vb2, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/TransactionFilterAssetAmount2.vb")
 	require.NoError(t, err)
-	block = ledgercore.MakeValidatedBlock(vb2.Blk, vb2.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb2)
 	require.NoError(t, err)
 
 	// query
@@ -2219,7 +2123,7 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 	require.NoError(t, row.Error)
 	require.NotNil(t, row.Txn)
 
-	txnF, _, err := vb2.Blk.BlockHeader.DecodeSignedTxn(vb2.Blk.Payset[2])
+	txnF, _, err := util.DecodeSignedTxn(vb2.Block.BlockHeader, vb2.Block.Payset[2])
 	require.NoError(t, err)
 	expected = base64.StdEncoding.EncodeToString(msgpack.Encode(txnF))
 	actual = base64.StdEncoding.EncodeToString(msgpack.Encode(*row.Txn))
@@ -2227,13 +2131,15 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 }
 
 func TestDeleteTransactions(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
-	txns := []transactions.SignedTxn{}
+	txns := []sdk.SignedTxn{}
 
-	genBlock := ledgercore.MakeValidatedBlock(test.MakeGenesisBlock(), ledgercore.StateDelta{})
+	genBlock := types.ValidatedBlock{
+		Block: test.MakeGenesisBlockV2(),
+		Delta: sdk.LedgerStateDelta{},
+	}
 	db.AddBlock(&genBlock)
 	// add 4 rounds of txns
 	// txnA := test.MakeCreateAppTxn(test.AccountA)
@@ -2243,10 +2149,10 @@ func TestDeleteTransactions(t *testing.T) {
 	for i := 1; i <= 4; i++ {
 		vb, err := test.ReadValidatedBlockFromFile(fmt.Sprintf("test_resources/validated_blocks/DeleteTransactionsAddRound%d.vb", i))
 		require.NoError(t, err)
-		block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-		err = db.AddBlock(&block)
+
+		err = db.AddBlock(&vb)
 		require.NoError(t, err)
-		stxn, _, err := vb.Blk.BlockHeader.DecodeSignedTxn(vb.Blk.Payset[0])
+		stxn, _, err := util.DecodeSignedTxn(vb.Block.BlockHeader, vb.Block.Payset[0])
 		require.NoError(t, err)
 		txns = append(txns, stxn)
 	}
@@ -2279,8 +2185,7 @@ func TestDeleteTransactions(t *testing.T) {
 	// add 2 txns for round 5
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/DeleteTransactions.vb")
 	require.NoError(t, err)
-	block := ledgercore.MakeValidatedBlock(vb.Blk, vb.Delta)
-	err = db.AddBlock(&block)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	// keep round 5

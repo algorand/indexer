@@ -50,7 +50,7 @@ func Test_txnFilterOptimization(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s(%t)", tt.name, tt.rootOnly), func(t *testing.T) {
 			optimized := txnFilterOptimization(tt.arg)
-			assert.Equal(t, tt.rootOnly, optimized.ReturnRootTxnsOnly)
+			assert.Equal(t, tt.rootOnly, optimized.SkipInnerTransactions)
 		})
 	}
 }

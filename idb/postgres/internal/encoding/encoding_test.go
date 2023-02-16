@@ -1,15 +1,10 @@
 package encoding
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/crypto"
-	"github.com/algorand/go-algorand/crypto/merklesignature"
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 	itypes "github.com/algorand/indexer/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -372,35 +367,14 @@ func TestSignedTxnWithADEncoding(t *testing.T) {
 	assert.Equal(t, stxn, newStxn)
 }
 
-// Test that encoding of AccountData is as expected and that decoding results in the
-// same object.
-func TestAccountDataEncoding(t *testing.T) {
-	var addr basics.Address
-	addr[0] = 3
-
-	ad := basics.AccountData{
-		MicroAlgos: basics.MicroAlgos{Raw: 22},
-		AuthAddr:   addr,
-	}
-
-	buf := EncodeTrimmedAccountData(ad)
-
-	expectedString := `{"algo":22,"spend":"AwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}`
-	assert.Equal(t, expectedString, string(buf))
-
-	adNew, err := DecodeTrimmedAccountData(buf)
-	require.NoError(t, err)
-	assert.Equal(t, ad, adNew)
-}
-
 // Test that encoding of AppLocalState is as expected and that decoding results in the
 // same object.
 func TestAppLocalStateEncoding(t *testing.T) {
-	state := basics.AppLocalState{
-		Schema: basics.StateSchema{
+	state := sdk.AppLocalState{
+		Schema: sdk.StateSchema{
 			NumUint: 2,
 		},
-		KeyValue: map[string]basics.TealValue{
+		KeyValue: map[string]sdk.TealValue{
 			string([]byte{0xff}): { // try a non-utf8 key
 				Type: 3,
 			},
@@ -420,9 +394,9 @@ func TestAppLocalStateEncoding(t *testing.T) {
 // Test that encoding of AppLocalState is as expected and that decoding results in the
 // same object.
 func TestAppParamsEncoding(t *testing.T) {
-	params := basics.AppParams{
+	params := sdk.AppParams{
 		ApprovalProgram: []byte{0xff}, // try a non-utf8 key
-		GlobalState: map[string]basics.TealValue{
+		GlobalState: map[string]sdk.TealValue{
 			string([]byte{0xff}): { // try a non-utf8 key
 				Type: 3,
 			},
@@ -527,23 +501,23 @@ func TestNetworkStateEncoding(t *testing.T) {
 // Test that encoding of ledgercore.AccountData is as expected and that decoding
 // results in the same object.
 func TestLcAccountDataEncoding(t *testing.T) {
-	var authAddr basics.Address
+	var authAddr sdk.Address
 	authAddr[0] = 6
 
-	var voteID crypto.OneTimeSignatureVerifier
+	var voteID sdk.OneTimeSignatureVerifier
 	voteID[0] = 14
 
-	var selectionID crypto.VRFVerifier
+	var selectionID sdk.VRFVerifier
 	selectionID[0] = 15
 
-	var stateProofID merklesignature.Commitment
+	var stateProofID sdk.Commitment
 	stateProofID[0] = 19
 
-	ad := ledgercore.AccountData{
-		AccountBaseData: ledgercore.AccountBaseData{
-			Status:   basics.Online,
+	ad := sdk.AccountData{
+		AccountBaseData: sdk.AccountBaseData{
+			Status:   1,
 			AuthAddr: authAddr,
-			TotalAppSchema: basics.StateSchema{
+			TotalAppSchema: sdk.StateSchema{
 				NumUint:      7,
 				NumByteSlice: 8,
 			},
@@ -555,7 +529,7 @@ func TestLcAccountDataEncoding(t *testing.T) {
 			TotalBoxes:          20,
 			TotalBoxBytes:       21,
 		},
-		VotingData: ledgercore.VotingData{
+		VotingData: sdk.VotingData{
 			VoteID:          voteID,
 			SelectionID:     selectionID,
 			StateProofID:    stateProofID,
@@ -572,49 +546,4 @@ func TestLcAccountDataEncoding(t *testing.T) {
 	decodedAd, err := DecodeTrimmedLcAccountData(buf)
 	require.NoError(t, err)
 	assert.Equal(t, ad, decodedAd)
-}
-
-// structFields recursively gets all field names in a struct
-func structFields(theStruct interface{}, skip map[string]bool, names map[string]bool) {
-	rStruct := reflect.TypeOf(theStruct)
-	numFields := rStruct.NumField()
-	for i := 0; i < numFields; i++ {
-		field := rStruct.Field(i)
-		name := field.Name
-		if totalSkip, nameSkip := skip[name]; nameSkip {
-			if totalSkip {
-				continue
-			}
-		} else {
-			names[name] = true
-		}
-		if field.Type.Kind() == reflect.Struct {
-			structFields(reflect.New(field.Type).Elem().Interface(), skip, names)
-		}
-	}
-}
-
-// Test that all fields in go-algorand's AccountBaseData are either in local baseAccountData
-// or are accounted for explicitly in "skip"
-func TestBaseAccountDataVersusAccountBaseDataParity(t *testing.T) {
-
-	skip := map[string]bool{
-		"_struct":               true,
-		"MicroAlgos":            true,
-		"RewardsBase":           true,
-		"RewardedMicroAlgos":    true,
-		"MicroAlgosWithRewards": true,
-		"VotingData":            false, // skip the name, but continue with the recursion
-	}
-
-	goalNames := map[string]bool{}
-	structFields(ledgercore.AccountBaseData{}, skip, goalNames)
-	structFields(ledgercore.OnlineAccountData{}, skip, goalNames)
-
-	indexerNames := map[string]bool{}
-	structFields(baseAccountData{}, skip, indexerNames)
-
-	for name := range goalNames {
-		require.Contains(t, indexerNames, name)
-	}
 }

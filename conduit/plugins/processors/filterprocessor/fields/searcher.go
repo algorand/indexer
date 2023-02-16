@@ -13,9 +13,8 @@ import (
 
 // Searcher searches the struct with an expression and method to call
 type Searcher struct {
-	Exp          *expression.Expression
-	Tag          string
-	MethodToCall string
+	Exp *expression.Expression
+	Tag string
 }
 
 // This function is ONLY to be used by the filter.field function.
@@ -23,23 +22,14 @@ type Searcher struct {
 // MakeFieldSearcher) then this can panic
 func (f Searcher) search(input transactions.SignedTxnInBlock) (bool, error) {
 
-	val, err := SignedTxnFunc(f.Tag, &input)
+	val, err := LookupFieldByTag(f.Tag, &input)
 	if err != nil {
 		return false, err
 	}
 
 	e := reflect.ValueOf(val).Elem()
 
-	var toSearch interface{}
-	if f.MethodToCall != "" {
-		// If there is a function, search what is returned
-		toSearch = e.MethodByName(f.MethodToCall).Call([]reflect.Value{})[0].Interface()
-	} else {
-		// Otherwise, get the original value
-		toSearch = e.Interface()
-	}
-
-	b, err := (*f.Exp).Search(toSearch)
+	b, err := (*f.Exp).Search(e.Interface())
 	if err != nil {
 		return false, err
 	}
@@ -48,7 +38,7 @@ func (f Searcher) search(input transactions.SignedTxnInBlock) (bool, error) {
 }
 
 // checks that the supplied tag exists in the struct and recovers from any panics
-func checkTagExistsAndHasCorrectFunction(expressionType expression.FilterType, tag string) (outError error) {
+func checkTagAndExpressionExist(expressionType expression.FilterType, tag string) (outError error) {
 	defer func() {
 		// This defer'd function is a belt and suspenders type thing.  We check every reflected
 		// evaluation's IsValid() function to make sure not to operate on a zero value.  Therfore we can't
@@ -59,22 +49,14 @@ func checkTagExistsAndHasCorrectFunction(expressionType expression.FilterType, t
 		}
 	}()
 
-	val, err := SignedTxnFunc(tag, &transactions.SignedTxnInBlock{})
+	_, err := LookupFieldByTag(tag, &transactions.SignedTxnInBlock{})
 
 	if err != nil {
 		return fmt.Errorf("%s does not exist in transactions.SignedTxnInBlock struct", tag)
 	}
 
-	e := reflect.ValueOf(val).Elem()
-
-	method, ok := expression.TypeToFunctionMap[expressionType]
-
-	if !ok {
-		return fmt.Errorf("expression type (%s) is not supported.  tag value: %s", expressionType, tag)
-	}
-
-	if method != "" && !e.MethodByName(method).IsValid() {
-		return fmt.Errorf("variable referenced by tag %s does not contain the needed method: %s", tag, method)
+	if _, ok := expression.TypeMap[expressionType]; !ok {
+		return fmt.Errorf("expression type (%s) is not supported", expressionType)
 	}
 
 	return nil
@@ -83,9 +65,9 @@ func checkTagExistsAndHasCorrectFunction(expressionType expression.FilterType, t
 // MakeFieldSearcher will check that the field exists and that it contains the necessary "conversion" function
 func MakeFieldSearcher(e *expression.Expression, expressionType expression.FilterType, tag string) (*Searcher, error) {
 
-	if err := checkTagExistsAndHasCorrectFunction(expressionType, tag); err != nil {
+	if err := checkTagAndExpressionExist(expressionType, tag); err != nil {
 		return nil, err
 	}
 
-	return &Searcher{Exp: e, Tag: tag, MethodToCall: expression.TypeToFunctionMap[expressionType]}, nil
+	return &Searcher{Exp: e, Tag: tag}, nil
 }

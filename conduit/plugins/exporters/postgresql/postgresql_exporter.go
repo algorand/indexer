@@ -15,6 +15,7 @@ import (
 	"github.com/algorand/indexer/conduit/plugins/exporters"
 	"github.com/algorand/indexer/conduit/plugins/exporters/postgresql/util"
 	"github.com/algorand/indexer/data"
+	"github.com/algorand/indexer/helpers"
 	"github.com/algorand/indexer/idb"
 	// Necessary to ensure the postgres implementation has been registered in the idb factory
 	_ "github.com/algorand/indexer/idb/postgres"
@@ -140,7 +141,12 @@ func (exp *postgresqlExporter) Receive(exportData data.BlockData) error {
 			Payset:      exportData.Payset,
 		},
 		delta)
-	if err := exp.db.AddBlock(&vb); err != nil {
+	//TODO: update vb type
+	convertedvb, err := helpers.ConvertValidatedBlock(vb)
+	if err != nil {
+		return err
+	}
+	if err := exp.db.AddBlock(&convertedvb); err != nil {
 		return err
 	}
 	atomic.StoreUint64(&exp.round, exportData.Round()+1)

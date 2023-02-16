@@ -14,28 +14,27 @@ import (
 	"testing"
 	"time"
 
-	"github.com/algorand/avm-abi/apps"
-	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
-	test2 "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/algorand/indexer/api/generated/v2"
+	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/idb/postgres"
+	pgtest "github.com/algorand/indexer/idb/postgres/testing"
+	"github.com/algorand/indexer/types"
+	"github.com/algorand/indexer/util"
+	"github.com/algorand/indexer/util/test"
+
+	"github.com/algorand/avm-abi/apps"
+	crypto2 "github.com/algorand/go-algorand-sdk/v2/crypto"
 	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/crypto/merklesignature"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/ledger"
-	"github.com/algorand/go-algorand/rpcs"
-
-	"github.com/algorand/indexer/api/generated/v2"
-	"github.com/algorand/indexer/conduit/plugins/processors/blockprocessor"
-	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/idb/postgres"
-	pgtest "github.com/algorand/indexer/idb/postgres/testing"
-	"github.com/algorand/indexer/util/test"
 )
 
 var defaultOpts = ExtraOptions{
@@ -69,7 +68,7 @@ func testServerImplementation(db idb.IndexerDb) *ServerImplementation {
 	return &ServerImplementation{db: db, timeout: 30 * time.Second, opts: defaultOpts}
 }
 
-func setupIdb(t *testing.T, genesis sdk.Genesis) (*postgres.IndexerDb, func(), func(cert *rpcs.EncodedBlockCert) error, *ledger.Ledger) {
+func setupIdb(t *testing.T, genesis sdk.Genesis) (*postgres.IndexerDb, func()) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 
 	db, _, err := postgres.OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
@@ -81,58 +80,51 @@ func setupIdb(t *testing.T, genesis sdk.Genesis) (*postgres.IndexerDb, func(), f
 	}
 
 	err = db.LoadGenesis(genesis)
+	vb := types.ValidatedBlock{
+		Block: test.MakeGenesisBlockV2(),
+		Delta: sdk.LedgerStateDelta{},
+	}
+	db.AddBlock(&vb)
 	require.NoError(t, err)
 
-	logger, _ := test2.NewNullLogger()
-	l, err := test.MakeTestLedger(logger)
-	require.NoError(t, err)
-	proc, err := blockprocessor.MakeBlockProcessorWithLedger(logger, l, db.AddBlock)
-	require.NoError(t, err, "failed to open ledger")
-
-	f := blockprocessor.MakeBlockProcessorHandlerAdapter(&proc, db.AddBlock)
-
-	return db, newShutdownFunc, f, l
+	return db, newShutdownFunc
 }
 
 func TestApplicationHandlers(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // A block containing an app call txn with ExtraProgramPages, that the creator and another account have opted into
 	///////////
 
+	//txn := transactions.SignedTxnWithAD{
+	//	SignedTxn: transactions.SignedTxn{
+	//		Txn: transactions.Transaction{
+	//			Type: "appl",
+	//			Header: transactions.Header{
+	//				Sender:      test.AccountA,
+	//				GenesisHash: test.GenesisHash,
+	//			},
+	//			ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
+	//				ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+	//				ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+	//				ExtraProgramPages: extraPages,
+	//			},
+	//		},
+	//		Sig: test.Signature,
+	//	},
+	//	ApplyData: transactions.ApplyData{
+	//		ApplicationID: expectedAppIdx,
+	//	},
+	//}
+	//optInTxnA := test.MakeAppOptInTxn(expectedAppIdx, test.AccountA)
+	//optInTxnB := test.MakeAppOptInTxn(expectedAppIdx, test.AccountB)
 	const expectedAppIdx = 1 // must be 1 since this is the first txn
 	const extraPages = 2
-	txn := transactions.SignedTxnWithAD{
-		SignedTxn: transactions.SignedTxn{
-			Txn: transactions.Transaction{
-				Type: "appl",
-				Header: transactions.Header{
-					Sender:      test.AccountA,
-					GenesisHash: test.GenesisHash,
-				},
-				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
-					ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
-					ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
-					ExtraProgramPages: extraPages,
-				},
-			},
-			Sig: test.Signature,
-		},
-		ApplyData: transactions.ApplyData{
-			ApplicationID: expectedAppIdx,
-		},
-	}
-	optInTxnA := test.MakeAppOptInTxn(expectedAppIdx, test.AccountA)
-	optInTxnB := test.MakeAppOptInTxn(expectedAppIdx, test.AccountB)
-
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn, &optInTxnA, &optInTxnB)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/ApplicationHandlers.vb")
 	require.NoError(t, err)
-
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
-
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	//////////
@@ -238,28 +230,25 @@ func TestApplicationHandlers(t *testing.T) {
 }
 
 func TestAccountExcludeParameters(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // A block containing a creator of an app, an asset, who also holds and has opted-into those apps.
 	///////////
 
-	const expectedAppIdx = 1 // must be 1 since this is the first txn
-	const expectedAssetIdx = 2
-	createAppTxn := test.MakeCreateAppTxn(test.AccountA)
-	createAssetTxn := test.MakeAssetConfigTxn(0, 100, 0, false, "UNIT", "Asset 2", "http://asset2.com", test.AccountA)
-	appOptInTxnA := test.MakeAppOptInTxn(expectedAppIdx, test.AccountA)
-	appOptInTxnB := test.MakeAppOptInTxn(expectedAppIdx, test.AccountB)
-	assetOptInTxnA := test.MakeAssetOptInTxn(expectedAssetIdx, test.AccountA)
-	assetOptInTxnB := test.MakeAssetOptInTxn(expectedAssetIdx, test.AccountB)
+	//const expectedAppIdx = 1 // must be 1 since this is the first txn
+	//const expectedAssetIdx = 2
+	//createAppTxn := test.MakeCreateAppTxn(test.AccountA)
+	//createAssetTxn := test.MakeAssetConfigTxn(0, 100, 0, false, "UNIT", "Asset 2", "http://asset2.com", test.AccountA)
+	//appOptInTxnA := test.MakeAppOptInTxn(expectedAppIdx, test.AccountA)
+	//appOptInTxnB := test.MakeAppOptInTxn(expectedAppIdx, test.AccountB)
+	//assetOptInTxnA := test.MakeAssetOptInTxn(expectedAssetIdx, test.AccountA)
+	//assetOptInTxnB := test.MakeAssetOptInTxn(expectedAssetIdx, test.AccountB)
 
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createAppTxn, &createAssetTxn,
-		&appOptInTxnA, &appOptInTxnB, &assetOptInTxnA, &assetOptInTxnB)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AccountExcludeParameters.vb")
 	require.NoError(t, err)
-
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	//////////
@@ -410,9 +399,8 @@ type accountsErrorResponse struct {
 }
 
 func TestAccountMaxResultsLimit(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // A block containing an address that has created 10 apps, deleted 5 apps, and created 10 assets,
@@ -462,10 +450,10 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 	for i := range txns {
 		ptxns[i] = &txns[i]
 	}
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, ptxns...)
-	require.NoError(t, err)
 
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AccountMaxResultsLimit.vb")
+	require.NoError(t, err)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	//////////
@@ -774,9 +762,8 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 }
 
 func TestBlockNotFound(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // An empty database.
@@ -840,21 +827,23 @@ func TestInnerTxn(t *testing.T) {
 		},
 	}
 
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // a DB with some inner txns in it.
 	///////////
-	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
-	expectedID := appCall.Txn.ID().String()
+	// appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
+	//expectedID := appCall.Txn.ID().String()
 
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/InnerTxn.vb")
+	require.NoError(t, err)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	stxn, _, err := util.DecodeSignedTxn(vb.Block.BlockHeader, vb.Block.Payset[0])
 	require.NoError(t, err)
+	expectedID := crypto2.TransactionIDString(stxn.Txn)
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -889,9 +878,8 @@ func TestInnerTxn(t *testing.T) {
 // transaction group does not allow the root transaction to be returned on both
 // pages.
 func TestPagingRootTxnDeduplication(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // a DB with some inner txns in it.
@@ -900,14 +888,17 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 	appAddr[1] = 99
 	appAddrStr := appAddr.String()
 
-	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
-	expectedID := appCall.Txn.ID().String()
+	//appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
+	//expectedID := appCall.Txn.ID().String()
 
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/PagingRootTxnDeduplication.vb")
+	require.NoError(t, err)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	stxn, _, err := util.DecodeSignedTxn(vb.Block.BlockHeader, vb.Block.Payset[0])
 	require.NoError(t, err)
+	expectedID := crypto2.TransactionIDString(stxn.Txn)
 
 	testcases := []struct {
 		name   string
@@ -994,7 +985,7 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 		// Get first page with limit 1.
 		// Address filter causes results to return newest to oldest.
 		api := testServerImplementation(db)
-		err = api.LookupBlock(c, uint64(block.Round()), generated.LookupBlockParams{})
+		err = api.LookupBlock(c, uint64(vb.Block.Round), generated.LookupBlockParams{})
 		require.NoError(t, err)
 
 		//////////
@@ -1013,9 +1004,8 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 }
 
 func TestKeyregTransactionWithStateProofKeys(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // A block containing a key reg txn with state proof key
@@ -1029,32 +1019,35 @@ func TestKeyregTransactionWithStateProofKeys(t *testing.T) {
 	var stateProofPK merklesignature.Commitment
 	stateProofPK[0] = 1
 
-	txn := transactions.SignedTxnWithAD{
-		SignedTxn: transactions.SignedTxn{
-			Txn: transactions.Transaction{
-				Type: "keyreg",
-				Header: transactions.Header{
-					Sender:      test.AccountA,
-					GenesisHash: test.GenesisHash,
-				},
-				KeyregTxnFields: transactions.KeyregTxnFields{
-					VotePK:           votePK,
-					SelectionPK:      selectionPK,
-					StateProofPK:     stateProofPK,
-					VoteFirst:        basics.Round(0),
-					VoteLast:         basics.Round(100),
-					VoteKeyDilution:  1000,
-					Nonparticipation: false,
-				},
-			},
-			Sig: test.Signature,
-		},
-	}
+	//txn := transactions.SignedTxnWithAD{
+	//	SignedTxn: transactions.SignedTxn{
+	//		Txn: transactions.Transaction{
+	//			Type: "keyreg",
+	//			Header: transactions.Header{
+	//				Sender:      test.AccountA,
+	//				GenesisHash: test.GenesisHash,
+	//			},
+	//			KeyregTxnFields: transactions.KeyregTxnFields{
+	//				VotePK:           votePK,
+	//				SelectionPK:      selectionPK,
+	//				StateProofPK:     stateProofPK,
+	//				VoteFirst:        basics.Round(0),
+	//				VoteLast:         basics.Round(100),
+	//				VoteKeyDilution:  1000,
+	//				Nonparticipation: false,
+	//			},
+	//		},
+	//		Sig: test.Signature,
+	//	},
+	//}
+	//
 
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/KeyregTransactionWithStateProofKeys.vb")
+	require.NoError(t, err)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	txn, _, err := util.DecodeSignedTxn(vb.Block.BlockHeader, vb.Block.Payset[0])
 	require.NoError(t, err)
 
 	e := echo.New()
@@ -1067,7 +1060,7 @@ func TestKeyregTransactionWithStateProofKeys(t *testing.T) {
 		c := e.NewContext(req, rec)
 		c.SetPath("/v2/transactions/:txid")
 		api := &ServerImplementation{db: db}
-		err = api.LookupTransaction(c, txn.Txn.ID().String())
+		err = api.LookupTransaction(c, crypto2.TransactionIDString(txn.Txn))
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, rec.Code)
 		//////////
@@ -1108,9 +1101,8 @@ func TestVersion(t *testing.T) {
 	///////////
 	// Given // An API and context
 	///////////
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 	api := testServerImplementation(db)
 
 	e := echo.New()
@@ -1138,9 +1130,8 @@ func TestVersion(t *testing.T) {
 }
 
 func TestAccountClearsNonUTF8(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // a DB with some inner txns in it.
@@ -1154,12 +1145,11 @@ func TestAccountClearsNonUTF8(t *testing.T) {
 	urlBytes, _ := base64.StdEncoding.DecodeString("8J+qmSBNb25leSwgd2FudAo=")
 	url := string(urlBytes)
 	unitName := "asset\rwith\nnon-printable\tcharacters"
-	createAsset := test.MakeAssetConfigTxn(0, 100, 0, false, unitName, assetName, url, test.AccountA)
+	//createAsset := test.MakeAssetConfigTxn(0, 100, 0, false, unitName, assetName, url, test.AccountA)
 
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createAsset)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AccountClearsNonUTF8.vb")
 	require.NoError(t, err)
-
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	verify := func(params generated.AssetParams) {
@@ -1269,20 +1259,20 @@ func TestLookupInnerLogs(t *testing.T) {
 		},
 	}
 
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // a DB with some inner txns in it.
 	///////////
-	appCall := test.MakeAppCallWithInnerAppCall(test.AccountA)
+	//appCall := test.MakeAppCallWithInnerAppCall(test.AccountA)
 
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LookupInnerLogs.vb")
+	require.NoError(t, err)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
-	require.NoError(t, err)
+	appCall, _, err := util.DecodeSignedTxn(vb.Block.BlockHeader, vb.Block.Payset[0])
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1313,6 +1303,7 @@ func TestLookupInnerLogs(t *testing.T) {
 			require.NotNil(t, response.LogData)
 			ld := *response.LogData
 			require.Equal(t, 1, len(ld))
+			require.Equal(t, crypto2.TransactionIDString(appCall.Txn), ld[0].Txid)
 			require.Equal(t, len(tc.logs), len(ld[0].Logs))
 			for i, log := range ld[0].Logs {
 				require.Equal(t, []byte(tc.logs[i]), log)
@@ -1368,20 +1359,20 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 		},
 	}
 
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // a DB with some inner txns in it.
 	///////////
-	appCall := test.MakeAppCallWithMultiLogs(test.AccountA)
+	//appCall := test.MakeAppCallWithMultiLogs(test.AccountA)
 
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LookupMultiInnerLogs.vb")
+	require.NoError(t, err)
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
-	require.NoError(t, err)
+	appCall, _, err := util.DecodeSignedTxn(vb.Block.BlockHeader, vb.Block.Payset[0])
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1415,6 +1406,7 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 
 			logCount := 0
 			for txnIndex, result := range ld {
+				require.Equal(t, crypto2.TransactionIDString(appCall.Txn), result.Txid)
 				for logIndex, log := range result.Logs {
 					require.Equal(t, []byte(tc.logs[txnIndex*2+logIndex]), log)
 					logCount++
@@ -1426,18 +1418,16 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 }
 
 func TestFetchBlockWithExpiredPartAccts(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // a DB with a block containing expired participation accounts.
 	///////////
-	appCreate := test.MakeCreateAppTxn(test.AccountA)
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCreate)
-	block.ExpiredParticipationAccounts = append(block.ExpiredParticipationAccounts, test.AccountB, test.AccountC)
+	//appCreate := test.MakeCreateAppTxn(test.AccountA)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/FetchBlockWithExpiredPartAccts.vb")
 	require.NoError(t, err)
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	////////////
@@ -1492,19 +1482,18 @@ func TestFetchBlockWithOptions(t *testing.T) {
 		},
 	}
 
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // a DB with a block with a txn in it.
 	///////////
-	txnA := test.MakeCreateAppTxn(test.AccountA)
-	txnB := test.MakeCreateAppTxn(test.AccountB)
-	txnC := test.MakeCreateAppTxn(test.AccountC)
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txnA, &txnB, &txnC)
+	//txnA := test.MakeCreateAppTxn(test.AccountA)
+	//txnB := test.MakeCreateAppTxn(test.AccountB)
+	//txnC := test.MakeCreateAppTxn(test.AccountC)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/FetchBlockWithOptions.vb")
 	require.NoError(t, err)
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	//////////
@@ -1543,30 +1532,36 @@ func TestFetchBlockWithOptions(t *testing.T) {
 }
 
 func TestGetBlocksTransactionsLimit(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // A block containing 2 transactions, a block containing 10 transactions
 	//       // and a block containing 20 transactions
 	///////////
 
-	ntxns := []int{2, 10, 20}
-	for i, n := range ntxns {
-		var txns []transactions.SignedTxnWithAD
-		for j := 0; j < n; j++ {
-			txns = append(txns, test.MakePaymentTxn(1, 100, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{}, basics.Address{}))
-		}
-		ptxns := make([]*transactions.SignedTxnWithAD, n)
-		for k := range txns {
-			ptxns[k] = &txns[k]
-		}
-		block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, ptxns...)
-		block.BlockHeader.Round = basics.Round(i + 1)
-		require.NoError(t, err)
+	//ntxns := []int{2, 10, 20}
+	//for i, n := range ntxns {
+	//	var txns []transactions.SignedTxnWithAD
+	//	for j := 0; j < n; j++ {
+	//		txns = append(txns, test.MakePaymentTxn(1, 100, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{}, basics.Address{}))
+	//	}
+	//	ptxns := make([]*transactions.SignedTxnWithAD, n)
+	//	for k := range txns {
+	//		ptxns[k] = &txns[k]
+	//	}
+	//	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, ptxns...)
+	//	block.BlockHeader.Round = basics.Round(i + 1)
+	//	require.NoError(t, err)
+	//
+	//	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	//	require.NoError(t, err)
+	//}
 
-		err = proc(&rpcs.EncodedBlockCert{Block: block})
+	for _, n := range []int{2, 10, 20} {
+		vb, err := test.ReadValidatedBlockFromFile(fmt.Sprintf("test_resources/validated_blocks/GetBlocksTransactionsLimit%d.vb", n))
+		require.NoError(t, err)
+		err = db.AddBlock(&vb)
 		require.NoError(t, err)
 	}
 
@@ -1640,9 +1635,8 @@ func TestGetBlocksTransactionsLimit(t *testing.T) {
 }
 
 func TestGetBlockWithCompression(t *testing.T) {
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	///////////
 	// Given // A block containing 20 transactions at round 1
@@ -1650,19 +1644,17 @@ func TestGetBlockWithCompression(t *testing.T) {
 	///////////
 
 	const numbOfTxns = 20
-	var txns []transactions.SignedTxnWithAD
-	for j := 0; j < numbOfTxns; j++ {
-		txns = append(txns, test.MakePaymentTxn(1, 100, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{}, basics.Address{}))
-	}
-	ptxns := make([]*transactions.SignedTxnWithAD, numbOfTxns)
-	for k := range txns {
-		ptxns[k] = &txns[k]
-	}
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, ptxns...)
-	block.BlockHeader.Round = basics.Round(1)
+	//var txns []transactions.SignedTxnWithAD
+	//for j := 0; j < numbOfTxns; j++ {
+	//	txns = append(txns, test.MakePaymentTxn(1, 100, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{}, basics.Address{}))
+	//}
+	//ptxns := make([]*transactions.SignedTxnWithAD, numbOfTxns)
+	//for k := range txns {
+	//	ptxns[k] = &txns[k]
+	//}
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/GetBlockWithCompression.vb")
 	require.NoError(t, err)
-
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	err = db.AddBlock(&vb)
 	require.NoError(t, err)
 
 	//////////
@@ -1732,9 +1724,8 @@ func TestGetBlockWithCompression(t *testing.T) {
 }
 
 func TestNoCompressionSupportForNonBlockAPI(t *testing.T) {
-	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	//////////
 	// When // we call the health endpoint using compression flag on
@@ -1924,25 +1915,23 @@ func compareAppBoxesAgainstHandler(t *testing.T, db *postgres.IndexerDb,
 func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	start := time.Now()
 
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
-	defer l.Close()
 
 	appid := basics.AppIndex(1)
 
 	// ---- ROUND 1: create and fund the box app  ---- //
 	currentRound := basics.Round(1)
+	//
+	//createTxn, err := test.MakeComplexCreateAppTxn(test.AccountA, test.BoxApprovalProgram, test.BoxClearProgram, 8)
+	//require.NoError(t, err)
+	//
+	//payNewAppTxn := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountA, appid.Address(), basics.Address{},
+	//	basics.Address{})
 
-	createTxn, err := test.MakeComplexCreateAppTxn(test.AccountA, test.BoxApprovalProgram, test.BoxClearProgram, 8)
+	vb1, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDelete1.vb")
 	require.NoError(t, err)
-
-	payNewAppTxn := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountA, appid.Address(), basics.Address{},
-		basics.Address{})
-
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createTxn, &payNewAppTxn)
-	require.NoError(t, err)
-
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	err = db.AddBlock(&vb1)
 	require.NoError(t, err)
 
 	opts := idb.ApplicationQuery{ApplicationID: uint64(appid)}
@@ -1955,10 +1944,6 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	require.NoError(t, row.Error)
 	require.NotNil(t, row.Application.CreatedAtRound)
 	require.Equal(t, uint64(currentRound), *row.Application.CreatedAtRound)
-
-	// block header handoff: round 1 --> round 2
-	blockHdr, err := l.BlockHdr(currentRound)
-	require.NoError(t, err)
 
 	// ---- ROUND 2: create 8 boxes for appid == 1  ---- //
 	currentRound = basics.Round(2)
@@ -1976,30 +1961,31 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 
 	expectedAppBoxes := map[basics.AppIndex]map[string]string{}
 
+	//expectedAppBoxes[appid] = map[string]string{}
+	//newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+	//boxTxns := make([]*transactions.SignedTxnWithAD, 0)
+	//for _, boxName := range boxNames {
+	//	expectedAppBoxes[appid][apps.MakeBoxKey(uint64(appid), boxName)] = newBoxValue
+	//
+	//	args := []string{"create", boxName}
+	//	boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+	//	boxTxns = append(boxTxns, &boxTxn)
+	//}
+
 	expectedAppBoxes[appid] = map[string]string{}
 	newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-	boxTxns := make([]*transactions.SignedTxnWithAD, 0)
 	for _, boxName := range boxNames {
 		expectedAppBoxes[appid][apps.MakeBoxKey(uint64(appid), boxName)] = newBoxValue
-
-		args := []string{"create", boxName}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
-		boxTxns = append(boxTxns, &boxTxn)
 	}
 
-	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	vb2, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDelete2.vb")
 	require.NoError(t, err)
-
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	err = db.AddBlock(&vb2)
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
 
 	comparator(t, db, expectedAppBoxes, nil, true)
-
-	// block header handoff: round 2 --> round 3
-	blockHdr, err = l.BlockHdr(currentRound)
-	require.NoError(t, err)
 
 	// ---- ROUND 3: populate the boxes appropriately  ---- //
 	currentRound = basics.Round(3)
@@ -2015,29 +2001,31 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 		"box #8":                    "eight is beautiful",
 	}
 
-	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	//boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	//expectedAppBoxes[appid] = make(map[string]string)
+	//for boxName, valPrefix := range appBoxesToSet {
+	//	args := []string{"set", boxName, valPrefix}
+	//	boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+	//	boxTxns = append(boxTxns, &boxTxn)
+	//
+	//	key := apps.MakeBoxKey(uint64(appid), boxName)
+	//	expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
+	//}
+
 	expectedAppBoxes[appid] = make(map[string]string)
 	for boxName, valPrefix := range appBoxesToSet {
-		args := []string{"set", boxName, valPrefix}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
-		boxTxns = append(boxTxns, &boxTxn)
-
 		key := apps.MakeBoxKey(uint64(appid), boxName)
 		expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
 	}
-	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	vb3, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDelete3.vb")
+	require.NoError(t, err)
+	err = db.AddBlock(&vb3)
 	require.NoError(t, err)
 
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
-	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
 
 	comparator(t, db, expectedAppBoxes, nil, true)
-
-	// block header handoff: round 3 --> round 4
-	blockHdr, err = l.BlockHdr(currentRound)
-	require.NoError(t, err)
 
 	// ---- ROUND 4: delete the unhappy boxes  ---- //
 	currentRound = basics.Round(4)
@@ -2048,20 +2036,24 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 		"I'm destined for deletion",
 	}
 
-	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	//boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	//for _, boxName := range appBoxesToDelete {
+	//	args := []string{"delete", boxName}
+	//	boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+	//	boxTxns = append(boxTxns, &boxTxn)
+	//
+	//	key := apps.MakeBoxKey(uint64(appid), boxName)
+	//	delete(expectedAppBoxes[appid], key)
+	//}
 	for _, boxName := range appBoxesToDelete {
-		args := []string{"delete", boxName}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
-		boxTxns = append(boxTxns, &boxTxn)
-
 		key := apps.MakeBoxKey(uint64(appid), boxName)
 		delete(expectedAppBoxes[appid], key)
 	}
-	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	vb4, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDelete4.vb")
+	require.NoError(t, err)
+	err = db.AddBlock(&vb4)
 	require.NoError(t, err)
 
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
-	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
 
@@ -2072,62 +2064,62 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	}
 	comparator(t, db, expectedAppBoxes, deletedBoxes, true)
 
-	// block header handoff: round 4 --> round 5
-	blockHdr, err = l.BlockHdr(currentRound)
-	require.NoError(t, err)
-
 	// ---- ROUND 5: create 3 new boxes, overwriting one of the former boxes  ---- //
 	currentRound = basics.Round(5)
 
+	//boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	//for _, boxName := range appBoxesToCreate {
+	//	args := []string{"create", boxName}
+	//	boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+	//	boxTxns = append(boxTxns, &boxTxn)
+	//
+	//	key := apps.MakeBoxKey(uint64(appid), boxName)
+	//	expectedAppBoxes[appid][key] = newBoxValue
+	//}
 	appBoxesToCreate := []string{
 		"fantabulous",
 		"disappointing box", // overwriting here
 		"AVM is the new EVM",
 	}
-	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
 	for _, boxName := range appBoxesToCreate {
-		args := []string{"create", boxName}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
-		boxTxns = append(boxTxns, &boxTxn)
-
 		key := apps.MakeBoxKey(uint64(appid), boxName)
 		expectedAppBoxes[appid][key] = newBoxValue
 	}
-	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	vb5, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDelete5.vb")
+	require.NoError(t, err)
+	err = db.AddBlock(&vb5)
 	require.NoError(t, err)
 
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
-	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
 
 	comparator(t, db, expectedAppBoxes, nil, true)
 
-	// block header handoff: round 5 --> round 6
-	blockHdr, err = l.BlockHdr(currentRound)
-	require.NoError(t, err)
-
 	// ---- ROUND 6: populate the 3 new boxes  ---- //
 	currentRound = basics.Round(6)
+
+	//boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	//for boxName, valPrefix := range appBoxesToSet {
+	//	args := []string{"set", boxName, valPrefix}
+	//	boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+	//	boxTxns = append(boxTxns, &boxTxn)
+	//
+	//	key := apps.MakeBoxKey(uint64(appid), boxName)
+	//	expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
+	//}
 
 	appBoxesToSet = map[string]string{
 		"fantabulous":        "Italian food's the best!", // max char's
 		"disappointing box":  "you made it!",
 		"AVM is the new EVM": "yes we can!",
 	}
-	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
 	for boxName, valPrefix := range appBoxesToSet {
-		args := []string{"set", boxName, valPrefix}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
-		boxTxns = append(boxTxns, &boxTxn)
-
 		key := apps.MakeBoxKey(uint64(appid), boxName)
 		expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
 	}
-	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	vb6, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BoxCreateMutateDelete6.vb")
 	require.NoError(t, err)
-
-	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	err = db.AddBlock(&vb6)
 	require.NoError(t, err)
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
