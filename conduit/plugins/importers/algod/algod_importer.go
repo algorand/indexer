@@ -8,8 +8,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
-	"github.com/algorand/indexer/types"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
@@ -18,9 +16,11 @@ import (
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/importers"
 	"github.com/algorand/indexer/data"
+	"github.com/algorand/indexer/types"
 
 	"github.com/algorand/go-algorand-sdk/v2/client/v2/algod"
 	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
+	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 

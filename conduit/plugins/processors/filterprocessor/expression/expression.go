@@ -2,19 +2,16 @@ package expression
 
 import (
 	"fmt"
-	"reflect"
 	"regexp"
 	"strconv"
-
-	"github.com/algorand/go-algorand/data/basics"
 )
 
 // FilterType is the type of the filter (i.e. const, regex, etc)
 type FilterType string
 
 const (
-	// ExactFilter a filter that looks at a constant string in its entirety
-	ExactFilter FilterType = "exact"
+	// EqualToFilter a filter that applies numerical and string equal to operations
+	EqualToFilter FilterType = "equal"
 	// RegexFilter a filter that applies regex rules to the matching
 	RegexFilter FilterType = "regex"
 
@@ -26,15 +23,12 @@ const (
 	GreaterThanFilter FilterType = "greater-than"
 	// GreaterThanEqualFilter a filter that applies numerical greater than or equal operation
 	GreaterThanEqualFilter FilterType = "greater-than-equal"
-	// EqualToFilter a filter that applies numerical equal to operation
-	EqualToFilter FilterType = "equal"
 	// NotEqualToFilter a filter that applies numerical NOT equal to operation
 	NotEqualToFilter FilterType = "not-equal"
 )
 
 // TypeMap contains all the expression types for validation.
 var TypeMap = map[FilterType]interface{}{
-	ExactFilter:            struct{}{},
 	RegexFilter:            struct{}{},
 	LessThanFilter:         struct{}{},
 	LessThanEqualFilter:    struct{}{},
@@ -53,97 +47,74 @@ type regexExpression struct {
 	Regex *regexp.Regexp
 }
 
-func (e regexExpression) Search(input interface{}) (bool, error) {
-	return e.Regex.MatchString(input.(string)), nil
+func (e *regexExpression) Search(input interface{}) (bool, error) {
+	switch v := input.(type) {
+	case string:
+		return e.Regex.MatchString(v), nil
+	default:
+		return false, fmt.Errorf("unexpected regex search input type (%T)", v)
+	}
+}
+
+func makeRegexExpression(searchStr string, expressionType FilterType) (Expression, error) {
+	if expressionType != EqualToFilter && expressionType != RegexFilter {
+		return nil, fmt.Errorf("target type (string) does not support %s filters", expressionType)
+	}
+	r, err := regexp.Compile(searchStr)
+	if err != nil {
+		return nil, err
+	}
+
+	return &regexExpression{Regex: r}, nil
+}
+
+func makeSignedExpression(searchStr string, expressionType FilterType) (Expression, error) {
+	if expressionType == RegexFilter {
+		return nil, fmt.Errorf("target type (numeric) does not support %s filters", expressionType)
+	}
+
+	v, err := strconv.ParseInt(searchStr, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("search string \"%s\" is not a valid int64: %w", searchStr, err)
+	}
+
+	return &int64NumericalExpression{
+		FilterValue: v,
+		Op:          expressionType,
+	}, nil
+}
+
+func makeUnsignedExpression(searchStr string, expressionType FilterType) (Expression, error) {
+	if expressionType == RegexFilter {
+		return nil, fmt.Errorf("target type (numeric) does not support %s filters", expressionType)
+	}
+
+	v, err := strconv.ParseUint(searchStr, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("search string \"%s\" is not a valid uint64: %w", searchStr, err)
+	}
+
+	return &uint64NumericalExpression{
+		FilterValue: v,
+		Op:          expressionType,
+	}, nil
 }
 
 // MakeExpression creates an expression based on an expression type
-func MakeExpression(expressionType FilterType, expressionSearchStr string, targetKind reflect.Kind) (*Expression, error) {
-	switch expressionType {
-	case ExactFilter:
-		{
-			r, err := regexp.Compile("^" + expressionSearchStr + "$")
-			if err != nil {
-				return nil, err
-			}
-
-			var exp Expression = regexExpression{Regex: r}
-			return &exp, nil
+func MakeExpression(filterType FilterType, expressionSearchStr string, target interface{}) (exp Expression, err error) {
+	switch t := target.(type) {
+	case uint64:
+		return makeUnsignedExpression(expressionSearchStr, filterType)
+	case int64:
+		return makeSignedExpression(expressionSearchStr, filterType)
+	case string:
+		if filterType == EqualToFilter {
+			// Equal to for strings is a special case of the regex pattern.
+			expressionSearchStr = fmt.Sprintf("^%s$", regexp.QuoteMeta(expressionSearchStr))
 		}
-	case RegexFilter:
-		{
-			r, err := regexp.Compile(expressionSearchStr)
-			if err != nil {
-				return nil, err
-			}
-
-			var exp Expression = regexExpression{Regex: r}
-			return &exp, nil
-		}
-
-	case LessThanFilter:
-		fallthrough
-	case LessThanEqualFilter:
-		fallthrough
-	case GreaterThanFilter:
-		fallthrough
-	case GreaterThanEqualFilter:
-		fallthrough
-	case EqualToFilter:
-		fallthrough
-	case NotEqualToFilter:
-		{
-			var exp Expression
-
-			switch targetKind {
-			case reflect.TypeOf(basics.MicroAlgos{}).Kind():
-				{
-					v, err := strconv.ParseUint(expressionSearchStr, 10, 64)
-					if err != nil {
-						return nil, err
-					}
-
-					exp = microAlgoExpression{
-						FilterValue: basics.MicroAlgos{Raw: v},
-						Op:          expressionType,
-					}
-				}
-
-			case reflect.Int64:
-				{
-					v, err := strconv.ParseInt(expressionSearchStr, 10, 64)
-					if err != nil {
-						return nil, err
-					}
-
-					exp = int64NumericalExpression{
-						FilterValue: v,
-						Op:          expressionType,
-					}
-				}
-
-			case reflect.Uint64:
-				{
-					v, err := strconv.ParseUint(expressionSearchStr, 10, 64)
-					if err != nil {
-						return nil, err
-					}
-
-					exp = uint64NumericalExpression{
-						FilterValue: v,
-						Op:          expressionType,
-					}
-				}
-
-			default:
-				return nil, fmt.Errorf("unknown target kind (%s) for filter type: %s", targetKind.String(), expressionType)
-			}
-
-			return &exp, nil
-
-		}
+		return makeRegexExpression(expressionSearchStr, filterType)
 
 	default:
-		return nil, fmt.Errorf("unknown expression type: %s", expressionType)
+		return nil, fmt.Errorf("unknown expression type: %T", t)
 	}
 }

@@ -1,14 +1,11 @@
-//go:build exclude
-
 package filterprocessor
 
 import (
 	"context"
+	"gopkg.in/yaml.v3"
 	"os"
 	"reflect"
 	"testing"
-
-	"gopkg.in/yaml.v3"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"

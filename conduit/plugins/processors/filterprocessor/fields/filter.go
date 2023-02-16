@@ -1,5 +1,3 @@
-//go:build exclude
-
 package fields
 
 import (
@@ -7,7 +5,7 @@ import (
 
 	"github.com/algorand/indexer/data"
 
-	"github.com/algorand/go-algorand/data/transactions"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 // Operation an operation like "any" or "all" for boolean logic
@@ -34,7 +32,7 @@ type Filter struct {
 
 // SearchAndFilter searches through the block data and applies the operation to the results
 func (f Filter) SearchAndFilter(input data.BlockData) (data.BlockData, error) {
-	var newPayset []transactions.SignedTxnInBlock
+	var newPayset []sdk.SignedTxnInBlock
 	switch f.Op {
 	case noneFieldOperation:
 		for _, txn := range input.Payset {
