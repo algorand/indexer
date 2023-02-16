@@ -23,6 +23,13 @@ func TestExpression(t *testing.T) {
 	}{
 		// wrong type errors
 		{
+			name:            "error_Invalid-type",
+			filterType:      GreaterThanFilter,
+			targetInterface: int8(1),
+			makeErr:         "unknown expression type: int",
+		},
+		// wrong type errors
+		{
 			name:            "error_Regex-Wrong-type",
 			filterType:      GreaterThanFilter,
 			searchString:    "5",

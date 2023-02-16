@@ -115,6 +115,6 @@ func MakeExpression(filterType FilterType, expressionSearchStr string, target in
 		return makeRegexExpression(expressionSearchStr, filterType)
 
 	default:
-		return nil, fmt.Errorf("unknown expression type: %s", t)
+		return nil, fmt.Errorf("unknown expression type: %T", t)
 	}
 }
