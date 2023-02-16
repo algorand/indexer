@@ -297,7 +297,7 @@ filters:
       expression: 4
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, 2, len(output.Payset))
+			assert.Equal(t, 1, len(output.Payset))
 			assert.Equal(t, uint64(11), output.Payset[0].SignedTxnWithAD.ApplicationID)
 		},
 		},
@@ -391,7 +391,7 @@ filters:
       expression: 4
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, 2, len(output.Payset))
+			assert.Equal(t, 1, len(output.Payset))
 			assert.Equal(t, uint64(2), output.Payset[0].SignedTxnWithAD.AssetClosingAmount)
 		},
 		},
