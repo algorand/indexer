@@ -160,9 +160,15 @@ func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 	var blk data.BlockData
 
 	for r := 0; r < retries; r++ {
-		// If context has expired.
-		if algodImp.ctx.Err() != nil {
-			return blk, fmt.Errorf("GetBlock ctx error: %w", err)
+		_, err = algodImp.aclient.StatusAfterBlock(rnd - 1).Do(algodImp.ctx)
+		if err != nil {
+			// If context has expired.
+			if algodImp.ctx.Err() != nil {
+				return blk, fmt.Errorf("GetBlock ctx error: %w", err)
+			}
+			algodImp.logger.Errorf(
+				"r=%d error getting status %d", retries, rnd)
+			continue
 		}
 		start := time.Now()
 		blockbytes, err = algodImp.aclient.BlockRaw(rnd).Do(algodImp.ctx)
