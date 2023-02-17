@@ -29,7 +29,8 @@ import (
 	"github.com/algorand/go-algorand/rpcs"
 )
 
-const implementationName = "block_evaluator"
+// PluginName to use when configuring.
+const PluginName = "block_evaluator"
 
 // BlockProcessor is the block processors interface
 type BlockProcessor interface {
@@ -41,7 +42,7 @@ type BlockProcessor interface {
 
 // package-wide init function
 func init() {
-	processors.Register(implementationName, processors.ProcessorConstructorFunc(func() processors.Processor {
+	processors.Register(PluginName, processors.ProcessorConstructorFunc(func() processors.Processor {
 		return &blockProcessor{}
 	}))
 }
@@ -67,7 +68,7 @@ var sampleConfig string
 
 func (proc *blockProcessor) Metadata() conduit.Metadata {
 	return conduit.Metadata{
-		Name:         implementationName,
+		Name:         PluginName,
 		Description:  "Local Ledger Block Processor",
 		Deprecated:   false,
 		SampleConfig: sampleConfig,

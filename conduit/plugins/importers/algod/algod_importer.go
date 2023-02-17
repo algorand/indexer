@@ -25,7 +25,8 @@ import (
 )
 
 const (
-	ImporterName    = "algod"
+	// PluginName to use when configuring.
+	PluginName      = "algod"
 	archivalModeStr = "archival"
 	followerModeStr = "follower"
 )
@@ -55,7 +56,7 @@ type algodImporter struct {
 var sampleConfig string
 
 var algodImporterMetadata = conduit.Metadata{
-	Name:         ImporterName,
+	Name:         PluginName,
 	Description:  "Importer for fetching blocks from an algod REST API.",
 	Deprecated:   false,
 	SampleConfig: sampleConfig,
@@ -80,7 +81,7 @@ func (algodImp *algodImporter) Metadata() conduit.Metadata {
 
 // package-wide init function
 func init() {
-	importers.Register(ImporterName, importers.ImporterConstructorFunc(func() importers.Importer {
+	importers.Register(PluginName, importers.ImporterConstructorFunc(func() importers.Importer {
 		return &algodImporter{}
 	}))
 }

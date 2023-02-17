@@ -19,11 +19,12 @@ import (
 	"github.com/algorand/go-algorand/data/transactions"
 )
 
-const ImplementationName = "filter_processor"
+// PluginName to use when configuring.
+const PluginName = "filter_processor"
 
 // package-wide init function
 func init() {
-	processors.Register(ImplementationName, processors.ProcessorConstructorFunc(func() processors.Processor {
+	processors.Register(PluginName, processors.ProcessorConstructorFunc(func() processors.Processor {
 		return &FilterProcessor{}
 	}))
 }
@@ -43,7 +44,7 @@ var sampleConfig string
 // Metadata returns metadata
 func (a *FilterProcessor) Metadata() conduit.Metadata {
 	return conduit.Metadata{
-		Name:         ImplementationName,
+		Name:         PluginName,
 		Description:  "FilterProcessor Filter Processor",
 		Deprecated:   false,
 		SampleConfig: sampleConfig,

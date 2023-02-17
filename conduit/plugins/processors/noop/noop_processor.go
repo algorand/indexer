@@ -12,11 +12,12 @@ import (
 	"github.com/algorand/indexer/data"
 )
 
-const ImplementationName = "noop"
+// PluginName to use when configuring.
+const PluginName = "noop"
 
 // package-wide init function
 func init() {
-	processors.Register(ImplementationName, processors.ProcessorConstructorFunc(func() processors.Processor {
+	processors.Register(PluginName, processors.ProcessorConstructorFunc(func() processors.Processor {
 		return &Processor{}
 	}))
 }
@@ -30,7 +31,7 @@ var sampleConfig string
 // Metadata noop
 func (p *Processor) Metadata() conduit.Metadata {
 	return conduit.Metadata{
-		Name:         ImplementationName,
+		Name:         PluginName,
 		Description:  "noop processor",
 		Deprecated:   false,
 		SampleConfig: sampleConfig,
