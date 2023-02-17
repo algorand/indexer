@@ -45,12 +45,7 @@ type int64NumericalExpression struct {
 func (s int64NumericalExpression) Search(input interface{}) (bool, error) {
 	inputValue, ok := input.(int64)
 	if !ok {
-		// If the input interface{} isn't int64 but an alias for int64, we want to check that
-		if reflect.TypeOf(input).ConvertibleTo(reflect.TypeOf(int64(0))) {
-			inputValue = reflect.ValueOf(input).Convert(reflect.TypeOf(int64(0))).Int()
-		} else {
-			return false, fmt.Errorf("supplied type (%s) was not int64", reflect.TypeOf(input).String())
-		}
+		return false, fmt.Errorf("unexpected numeric search input \"%v\"", input)
 	}
 
 	switch s.Op {
@@ -80,12 +75,7 @@ type uint64NumericalExpression struct {
 func (u uint64NumericalExpression) Search(input interface{}) (bool, error) {
 	inputValue, ok := input.(uint64)
 	if !ok {
-		// If the input interface{} isn't uint64 but an alias for uint64, we want to check that
-		if reflect.TypeOf(input).ConvertibleTo(reflect.TypeOf(uint64(0))) {
-			inputValue = reflect.ValueOf(input).Convert(reflect.TypeOf(uint64(0))).Uint()
-		} else {
-			return false, fmt.Errorf("supplied type (%s) was not uint64", reflect.TypeOf(input).String())
-		}
+		return false, fmt.Errorf("unexpected numeric search input \"%v\"", input)
 	}
 
 	switch u.Op {

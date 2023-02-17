@@ -27,7 +27,7 @@ func TestFilterProcessor_Init_None(t *testing.T) {
 filters:
   - none: 
     - tag: sgnr
-      expression-type: exact
+      expression-type: equal
       expression: "` + sampleAddr1.String() + `"
     - tag: txn.asnd
       expression-type: regex
@@ -37,11 +37,11 @@ filters:
       expression-type: regex 
       expression: "` + sampleAddr2.String() + `"
     - tag: txn.snd
-      expression-type: exact
+      expression-type: equal
       expression: "` + sampleAddr2.String() + `"
   - any: 
     - tag: txn.aclose
-      expression-type: exact
+      expression-type: equal
       expression: "` + sampleAddr2.String() + `"
     - tag: txn.arcv
       expression-type: regex
@@ -165,7 +165,7 @@ filters:
     - tag: txn.type
       expression-type: less-than 
       expression: 4
-`, "unknown target kind"},
+`, "target type (string) does not support less-than filters"},
 
 		{
 			"illegal 2", `---
@@ -174,7 +174,7 @@ filters:
     - tag: txn.type
       expression-type: less-than-equal
       expression: 4
-`, "unknown target kind"},
+`, "target type (string) does not support less-than-equal filters"},
 
 		{
 			"illegal 3", `---
@@ -183,7 +183,7 @@ filters:
     - tag: txn.type
       expression-type: greater-than 
       expression: 4
-`, "unknown target kind"},
+`, "target type (string) does not support greater-than filters"},
 
 		{
 			"illegal 4", `---
@@ -192,16 +192,7 @@ filters:
     - tag: txn.type
       expression-type: greater-than-equal
       expression: 4
-`, "unknown target kind"},
-
-		{
-			"illegal 4", `---
-filters:
-  - any:
-    - tag: txn.type
-      expression-type: equal
-      expression: 4
-`, "unknown target kind"},
+`, "target type (string) does not support greater-than-equal filters"},
 
 		{
 			"illegal 5", `---
@@ -210,7 +201,7 @@ filters:
     - tag: txn.type
       expression-type: not-equal
       expression: 4
-`, "unknown target kind"},
+`, "target type (string) does not support not-equal filters"},
 	}
 
 	for _, test := range tests {
@@ -727,7 +718,7 @@ func TestFilterProcessor_VariousErrorPathsOnInit(t *testing.T) {
 filters:
  - any:
    - tag: DoesNot.ExistIn.Struct
-     expression-type: exact
+     expression-type: equal
      expression: "sample"
 `, "unknown tag"},
 
@@ -737,13 +728,13 @@ filters:
    - tag: sgnr
      expression-type: wrong-expression-type
      expression: "sample"
-`, "could not make expression with string"},
+`, "could not make expression"},
 
 		{"CorrectFilterType", `---
 filters:
   - wrong-filter-type: 
     - tag: sgnr
-      expression-type: exact
+      expression-type: equal
       expression: "sample"
 
 `, "filter key was not a valid value"},
@@ -752,11 +743,11 @@ filters:
 filters:
   - any: 
     - tag: sgnr
-      expression-type: exact
+      expression-type: equal
       expression: "sample"
     all:
     - tag: sgnr
-      expression-type: exact
+      expression-type: equal
       expression: "sample"
 
 
@@ -786,7 +777,7 @@ func TestFilterProcessor_Init_Multi(t *testing.T) {
 filters:
   - any: 
     - tag: sgnr
-      expression-type: exact
+      expression-type: equal
       expression: "` + sampleAddr1.String() + `"
     - tag: txn.asnd
       expression-type: regex
@@ -796,11 +787,11 @@ filters:
       expression-type: regex 
       expression: "` + sampleAddr2.String() + `"
     - tag: txn.snd
-      expression-type: exact
+      expression-type: equal
       expression: "` + sampleAddr2.String() + `"
   - any: 
     - tag: txn.aclose
-      expression-type: exact
+      expression-type: equal
       expression: "` + sampleAddr2.String() + `"
     - tag: txn.arcv
       expression-type: regex
@@ -902,7 +893,7 @@ filters:
       expression-type: regex 
       expression: "` + sampleAddr2.String() + `"
     - tag: txn.snd
-      expression-type: exact
+      expression-type: equal
       expression: "` + sampleAddr2.String() + `"
 `
 
@@ -975,7 +966,7 @@ filters:
       expression-type: regex 
       expression: "` + sampleAddr1.String() + `"
     - tag: txn.rcv
-      expression-type: exact
+      expression-type: equal
       expression: "` + sampleAddr2.String() + `"
 `
 

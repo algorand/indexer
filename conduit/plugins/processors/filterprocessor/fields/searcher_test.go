@@ -1,7 +1,6 @@
 package fields
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -25,9 +24,9 @@ func TestInternalSearch(t *testing.T) {
 	address1 := basics.Address{1}
 	address2 := basics.Address{2}
 
-	var expressionType expression.FilterType = "exact"
+	var expressionType expression.FilterType = expression.EqualToFilter
 	tag := "sgnr"
-	exp, err := expression.MakeExpression(expressionType, address1.String(), reflect.String)
+	exp, err := expression.MakeExpression(expressionType, address1.String(), "")
 	assert.NoError(t, err)
 	searcher, err := MakeFieldSearcher(exp, expressionType, tag)
 	assert.NoError(t, err)
@@ -61,10 +60,10 @@ func TestInternalSearch(t *testing.T) {
 
 // TestMakeFieldSearcher tests making a field searcher is valid
 func TestMakeFieldSearcher(t *testing.T) {
-	var expressionType expression.FilterType = "exact"
+	var expressionType expression.FilterType = expression.EqualToFilter
 	tag := "sgnr"
 	sampleExpressionStr := "sample"
-	exp, err := expression.MakeExpression(expressionType, sampleExpressionStr, reflect.String)
+	exp, err := expression.MakeExpression(expressionType, sampleExpressionStr, "")
 	assert.NoError(t, err)
 	searcher, err := MakeFieldSearcher(exp, expressionType, tag)
 	assert.NoError(t, err)
@@ -80,16 +79,16 @@ func TestMakeFieldSearcher(t *testing.T) {
 // TestCheckTagExistsAndHasCorrectFunction tests that the check tag exists and function relation works
 func TestCheckTagExistsAndHasCorrectFunction(t *testing.T) {
 	// check that something that doesn't exist throws an error
-	err := checkTagAndExpressionExist("exact", "SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.LoreumIpsum.SDF")
+	err := checkTagAndExpressionExist(expression.EqualToFilter, "SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.LoreumIpsum.SDF")
 	assert.ErrorContains(t, err, "does not exist in transactions")
 
-	err = checkTagAndExpressionExist("exact", "LoreumIpsum")
+	err = checkTagAndExpressionExist(expression.EqualToFilter, "LoreumIpsum")
 	assert.ErrorContains(t, err, "does not exist in transactions")
 
 	// a made up expression type should throw an error
 	err = checkTagAndExpressionExist("made-up-expression-type", "sgnr")
 	assert.ErrorContains(t, err, "is not supported")
 
-	err = checkTagAndExpressionExist("exact", "sgnr")
+	err = checkTagAndExpressionExist(expression.EqualToFilter, "sgnr")
 	assert.NoError(t, err)
 }
