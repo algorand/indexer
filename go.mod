@@ -7,7 +7,7 @@ replace github.com/algorand/go-algorand => ./third_party/go-algorand
 require (
 	github.com/algorand/avm-abi v0.2.0
 	github.com/algorand/go-algorand v0.0.0-20220211161928-53b157beb10f
-	github.com/algorand/go-algorand-sdk/v2 v2.0.0-20230209164439-140b997ed9ee
+	github.com/algorand/go-algorand-sdk/v2 v2.0.0-20230216185416-22ef3b66c617
 	github.com/algorand/go-codec/codec v1.1.8
 	github.com/algorand/go-deadlock v0.2.2
 	github.com/algorand/oapi-codegen v1.12.0-algorand.0
@@ -21,7 +21,7 @@ require (
 	github.com/labstack/echo/v4 v4.9.1
 	github.com/orlangure/gnomock v0.12.0
 	github.com/pmezard/go-difflib v1.0.0
-	github.com/prometheus/client_golang v1.10.0
+	github.com/prometheus/client_golang v1.11.1
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/cobra v1.3.0
 	github.com/spf13/pflag v1.0.5
@@ -90,7 +90,7 @@ require (
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
-	github.com/prometheus/common v0.25.0 // indirect
+	github.com/prometheus/common v0.26.0 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
 	github.com/rogpeppe/go-internal v1.8.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect

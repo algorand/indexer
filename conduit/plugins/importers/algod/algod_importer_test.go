@@ -2,6 +2,8 @@ package algodimporter
 
 import (
 	"context"
+	"fmt"
+	"net/http/httptest"
 	"os"
 	"testing"
 
@@ -39,25 +41,86 @@ func TestImporterMetadata(t *testing.T) {
 func TestCloseSuccess(t *testing.T) {
 	ts := test.NewAlgodServer(test.GenesisResponder)
 	testImporter := New()
-	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("netaddr: "+ts.URL), logger)
+	cfgStr := fmt.Sprintf(`---
+mode: %s
+netaddr: %s
+`, archivalModeStr, ts.URL)
+	_, err := testImporter.Init(ctx, plugins.MakePluginConfig(cfgStr), logger)
 	assert.NoError(t, err)
 	err = testImporter.Close()
 	assert.NoError(t, err)
 }
 
 func TestInitSuccess(t *testing.T) {
-	ts := test.NewAlgodServer(test.GenesisResponder)
-	testImporter := New()
-	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("netaddr: "+ts.URL), logger)
-	assert.NoError(t, err)
-	assert.NotEqual(t, testImporter, nil)
-	testImporter.Close()
+	tests := []struct {
+		name string
+	}{
+		{"archival"},
+		{"follower"},
+	}
+	for _, ttest := range tests {
+		t.Run(ttest.name, func(t *testing.T) {
+			ts := test.NewAlgodServer(test.GenesisResponder)
+			testImporter := New()
+			cfgStr := fmt.Sprintf(`---
+mode: %s
+netaddr: %s
+`, ttest.name, ts.URL)
+			_, err := testImporter.Init(ctx, plugins.MakePluginConfig(cfgStr), logger)
+			assert.NoError(t, err)
+			assert.NotEqual(t, testImporter, nil)
+			testImporter.Close()
+		})
+	}
+}
+
+func TestInitParseUrlFailure(t *testing.T) {
+	tests := []struct {
+		url string
+	}{
+		{".0.0.0.0.0.0.0:1234"},
+	}
+	for _, ttest := range tests {
+		t.Run(ttest.url, func(t *testing.T) {
+			testImporter := New()
+			cfgStr := fmt.Sprintf(`---
+mode: %s
+netaddr: %s
+`, "follower", ttest.url)
+			_, err := testImporter.Init(ctx, plugins.MakePluginConfig(cfgStr), logger)
+			assert.ErrorContains(t, err, "parse")
+		})
+	}
+}
+
+func TestInitModeFailure(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{"foobar"},
+	}
+	for _, ttest := range tests {
+		t.Run(ttest.name, func(t *testing.T) {
+			ts := test.NewAlgodServer(test.GenesisResponder)
+			testImporter := New()
+			cfgStr := fmt.Sprintf(`---
+mode: %s
+netaddr: %s
+`, ttest.name, ts.URL)
+			_, err := testImporter.Init(ctx, plugins.MakePluginConfig(cfgStr), logger)
+			assert.EqualError(t, err, fmt.Sprintf("algod importer was set to a mode (%s) that wasn't supported", ttest.name))
+		})
+	}
 }
 
 func TestInitGenesisFailure(t *testing.T) {
 	ts := test.NewAlgodServer(test.MakeGenesisResponder(sdk.Genesis{}))
 	testImporter := New()
-	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("netaddr: "+ts.URL), logger)
+	cfgStr := fmt.Sprintf(`---
+mode: %s
+netaddr: %s
+`, archivalModeStr, ts.URL)
+	_, err := testImporter.Init(ctx, plugins.MakePluginConfig(cfgStr), logger)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "unable to fetch genesis file")
 	testImporter.Close()
@@ -83,62 +146,129 @@ func TestConfigDefault(t *testing.T) {
 func TestWaitForBlockBlockFailure(t *testing.T) {
 	ts := test.NewAlgodServer(test.GenesisResponder)
 	testImporter := New()
-	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("netaddr: "+ts.URL), logger)
+	cfgStr := fmt.Sprintf(`---
+mode: %s
+netaddr: %s
+`, archivalModeStr, ts.URL)
+	_, err := testImporter.Init(ctx, plugins.MakePluginConfig(cfgStr), logger)
 	assert.NoError(t, err)
 	assert.NotEqual(t, testImporter, nil)
 
 	blk, err := testImporter.GetBlock(uint64(10))
 	assert.Error(t, err)
 	assert.True(t, blk.Empty())
+
 }
 
 func TestGetBlockSuccess(t *testing.T) {
-	ctx, cancel = context.WithCancel(context.Background())
-	ts := test.NewAlgodServer(
-		test.GenesisResponder,
-		test.BlockResponder,
-		test.BlockAfterResponder)
-	testImporter := New()
-	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("netaddr: "+ts.URL), logger)
-	assert.NoError(t, err)
-	assert.NotEqual(t, testImporter, nil)
+	tests := []struct {
+		name        string
+		algodServer *httptest.Server
+	}{
+		{"", test.NewAlgodServer(test.GenesisResponder,
+			test.BlockResponder,
+			test.BlockAfterResponder)},
+		{"archival", test.NewAlgodServer(test.GenesisResponder,
+			test.BlockResponder,
+			test.BlockAfterResponder)},
+		{"follower", test.NewAlgodServer(test.GenesisResponder,
+			test.BlockResponder,
+			test.BlockAfterResponder, test.LedgerStateDeltaResponder)},
+	}
+	for _, ttest := range tests {
+		t.Run(ttest.name, func(t *testing.T) {
+			ctx, cancel = context.WithCancel(context.Background())
+			testImporter := New()
 
-	downloadedBlk, err := testImporter.GetBlock(uint64(10))
-	assert.NoError(t, err)
-	assert.Equal(t, downloadedBlk.Round(), uint64(10))
-	assert.True(t, downloadedBlk.Empty())
-	cancel()
+			cfgStr := fmt.Sprintf(`---
+mode: %s
+netaddr: %s
+`, ttest.name, ttest.algodServer.URL)
+			_, err := testImporter.Init(ctx, plugins.MakePluginConfig(cfgStr), logger)
+			assert.NoError(t, err)
+			assert.NotEqual(t, testImporter, nil)
+
+			downloadedBlk, err := testImporter.GetBlock(uint64(0))
+			assert.NoError(t, err)
+			assert.Equal(t, downloadedBlk.Round(), uint64(0))
+			assert.True(t, downloadedBlk.Empty())
+			assert.Nil(t, downloadedBlk.Delta)
+
+			downloadedBlk, err = testImporter.GetBlock(uint64(10))
+			assert.NoError(t, err)
+			assert.Equal(t, downloadedBlk.Round(), uint64(10))
+			assert.True(t, downloadedBlk.Empty())
+			if ttest.name == followerModeStr {
+				// We're not setting the delta yet, but in the future we will
+				// assert.NotNil(t, downloadedBlk.Delta)
+			} else {
+				assert.Nil(t, downloadedBlk.Delta)
+			}
+			cancel()
+		})
+	}
 }
 
 func TestGetBlockContextCancelled(t *testing.T) {
-	ctx, cancel = context.WithCancel(context.Background())
-	ts := test.NewAlgodServer(
-		test.GenesisResponder,
-		test.BlockResponder,
-		test.BlockAfterResponder)
-	testImporter := New()
-	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("netaddr: "+ts.URL), logger)
-	assert.NoError(t, err)
-	assert.NotEqual(t, testImporter, nil)
+	tests := []struct {
+		name        string
+		algodServer *httptest.Server
+	}{
+		{"archival", test.NewAlgodServer(test.GenesisResponder,
+			test.BlockResponder,
+			test.BlockAfterResponder)},
+		{"follower", test.NewAlgodServer(test.GenesisResponder,
+			test.BlockResponder,
+			test.BlockAfterResponder, test.LedgerStateDeltaResponder)},
+	}
 
-	cancel()
-	_, err = testImporter.GetBlock(uint64(10))
-	assert.Error(t, err)
+	for _, ttest := range tests {
+		t.Run(ttest.name, func(t *testing.T) {
+			ctx, cancel = context.WithCancel(context.Background())
+			testImporter := New()
+			cfgStr := fmt.Sprintf(`---
+mode: %s
+netaddr: %s
+`, ttest.name, ttest.algodServer.URL)
+			_, err := testImporter.Init(ctx, plugins.MakePluginConfig(cfgStr), logger)
+			assert.NoError(t, err)
+			assert.NotEqual(t, testImporter, nil)
+
+			cancel()
+			_, err = testImporter.GetBlock(uint64(10))
+			assert.Error(t, err)
+		})
+	}
 }
 
 func TestGetBlockFailure(t *testing.T) {
-	ctx, cancel = context.WithCancel(context.Background())
-	ts := test.NewAlgodServer(
-		test.GenesisResponder,
-		test.BlockAfterResponder)
-	testImporter := New()
-	_, err := testImporter.Init(ctx, plugins.MakePluginConfig("netaddr: "+ts.URL), logger)
-	assert.NoError(t, err)
-	assert.NotEqual(t, testImporter, nil)
+	tests := []struct {
+		name        string
+		algodServer *httptest.Server
+	}{
+		{"archival", test.NewAlgodServer(test.GenesisResponder,
+			test.BlockAfterResponder)},
+		{"follower", test.NewAlgodServer(test.GenesisResponder,
+			test.BlockAfterResponder, test.LedgerStateDeltaResponder)},
+	}
+	for _, ttest := range tests {
+		t.Run(ttest.name, func(t *testing.T) {
+			ctx, cancel = context.WithCancel(context.Background())
+			testImporter := New()
 
-	_, err = testImporter.GetBlock(uint64(10))
-	assert.Error(t, err)
-	cancel()
+			cfgStr := fmt.Sprintf(`---
+mode: %s
+netaddr: %s
+`, ttest.name, ttest.algodServer.URL)
+			_, err := testImporter.Init(ctx, plugins.MakePluginConfig(cfgStr), logger)
+			assert.NoError(t, err)
+			assert.NotEqual(t, testImporter, nil)
+
+			_, err = testImporter.GetBlock(uint64(10))
+			assert.Error(t, err)
+			cancel()
+		})
+	}
 }
 
 func TestAlgodImporter_ProvideMetrics(t *testing.T) {
