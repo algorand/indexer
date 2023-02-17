@@ -1,6 +1,6 @@
 ## conduit-docs
 
-`conduit-docts` is a utility used to generate markdown files from Conduit plugin config structs.  
+`conduit-docs` is a utility used to generate markdown files from Conduit plugin config structs.  
 It's usage is designed around `//go:generate`, which should be run on each plugin's `*.go` config file.
 
 ### File Names
@@ -18,7 +18,7 @@ For example,
 ```go
 package example 
 
-//go:generate conduit-docs output-dir
+//go:generate go run ../../../../cmd/conduit-docs/main.go ../../../../conduit-docs/
 
 type Config struct {
 	// description field of the graph
@@ -49,7 +49,7 @@ So the following config,
 ```go
 package example 
 
-//go:generate conduit-docs output-dir
+//go:generate go run ../../../../cmd/conduit-docs/main.go ../../../../conduit-docs/
 
 /*Header
 ## Config Documentation

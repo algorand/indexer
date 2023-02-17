@@ -27,11 +27,8 @@ export GO_IMAGE = golang:$(shell go version | cut -d ' ' -f 3 | tail -c +3 )
 # This is the default target, build everything:
 all: conduit cmd/algorand-indexer/algorand-indexer go-algorand idb/postgres/internal/schema/setup_postgres_sql.go idb/mocks/IndexerDb.go
 
-conduit: go-algorand conduit-docs
+conduit: go-algorand
 	go generate ./... && cd cmd/conduit && go build -ldflags="${GOLDFLAGS}"
-
-conduit-docs:
-	go install ./cmd/conduit-docs/
 
 cmd/algorand-indexer/algorand-indexer: idb/postgres/internal/schema/setup_postgres_sql.go go-algorand
 	cd cmd/algorand-indexer && go build -ldflags="${GOLDFLAGS}"
@@ -57,7 +54,7 @@ package: go-algorand
 	misc/release.py --host-only --outdir $(PKG_DIR)
 
 # used in travis test builds; doesn't verify that tag and .version match
-fakepackage: go-algorand conduit-docs
+fakepackage: go-algorand
 	rm -rf $(PKG_DIR)
 	mkdir -p $(PKG_DIR)
 	misc/release.py --host-only --outdir $(PKG_DIR) --fake-release
@@ -82,10 +79,10 @@ integration: cmd/algorand-indexer/algorand-indexer
 # To keep the container running at exit set 'export EXTRA="--keep-alive"',
 # once the container is paused use 'docker exec <id> bash' to inspect temp
 # files in `/tmp/*/'
-e2e: cmd/algorand-indexer/algorand-indexer conduit-docs
+e2e: cmd/algorand-indexer/algorand-indexer
 	cd e2e_tests/docker/indexer/ && docker-compose build --build-arg GO_IMAGE=${GO_IMAGE} && docker-compose up --exit-code-from e2e
 
-e2e-nightly: cmd/algorand-indexer/algorand-indexer conduit-docs
+e2e-nightly: cmd/algorand-indexer/algorand-indexer
 	cd e2e_tests/docker/indexer/ && docker-compose build --build-arg GO_IMAGE=${GO_IMAGE} --build-arg CHANNEL=nightly && docker-compose up --exit-code-from e2e
 
 # note: when running e2e tests manually be sure to set the e2e filename: 'export CI_E2E_FILENAME=rel-nightly'
@@ -124,4 +121,4 @@ indexer-v-algod: nightly-setup indexer-v-algod-swagger nightly-teardown
 update-submodule:
 	git submodule update --remote
 
-.PHONY: all test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go go-algorand indexer-v-algod conduit conduit-docs
+.PHONY: all test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go go-algorand indexer-v-algod conduit
