@@ -2,15 +2,18 @@ package filterprocessor
 
 import (
 	"context"
+	"testing"
+
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
+
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/data"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func BenchmarkProcess(b *testing.B) {
