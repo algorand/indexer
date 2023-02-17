@@ -35,11 +35,9 @@ const (
 	followerMode
 )
 
-// Retry w/ exponential backoff
+// Retry
 const (
-	initialWait    = time.Millisecond * 200
-	waitMultiplier = 1.5
-	retries        = 5
+	retries = 5
 )
 
 type algodImporter struct {
@@ -162,7 +160,6 @@ func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 	var blk data.BlockData
 
 	for r := 0; r < retries; r++ {
-		time.Sleep(time.Duration(waitMultiplier*float64(r)) * initialWait)
 		// If context has expired.
 		if algodImp.ctx.Err() != nil {
 			return blk, fmt.Errorf("GetBlock ctx error: %w", err)
