@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	exporterName = "file_writer"
+	ExporterName = "file_writer"
 	// FilePattern is used to name the output files.
 	FilePattern = "%[1]d_block.json"
 )
@@ -34,7 +34,7 @@ type fileExporter struct {
 var sampleFile string
 
 var metadata = conduit.Metadata{
-	Name:         exporterName,
+	Name:         ExporterName,
 	Description:  "Exporter for writing data to a file.",
 	Deprecated:   false,
 	SampleConfig: sampleFile,
@@ -112,7 +112,7 @@ func unmarshalConfig(cfg string) (Config, error) {
 }
 
 func init() {
-	exporters.Register(exporterName, exporters.ExporterConstructorFunc(func() exporters.Exporter {
+	exporters.Register(ExporterName, exporters.ExporterConstructorFunc(func() exporters.Exporter {
 		return &fileExporter{}
 	}))
 }

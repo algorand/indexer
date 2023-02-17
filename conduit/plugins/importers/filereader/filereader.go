@@ -22,7 +22,7 @@ import (
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
-const importerName = "file_reader"
+const ImporterName = "file_reader"
 
 type fileReader struct {
 	logger *logrus.Logger
@@ -40,7 +40,7 @@ func New() importers.Importer {
 var sampleConfig string
 
 var metadata = conduit.Metadata{
-	Name:         importerName,
+	Name:         ImporterName,
 	Description:  "Importer for fetching blocks from files in a directory created by the 'file_writer' plugin.",
 	Deprecated:   false,
 	SampleConfig: sampleConfig,
@@ -52,7 +52,7 @@ func (r *fileReader) Metadata() conduit.Metadata {
 
 // package-wide init function
 func init() {
-	importers.Register(importerName, importers.ImporterConstructorFunc(func() importers.Importer {
+	importers.Register(ImporterName, importers.ImporterConstructorFunc(func() importers.Importer {
 		return &fileReader{}
 	}))
 }

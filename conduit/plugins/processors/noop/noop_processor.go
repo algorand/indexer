@@ -12,11 +12,11 @@ import (
 	"github.com/algorand/indexer/data"
 )
 
-const implementationName = "noop"
+const ImplementationName = "noop"
 
 // package-wide init function
 func init() {
-	processors.Register(implementationName, processors.ProcessorConstructorFunc(func() processors.Processor {
+	processors.Register(ImplementationName, processors.ProcessorConstructorFunc(func() processors.Processor {
 		return &Processor{}
 	}))
 }
@@ -30,7 +30,7 @@ var sampleConfig string
 // Metadata noop
 func (p *Processor) Metadata() conduit.Metadata {
 	return conduit.Metadata{
-		Name:         implementationName,
+		Name:         ImplementationName,
 		Description:  "noop processor",
 		Deprecated:   false,
 		SampleConfig: sampleConfig,

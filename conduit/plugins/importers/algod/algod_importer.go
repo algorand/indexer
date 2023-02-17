@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	importerName    = "algod"
+	ImporterName    = "algod"
 	archivalModeStr = "archival"
 	followerModeStr = "follower"
 )
@@ -55,7 +55,7 @@ type algodImporter struct {
 var sampleConfig string
 
 var algodImporterMetadata = conduit.Metadata{
-	Name:         importerName,
+	Name:         ImporterName,
 	Description:  "Importer for fetching blocks from an algod REST API.",
 	Deprecated:   false,
 	SampleConfig: sampleConfig,
@@ -80,7 +80,7 @@ func (algodImp *algodImporter) Metadata() conduit.Metadata {
 
 // package-wide init function
 func init() {
-	importers.Register(importerName, importers.ImporterConstructorFunc(func() importers.Importer {
+	importers.Register(ImporterName, importers.ImporterConstructorFunc(func() importers.Importer {
 		return &algodImporter{}
 	}))
 }
