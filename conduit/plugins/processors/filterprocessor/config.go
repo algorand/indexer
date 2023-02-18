@@ -1,7 +1,7 @@
 // Package filterprocessor docs
 package filterprocessor
 
-//go:generate conduit-docs ../../../../conduit-docs/
+//go:generate go run ../../../../cmd/conduit-docs/main.go ../../../../conduit-docs/
 
 import (
 	"github.com/algorand/indexer/conduit/plugins/processors/filterprocessor/expression"
