@@ -14,11 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
-
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/exporters/filewriter"
 	"github.com/algorand/indexer/conduit/plugins/importers"
@@ -64,11 +59,11 @@ func initializeTestData(t *testing.T, dir string, numRounds int) sdk.Genesis {
 
 	for i := 0; i < numRounds; i++ {
 		block := data.BlockData{
-			BlockHeader: bookkeeping.BlockHeader{
-				Round: basics.Round(i),
+			BlockHeader: sdk.BlockHeader{
+				Round: sdk.Round(i),
 			},
-			Payset:      make([]transactions.SignedTxnInBlock, 0),
-			Delta:       &ledgercore.StateDelta{},
+			Payset:      make([]sdk.SignedTxnInBlock, 0),
+			Delta:       &sdk.LedgerStateDelta{},
 			Certificate: nil,
 		}
 		blockFile := path.Join(dir, fmt.Sprintf(filewriter.FilePattern, i))
@@ -127,7 +122,7 @@ func TestGetBlockSuccess(t *testing.T) {
 	for i := 0; i < numRounds; i++ {
 		block, err := importer.GetBlock(uint64(i))
 		require.NoError(t, err)
-		require.Equal(t, basics.Round(i), block.BlockHeader.Round)
+		require.Equal(t, sdk.Round(i), block.BlockHeader.Round)
 	}
 }
 

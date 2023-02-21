@@ -15,7 +15,7 @@ import (
 	"github.com/algorand/indexer/conduit/plugins/processors/filterprocessor/fields"
 	"github.com/algorand/indexer/data"
 
-	"github.com/algorand/go-algorand/data/transactions"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 const implementationName = "filter_processor"
@@ -84,7 +84,7 @@ func (a *FilterProcessor) Init(ctx context.Context, _ data.InitProvider, cfg plu
 
 			for _, subConfig := range subConfigs {
 
-				t, err := fields.LookupFieldByTag(subConfig.FilterTag, &transactions.SignedTxnInBlock{})
+				t, err := fields.LookupFieldByTag(subConfig.FilterTag, &sdk.SignedTxnInBlock{})
 				if err != nil {
 					return err
 				}

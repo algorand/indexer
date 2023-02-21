@@ -4,11 +4,9 @@ import (
 	"context"
 	"testing"
 
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/transactions"
 
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/plugins"
@@ -19,9 +17,9 @@ import (
 // TestFilterProcessor_Init_None
 func TestFilterProcessor_Init_None(t *testing.T) {
 
-	sampleAddr1 := basics.Address{1}
-	sampleAddr2 := basics.Address{2}
-	sampleAddr3 := basics.Address{3}
+	sampleAddr1 := sdk.Address{1}
+	sampleAddr2 := sdk.Address{2}
+	sampleAddr3 := sdk.Address{3}
 
 	sampleCfgStr := `---
 filters:
@@ -58,58 +56,58 @@ filters:
 	bd := data.BlockData{}
 	bd.Payset = append(bd.Payset,
 
-		transactions.SignedTxnInBlock{
-			SignedTxnWithAD: transactions.SignedTxnWithAD{
-				SignedTxn: transactions.SignedTxn{
+		sdk.SignedTxnInBlock{
+			SignedTxnWithAD: sdk.SignedTxnWithAD{
+				SignedTxn: sdk.SignedTxn{
 					AuthAddr: sampleAddr1,
 				},
 			},
 		},
-		transactions.SignedTxnInBlock{
-			SignedTxnWithAD: transactions.SignedTxnWithAD{
-				SignedTxn: transactions.SignedTxn{
+		sdk.SignedTxnInBlock{
+			SignedTxnWithAD: sdk.SignedTxnWithAD{
+				SignedTxn: sdk.SignedTxn{
 					AuthAddr: sampleAddr1,
-					Txn: transactions.Transaction{
-						PaymentTxnFields: transactions.PaymentTxnFields{
+					Txn: sdk.Transaction{
+						PaymentTxnFields: sdk.PaymentTxnFields{
 							Receiver: sampleAddr2,
 						},
-						Header: transactions.Header{
+						Header: sdk.Header{
 							Sender: sampleAddr2,
 						},
-						AssetTransferTxnFields: transactions.AssetTransferTxnFields{
+						AssetTransferTxnFields: sdk.AssetTransferTxnFields{
 							AssetCloseTo: sampleAddr2,
 						},
 					},
 				},
 			},
 		},
-		transactions.SignedTxnInBlock{
-			SignedTxnWithAD: transactions.SignedTxnWithAD{
-				SignedTxn: transactions.SignedTxn{
+		sdk.SignedTxnInBlock{
+			SignedTxnWithAD: sdk.SignedTxnWithAD{
+				SignedTxn: sdk.SignedTxn{
 					AuthAddr: sampleAddr1,
-					Txn: transactions.Transaction{
-						AssetTransferTxnFields: transactions.AssetTransferTxnFields{
+					Txn: sdk.Transaction{
+						AssetTransferTxnFields: sdk.AssetTransferTxnFields{
 							AssetSender: sampleAddr3,
 						},
-						PaymentTxnFields: transactions.PaymentTxnFields{
+						PaymentTxnFields: sdk.PaymentTxnFields{
 							Receiver: sampleAddr3,
 						},
 					},
 				},
 			},
 		},
-		transactions.SignedTxnInBlock{
-			SignedTxnWithAD: transactions.SignedTxnWithAD{
-				SignedTxn: transactions.SignedTxn{
+		sdk.SignedTxnInBlock{
+			SignedTxnWithAD: sdk.SignedTxnWithAD{
+				SignedTxn: sdk.SignedTxn{
 					AuthAddr: sampleAddr1,
-					Txn: transactions.Transaction{
-						PaymentTxnFields: transactions.PaymentTxnFields{
+					Txn: sdk.Transaction{
+						PaymentTxnFields: sdk.PaymentTxnFields{
 							Receiver: sampleAddr2,
 						},
-						Header: transactions.Header{
+						Header: sdk.Header{
 							Sender: sampleAddr2,
 						},
-						AssetTransferTxnFields: transactions.AssetTransferTxnFields{
+						AssetTransferTxnFields: sdk.AssetTransferTxnFields{
 							AssetSender:   sampleAddr3,
 							AssetCloseTo:  sampleAddr2,
 							AssetReceiver: sampleAddr2,
@@ -119,18 +117,18 @@ filters:
 			},
 		},
 		// The one transaction that will be allowed through
-		transactions.SignedTxnInBlock{
-			SignedTxnWithAD: transactions.SignedTxnWithAD{
-				SignedTxn: transactions.SignedTxn{
+		sdk.SignedTxnInBlock{
+			SignedTxnWithAD: sdk.SignedTxnWithAD{
+				SignedTxn: sdk.SignedTxn{
 					AuthAddr: sampleAddr2,
-					Txn: transactions.Transaction{
-						PaymentTxnFields: transactions.PaymentTxnFields{
+					Txn: sdk.Transaction{
+						PaymentTxnFields: sdk.PaymentTxnFields{
 							Receiver: sampleAddr2,
 						},
-						Header: transactions.Header{
+						Header: sdk.Header{
 							Sender: sampleAddr2,
 						},
-						AssetTransferTxnFields: transactions.AssetTransferTxnFields{
+						AssetTransferTxnFields: sdk.AssetTransferTxnFields{
 							AssetSender:   sampleAddr1,
 							AssetCloseTo:  sampleAddr2,
 							AssetReceiver: sampleAddr2,
@@ -143,12 +141,12 @@ filters:
 
 	output, err := fp.Process(bd)
 	assert.NoError(t, err)
-	assert.Equal(t, len(output.Payset), 1)
-	assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Receiver, sampleAddr2)
-	assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.Header.Sender, sampleAddr2)
-	assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.AssetSender, sampleAddr1)
-	assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.AssetCloseTo, sampleAddr2)
-	assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.AssetReceiver, sampleAddr2)
+	assert.Equal(t, 1, len(output.Payset))
+	assert.Equal(t, sampleAddr2, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Receiver)
+	assert.Equal(t, sampleAddr2, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.Header.Sender)
+	assert.Equal(t, sampleAddr1, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.AssetSender)
+	assert.Equal(t, sampleAddr2, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.AssetCloseTo)
+	assert.Equal(t, sampleAddr2, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.AssetReceiver)
 }
 
 // TestFilterProcessor_Illegal tests that numerical operations won't occur on non-supported types
@@ -233,8 +231,8 @@ filters:
       expression: 4
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 1)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(2))
+			assert.Equal(t, 1, len(output.Payset))
+			assert.Equal(t, uint64(2), output.Payset[0].SignedTxnWithAD.ApplicationID)
 		},
 		},
 		{"alias 2", `---
@@ -245,9 +243,9 @@ filters:
       expression: 5
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 2)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(4))
-			assert.Equal(t, output.Payset[1].SignedTxnWithAD.ApplicationID, basics.AppIndex(2))
+			assert.Equal(t, 2, len(output.Payset))
+			assert.Equal(t, uint64(4), output.Payset[0].SignedTxnWithAD.ApplicationID)
+			assert.Equal(t, uint64(2), output.Payset[1].SignedTxnWithAD.ApplicationID)
 		},
 		},
 
@@ -259,9 +257,9 @@ filters:
       expression: 4
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 2)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(4))
-			assert.Equal(t, output.Payset[1].SignedTxnWithAD.ApplicationID, basics.AppIndex(2))
+			assert.Equal(t, 2, len(output.Payset))
+			assert.Equal(t, uint64(4), output.Payset[0].SignedTxnWithAD.ApplicationID)
+			assert.Equal(t, uint64(2), output.Payset[1].SignedTxnWithAD.ApplicationID)
 		},
 		},
 		{"alias 4", `---
@@ -272,8 +270,8 @@ filters:
       expression: 11
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 1)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(11))
+			assert.Equal(t, 1, len(output.Payset))
+			assert.Equal(t, uint64(11), output.Payset[0].SignedTxnWithAD.ApplicationID)
 		},
 		},
 
@@ -285,9 +283,9 @@ filters:
       expression: 11
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 2)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(4))
-			assert.Equal(t, output.Payset[1].SignedTxnWithAD.ApplicationID, basics.AppIndex(2))
+			assert.Equal(t, 2, len(output.Payset))
+			assert.Equal(t, uint64(4), output.Payset[0].SignedTxnWithAD.ApplicationID)
+			assert.Equal(t, uint64(2), output.Payset[1].SignedTxnWithAD.ApplicationID)
 		},
 		},
 
@@ -299,8 +297,8 @@ filters:
       expression: 4
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 1)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(11))
+			assert.Equal(t, 1, len(output.Payset))
+			assert.Equal(t, uint64(11), output.Payset[0].SignedTxnWithAD.ApplicationID)
 		},
 		},
 		{"alias 7", `---
@@ -311,9 +309,9 @@ filters:
       expression: 3
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 2)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(4))
-			assert.Equal(t, output.Payset[1].SignedTxnWithAD.ApplicationID, basics.AppIndex(11))
+			assert.Equal(t, 2, len(output.Payset))
+			assert.Equal(t, uint64(4), output.Payset[0].SignedTxnWithAD.ApplicationID)
+			assert.Equal(t, uint64(11), output.Payset[1].SignedTxnWithAD.ApplicationID)
 		},
 		},
 
@@ -325,9 +323,9 @@ filters:
       expression: 4
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 2)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.ApplicationID, basics.AppIndex(4))
-			assert.Equal(t, output.Payset[1].SignedTxnWithAD.ApplicationID, basics.AppIndex(11))
+			assert.Equal(t, 2, len(output.Payset))
+			assert.Equal(t, uint64(4), output.Payset[0].SignedTxnWithAD.ApplicationID)
+			assert.Equal(t, uint64(11), output.Payset[1].SignedTxnWithAD.ApplicationID)
 		},
 		},
 	}
@@ -345,25 +343,25 @@ filters:
 			bd := data.BlockData{}
 			bd.Payset = append(bd.Payset,
 
-				transactions.SignedTxnInBlock{
-					SignedTxnWithAD: transactions.SignedTxnWithAD{
-						ApplyData: transactions.ApplyData{
+				sdk.SignedTxnInBlock{
+					SignedTxnWithAD: sdk.SignedTxnWithAD{
+						ApplyData: sdk.ApplyData{
 							ApplicationID: 4,
 						},
 					},
 				},
-				transactions.SignedTxnInBlock{
+				sdk.SignedTxnInBlock{
 
-					SignedTxnWithAD: transactions.SignedTxnWithAD{
-						ApplyData: transactions.ApplyData{
+					SignedTxnWithAD: sdk.SignedTxnWithAD{
+						ApplyData: sdk.ApplyData{
 							ApplicationID: 2,
 						},
 					},
 				},
-				transactions.SignedTxnInBlock{
+				sdk.SignedTxnInBlock{
 
-					SignedTxnWithAD: transactions.SignedTxnWithAD{
-						ApplyData: transactions.ApplyData{
+					SignedTxnWithAD: sdk.SignedTxnWithAD{
+						ApplyData: sdk.ApplyData{
 							ApplicationID: 11,
 						},
 					},
@@ -393,8 +391,8 @@ filters:
       expression: 4
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 1)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.AssetClosingAmount, uint64(2))
+			assert.Equal(t, 1, len(output.Payset))
+			assert.Equal(t, uint64(2), output.Payset[0].SignedTxnWithAD.AssetClosingAmount)
 		},
 		},
 		{"numerical 2", `---
@@ -405,9 +403,9 @@ filters:
       expression: 5
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 2)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.AssetClosingAmount, uint64(4))
-			assert.Equal(t, output.Payset[1].SignedTxnWithAD.AssetClosingAmount, uint64(2))
+			assert.Equal(t, 2, len(output.Payset))
+			assert.Equal(t, uint64(4), output.Payset[0].SignedTxnWithAD.AssetClosingAmount)
+			assert.Equal(t, uint64(2), output.Payset[1].SignedTxnWithAD.AssetClosingAmount)
 		},
 		},
 
@@ -419,9 +417,9 @@ filters:
       expression: 4
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 2)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.AssetClosingAmount, uint64(4))
-			assert.Equal(t, output.Payset[1].SignedTxnWithAD.AssetClosingAmount, uint64(2))
+			assert.Equal(t, 2, len(output.Payset))
+			assert.Equal(t, uint64(4), output.Payset[0].SignedTxnWithAD.AssetClosingAmount)
+			assert.Equal(t, uint64(2), output.Payset[1].SignedTxnWithAD.AssetClosingAmount)
 		},
 		},
 		{"numerical 4", `---
@@ -432,8 +430,8 @@ filters:
       expression: 11
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 1)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.AssetClosingAmount, uint64(11))
+			assert.Equal(t, 1, len(output.Payset))
+			assert.Equal(t, uint64(11), output.Payset[0].SignedTxnWithAD.AssetClosingAmount)
 		},
 		},
 
@@ -445,9 +443,9 @@ filters:
       expression: 11
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 2)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.AssetClosingAmount, uint64(4))
-			assert.Equal(t, output.Payset[1].SignedTxnWithAD.AssetClosingAmount, uint64(2))
+			assert.Equal(t, 2, len(output.Payset))
+			assert.Equal(t, uint64(4), output.Payset[0].SignedTxnWithAD.AssetClosingAmount)
+			assert.Equal(t, uint64(2), output.Payset[1].SignedTxnWithAD.AssetClosingAmount)
 		},
 		},
 
@@ -459,8 +457,8 @@ filters:
       expression: 4
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 1)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.AssetClosingAmount, uint64(11))
+			assert.Equal(t, 1, len(output.Payset))
+			assert.Equal(t, uint64(11), output.Payset[0].SignedTxnWithAD.AssetClosingAmount)
 		},
 		},
 		{"numerical 7", `---
@@ -471,9 +469,9 @@ filters:
       expression: 3
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 2)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.AssetClosingAmount, uint64(4))
-			assert.Equal(t, output.Payset[1].SignedTxnWithAD.AssetClosingAmount, uint64(11))
+			assert.Equal(t, 2, len(output.Payset))
+			assert.Equal(t, uint64(4), output.Payset[0].SignedTxnWithAD.AssetClosingAmount)
+			assert.Equal(t, uint64(11), output.Payset[1].SignedTxnWithAD.AssetClosingAmount)
 		},
 		},
 
@@ -485,9 +483,9 @@ filters:
       expression: 4
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 2)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.AssetClosingAmount, uint64(4))
-			assert.Equal(t, output.Payset[1].SignedTxnWithAD.AssetClosingAmount, uint64(11))
+			assert.Equal(t, 2, len(output.Payset))
+			assert.Equal(t, uint64(4), output.Payset[0].SignedTxnWithAD.AssetClosingAmount)
+			assert.Equal(t, uint64(11), output.Payset[1].SignedTxnWithAD.AssetClosingAmount)
 		},
 		},
 	}
@@ -505,25 +503,25 @@ filters:
 			bd := data.BlockData{}
 			bd.Payset = append(bd.Payset,
 
-				transactions.SignedTxnInBlock{
-					SignedTxnWithAD: transactions.SignedTxnWithAD{
-						ApplyData: transactions.ApplyData{
+				sdk.SignedTxnInBlock{
+					SignedTxnWithAD: sdk.SignedTxnWithAD{
+						ApplyData: sdk.ApplyData{
 							AssetClosingAmount: 4,
 						},
 					},
 				},
-				transactions.SignedTxnInBlock{
+				sdk.SignedTxnInBlock{
 
-					SignedTxnWithAD: transactions.SignedTxnWithAD{
-						ApplyData: transactions.ApplyData{
+					SignedTxnWithAD: sdk.SignedTxnWithAD{
+						ApplyData: sdk.ApplyData{
 							AssetClosingAmount: 2,
 						},
 					},
 				},
-				transactions.SignedTxnInBlock{
+				sdk.SignedTxnInBlock{
 
-					SignedTxnWithAD: transactions.SignedTxnWithAD{
-						ApplyData: transactions.ApplyData{
+					SignedTxnWithAD: sdk.SignedTxnWithAD{
+						ApplyData: sdk.ApplyData{
 							AssetClosingAmount: 11,
 						},
 					},
@@ -552,8 +550,8 @@ filters:
       expression: 4
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 1)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(2))
+			assert.Equal(t, 1, len(output.Payset))
+			assert.Equal(t, uint64(2), uint64(output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount))
 		},
 		},
 		{"micro algo 2", `---
@@ -564,9 +562,9 @@ filters:
       expression: 5
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 2)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(4))
-			assert.Equal(t, output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(2))
+			assert.Equal(t, 2, len(output.Payset))
+			assert.Equal(t, uint64(4), uint64(output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount))
+			assert.Equal(t, uint64(2), uint64(output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount))
 		},
 		},
 
@@ -578,9 +576,9 @@ filters:
       expression: 4
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 2)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(4))
-			assert.Equal(t, output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(2))
+			assert.Equal(t, 2, len(output.Payset))
+			assert.Equal(t, uint64(4), uint64(output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount))
+			assert.Equal(t, uint64(2), uint64(output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount))
 		},
 		},
 		{"micro algo 4", `---
@@ -591,8 +589,8 @@ filters:
       expression: 11
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 1)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(11))
+			assert.Equal(t, 1, len(output.Payset))
+			assert.Equal(t, uint64(11), uint64(output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount))
 		},
 		},
 
@@ -604,9 +602,9 @@ filters:
       expression: 11
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 2)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(4))
-			assert.Equal(t, output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(2))
+			assert.Equal(t, 2, len(output.Payset))
+			assert.Equal(t, uint64(4), uint64(output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount))
+			assert.Equal(t, uint64(2), uint64(output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount))
 		},
 		},
 
@@ -618,8 +616,8 @@ filters:
       expression: 4
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 1)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(11))
+			assert.Equal(t, 1, len(output.Payset))
+			assert.Equal(t, uint64(11), uint64(output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount))
 		},
 		},
 		{"micro algo 7", `---
@@ -630,9 +628,9 @@ filters:
       expression: 3
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 2)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(4))
-			assert.Equal(t, output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(11))
+			assert.Equal(t, 2, len(output.Payset))
+			assert.Equal(t, uint64(4), uint64(output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount))
+			assert.Equal(t, uint64(11), uint64(output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount))
 		},
 		},
 
@@ -644,9 +642,9 @@ filters:
       expression: 4
 `, func(t *testing.T, output *data.BlockData) {
 
-			assert.Equal(t, len(output.Payset), 2)
-			assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(4))
-			assert.Equal(t, output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw, uint64(11))
+			assert.Equal(t, 2, len(output.Payset))
+			assert.Equal(t, uint64(4), uint64(output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount))
+			assert.Equal(t, uint64(11), uint64(output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount))
 		},
 		},
 	}
@@ -664,34 +662,34 @@ filters:
 			bd := data.BlockData{}
 			bd.Payset = append(bd.Payset,
 
-				transactions.SignedTxnInBlock{
-					SignedTxnWithAD: transactions.SignedTxnWithAD{
-						SignedTxn: transactions.SignedTxn{
-							Txn: transactions.Transaction{
-								PaymentTxnFields: transactions.PaymentTxnFields{
-									Amount: basics.MicroAlgos{Raw: 4},
+				sdk.SignedTxnInBlock{
+					SignedTxnWithAD: sdk.SignedTxnWithAD{
+						SignedTxn: sdk.SignedTxn{
+							Txn: sdk.Transaction{
+								PaymentTxnFields: sdk.PaymentTxnFields{
+									Amount: 4,
 								},
 							},
 						},
 					},
 				},
-				transactions.SignedTxnInBlock{
-					SignedTxnWithAD: transactions.SignedTxnWithAD{
-						SignedTxn: transactions.SignedTxn{
-							Txn: transactions.Transaction{
-								PaymentTxnFields: transactions.PaymentTxnFields{
-									Amount: basics.MicroAlgos{Raw: 2},
+				sdk.SignedTxnInBlock{
+					SignedTxnWithAD: sdk.SignedTxnWithAD{
+						SignedTxn: sdk.SignedTxn{
+							Txn: sdk.Transaction{
+								PaymentTxnFields: sdk.PaymentTxnFields{
+									Amount: 2,
 								},
 							},
 						},
 					},
 				},
-				transactions.SignedTxnInBlock{
-					SignedTxnWithAD: transactions.SignedTxnWithAD{
-						SignedTxn: transactions.SignedTxn{
-							Txn: transactions.Transaction{
-								PaymentTxnFields: transactions.PaymentTxnFields{
-									Amount: basics.MicroAlgos{Raw: 11},
+				sdk.SignedTxnInBlock{
+					SignedTxnWithAD: sdk.SignedTxnWithAD{
+						SignedTxn: sdk.SignedTxn{
+							Txn: sdk.Transaction{
+								PaymentTxnFields: sdk.PaymentTxnFields{
+									Amount: 11,
 								},
 							},
 						},
@@ -769,9 +767,9 @@ filters:
 // TestFilterProcessor_Init_Multi tests initialization of the filter processor with the "all" and "any" filter types
 func TestFilterProcessor_Init_Multi(t *testing.T) {
 
-	sampleAddr1 := basics.Address{1}
-	sampleAddr2 := basics.Address{2}
-	sampleAddr3 := basics.Address{3}
+	sampleAddr1 := sdk.Address{1}
+	sampleAddr2 := sdk.Address{2}
+	sampleAddr3 := sdk.Address{3}
 
 	sampleCfgStr := `---
 filters:
@@ -808,38 +806,38 @@ filters:
 	bd := data.BlockData{}
 	bd.Payset = append(bd.Payset,
 
-		transactions.SignedTxnInBlock{
-			SignedTxnWithAD: transactions.SignedTxnWithAD{
-				SignedTxn: transactions.SignedTxn{
+		sdk.SignedTxnInBlock{
+			SignedTxnWithAD: sdk.SignedTxnWithAD{
+				SignedTxn: sdk.SignedTxn{
 					AuthAddr: sampleAddr1,
 				},
 			},
 		},
-		transactions.SignedTxnInBlock{
-			SignedTxnWithAD: transactions.SignedTxnWithAD{
-				SignedTxn: transactions.SignedTxn{
-					Txn: transactions.Transaction{
-						PaymentTxnFields: transactions.PaymentTxnFields{
+		sdk.SignedTxnInBlock{
+			SignedTxnWithAD: sdk.SignedTxnWithAD{
+				SignedTxn: sdk.SignedTxn{
+					Txn: sdk.Transaction{
+						PaymentTxnFields: sdk.PaymentTxnFields{
 							Receiver: sampleAddr2,
 						},
-						Header: transactions.Header{
+						Header: sdk.Header{
 							Sender: sampleAddr2,
 						},
-						AssetTransferTxnFields: transactions.AssetTransferTxnFields{
+						AssetTransferTxnFields: sdk.AssetTransferTxnFields{
 							AssetCloseTo: sampleAddr2,
 						},
 					},
 				},
 			},
 		},
-		transactions.SignedTxnInBlock{
-			SignedTxnWithAD: transactions.SignedTxnWithAD{
-				SignedTxn: transactions.SignedTxn{
-					Txn: transactions.Transaction{
-						AssetTransferTxnFields: transactions.AssetTransferTxnFields{
+		sdk.SignedTxnInBlock{
+			SignedTxnWithAD: sdk.SignedTxnWithAD{
+				SignedTxn: sdk.SignedTxn{
+					Txn: sdk.Transaction{
+						AssetTransferTxnFields: sdk.AssetTransferTxnFields{
 							AssetSender: sampleAddr3,
 						},
-						PaymentTxnFields: transactions.PaymentTxnFields{
+						PaymentTxnFields: sdk.PaymentTxnFields{
 							Receiver: sampleAddr3,
 						},
 					},
@@ -847,17 +845,17 @@ filters:
 			},
 		},
 		// The one transaction that will be allowed through
-		transactions.SignedTxnInBlock{
-			SignedTxnWithAD: transactions.SignedTxnWithAD{
-				SignedTxn: transactions.SignedTxn{
-					Txn: transactions.Transaction{
-						PaymentTxnFields: transactions.PaymentTxnFields{
+		sdk.SignedTxnInBlock{
+			SignedTxnWithAD: sdk.SignedTxnWithAD{
+				SignedTxn: sdk.SignedTxn{
+					Txn: sdk.Transaction{
+						PaymentTxnFields: sdk.PaymentTxnFields{
 							Receiver: sampleAddr2,
 						},
-						Header: transactions.Header{
+						Header: sdk.Header{
 							Sender: sampleAddr2,
 						},
-						AssetTransferTxnFields: transactions.AssetTransferTxnFields{
+						AssetTransferTxnFields: sdk.AssetTransferTxnFields{
 							AssetSender:   sampleAddr3,
 							AssetCloseTo:  sampleAddr2,
 							AssetReceiver: sampleAddr2,
@@ -870,21 +868,21 @@ filters:
 
 	output, err := fp.Process(bd)
 	assert.NoError(t, err)
-	assert.Equal(t, len(output.Payset), 1)
-	assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Receiver, sampleAddr2)
-	assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.Header.Sender, sampleAddr2)
-	assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.AssetSender, sampleAddr3)
-	assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.AssetCloseTo, sampleAddr2)
-	assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.AssetReceiver, sampleAddr2)
+	assert.Equal(t, 1, len(output.Payset))
+	assert.Equal(t, sampleAddr2, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Receiver)
+	assert.Equal(t, sampleAddr2, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.Header.Sender)
+	assert.Equal(t, sampleAddr3, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.AssetSender)
+	assert.Equal(t, sampleAddr2, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.AssetCloseTo)
+	assert.Equal(t, sampleAddr2, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.AssetReceiver)
 
 }
 
 // TestFilterProcessor_Init_All tests initialization of the filter processor with the "all" filter type
 func TestFilterProcessor_Init_All(t *testing.T) {
 
-	sampleAddr1 := basics.Address{1}
-	sampleAddr2 := basics.Address{2}
-	sampleAddr3 := basics.Address{3}
+	sampleAddr1 := sdk.Address{1}
+	sampleAddr2 := sdk.Address{2}
+	sampleAddr3 := sdk.Address{3}
 
 	sampleCfgStr := `---
 filters:
@@ -907,36 +905,36 @@ filters:
 	bd := data.BlockData{}
 	bd.Payset = append(bd.Payset,
 
-		transactions.SignedTxnInBlock{
-			SignedTxnWithAD: transactions.SignedTxnWithAD{
-				SignedTxn: transactions.SignedTxn{
-					Txn: transactions.Transaction{
-						PaymentTxnFields: transactions.PaymentTxnFields{
+		sdk.SignedTxnInBlock{
+			SignedTxnWithAD: sdk.SignedTxnWithAD{
+				SignedTxn: sdk.SignedTxn{
+					Txn: sdk.Transaction{
+						PaymentTxnFields: sdk.PaymentTxnFields{
 							Receiver: sampleAddr1,
 						},
 					},
 				},
 			},
 		},
-		transactions.SignedTxnInBlock{
-			SignedTxnWithAD: transactions.SignedTxnWithAD{
-				SignedTxn: transactions.SignedTxn{
-					Txn: transactions.Transaction{
-						PaymentTxnFields: transactions.PaymentTxnFields{
+		sdk.SignedTxnInBlock{
+			SignedTxnWithAD: sdk.SignedTxnWithAD{
+				SignedTxn: sdk.SignedTxn{
+					Txn: sdk.Transaction{
+						PaymentTxnFields: sdk.PaymentTxnFields{
 							Receiver: sampleAddr2,
 						},
-						Header: transactions.Header{
+						Header: sdk.Header{
 							Sender: sampleAddr2,
 						},
 					},
 				},
 			},
 		},
-		transactions.SignedTxnInBlock{
-			SignedTxnWithAD: transactions.SignedTxnWithAD{
-				SignedTxn: transactions.SignedTxn{
-					Txn: transactions.Transaction{
-						PaymentTxnFields: transactions.PaymentTxnFields{
+		sdk.SignedTxnInBlock{
+			SignedTxnWithAD: sdk.SignedTxnWithAD{
+				SignedTxn: sdk.SignedTxn{
+					Txn: sdk.Transaction{
+						PaymentTxnFields: sdk.PaymentTxnFields{
 							Receiver: sampleAddr3,
 						},
 					},
@@ -947,17 +945,17 @@ filters:
 
 	output, err := fp.Process(bd)
 	assert.NoError(t, err)
-	assert.Equal(t, len(output.Payset), 1)
-	assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Receiver, sampleAddr2)
-	assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.Header.Sender, sampleAddr2)
+	assert.Equal(t, 1, len(output.Payset))
+	assert.Equal(t, sampleAddr2, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Receiver)
+	assert.Equal(t, sampleAddr2, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.Header.Sender)
 }
 
 // TestFilterProcessor_Init_Some tests initialization of the filter processor with the "any" filter type
 func TestFilterProcessor_Init(t *testing.T) {
 
-	sampleAddr1 := basics.Address{1}
-	sampleAddr2 := basics.Address{2}
-	sampleAddr3 := basics.Address{3}
+	sampleAddr1 := sdk.Address{1}
+	sampleAddr2 := sdk.Address{2}
+	sampleAddr3 := sdk.Address{3}
 
 	sampleCfgStr := `---
 filters:
@@ -980,33 +978,33 @@ filters:
 	bd := data.BlockData{}
 	bd.Payset = append(bd.Payset,
 
-		transactions.SignedTxnInBlock{
-			SignedTxnWithAD: transactions.SignedTxnWithAD{
-				SignedTxn: transactions.SignedTxn{
-					Txn: transactions.Transaction{
-						PaymentTxnFields: transactions.PaymentTxnFields{
+		sdk.SignedTxnInBlock{
+			SignedTxnWithAD: sdk.SignedTxnWithAD{
+				SignedTxn: sdk.SignedTxn{
+					Txn: sdk.Transaction{
+						PaymentTxnFields: sdk.PaymentTxnFields{
 							Receiver: sampleAddr1,
 						},
 					},
 				},
 			},
 		},
-		transactions.SignedTxnInBlock{
-			SignedTxnWithAD: transactions.SignedTxnWithAD{
-				SignedTxn: transactions.SignedTxn{
-					Txn: transactions.Transaction{
-						PaymentTxnFields: transactions.PaymentTxnFields{
+		sdk.SignedTxnInBlock{
+			SignedTxnWithAD: sdk.SignedTxnWithAD{
+				SignedTxn: sdk.SignedTxn{
+					Txn: sdk.Transaction{
+						PaymentTxnFields: sdk.PaymentTxnFields{
 							Receiver: sampleAddr2,
 						},
 					},
 				},
 			},
 		},
-		transactions.SignedTxnInBlock{
-			SignedTxnWithAD: transactions.SignedTxnWithAD{
-				SignedTxn: transactions.SignedTxn{
-					Txn: transactions.Transaction{
-						PaymentTxnFields: transactions.PaymentTxnFields{
+		sdk.SignedTxnInBlock{
+			SignedTxnWithAD: sdk.SignedTxnWithAD{
+				SignedTxn: sdk.SignedTxn{
+					Txn: sdk.Transaction{
+						PaymentTxnFields: sdk.PaymentTxnFields{
 							Receiver: sampleAddr3,
 						},
 					},
@@ -1017,7 +1015,7 @@ filters:
 
 	output, err := fp.Process(bd)
 	assert.NoError(t, err)
-	assert.Equal(t, len(output.Payset), 2)
-	assert.Equal(t, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Receiver, sampleAddr1)
-	assert.Equal(t, output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Receiver, sampleAddr2)
+	assert.Equal(t, 2, len(output.Payset))
+	assert.Equal(t, sampleAddr1, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Receiver)
+	assert.Equal(t, sampleAddr2, output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Receiver)
 }

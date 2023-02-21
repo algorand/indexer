@@ -7,7 +7,7 @@ import (
 
 	"github.com/algorand/indexer/conduit/plugins/processors/filterprocessor/expression"
 
-	"github.com/algorand/go-algorand/data/transactions"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 // Searcher searches the struct with an expression
@@ -19,7 +19,7 @@ type Searcher struct {
 // This function is ONLY to be used by the filter.field function.
 // The reason being is that without validation of the tag (which is provided by
 // MakeFieldSearcher) then this can panic
-func (f Searcher) search(input transactions.SignedTxnInBlock) (bool, error) {
+func (f Searcher) search(input sdk.SignedTxnInBlock) (bool, error) {
 
 	val, err := LookupFieldByTag(f.Tag, &input)
 	if err != nil {
@@ -36,7 +36,7 @@ func (f Searcher) search(input transactions.SignedTxnInBlock) (bool, error) {
 
 // checks that the supplied tag exists in the struct and recovers from any panics
 func checkTagAndExpressionExist(expressionType expression.FilterType, tag string) (outError error) {
-	_, err := LookupFieldByTag(tag, &transactions.SignedTxnInBlock{})
+	_, err := LookupFieldByTag(tag, &sdk.SignedTxnInBlock{})
 
 	if err != nil {
 		return fmt.Errorf("%s does not exist in transactions.SignedTxnInBlock struct", tag)

@@ -4,20 +4,16 @@ import (
 	"context"
 	"testing"
 
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
-
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/data/transactions"
-
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/data"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 )
 
 func BenchmarkProcess(b *testing.B) {
-	var addr basics.Address
+	var addr sdk.Address
 	addr[0] = 0x01
 	cfgStr := `---
 filters:
@@ -32,11 +28,11 @@ filters:
 	assert.NoError(b, err)
 
 	bd := data.BlockData{
-		BlockHeader: bookkeeping.BlockHeader{},
-		Payset: []transactions.SignedTxnInBlock{
+		BlockHeader: sdk.BlockHeader{},
+		Payset: []sdk.SignedTxnInBlock{
 			{
-				SignedTxnWithAD: transactions.SignedTxnWithAD{
-					SignedTxn: transactions.SignedTxn{
+				SignedTxnWithAD: sdk.SignedTxnWithAD{
+					SignedTxn: sdk.SignedTxn{
 						AuthAddr: addr,
 					},
 				},

@@ -3,10 +3,9 @@ package fields
 import (
 	"testing"
 
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/indexer/conduit/plugins/processors/filterprocessor/expression"
 )
 
@@ -21,8 +20,8 @@ func TestInternalSearch(t *testing.T) {
 		}
 	}()
 
-	address1 := basics.Address{1}
-	address2 := basics.Address{2}
+	address1 := sdk.Address{1}
+	address2 := sdk.Address{2}
 
 	var expressionType expression.FilterType = expression.EqualToFilter
 	tag := "sgnr"
@@ -32,9 +31,9 @@ func TestInternalSearch(t *testing.T) {
 	assert.NoError(t, err)
 
 	result, err := searcher.search(
-		transactions.SignedTxnInBlock{
-			SignedTxnWithAD: transactions.SignedTxnWithAD{
-				SignedTxn: transactions.SignedTxn{
+		sdk.SignedTxnInBlock{
+			SignedTxnWithAD: sdk.SignedTxnWithAD{
+				SignedTxn: sdk.SignedTxn{
 					AuthAddr: address1,
 				},
 			},
@@ -45,9 +44,9 @@ func TestInternalSearch(t *testing.T) {
 	assert.True(t, result)
 
 	result, err = searcher.search(
-		transactions.SignedTxnInBlock{
-			SignedTxnWithAD: transactions.SignedTxnWithAD{
-				SignedTxn: transactions.SignedTxn{
+		sdk.SignedTxnInBlock{
+			SignedTxnWithAD: sdk.SignedTxnWithAD{
+				SignedTxn: sdk.SignedTxn{
 					AuthAddr: address2,
 				},
 			},

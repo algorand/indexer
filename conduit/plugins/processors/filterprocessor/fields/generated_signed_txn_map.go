@@ -6,24 +6,24 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/algorand/go-algorand/data/transactions"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 // LookupFieldByTag takes a tag and associated SignedTxnInBlock and returns the value
 // referenced by the tag.  An error is returned if the tag does not exist
-func LookupFieldByTag(tag string, input *transactions.SignedTxnInBlock) (interface{}, error) {
+func LookupFieldByTag(tag string, input *sdk.SignedTxnInBlock) (interface{}, error) {
 	switch tag {
 	case "aca":
 		value := input.SignedTxnWithAD.ApplyData.AssetClosingAmount
 		return value, nil
 	case "apid":
-		value := uint64(input.SignedTxnWithAD.ApplyData.ApplicationID)
+		value := input.SignedTxnWithAD.ApplyData.ApplicationID
 		return value, nil
 	case "ca":
-		value := uint64(input.SignedTxnWithAD.ApplyData.ClosingAmount.Raw)
+		value := uint64(input.SignedTxnWithAD.ApplyData.ClosingAmount)
 		return value, nil
 	case "caid":
-		value := uint64(input.SignedTxnWithAD.ApplyData.ConfigAsset)
+		value := input.SignedTxnWithAD.ApplyData.ConfigAsset
 		return value, nil
 	case "hgh":
 		value := fmt.Sprintf("%t", input.HasGenesisHash)
@@ -44,13 +44,13 @@ func LookupFieldByTag(tag string, input *transactions.SignedTxnInBlock) (interfa
 		value := uint64(input.SignedTxnWithAD.SignedTxn.Msig.Version)
 		return value, nil
 	case "rc":
-		value := uint64(input.SignedTxnWithAD.ApplyData.CloseRewards.Raw)
+		value := uint64(input.SignedTxnWithAD.ApplyData.CloseRewards)
 		return value, nil
 	case "rr":
-		value := uint64(input.SignedTxnWithAD.ApplyData.ReceiverRewards.Raw)
+		value := uint64(input.SignedTxnWithAD.ApplyData.ReceiverRewards)
 		return value, nil
 	case "rs":
-		value := uint64(input.SignedTxnWithAD.ApplyData.SenderRewards.Raw)
+		value := uint64(input.SignedTxnWithAD.ApplyData.SenderRewards)
 		return value, nil
 	case "sgnr":
 		value := input.SignedTxnWithAD.SignedTxn.AuthAddr.String()
@@ -65,10 +65,10 @@ func LookupFieldByTag(tag string, input *transactions.SignedTxnInBlock) (interfa
 		value := fmt.Sprintf("%t", input.SignedTxnWithAD.SignedTxn.Txn.AssetFreezeTxnFields.AssetFrozen)
 		return value, nil
 	case "txn.amt":
-		value := uint64(input.SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount.Raw)
+		value := uint64(input.SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Amount)
 		return value, nil
 	case "txn.apan":
-		value := uint64(input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.OnCompletion)
+		value := uint64(input.SignedTxnWithAD.SignedTxn.Txn.ApplicationFields.ApplicationCallTxnFields.OnCompletion)
 		return value, nil
 	case "txn.apar.am":
 		value := base64.StdEncoding.EncodeToString(input.SignedTxnWithAD.SignedTxn.Txn.AssetConfigTxnFields.AssetParams.MetadataHash[:])
@@ -104,22 +104,22 @@ func LookupFieldByTag(tag string, input *transactions.SignedTxnInBlock) (interfa
 		value := input.SignedTxnWithAD.SignedTxn.Txn.AssetConfigTxnFields.AssetParams.UnitName
 		return value, nil
 	case "txn.apep":
-		value := uint64(input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.ExtraProgramPages)
+		value := uint64(input.SignedTxnWithAD.SignedTxn.Txn.ApplicationFields.ApplicationCallTxnFields.ExtraProgramPages)
 		return value, nil
 	case "txn.apgs.nbs":
-		value := input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.GlobalStateSchema.NumByteSlice
+		value := input.SignedTxnWithAD.SignedTxn.Txn.ApplicationFields.ApplicationCallTxnFields.GlobalStateSchema.NumByteSlice
 		return value, nil
 	case "txn.apgs.nui":
-		value := input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.GlobalStateSchema.NumUint
+		value := input.SignedTxnWithAD.SignedTxn.Txn.ApplicationFields.ApplicationCallTxnFields.GlobalStateSchema.NumUint
 		return value, nil
 	case "txn.apid":
-		value := uint64(input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.ApplicationID)
+		value := uint64(input.SignedTxnWithAD.SignedTxn.Txn.ApplicationFields.ApplicationCallTxnFields.ApplicationID)
 		return value, nil
 	case "txn.apls.nbs":
-		value := input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.LocalStateSchema.NumByteSlice
+		value := input.SignedTxnWithAD.SignedTxn.Txn.ApplicationFields.ApplicationCallTxnFields.LocalStateSchema.NumByteSlice
 		return value, nil
 	case "txn.apls.nui":
-		value := input.SignedTxnWithAD.SignedTxn.Txn.ApplicationCallTxnFields.LocalStateSchema.NumUint
+		value := input.SignedTxnWithAD.SignedTxn.Txn.ApplicationFields.ApplicationCallTxnFields.LocalStateSchema.NumUint
 		return value, nil
 	case "txn.arcv":
 		value := input.SignedTxnWithAD.SignedTxn.Txn.AssetTransferTxnFields.AssetReceiver.String()
@@ -140,7 +140,7 @@ func LookupFieldByTag(tag string, input *transactions.SignedTxnInBlock) (interfa
 		value := uint64(input.SignedTxnWithAD.SignedTxn.Txn.AssetFreezeTxnFields.FreezeAsset)
 		return value, nil
 	case "txn.fee":
-		value := uint64(input.SignedTxnWithAD.SignedTxn.Txn.Header.Fee.Raw)
+		value := uint64(input.SignedTxnWithAD.SignedTxn.Txn.Header.Fee)
 		return value, nil
 	case "txn.fv":
 		value := uint64(input.SignedTxnWithAD.SignedTxn.Txn.Header.FirstValid)

@@ -45,7 +45,7 @@ var cons = processors.ProcessorConstructorFunc(func() processors.Processor {
 func TestInitDefaults(t *testing.T) {
 	tempdir := t.TempDir()
 	override := path.Join(tempdir, "override")
-	var round = basics.Round(0)
+	var round = sdk.Round(0)
 	ip := testutil.MockedInitProvider(&round)
 	var addr basics.Address
 	ip.Genesis = &sdk.Genesis{

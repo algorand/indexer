@@ -2,17 +2,16 @@ package conduit
 
 import (
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/data/basics"
 )
 
 // PipelineInitProvider algod based init provider
 type PipelineInitProvider struct {
-	currentRound *basics.Round
+	currentRound *sdk.Round
 	genesis      *sdk.Genesis
 }
 
 // MakePipelineInitProvider constructs an init provider.
-func MakePipelineInitProvider(currentRound *basics.Round, genesis *sdk.Genesis) *PipelineInitProvider {
+func MakePipelineInitProvider(currentRound *sdk.Round, genesis *sdk.Genesis) *PipelineInitProvider {
 	return &PipelineInitProvider{
 		currentRound: currentRound,
 		genesis:      genesis,
@@ -25,6 +24,6 @@ func (a *PipelineInitProvider) GetGenesis() *sdk.Genesis {
 }
 
 // NextDBRound provides next database round
-func (a *PipelineInitProvider) NextDBRound() basics.Round {
+func (a *PipelineInitProvider) NextDBRound() sdk.Round {
 	return *a.currentRound
 }

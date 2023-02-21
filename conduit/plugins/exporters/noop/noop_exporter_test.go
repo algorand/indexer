@@ -7,12 +7,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 
-	"github.com/algorand/go-algorand/data/bookkeeping"
-
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/exporters"
 	"github.com/algorand/indexer/data"
 	testutil "github.com/algorand/indexer/util/test"
+
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 var nc = exporters.ExporterConstructorFunc(func() exporters.Exporter {
@@ -55,7 +55,7 @@ func TestExporterClose(t *testing.T) {
 
 func TestExporterRoundReceive(t *testing.T) {
 	eData := data.BlockData{
-		BlockHeader: bookkeeping.BlockHeader{
+		BlockHeader: sdk.BlockHeader{
 			Round: 5,
 		},
 	}
