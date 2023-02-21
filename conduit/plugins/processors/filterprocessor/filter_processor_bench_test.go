@@ -33,14 +33,14 @@ filters:
 			{
 				SignedTxnWithAD: sdk.SignedTxnWithAD{
 					SignedTxn: sdk.SignedTxn{
-							AuthAddr: addr,
-						},
+						AuthAddr: addr,
 					},
 				},
 			},
-			Delta:       nil,
-			Certificate: nil,
-		}
+		},
+		Delta:       nil,
+		Certificate: nil,
+	}
 
 	// Ignore the setup cost above.
 	b.ResetTimer()
