@@ -1,6 +1,6 @@
 package algodimporter
 
-//go:generate conduit-docs ../../../../conduit-docs/
+//go:generate go run ../../../../cmd/conduit-docs/main.go ../../../../conduit-docs/
 
 //Name: conduit_importers_algod
 

@@ -6,7 +6,6 @@ import (
 	"context"
 	_ "embed" // used to embed config
 	"fmt"
-	"reflect"
 
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
@@ -18,7 +17,7 @@ import (
 	"github.com/algorand/indexer/conduit/plugins/processors/filterprocessor/fields"
 	"github.com/algorand/indexer/data"
 
-	"github.com/algorand/go-algorand/data/transactions"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 const implementationName = "filter_processor"
@@ -87,17 +86,14 @@ func (a *FilterProcessor) Init(ctx context.Context, _ data.InitProvider, cfg plu
 
 			for _, subConfig := range subConfigs {
 
-				t, err := fields.LookupFieldByTag(subConfig.FilterTag, &transactions.SignedTxnInBlock{})
+				t, err := fields.LookupFieldByTag(subConfig.FilterTag, &sdk.SignedTxnInBlock{})
 				if err != nil {
 					return err
 				}
 
-				// We need the Elem() here because LookupFieldByTag returns a pointer underneath the interface{}
-				targetKind := reflect.TypeOf(t).Elem().Kind()
-
-				exp, err := expression.MakeExpression(subConfig.ExpressionType, subConfig.Expression, targetKind)
+				exp, err := expression.MakeExpression(subConfig.ExpressionType, subConfig.Expression, t)
 				if err != nil {
-					return fmt.Errorf("filter processor Init(): could not make expression with string %s for filter tag %s - %w", subConfig.Expression, subConfig.FilterTag, err)
+					return fmt.Errorf("filter processor Init(): could not make expression: %w", err)
 				}
 
 				searcher, err := fields.MakeFieldSearcher(exp, subConfig.ExpressionType, subConfig.FilterTag)

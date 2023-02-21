@@ -12,16 +12,15 @@ import (
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
-	"github.com/algorand/indexer/conduit"
-	"github.com/algorand/indexer/conduit/plugins"
-	"github.com/algorand/indexer/conduit/plugins/importers"
-	"github.com/algorand/indexer/data"
-
 	"github.com/algorand/go-algorand-sdk/v2/client/v2/algod"
 	"github.com/algorand/go-algorand-sdk/v2/client/v2/common/models"
 	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
 	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
+	"github.com/algorand/indexer/conduit"
+	"github.com/algorand/indexer/conduit/plugins"
+	"github.com/algorand/indexer/conduit/plugins/importers"
+	"github.com/algorand/indexer/data"
 )
 
 const (
