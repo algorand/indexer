@@ -10,7 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/avm-abi/apps"
-	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand-sdk/v2/crypto"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/indexer/util/test"
 )
 
@@ -27,8 +28,8 @@ var goalEncodingExamples map[string]string = map[string]string{
 	"string":      "string",
 	"int":         "42",
 	"integer":     "100",
-	"addr":        basics.AppIndex(3).Address().String(),
-	"address":     basics.AppIndex(5).Address().String(),
+	"addr":        crypto.GetApplicationAddress(3).String(),
+	"address":     crypto.GetApplicationAddress(5).String(),
 	"b32":         base32.StdEncoding.EncodeToString([]byte("b32")),
 	"base32":      base32.StdEncoding.EncodeToString([]byte("base32")),
 	"byte base32": base32.StdEncoding.EncodeToString([]byte("byte base32")),
@@ -41,8 +42,8 @@ var goalEncodingExamples map[string]string = map[string]string{
 func setupLiveBoxes(t *testing.T, db *postgres.IndexerDb) {
 	deleted := "DELETED"
 
-	firstAppid := basics.AppIndex(1)
-	thirdAppid := basics.AppIndex(5)
+	firstAppid := sdk.AppIndex(1)
+	thirdAppid := sdk.AppIndex(5)
 
 	// ---- ROUND 1: create and fund the box app and another app which won't have boxes ---- //
 	//currentRound := basics.Round(1)
@@ -80,7 +81,7 @@ func setupLiveBoxes(t *testing.T, db *postgres.IndexerDb) {
 		"box #8",
 	}
 
-	expectedAppBoxes := map[basics.AppIndex]map[string]string{}
+	expectedAppBoxes := map[sdk.AppIndex]map[string]string{}
 	expectedAppBoxes[firstAppid] = map[string]string{}
 	newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 	//boxTxns := make([]*transactions.SignedTxnWithAD, 0)
@@ -274,7 +275,7 @@ func setupLiveBoxes(t *testing.T, db *postgres.IndexerDb) {
 
 	// ---- SUMMARY ---- //
 
-	totals := map[basics.AppIndex]map[string]int{}
+	totals := map[sdk.AppIndex]map[string]int{}
 	for appIndex, appBoxes := range expectedAppBoxes {
 		totals[appIndex] = map[string]int{
 			"tBoxes":    0,
@@ -356,14 +357,14 @@ var boxSeedFixture = fixture{
 		{
 			Name: "App 3 (as account) totals no boxes - no params",
 			Request: requestInfo{
-				Path:   "/v2/accounts/" + basics.AppIndex(3).Address().String(),
+				Path:   "/v2/accounts/" + crypto.GetApplicationAddress(3).String(),
 				Params: []param{},
 			},
 		},
 		{
 			Name: "App 1 (as account) totals with boxes - no params",
 			Request: requestInfo{
-				Path:   "/v2/accounts/" + basics.AppIndex(1).Address().String(),
+				Path:   "/v2/accounts/" + crypto.GetApplicationAddress(1).String(),
 				Params: []param{},
 			},
 		},

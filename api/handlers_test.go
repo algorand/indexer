@@ -21,7 +21,6 @@ import (
 	sdkcrypto "github.com/algorand/go-algorand-sdk/v2/crypto"
 	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/mocks"
@@ -262,7 +261,7 @@ func TestValidateTransactionFilter(t *testing.T) {
 		{
 			name: "Zero address close address role",
 			filter: idb.TransactionFilter{
-				Address:     addrSlice(basics.Address{}),
+				Address:     addrSlice(sdk.Address{}),
 				AddressRole: idb.AddressRoleSender | idb.AddressRoleCloseRemainderTo,
 			},
 			errorContains: []string{errZeroAddressCloseRemainderToRole},
@@ -270,7 +269,7 @@ func TestValidateTransactionFilter(t *testing.T) {
 		{
 			name: "Zero address asset sender and asset close address role",
 			filter: idb.TransactionFilter{
-				Address:     addrSlice(basics.Address{}),
+				Address:     addrSlice(sdk.Address{}),
 				AddressRole: idb.AddressRoleAssetSender | idb.AddressRoleAssetCloseTo,
 			},
 			errorContains: []string{
