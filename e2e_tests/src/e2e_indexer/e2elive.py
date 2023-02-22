@@ -158,7 +158,7 @@ def main():
     atexitrun(["goal", "network", "stop", "-r", tempnet])
 
     psqlstring = ensure_test_db(args.connection_string, args.keep_temps)
-    algoddir = os.path.join(tempnet, "Primary")
+    algoddir = os.path.join(tempnet, "Node")
     aiport = args.indexer_port or random.randint(4000, 30000)
     indexerdir = os.path.join(tempdir, "indexer_data_dir")
     cmd = [
