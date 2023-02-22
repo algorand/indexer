@@ -1,11 +1,9 @@
 package data
 
 import (
-	"github.com/algorand/indexer/helpers"
 	"github.com/algorand/indexer/types"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/rpcs"
 )
 
 // RoundProvider is the interface which all data types sent to Exporters should implement
@@ -63,17 +61,6 @@ func (blkData *BlockData) UpdateFromEncodedBlockCertificate(input *types.Encoded
 
 	cert := input.Certificate
 	blkData.Certificate = &cert
-}
-
-// MakeBlockDataFromEncodedBlockCertificate makes BlockData from rpcs.EncodedBlockCert
-func MakeBlockDataFromEncodedBlockCertificate(input *rpcs.EncodedBlockCert) BlockData {
-	if input == nil {
-		return BlockData{}
-	}
-	blkData := BlockData{}
-	iBlockCert, _ := helpers.UnonvertEncodedBlockCert(input)
-	blkData.UpdateFromEncodedBlockCertificate(iBlockCert)
-	return blkData
 }
 
 // ValidatedBlock returns a validated block from the BlockData object
