@@ -20,7 +20,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/indexer/api/generated/v2"
-	"github.com/algorand/indexer/helpers"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres"
 	pgtest "github.com/algorand/indexer/idb/postgres/testing"
@@ -412,55 +411,35 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 	var txns []sdk.SignedTxnWithAD
 	// make apps and assets
 	for range deletedAppIDs {
-		txn, err := helpers.ConvertSignedTxnWithAD(test.MakeCreateAppTxn(test.AccountA))
-		require.NoError(t, err)
-		txns = append(txns, txn)
+		txns = append(txns, test.MakeCreateAppTxnV2(sdk.Address(test.AccountA)))
 	}
 	for _, id := range deletedAssetIDs {
-		txn, err := helpers.ConvertSignedTxnWithAD(test.MakeAssetConfigTxn(0, 100, 0, false, "UNIT",
-			fmt.Sprintf("Asset %d", id), "http://asset.com", test.AccountA))
-		require.NoError(t, err)
-		txns = append(txns, txn)
+		txns = append(txns, test.MakeAssetConfigTxnV2(0, 100, 0, false, "UNIT",
+			fmt.Sprintf("Asset %d", id), "http://asset.com", sdk.Address(test.AccountA)))
 	}
 	for range expectedAppIDs {
-		txn, err := helpers.ConvertSignedTxnWithAD(test.MakeCreateAppTxn(test.AccountA))
-		require.NoError(t, err)
-		txns = append(txns, txn)
+		txns = append(txns, test.MakeCreateAppTxnV2(sdk.Address(test.AccountA)))
 	}
 	for _, id := range expectedAssetIDs {
-		txn, err := helpers.ConvertSignedTxnWithAD(test.MakeAssetConfigTxn(0, 100, 0, false, "UNIT",
-			fmt.Sprintf("Asset %d", id), "http://asset.com", test.AccountA))
-		require.NoError(t, err)
-		txns = append(txns, txn)
+		txns = append(txns, test.MakeAssetConfigTxnV2(0, 100, 0, false, "UNIT",
+			fmt.Sprintf("Asset %d", id), "http://asset.com", sdk.Address(test.AccountA)))
 	}
 	// delete some apps and assets
 	for _, id := range deletedAppIDs {
-		txn, err := helpers.ConvertSignedTxnWithAD(test.MakeAppDestroyTxn(id, test.AccountA))
-		require.NoError(t, err)
-		txns = append(txns, txn)
+		txns = append(txns, test.MakeAppDestroyTxnV2(id, sdk.Address(test.AccountA)))
 	}
 	for _, id := range deletedAssetIDs {
-		txn, err := helpers.ConvertSignedTxnWithAD(test.MakeAssetDestroyTxn(id, test.AccountA))
-		require.NoError(t, err)
-		txns = append(txns, txn)
+		txns = append(txns, test.MakeAssetDestroyTxnV2(id, sdk.Address(test.AccountA)))
 	}
 
 	// opt in to the remaining ones
 	for _, id := range expectedAppIDs {
-		txn, err := helpers.ConvertSignedTxnWithAD(test.MakeAppOptInTxn(id, test.AccountA))
-		require.NoError(t, err)
-		txns = append(txns, txn)
-		txn, err = helpers.ConvertSignedTxnWithAD(test.MakeAppOptInTxn(id, test.AccountB))
-		require.NoError(t, err)
-		txns = append(txns, txn)
+		txns = append(txns, test.MakeAppOptInTxnV2(id, sdk.Address(test.AccountA)))
+		txns = append(txns, test.MakeAppOptInTxnV2(id, sdk.Address(test.AccountB)))
 	}
 	for _, id := range expectedAssetIDs {
-		txn, err := helpers.ConvertSignedTxnWithAD(test.MakeAssetOptInTxn(id, test.AccountA))
-		require.NoError(t, err)
-		txns = append(txns, txn)
-		txn, err = helpers.ConvertSignedTxnWithAD(test.MakeAssetOptInTxn(id, test.AccountB))
-		require.NoError(t, err)
-		txns = append(txns, txn)
+		txns = append(txns, test.MakeAssetOptInTxnV2(id, sdk.Address(test.AccountA)))
+		txns = append(txns, test.MakeAssetOptInTxnV2(id, sdk.Address(test.AccountB)))
 	}
 
 	ptxns := make([]*sdk.SignedTxnWithAD, len(txns))
