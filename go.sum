@@ -90,6 +90,8 @@ github.com/algorand/falcon v0.0.0-20220727072124-02a2a64c4414 h1:nwYN+GQ7Z5OOfZw
 github.com/algorand/falcon v0.0.0-20220727072124-02a2a64c4414/go.mod h1:OkQyHlGvS0kLNcIWbC21/uQcnbfwSOQm+wiqWwBG9pQ=
 github.com/algorand/go-algorand-sdk/v2 v2.0.0-20230209164439-140b997ed9ee h1:OGE5lhg7vQ+PGCkHW2CZL4oC1uxrJAuqy7Z52cCYzJw=
 github.com/algorand/go-algorand-sdk/v2 v2.0.0-20230209164439-140b997ed9ee/go.mod h1:Nt3EHpP8AznLs0/EFfhr0/xsVf5ucnvjNeRygGgbUzM=
+github.com/algorand/go-algorand-sdk/v2 v2.0.0-20230216185416-22ef3b66c617 h1:IOqgNBpxSk23ixJzysAYqRYz04rAE2+d1DJI1sD+z8M=
+github.com/algorand/go-algorand-sdk/v2 v2.0.0-20230216185416-22ef3b66c617/go.mod h1:Nt3EHpP8AznLs0/EFfhr0/xsVf5ucnvjNeRygGgbUzM=
 github.com/algorand/go-codec v1.1.8 h1:XDSreeeZY8gMst6Edz4RBkl08/DGMJOeHYkoXL2B7wI=
 github.com/algorand/go-codec v1.1.8/go.mod h1:XhzVs6VVyWMLu6cApb9/192gBjGRVGm5cX5j203Heg4=
 github.com/algorand/go-codec/codec v1.1.8 h1:lsFuhcOH2LiEhpBH3BVUUkdevVmwCRyvb7FCAAPeY6U=

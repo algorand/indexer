@@ -16,9 +16,9 @@ import (
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/importers"
 	"github.com/algorand/indexer/data"
-	"github.com/algorand/indexer/types"
 
 	"github.com/algorand/go-algorand-sdk/v2/client/v2/algod"
+	"github.com/algorand/go-algorand-sdk/v2/client/v2/common/models"
 	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
 	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
@@ -35,11 +35,9 @@ const (
 	followerMode
 )
 
-// Retry w/ exponential backoff
+// Retry
 const (
-	initialWait    = time.Millisecond * 200
-	waitMultiplier = 1.5
-	retries        = 5
+	retries = 5
 )
 
 type algodImporter struct {
@@ -162,10 +160,15 @@ func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 	var blk data.BlockData
 
 	for r := 0; r < retries; r++ {
-		time.Sleep(time.Duration(waitMultiplier*float64(r)) * initialWait)
-		// If context has expired.
-		if algodImp.ctx.Err() != nil {
-			return blk, fmt.Errorf("GetBlock ctx error: %w", err)
+		_, err = algodImp.aclient.StatusAfterBlock(rnd - 1).Do(algodImp.ctx)
+		if err != nil {
+			// If context has expired.
+			if algodImp.ctx.Err() != nil {
+				return blk, fmt.Errorf("GetBlock ctx error: %w", err)
+			}
+			algodImp.logger.Errorf(
+				"r=%d error getting status %d", retries, rnd)
+			continue
 		}
 		start := time.Now()
 		blockbytes, err = algodImp.aclient.BlockRaw(rnd).Do(algodImp.ctx)
@@ -176,31 +179,31 @@ func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 				"r=%d error getting block %d", r, rnd)
 			continue
 		}
-		tmpBlk := new(types.EncodedBlockCert)
+		tmpBlk := new(models.BlockResponse)
 		err = msgpack.Decode(blockbytes, tmpBlk)
 		if err != nil {
 			return blk, err
 		}
+
+		blk.BlockHeader = tmpBlk.Block.BlockHeader
+		blk.Payset = tmpBlk.Block.Payset
+		blk.Certificate = tmpBlk.Cert
 
 		if algodImp.mode == followerMode {
 			// We aren't going to do anything with the new delta until we get everything
 			// else converted over
 			// Round 0 has no delta associated with it
 			if rnd != 0 {
-				_, err = algodImp.aclient.GetLedgerStateDelta(rnd).Do(algodImp.ctx)
+				delta, err := algodImp.aclient.GetLedgerStateDelta(rnd).Do(algodImp.ctx)
 				if err != nil {
 					algodImp.logger.Errorf(
 						"r=%d error getting delta %d", r, rnd)
 					continue
 				}
+				blk.Delta = &delta
 			}
 		}
 
-		blk = data.BlockData{
-			BlockHeader: tmpBlk.Block.BlockHeader,
-			Payset:      tmpBlk.Block.Payset,
-			Certificate: &tmpBlk.Certificate,
-		}
 		return blk, err
 	}
 	algodImp.logger.Error("GetBlock finished retries without fetching a block. Check that the indexer is set to start at a round that the current algod node can handle")
