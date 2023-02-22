@@ -138,6 +138,7 @@ func ConvertPayset(payset transactions.Payset) ([]sdk.SignedTxnInBlock, error) {
 	return ret, nil
 }
 
+// ConvertSignedTxnWithAD returns sdk.SignedTxnWithAD
 func ConvertSignedTxnWithAD(txn transactions.SignedTxnWithAD) (sdk.SignedTxnWithAD, error) {
 	var ret sdk.SignedTxnWithAD
 	b := msgpack.Encode(txn)
