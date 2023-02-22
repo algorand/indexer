@@ -797,6 +797,79 @@ func MakePaymentTxnV2(fee, amt, closeAmt, sendRewards, receiveRewards,
 	}
 }
 
+// MakeAppDestroyTxnV2 makes a transaction that destroys an app.
+func MakeAppDestroyTxnV2(appid uint64, sender sdk.Address) sdk.SignedTxnWithAD {
+	return sdk.SignedTxnWithAD{
+		SignedTxn: sdk.SignedTxn{
+			Txn: sdk.Transaction{
+				Type: "appl",
+				Header: sdk.Header{
+					Sender:      sender,
+					GenesisHash: sdk.Digest(GenesisHash),
+					Note:        ArbitraryString(),
+				},
+				ApplicationFields: sdk.ApplicationFields{
+					ApplicationCallTxnFields: sdk.ApplicationCallTxnFields{
+						ApplicationID:     sdk.AppIndex(appid),
+						OnCompletion:      sdk.DeleteApplicationOC,
+						ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+						ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+					},
+				},
+			},
+			Sig: sdk.Signature(Signature),
+		},
+	}
+}
+
+// MakeAssetDestroyTxnV2 makes a transaction that destroys an asset.
+func MakeAssetDestroyTxnV2(assetID uint64, sender sdk.Address) sdk.SignedTxnWithAD {
+	return sdk.SignedTxnWithAD{
+		SignedTxn: sdk.SignedTxn{
+			Txn: sdk.Transaction{
+				Type: "acfg",
+				Header: sdk.Header{
+					Sender:      sender,
+					GenesisHash: sdk.Digest(GenesisHash),
+					Note:        ArbitraryString(),
+				},
+				AssetConfigTxnFields: sdk.AssetConfigTxnFields{
+					ConfigAsset: sdk.AssetIndex(assetID),
+				},
+			},
+			Sig: sdk.Signature(Signature),
+		},
+	}
+}
+
+// MakeAppOptInTxnV2 makes a transaction that opts in an app.
+func MakeAppOptInTxnV2(appid uint64, sender sdk.Address) sdk.SignedTxnWithAD {
+	return sdk.SignedTxnWithAD{
+		SignedTxn: sdk.SignedTxn{
+			Txn: sdk.Transaction{
+				Type: "appl",
+				Header: sdk.Header{
+					Sender:      sender,
+					GenesisHash: sdk.Digest(GenesisHash),
+					Note:        ArbitraryString(),
+				},
+				ApplicationFields: sdk.ApplicationFields{
+					ApplicationCallTxnFields: sdk.ApplicationCallTxnFields{
+						ApplicationID: sdk.AppIndex(appid),
+						OnCompletion:  sdk.OptInOC,
+					},
+				},
+			},
+			Sig: sdk.Signature(Signature),
+		},
+	}
+}
+
+// MakeAssetOptInTxnV2 makes a transaction that opts in an asset.
+func MakeAssetOptInTxnV2(assetid uint64, address sdk.Address) sdk.SignedTxnWithAD {
+	return MakeAssetTransferTxnV2(assetid, 0, address, address, sdk.Address{})
+}
+
 // MakeCreateAppTxnV2 makes a transaction that creates a simple application.
 func MakeCreateAppTxnV2(sender sdk.Address) sdk.SignedTxnWithAD {
 	// Create a transaction with ExtraProgramPages field set to 1

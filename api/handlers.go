@@ -25,7 +25,6 @@ import (
 	"github.com/algorand/indexer/version"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/data/basics"
 )
 
 // ServerImplementation implements the handler interface used by the generated route definitions.
@@ -94,7 +93,7 @@ func validateTransactionFilter(filter *idb.TransactionFilter) error {
 	}
 
 	{
-		var address basics.Address
+		var address sdk.Address
 		copy(address[:], filter.Address)
 		if address.IsZero() {
 			if filter.AddressRole&idb.AddressRoleCloseRemainderTo != 0 {
@@ -433,7 +432,7 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 	}
 
 	if params.Next != nil {
-		addr, err := basics.UnmarshalChecksumAddress(*params.Next)
+		addr, err := sdk.DecodeAddress(*params.Next)
 		if err != nil {
 			return badRequest(ctx, errUnableToParseNext)
 		}
@@ -828,7 +827,7 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID ui
 	}
 
 	if params.Next != nil {
-		addr, err := basics.UnmarshalChecksumAddress(*params.Next)
+		addr, err := sdk.DecodeAddress(*params.Next)
 		if err != nil {
 			return badRequest(ctx, errUnableToParseNext)
 		}
@@ -1149,7 +1148,7 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 				return row.Error
 			}
 
-			creator := basics.Address{}
+			creator := sdk.Address{}
 			if len(row.Creator) != len(creator) {
 				return fmt.Errorf(errInvalidCreatorAddress)
 			}
@@ -1206,7 +1205,7 @@ func (si *ServerImplementation) fetchAssetBalances(ctx context.Context, options 
 				return row.Error
 			}
 
-			addr := basics.Address{}
+			addr := sdk.Address{}
 			if len(row.Address) != len(addr) {
 				return fmt.Errorf(errInvalidCreatorAddress)
 			}
@@ -1247,7 +1246,7 @@ func (si *ServerImplementation) fetchAssetHoldings(ctx context.Context, options 
 				return row.Error
 			}
 
-			addr := basics.Address{}
+			addr := sdk.Address{}
 			if len(row.Address) != len(addr) {
 				return fmt.Errorf(errInvalidCreatorAddress)
 			}
