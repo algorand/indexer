@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/indexer/api/generated/v2"
+	"github.com/algorand/indexer/helpers"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres"
 	pgtest "github.com/algorand/indexer/idb/postgres/testing"
@@ -28,13 +29,9 @@ import (
 	"github.com/algorand/indexer/util/test"
 
 	"github.com/algorand/avm-abi/apps"
-	crypto2 "github.com/algorand/go-algorand-sdk/v2/crypto"
+	"github.com/algorand/go-algorand-sdk/v2/crypto"
 	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/crypto"
-	"github.com/algorand/go-algorand/crypto/merklesignature"
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/transactions"
 )
 
 var defaultOpts = ExtraOptions{
@@ -61,8 +58,8 @@ var defaultOpts = ExtraOptions{
 	DisabledMapConfig: MakeDisabledMapConfig(),
 }
 
-type boxTestComparator func(t *testing.T, db *postgres.IndexerDb, appBoxes map[basics.AppIndex]map[string]string,
-	deletedBoxes map[basics.AppIndex]map[string]bool, verifyTotals bool)
+type boxTestComparator func(t *testing.T, db *postgres.IndexerDb, appBoxes map[sdk.AppIndex]map[string]string,
+	deletedBoxes map[sdk.AppIndex]map[string]bool, verifyTotals bool)
 
 func testServerImplementation(db idb.IndexerDb) *ServerImplementation {
 	return &ServerImplementation{db: db, timeout: 30 * time.Second, opts: defaultOpts}
@@ -272,13 +269,13 @@ func TestAccountExcludeParameters(t *testing.T) {
 	//////////
 
 	testCases := []struct {
-		address        basics.Address
+		address        sdk.Address
 		exclude        []generated.LookupAccountByIDParamsExclude
 		check          func(*testing.T, generated.AccountResponse)
 		errStatus      int
 		includeDeleted bool
 	}{{
-		address: test.AccountA,
+		address: sdk.Address(test.AccountA),
 		exclude: []generated.LookupAccountByIDParamsExclude{"all"},
 		check: func(t *testing.T, r generated.AccountResponse) {
 			require.Nil(t, r.Account.CreatedAssets)
@@ -286,7 +283,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 			require.Nil(t, r.Account.Assets)
 			require.Nil(t, r.Account.AppsLocalState)
 		}}, {
-		address: test.AccountA,
+		address: sdk.Address(test.AccountA),
 		exclude: []generated.LookupAccountByIDParamsExclude{"none"},
 		check: func(t *testing.T, r generated.AccountResponse) {
 			require.NotNil(t, r.Account.CreatedAssets)
@@ -294,7 +291,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 			require.NotNil(t, r.Account.Assets)
 			require.NotNil(t, r.Account.AppsLocalState)
 		}}, {
-		address:        test.AccountA,
+		address:        sdk.Address(test.AccountA),
 		exclude:        []generated.LookupAccountByIDParamsExclude{},
 		includeDeleted: true,
 		check: func(t *testing.T, r generated.AccountResponse) {
@@ -303,14 +300,14 @@ func TestAccountExcludeParameters(t *testing.T) {
 			require.NotNil(t, r.Account.Assets)
 			require.NotNil(t, r.Account.AppsLocalState)
 		}}, {
-		address: test.AccountA,
+		address: sdk.Address(test.AccountA),
 		check: func(t *testing.T, r generated.AccountResponse) {
 			require.NotNil(t, r.Account.CreatedAssets)
 			require.NotNil(t, r.Account.CreatedApps)
 			require.NotNil(t, r.Account.Assets)
 			require.NotNil(t, r.Account.AppsLocalState)
 		}}, {
-		address: test.AccountA,
+		address: sdk.Address(test.AccountA),
 		exclude: []generated.LookupAccountByIDParamsExclude{"created-assets", "created-apps", "apps-local-state", "assets"},
 		check: func(t *testing.T, r generated.AccountResponse) {
 			require.Nil(t, r.Account.CreatedAssets)
@@ -318,7 +315,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 			require.Nil(t, r.Account.Assets)
 			require.Nil(t, r.Account.AppsLocalState)
 		}}, {
-		address: test.AccountA,
+		address: sdk.Address(test.AccountA),
 		exclude: []generated.LookupAccountByIDParamsExclude{"created-assets"},
 		check: func(t *testing.T, r generated.AccountResponse) {
 			require.Nil(t, r.Account.CreatedAssets)
@@ -326,7 +323,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 			require.NotNil(t, r.Account.Assets)
 			require.NotNil(t, r.Account.AppsLocalState)
 		}}, {
-		address: test.AccountA,
+		address: sdk.Address(test.AccountA),
 		exclude: []generated.LookupAccountByIDParamsExclude{"created-apps"},
 		check: func(t *testing.T, r generated.AccountResponse) {
 			require.NotNil(t, r.Account.CreatedAssets)
@@ -334,7 +331,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 			require.NotNil(t, r.Account.Assets)
 			require.NotNil(t, r.Account.AppsLocalState)
 		}}, {
-		address: test.AccountA,
+		address: sdk.Address(test.AccountA),
 		exclude: []generated.LookupAccountByIDParamsExclude{"apps-local-state"},
 		check: func(t *testing.T, r generated.AccountResponse) {
 			require.NotNil(t, r.Account.CreatedAssets)
@@ -342,7 +339,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 			require.NotNil(t, r.Account.Assets)
 			require.Nil(t, r.Account.AppsLocalState)
 		}}, {
-		address: test.AccountA,
+		address: sdk.Address(test.AccountA),
 		exclude: []generated.LookupAccountByIDParamsExclude{"assets"},
 		check: func(t *testing.T, r generated.AccountResponse) {
 			require.NotNil(t, r.Account.CreatedAssets)
@@ -350,7 +347,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 			require.Nil(t, r.Account.Assets)
 			require.NotNil(t, r.Account.AppsLocalState)
 		}}, {
-		address: test.AccountB,
+		address: sdk.Address(test.AccountB),
 		exclude: []generated.LookupAccountByIDParamsExclude{"assets", "apps-local-state"},
 		check: func(t *testing.T, r generated.AccountResponse) {
 			require.Nil(t, r.Account.CreatedAssets)
@@ -359,7 +356,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 			require.Nil(t, r.Account.AppsLocalState)
 		}},
 		{
-			address:   test.AccountA,
+			address:   sdk.Address(test.AccountA),
 			exclude:   []generated.LookupAccountByIDParamsExclude{"abc"},
 			errStatus: http.StatusBadRequest,
 		},
@@ -412,41 +409,61 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 	expectedAppIDs := []uint64{11, 12, 13, 14, 15}
 	expectedAssetIDs := []uint64{16, 17, 18, 19, 20}
 
-	var txns []transactions.SignedTxnWithAD
+	var txns []sdk.SignedTxnWithAD
 	// make apps and assets
 	for range deletedAppIDs {
-		txns = append(txns, test.MakeCreateAppTxn(test.AccountA))
+		txn, err := helpers.ConvertSignedTxnWithAD(test.MakeCreateAppTxn(test.AccountA))
+		require.NoError(t, err)
+		txns = append(txns, txn)
 	}
 	for _, id := range deletedAssetIDs {
-		txns = append(txns, test.MakeAssetConfigTxn(0, 100, 0, false, "UNIT",
+		txn, err := helpers.ConvertSignedTxnWithAD(test.MakeAssetConfigTxn(0, 100, 0, false, "UNIT",
 			fmt.Sprintf("Asset %d", id), "http://asset.com", test.AccountA))
+		require.NoError(t, err)
+		txns = append(txns, txn)
 	}
 	for range expectedAppIDs {
-		txns = append(txns, test.MakeCreateAppTxn(test.AccountA))
+		txn, err := helpers.ConvertSignedTxnWithAD(test.MakeCreateAppTxn(test.AccountA))
+		require.NoError(t, err)
+		txns = append(txns, txn)
 	}
 	for _, id := range expectedAssetIDs {
-		txns = append(txns, test.MakeAssetConfigTxn(0, 100, 0, false, "UNIT",
+		txn, err := helpers.ConvertSignedTxnWithAD(test.MakeAssetConfigTxn(0, 100, 0, false, "UNIT",
 			fmt.Sprintf("Asset %d", id), "http://asset.com", test.AccountA))
+		require.NoError(t, err)
+		txns = append(txns, txn)
 	}
 	// delete some apps and assets
 	for _, id := range deletedAppIDs {
-		txns = append(txns, test.MakeAppDestroyTxn(id, test.AccountA))
+		txn, err := helpers.ConvertSignedTxnWithAD(test.MakeAppDestroyTxn(id, test.AccountA))
+		require.NoError(t, err)
+		txns = append(txns, txn)
 	}
 	for _, id := range deletedAssetIDs {
-		txns = append(txns, test.MakeAssetDestroyTxn(id, test.AccountA))
+		txn, err := helpers.ConvertSignedTxnWithAD(test.MakeAssetDestroyTxn(id, test.AccountA))
+		require.NoError(t, err)
+		txns = append(txns, txn)
 	}
 
 	// opt in to the remaining ones
 	for _, id := range expectedAppIDs {
-		txns = append(txns, test.MakeAppOptInTxn(id, test.AccountA))
-		txns = append(txns, test.MakeAppOptInTxn(id, test.AccountB))
+		txn, err := helpers.ConvertSignedTxnWithAD(test.MakeAppOptInTxn(id, test.AccountA))
+		require.NoError(t, err)
+		txns = append(txns, txn)
+		txn, err = helpers.ConvertSignedTxnWithAD(test.MakeAppOptInTxn(id, test.AccountB))
+		require.NoError(t, err)
+		txns = append(txns, txn)
 	}
 	for _, id := range expectedAssetIDs {
-		txns = append(txns, test.MakeAssetOptInTxn(id, test.AccountA))
-		txns = append(txns, test.MakeAssetOptInTxn(id, test.AccountB))
+		txn, err := helpers.ConvertSignedTxnWithAD(test.MakeAssetOptInTxn(id, test.AccountA))
+		require.NoError(t, err)
+		txns = append(txns, txn)
+		txn, err = helpers.ConvertSignedTxnWithAD(test.MakeAssetOptInTxn(id, test.AccountB))
+		require.NoError(t, err)
+		txns = append(txns, txn)
 	}
 
-	ptxns := make([]*transactions.SignedTxnWithAD, len(txns))
+	ptxns := make([]*sdk.SignedTxnWithAD, len(txns))
 	for i := range txns {
 		ptxns[i] = &txns[i]
 	}
@@ -523,23 +540,23 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 	}
 
 	testCases := []struct {
-		address        basics.Address
+		address        sdk.Address
 		exclude        []string
 		includeDeleted bool
 		errStatus      int
 	}{
-		{address: test.AccountA, exclude: []string{}, errStatus: http.StatusBadRequest},
-		{address: test.AccountA, exclude: []string{"all"}},
-		{address: test.AccountA, exclude: []string{"created-assets", "created-apps", "apps-local-state", "assets"}},
-		{address: test.AccountA, exclude: []string{"assets", "created-apps"}},
-		{address: test.AccountA, exclude: []string{"assets", "apps-local-state"}},
-		{address: test.AccountA, exclude: []string{"assets", "apps-local-state"}, includeDeleted: true, errStatus: http.StatusBadRequest},
-		{address: test.AccountB, exclude: []string{"created-assets", "apps-local-state"}},
-		{address: test.AccountB, exclude: []string{"assets", "apps-local-state"}},
-		{address: test.AccountA, exclude: []string{"created-assets"}, errStatus: http.StatusBadRequest},
-		{address: test.AccountA, exclude: []string{"created-apps"}, errStatus: http.StatusBadRequest},
-		{address: test.AccountA, exclude: []string{"apps-local-state"}, errStatus: http.StatusBadRequest},
-		{address: test.AccountA, exclude: []string{"assets"}, errStatus: http.StatusBadRequest},
+		{address: sdk.Address(test.AccountA), exclude: []string{}, errStatus: http.StatusBadRequest},
+		{address: sdk.Address(test.AccountA), exclude: []string{"all"}},
+		{address: sdk.Address(test.AccountA), exclude: []string{"created-assets", "created-apps", "apps-local-state", "assets"}},
+		{address: sdk.Address(test.AccountA), exclude: []string{"assets", "created-apps"}},
+		{address: sdk.Address(test.AccountA), exclude: []string{"assets", "apps-local-state"}},
+		{address: sdk.Address(test.AccountA), exclude: []string{"assets", "apps-local-state"}, includeDeleted: true, errStatus: http.StatusBadRequest},
+		{address: sdk.Address(test.AccountB), exclude: []string{"created-assets", "apps-local-state"}},
+		{address: sdk.Address(test.AccountB), exclude: []string{"assets", "apps-local-state"}},
+		{address: sdk.Address(test.AccountA), exclude: []string{"created-assets"}, errStatus: http.StatusBadRequest},
+		{address: sdk.Address(test.AccountA), exclude: []string{"created-apps"}, errStatus: http.StatusBadRequest},
+		{address: sdk.Address(test.AccountA), exclude: []string{"apps-local-state"}, errStatus: http.StatusBadRequest},
+		{address: sdk.Address(test.AccountA), exclude: []string{"assets"}, errStatus: http.StatusBadRequest},
 	}
 
 	for _, tc := range testCases {
@@ -581,16 +598,16 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 	for _, tc := range []struct {
 		exclude    []string
 		errStatus  int
-		errAddress basics.Address
+		errAddress sdk.Address
 	}{
 		{exclude: []string{"all"}},
 		{exclude: []string{"created-assets", "created-apps", "apps-local-state", "assets"}},
 		{exclude: []string{"assets", "apps-local-state"}},
-		{errAddress: test.AccountA, exclude: nil, errStatus: 400},
-		{errAddress: test.AccountA, exclude: []string{"created-assets"}, errStatus: http.StatusBadRequest},
-		{errAddress: test.AccountA, exclude: []string{"created-apps"}, errStatus: http.StatusBadRequest},
-		{errAddress: test.AccountA, exclude: []string{"apps-local-state"}, errStatus: http.StatusBadRequest},
-		{errAddress: test.AccountA, exclude: []string{"assets"}, errStatus: http.StatusBadRequest},
+		{errAddress: sdk.Address(test.AccountA), exclude: nil, errStatus: 400},
+		{errAddress: sdk.Address(test.AccountA), exclude: []string{"created-assets"}, errStatus: http.StatusBadRequest},
+		{errAddress: sdk.Address(test.AccountA), exclude: []string{"created-apps"}, errStatus: http.StatusBadRequest},
+		{errAddress: sdk.Address(test.AccountA), exclude: []string{"apps-local-state"}, errStatus: http.StatusBadRequest},
+		{errAddress: sdk.Address(test.AccountA), exclude: []string{"assets"}, errStatus: http.StatusBadRequest},
 	} {
 		t.Run(fmt.Sprintf("SearchForAccounts exclude %v", tc.exclude), func(t *testing.T) {
 			maxResults := 14
@@ -794,7 +811,7 @@ func TestBlockNotFound(t *testing.T) {
 // TestInnerTxn runs queries that return one or more root/inner transactions,
 // and verifies that only a single root transaction is returned.
 func TestInnerTxn(t *testing.T) {
-	var appAddr basics.Address
+	var appAddr sdk.Address
 	appAddr[1] = 99
 	appAddrStr := appAddr.String()
 
@@ -843,7 +860,7 @@ func TestInnerTxn(t *testing.T) {
 
 	stxn, _, err := util.DecodeSignedTxn(vb.Block.BlockHeader, vb.Block.Payset[0])
 	require.NoError(t, err)
-	expectedID := crypto2.TransactionIDString(stxn.Txn)
+	expectedID := crypto.TransactionIDString(stxn.Txn)
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -884,7 +901,7 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 	///////////
 	// Given // a DB with some inner txns in it.
 	///////////
-	var appAddr basics.Address
+	var appAddr sdk.Address
 	appAddr[1] = 99
 	appAddrStr := appAddr.String()
 
@@ -898,7 +915,7 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 
 	stxn, _, err := util.DecodeSignedTxn(vb.Block.BlockHeader, vb.Block.Payset[0])
 	require.NoError(t, err)
-	expectedID := crypto2.TransactionIDString(stxn.Txn)
+	expectedID := crypto.TransactionIDString(stxn.Txn)
 
 	testcases := []struct {
 		name   string
@@ -1010,13 +1027,13 @@ func TestKeyregTransactionWithStateProofKeys(t *testing.T) {
 	///////////
 	// Given // A block containing a key reg txn with state proof key
 	///////////
-	var votePK crypto.OneTimeSignatureVerifier
+	var votePK [32]byte
 	votePK[0] = 1
 
-	var selectionPK crypto.VRFVerifier
+	var selectionPK [32]byte
 	selectionPK[0] = 1
 
-	var stateProofPK merklesignature.Commitment
+	var stateProofPK [64]byte
 	stateProofPK[0] = 1
 
 	//txn := transactions.SignedTxnWithAD{
@@ -1060,7 +1077,7 @@ func TestKeyregTransactionWithStateProofKeys(t *testing.T) {
 		c := e.NewContext(req, rec)
 		c.SetPath("/v2/transactions/:txid")
 		api := &ServerImplementation{db: db}
-		err = api.LookupTransaction(c, crypto2.TransactionIDString(txn.Txn))
+		err = api.LookupTransaction(c, crypto.TransactionIDString(txn.Txn))
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, rec.Code)
 		//////////
@@ -1223,7 +1240,7 @@ func TestAccountClearsNonUTF8(t *testing.T) {
 // TestLookupInnerLogs runs queries for logs given application ids,
 // and checks that logs in inner transactions match properly.
 func TestLookupInnerLogs(t *testing.T) {
-	var appAddr basics.Address
+	var appAddr sdk.Address
 	appAddr[1] = 99
 
 	params := generated.LookupApplicationLogsByIDParams{}
@@ -1303,7 +1320,7 @@ func TestLookupInnerLogs(t *testing.T) {
 			require.NotNil(t, response.LogData)
 			ld := *response.LogData
 			require.Equal(t, 1, len(ld))
-			require.Equal(t, crypto2.TransactionIDString(appCall.Txn), ld[0].Txid)
+			require.Equal(t, crypto.TransactionIDString(appCall.Txn), ld[0].Txid)
 			require.Equal(t, len(tc.logs), len(ld[0].Logs))
 			for i, log := range ld[0].Logs {
 				require.Equal(t, []byte(tc.logs[i]), log)
@@ -1315,7 +1332,7 @@ func TestLookupInnerLogs(t *testing.T) {
 // TestLookupInnerLogs runs queries for logs given application ids,
 // and checks that logs in inner transactions match properly.
 func TestLookupMultiInnerLogs(t *testing.T) {
-	var appAddr basics.Address
+	var appAddr sdk.Address
 	appAddr[1] = 99
 
 	params := generated.LookupApplicationLogsByIDParams{}
@@ -1406,7 +1423,7 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 
 			logCount := 0
 			for txnIndex, result := range ld {
-				require.Equal(t, crypto2.TransactionIDString(appCall.Txn), result.Txid)
+				require.Equal(t, crypto.TransactionIDString(appCall.Txn), result.Txid)
 				for logIndex, log := range result.Logs {
 					require.Equal(t, []byte(tc.logs[txnIndex*2+logIndex]), log)
 					logCount++
@@ -1786,7 +1803,7 @@ func waitForServer(t *testing.T, listenAddr string) {
 
 // compareAppBoxesAgainstHandler is of type BoxTestComparator
 func compareAppBoxesAgainstHandler(t *testing.T, db *postgres.IndexerDb,
-	appBoxes map[basics.AppIndex]map[string]string, deletedBoxes map[basics.AppIndex]map[string]bool, verifyTotals bool) {
+	appBoxes map[sdk.AppIndex]map[string]string, deletedBoxes map[sdk.AppIndex]map[string]bool, verifyTotals bool) {
 
 	setupRequest := func(path, paramName, paramValue string) (echo.Context, *ServerImplementation, *httptest.ResponseRecorder) {
 		e := echo.New()
@@ -1800,7 +1817,7 @@ func compareAppBoxesAgainstHandler(t *testing.T, db *postgres.IndexerDb,
 		return c, api, rec
 	}
 
-	remainingBoxes := map[basics.AppIndex]map[string]string{}
+	remainingBoxes := map[sdk.AppIndex]map[string]string{}
 	numRequests := 0
 	sumOfBoxes := 0
 	sumOfBoxBytes := 0
@@ -1882,7 +1899,7 @@ func compareAppBoxesAgainstHandler(t *testing.T, db *postgres.IndexerDb,
 			// compare expected totals against handler account_data JSON fields
 			msg := fmt.Sprintf("caseNum=%d, appIdx=%d", caseNum, appIdx)
 
-			appAddr := appIdx.Address().String()
+			appAddr := crypto.GetApplicationAddress(uint64(appIdx)).String()
 			c, api, rec = setupRequest("/v2/accounts/:addr", "addr", appAddr)
 			fmt.Printf("appIdx=%d\nappAddr=%s\npath=/v2/accounts/%s\n", appIdx, appAddr, appAddr)
 			tru := true
@@ -1918,10 +1935,10 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 
-	appid := basics.AppIndex(1)
+	appid := sdk.AppIndex(1)
 
 	// ---- ROUND 1: create and fund the box app  ---- //
-	currentRound := basics.Round(1)
+	currentRound := sdk.Round(1)
 	//
 	//createTxn, err := test.MakeComplexCreateAppTxn(test.AccountA, test.BoxApprovalProgram, test.BoxClearProgram, 8)
 	//require.NoError(t, err)
@@ -1946,7 +1963,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	require.Equal(t, uint64(currentRound), *row.Application.CreatedAtRound)
 
 	// ---- ROUND 2: create 8 boxes for appid == 1  ---- //
-	currentRound = basics.Round(2)
+	currentRound = sdk.Round(2)
 
 	boxNames := []string{
 		"a great box",
@@ -1959,7 +1976,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 		"box #8",
 	}
 
-	expectedAppBoxes := map[basics.AppIndex]map[string]string{}
+	expectedAppBoxes := map[sdk.AppIndex]map[string]string{}
 
 	//expectedAppBoxes[appid] = map[string]string{}
 	//newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
@@ -1988,7 +2005,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	comparator(t, db, expectedAppBoxes, nil, true)
 
 	// ---- ROUND 3: populate the boxes appropriately  ---- //
-	currentRound = basics.Round(3)
+	currentRound = sdk.Round(3)
 
 	appBoxesToSet := map[string]string{
 		"a great box":               "it's a wonderful box",
@@ -2028,7 +2045,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	comparator(t, db, expectedAppBoxes, nil, true)
 
 	// ---- ROUND 4: delete the unhappy boxes  ---- //
-	currentRound = basics.Round(4)
+	currentRound = sdk.Round(4)
 
 	appBoxesToDelete := []string{
 		"not so great box",
@@ -2057,7 +2074,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
 
-	deletedBoxes := make(map[basics.AppIndex]map[string]bool)
+	deletedBoxes := make(map[sdk.AppIndex]map[string]bool)
 	deletedBoxes[appid] = make(map[string]bool)
 	for _, deletedBox := range appBoxesToDelete {
 		deletedBoxes[appid][deletedBox] = true
@@ -2065,7 +2082,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	comparator(t, db, expectedAppBoxes, deletedBoxes, true)
 
 	// ---- ROUND 5: create 3 new boxes, overwriting one of the former boxes  ---- //
-	currentRound = basics.Round(5)
+	currentRound = sdk.Round(5)
 
 	//boxTxns = make([]*transactions.SignedTxnWithAD, 0)
 	//for _, boxName := range appBoxesToCreate {
@@ -2096,7 +2113,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	comparator(t, db, expectedAppBoxes, nil, true)
 
 	// ---- ROUND 6: populate the 3 new boxes  ---- //
-	currentRound = basics.Round(6)
+	currentRound = sdk.Round(6)
 
 	//boxTxns = make([]*transactions.SignedTxnWithAD, 0)
 	//for boxName, valPrefix := range appBoxesToSet {

@@ -15,7 +15,6 @@ import (
 
 	"github.com/algorand/go-algorand-sdk/v2/crypto"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/data/basics"
 )
 
 //////////////////////////////////////////////////////////////////////
@@ -38,7 +37,7 @@ func decodeDigest(str *string, field string, errorArr []string) (string, []strin
 // decodeAddress returns the byte representation of the input string, or appends an error to errorArr
 func decodeAddress(str *string, field string, errorArr []string) ([]byte, []string) {
 	if str != nil {
-		addr, err := basics.UnmarshalChecksumAddress(*str)
+		addr, err := sdk.DecodeAddress(*str)
 		if err != nil {
 			return nil, append(errorArr, fmt.Sprintf("%s '%s': %v", errUnableToParseAddress, field, err))
 		}

@@ -138,6 +138,16 @@ func ConvertPayset(payset transactions.Payset) ([]sdk.SignedTxnInBlock, error) {
 	return ret, nil
 }
 
+func ConvertSignedTxnWithAD(txn transactions.SignedTxnWithAD) (sdk.SignedTxnWithAD, error) {
+	var ret sdk.SignedTxnWithAD
+	b := msgpack.Encode(txn)
+	err := msgpack.Decode(b, &ret)
+	if err != nil {
+		return ret, fmt.Errorf("ConvertSignedTxnWithAD err: %v", err)
+	}
+	return ret, nil
+}
+
 // ConvertLedgerStateDelta returns sdk.LedgerStateDelta
 func ConvertLedgerStateDelta(payset ledgercore.StateDelta) (sdk.LedgerStateDelta, error) {
 	var ret sdk.LedgerStateDelta

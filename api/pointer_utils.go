@@ -4,7 +4,6 @@ import (
 	"time"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/data/basics"
 )
 
 ////////////////////////////////
@@ -109,8 +108,8 @@ func strArrayPtr(x []string) *[]string {
 	return &x
 }
 
-func addrSlice(x basics.Address) []byte {
-	xx := new(basics.Address)
+func addrSlice(x sdk.Address) []byte {
+	xx := new(sdk.Address)
 	*xx = x
 	return xx[:]
 }
