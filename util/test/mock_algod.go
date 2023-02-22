@@ -96,7 +96,7 @@ func BlockAfterResponder(reqPath string, w http.ResponseWriter) bool {
 func LedgerStateDeltaResponder(reqPath string, w http.ResponseWriter) bool {
 	if strings.Contains(reqPath, "v2/deltas/") {
 		w.WriteHeader(http.StatusOK)
-		delta := models.LedgerStateDelta{}
+		delta := types.LedgerStateDelta{}
 		_, _ = w.Write(protocol.EncodeJSON(delta))
 		return true
 	}
