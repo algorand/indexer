@@ -2129,3 +2129,316 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 func TestBoxCreateMutateDeleteAgainstHandler(t *testing.T) {
 	runBoxCreateMutateDelete(t, compareAppBoxesAgainstHandler)
 }
+
+func TestAppDelete(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	defer shutdownFunc()
+
+	///////////
+	// Given // A block containing a creator of an app, who also holds and has opted-into this app.
+	///////////
+	const expectedAppIdx = 1 // must be 1 since this is the first txn
+	const expectedAppIdx2 = 2
+	//appSchema := basics.StateSchema{
+	//	NumUint:      1,
+	//	NumByteSlice: 1,
+	//}
+	//createAppTxn := test.MakeCreateAppTxn(test.AccountA)
+	//createAppTxnB := test.MakeCreateAppTxn(test.AccountB)
+	//createAppTxnB.Txn.LocalStateSchema = appSchema
+	//appOptInTxnA := test.MakeAppOptInTxn(expectedAppIdx, test.AccountA)
+	//appOptInTxnB := test.MakeAppOptInTxn(expectedAppIdx2, test.AccountB)
+	//deleteAppTxn := test.MakeAppDestroyTxn(expectedAppIdx, test.AccountA)
+	//
+	//block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createAppTxn, &createAppTxnB, &appOptInTxnA, &appOptInTxnB, &deleteAppTxn)
+	//require.NoError(t, err)
+
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AppDelete.vb")
+	require.NoError(t, err)
+	err = db.AddBlock(&vb)
+	require.NoError(t, err)
+
+	serverCtx, serverCancel := context.WithCancel(context.Background())
+	defer serverCancel()
+	opts := defaultOpts
+	listenAddr := "localhost:8888"
+	go Serve(serverCtx, listenAddr, db, nil, logrus.New(), opts)
+
+	waitForServer(t, listenAddr)
+
+	// make a real HTTP request
+	makeReq := func(t *testing.T, path string, includeDeleted bool) (*http.Response, []byte) {
+		t.Log("making HTTP request path", path)
+		req := fmt.Sprintf("http://%s%s?pretty", listenAddr, path)
+		if includeDeleted {
+			req = fmt.Sprintf("%s&include-all=true", req)
+		}
+		resp, err := http.Get(req)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+		require.NoError(t, err)
+		return resp, body
+	}
+
+	testCases := []struct {
+		name           string
+		appID          int
+		includeDeleted bool
+		statusCode     int
+	}{
+		{name: "app create & delete, included-all=false", appID: expectedAppIdx, includeDeleted: false, statusCode: 404},
+		{name: "app create & delete, included-all=true", appID: expectedAppIdx, includeDeleted: true, statusCode: 200},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			path := fmt.Sprintf("/v2/applications/%d", tc.appID)
+			resp, data := makeReq(t, path, tc.includeDeleted)
+			if resp.StatusCode != http.StatusOK {
+				require.Equal(t, tc.statusCode, resp.StatusCode)
+				return
+			}
+			require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
+			var response generated.ApplicationResponse
+			err := json.Decode(data, &response)
+			require.NoError(t, err)
+			assert.True(t, *response.Application.Deleted)
+			assert.Equal(t, uint64(1), *response.Application.CreatedAtRound)
+			assert.Equal(t, uint64(1), *response.Application.DeletedAtRound)
+			assert.Equal(t, uint64(tc.appID), response.Application.Id)
+		})
+	}
+
+	// query accounts
+	path := fmt.Sprintf("/v2/accounts/%s", test.AccountA.String())
+	//	query account with a deleted application excluded
+	resp, data := makeReq(t, path, false)
+	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
+	var account generated.AccountResponse
+	err = json.Decode(data, &account)
+	require.NoError(t, err)
+	assert.Nil(t, account.Account.CreatedApps)
+
+	//	query account with a deleted application include
+	resp, data = makeReq(t, path, true)
+	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
+	err = json.Decode(data, &account)
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(*account.Account.CreatedApps))
+	assert.True(t, *(*account.Account.CreatedApps)[0].Deleted)
+	assert.Equal(t, uint64(expectedAppIdx), (*account.Account.CreatedApps)[0].Id)
+
+	//	query account with an app
+	path = fmt.Sprintf("/v2/accounts/%s", test.AccountB.String())
+	resp, data = makeReq(t, path, false)
+	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
+	err = json.Decode(data, &account)
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(*account.Account.CreatedApps))
+	assert.Equal(t, uint64(1), (*account.Account.CreatedApps)[0].Params.LocalStateSchema.NumByteSlice)
+	assert.Equal(t, uint64(1), (*account.Account.CreatedApps)[0].Params.LocalStateSchema.NumUint)
+	assert.Equal(t, uint64(expectedAppIdx2), (*account.Account.CreatedApps)[0].Id)
+}
+func TestAssetDelete(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	defer shutdownFunc()
+	///////////
+	// Given // A block containing a creator of an asset, who also holds and has opted-into this assset.
+	///////////
+	const expectedAssetIdx = 1 // must be 1 since this is the first txn
+	//createAssetTxn := test.MakeAssetConfigTxn(0, 100, 0, false, "UNIT", "Asset1", "http://asset1.com", test.AccountA)
+	//assetOptInTxnA := test.MakeAssetOptInTxn(expectedAssetIdx, test.AccountA)
+	//deleteAssetTxn := test.MakeAssetDestroyTxn(expectedAssetIdx, test.AccountA)
+	//block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createAssetTxn, &assetOptInTxnA, &deleteAssetTxn)
+	//require.NoError(t, err)
+
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AssetDelete.vb")
+	require.NoError(t, err)
+	err = db.AddBlock(&vb)
+	require.NoError(t, err)
+
+	serverCtx, serverCancel := context.WithCancel(context.Background())
+	defer serverCancel()
+	opts := defaultOpts
+	listenAddr := "localhost:8888"
+	go Serve(serverCtx, listenAddr, db, nil, logrus.New(), opts)
+
+	waitForServer(t, listenAddr)
+
+	// make a real HTTP request
+	makeReq := func(t *testing.T, path string, includeDeleted bool) (*http.Response, []byte) {
+		t.Log("making HTTP request path", path)
+		req := fmt.Sprintf("http://%s%s?pretty", listenAddr, path)
+		if includeDeleted {
+			req = fmt.Sprintf("%s&include-all=true", req)
+		}
+		resp, err := http.Get(req)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+		require.NoError(t, err)
+		return resp, body
+	}
+
+	testCases := []struct {
+		name           string
+		assetID        int
+		includeDeleted bool
+		statusCode     int
+	}{
+		{name: "asset create / destroy, account = test.AccountA, included-all=false", assetID: expectedAssetIdx, includeDeleted: false, statusCode: 404},
+		{name: "asset create / destroy, account = test.AccountA, included-all=true", assetID: expectedAssetIdx, includeDeleted: true, statusCode: 200},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			path := fmt.Sprintf("/v2/assets/%d", tc.assetID)
+			resp, data := makeReq(t, path, tc.includeDeleted)
+			if resp.StatusCode != http.StatusOK {
+				require.Equal(t, tc.statusCode, resp.StatusCode)
+				return
+			}
+			require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
+			var response generated.AssetResponse
+			err := json.Decode(data, &response)
+			require.NoError(t, err)
+			assert.True(t, *response.Asset.Deleted)
+			assert.Equal(t, uint64(1), *response.Asset.CreatedAtRound)
+			assert.Equal(t, uint64(1), *response.Asset.DestroyedAtRound)
+			assert.Equal(t, uint64(0), response.Asset.Params.Total)
+		})
+	}
+	// query accounts
+	path := fmt.Sprintf("/v2/accounts/%s", test.AccountA)
+	//	query account with a deleted asset excluded
+	resp, data := makeReq(t, path, false)
+	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
+	var account generated.AccountResponse
+	err = json.Decode(data, &account)
+	require.NoError(t, err)
+	assert.Nil(t, account.Account.Assets)
+
+	//	query account with a deleted asset include
+	resp, data = makeReq(t, path, true)
+	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
+	err = json.Decode(data, &account)
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(*account.Account.Assets))
+	assert.Equal(t, uint64(0), (*account.Account.Assets)[0].Amount)
+	assert.Equal(t, uint64(1), (*account.Account.Assets)[0].AssetId)
+	assert.True(t, *(*account.Account.Assets)[0].Deleted)
+	assert.False(t, (*account.Account.Assets)[0].IsFrozen)
+	assert.Equal(t, uint64(1), *(*account.Account.Assets)[0].OptedInAtRound)
+	assert.Equal(t, uint64(1), *(*account.Account.Assets)[0].OptedOutAtRound)
+}
+
+func TestApplicationLocal(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	defer shutdownFunc()
+
+	serverCtx, serverCancel := context.WithCancel(context.Background())
+	defer serverCancel()
+	opts := defaultOpts
+	listenAddr := "localhost:8888"
+	go Serve(serverCtx, listenAddr, db, nil, logrus.New(), opts)
+
+	waitForServer(t, listenAddr)
+
+	// make a real HTTP request
+	makeReq := func(t *testing.T, path string, includeDeleted bool) (*http.Response, []byte) {
+		t.Log("making HTTP request path", path)
+		req := fmt.Sprintf("http://%s%s?pretty", listenAddr, path)
+		if includeDeleted {
+			req = fmt.Sprintf("%s&include-all=true", req)
+		}
+		resp, err := http.Get(req)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+		require.NoError(t, err)
+		return resp, body
+	}
+
+	///////////
+	// Given // A block containing a creator of an app, who also holds and has opted-into this app.
+	///////////
+	const expectedAppIdx = 1 // must be 1 since this is the first txn
+	const expectedAppIdx2 = 2
+	/*
+		#pragma version 5;int 0;byte "cX";byte "value";app_local_put;int 1;return
+	*/
+	//b, err := base64.StdEncoding.DecodeString("BYEAgAJjWIAFdmFsdWVmgQFD")
+	//require.NoError(t, err)
+	//
+	//appA := test.MakeCreateAppTxn(test.AccountA)
+	//appA.Txn.LocalStateSchema = basics.StateSchema{
+	//	NumByteSlice: 1,
+	//}
+	//appA.Txn.OnCompletion = transactions.OptInOC
+	//appA.Txn.ApprovalProgram = b
+	//createAppB := test.MakeCreateAppTxn(test.AccountB)
+	//appOptinTxnB := test.MakeAppOptInTxn(expectedAppIdx2, test.AccountB)
+	//appOptinTxnC := test.MakeAppOptInTxn(expectedAppIdx, test.AccountC)
+	//appOptoutTxnB := test.MakeAppOptOutTxn(expectedAppIdx2, test.AccountB)
+	//destroyAppB := test.MakeAppDestroyTxn(expectedAppIdx2, test.AccountB)
+	//appOptoutTxnC := test.MakeAppOptOutTxn(expectedAppIdx, test.AccountC)
+
+	//txns := []transactions.SignedTxnWithAD{appA, createAppB, appOptinTxnB, appOptinTxnC, appOptoutTxnB, appOptinTxnB, appOptoutTxnC, destroyAppB, appOptinTxnC}
+	//prevHeader := test.MakeGenesisBlock().BlockHeader
+	//for _, txn := range txns {
+	//	block, err := test.MakeBlockForTxns(prevHeader, &txn)
+	//	require.NoError(t, err)
+	//	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	//	require.NoError(t, err)
+	//	prevHeader = block.BlockHeader
+	//}
+
+	for i := 1; i <= 9; i++ {
+		vb, err := test.ReadValidatedBlockFromFile(fmt.Sprintf("test_resources/validated_blocks/ApplicationLocal%d.vb", i))
+		require.NoError(t, err)
+		err = db.AddBlock(&vb)
+		require.NoError(t, err)
+	}
+	// query accounts
+	// AccountA
+	path := fmt.Sprintf("/v2/accounts/%s", test.AccountA.String())
+	resp, data := makeReq(t, path, false)
+	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
+	var accountA generated.AccountResponse
+	err := json.Decode(data, &accountA)
+	require.NoError(t, err)
+	assert.False(t, *(*accountA.Account.AppsLocalState)[0].Deleted)
+	assert.Equal(t, uint64(1), *(*accountA.Account.AppsLocalState)[0].OptedInAtRound)
+	assert.Equal(t, "Y1g=", (*(*accountA.Account.AppsLocalState)[0].KeyValue)[0].Key)
+
+	// AccountB
+	path = fmt.Sprintf("/v2/accounts/%s", test.AccountB.String())
+	resp, data = makeReq(t, path, false)
+	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
+	var accountB generated.AccountResponse
+	err = json.Decode(data, &accountB)
+	require.NoError(t, err)
+	assert.Nil(t, accountB.Account.CreatedAssets)
+
+	resp, data = makeReq(t, path, true)
+	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
+	var accountBfull generated.AccountResponse
+	err = json.Decode(data, &accountBfull)
+	require.NoError(t, err)
+	assert.True(t, *(*accountBfull.Account.CreatedApps)[0].Deleted)
+	assert.Equal(t, uint64(3), *(*accountBfull.Account.AppsLocalState)[0].OptedInAtRound)
+	assert.Equal(t, uint64(5), *(*accountBfull.Account.AppsLocalState)[0].ClosedOutAtRound)
+
+	// AccountC
+	path = fmt.Sprintf("/v2/accounts/%s", test.AccountC.String())
+	resp, data = makeReq(t, path, true)
+	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
+	var accountC generated.AccountResponse
+	err = json.Decode(data, &accountC)
+	require.NoError(t, err)
+	assert.False(t, *(*accountC.Account.AppsLocalState)[0].Deleted)
+	assert.Equal(t, uint64(4), *(*accountC.Account.AppsLocalState)[0].OptedInAtRound)
+	assert.Equal(t, uint64(7), *(*accountC.Account.AppsLocalState)[0].ClosedOutAtRound)
+	assert.Equal(t, uint64(1), (*accountC.Account.AppsLocalState)[0].Schema.NumByteSlice)
+}
