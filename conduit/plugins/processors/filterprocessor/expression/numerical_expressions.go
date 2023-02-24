@@ -9,7 +9,7 @@ import (
 
 type microAlgoExpression struct {
 	FilterValue basics.MicroAlgos
-	Op          ExpressionType
+	Op          Type
 }
 
 func (m microAlgoExpression) Match(input interface{}) (bool, error) {
@@ -39,7 +39,7 @@ func (m microAlgoExpression) Match(input interface{}) (bool, error) {
 
 type int64NumericalExpression struct {
 	FilterValue int64
-	Op          ExpressionType
+	Op          Type
 }
 
 func (s int64NumericalExpression) Match(input interface{}) (bool, error) {
@@ -69,7 +69,7 @@ func (s int64NumericalExpression) Match(input interface{}) (bool, error) {
 
 type uint64NumericalExpression struct {
 	FilterValue uint64
-	Op          ExpressionType
+	Op          Type
 }
 
 func (u uint64NumericalExpression) Match(input interface{}) (bool, error) {

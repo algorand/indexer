@@ -23,7 +23,7 @@ func TestInternalSearch(t *testing.T) {
 	address1 := sdk.Address{1}
 	address2 := sdk.Address{2}
 
-	var expressionType expression.ExpressionType = expression.EqualTo
+	var expressionType expression.Type = expression.EqualTo
 	tag := "sgnr"
 	exp, err := expression.MakeExpression(expressionType, address1.String(), "")
 	assert.NoError(t, err)
@@ -55,7 +55,7 @@ func TestInternalSearch(t *testing.T) {
 
 // TestMakeFieldSearcher tests making a field searcher is valid
 func TestMakeFieldSearcher(t *testing.T) {
-	var expressionType expression.ExpressionType = expression.EqualTo
+	var expressionType expression.Type = expression.EqualTo
 	tag := "sgnr"
 	sampleExpressionStr := "sample"
 	exp, err := expression.MakeExpression(expressionType, sampleExpressionStr, "")

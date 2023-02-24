@@ -28,7 +28,7 @@ type SubConfig struct {
 		<li>not-equal</li>
 	</ul>
 	*/
-	ExpressionType expression.ExpressionType `yaml:"expression-type"`
+	ExpressionType expression.Type `yaml:"expression-type"`
 	// <code>expression</code> is the user-supplied part of the search or comparison.
 	Expression string `yaml:"expression"`
 	// <code>match-inner</code> tells the filter processor to recursively search inner transactions for the expression.

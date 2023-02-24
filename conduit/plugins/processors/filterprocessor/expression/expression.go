@@ -6,29 +6,29 @@ import (
 	"strconv"
 )
 
-// ExpressionType is the type of the filter (i.e. const, regex, etc)
-type ExpressionType string
+// Type is the type of the filter (i.e. const, regex, etc)
+type Type string
 
 const (
 	// EqualTo a filter that applies numerical and string equal to operations
-	EqualTo ExpressionType = "equal"
+	EqualTo Type = "equal"
 	// Regex a filter that applies regex rules to the matching
-	Regex ExpressionType = "regex"
+	Regex Type = "regex"
 
 	// LessThan a filter that applies numerical less than operation
-	LessThan ExpressionType = "less-than"
+	LessThan Type = "less-than"
 	// LessThanEqual a filter that applies numerical less than or equal operation
-	LessThanEqual ExpressionType = "less-than-equal"
+	LessThanEqual Type = "less-than-equal"
 	// GreaterThan a filter that applies numerical greater than operation
-	GreaterThan ExpressionType = "greater-than"
+	GreaterThan Type = "greater-than"
 	// GreaterThanEqual a filter that applies numerical greater than or equal operation
-	GreaterThanEqual ExpressionType = "greater-than-equal"
+	GreaterThanEqual Type = "greater-than-equal"
 	// NotEqualTo a filter that applies numerical NOT equal to operation
-	NotEqualTo ExpressionType = "not-equal"
+	NotEqualTo Type = "not-equal"
 )
 
 // TypeMap contains all the expression types for validation.
-var TypeMap = map[ExpressionType]interface{}{
+var TypeMap = map[Type]interface{}{
 	Regex:            struct{}{},
 	LessThan:         struct{}{},
 	LessThanEqual:    struct{}{},
@@ -56,7 +56,7 @@ func (e *regexExpression) Match(input interface{}) (bool, error) {
 	}
 }
 
-func makeRegexExpression(searchStr string, expressionType ExpressionType) (Expression, error) {
+func makeRegexExpression(searchStr string, expressionType Type) (Expression, error) {
 	if expressionType != EqualTo && expressionType != Regex {
 		return nil, fmt.Errorf("target type (string) does not support %s filters", expressionType)
 	}
@@ -68,7 +68,7 @@ func makeRegexExpression(searchStr string, expressionType ExpressionType) (Expre
 	return &regexExpression{Regex: r}, nil
 }
 
-func makeSignedExpression(searchStr string, expressionType ExpressionType) (Expression, error) {
+func makeSignedExpression(searchStr string, expressionType Type) (Expression, error) {
 	if expressionType == Regex {
 		return nil, fmt.Errorf("target type (numeric) does not support %s filters", expressionType)
 	}
@@ -84,7 +84,7 @@ func makeSignedExpression(searchStr string, expressionType ExpressionType) (Expr
 	}, nil
 }
 
-func makeUnsignedExpression(searchStr string, expressionType ExpressionType) (Expression, error) {
+func makeUnsignedExpression(searchStr string, expressionType Type) (Expression, error) {
 	if expressionType == Regex {
 		return nil, fmt.Errorf("target type (numeric) does not support %s filters", expressionType)
 	}
@@ -101,7 +101,7 @@ func makeUnsignedExpression(searchStr string, expressionType ExpressionType) (Ex
 }
 
 // MakeExpression creates an expression based on an expression type
-func MakeExpression(filterType ExpressionType, expressionSearchStr string, target interface{}) (exp Expression, err error) {
+func MakeExpression(filterType Type, expressionSearchStr string, target interface{}) (exp Expression, err error) {
 	switch t := target.(type) {
 	case uint64:
 		return makeUnsignedExpression(expressionSearchStr, filterType)

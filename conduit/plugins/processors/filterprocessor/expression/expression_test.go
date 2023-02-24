@@ -11,11 +11,11 @@ import (
 
 func TestExpression(t *testing.T) {
 	// used at the end to make sure we covered all filter types
-	allCovered := make(map[ExpressionType]interface{})
+	allCovered := make(map[Type]interface{})
 
 	testcases := []struct {
 		name            string
-		expressionType  ExpressionType
+		expressionType  Type
 		searchString    string
 		targetInterface interface{}
 		input           interface{}
