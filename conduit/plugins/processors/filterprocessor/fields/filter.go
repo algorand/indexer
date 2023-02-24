@@ -28,69 +28,41 @@ type Filter struct {
 	Searchers []*Searcher
 }
 
+func (f Filter) matches(txn *sdk.SignedTxnWithAD) (bool, error) {
+	numMatches := 0
+	for _, fs := range f.Searchers {
+		b, err := fs.search(txn)
+		if err != nil {
+			return false, err
+		}
+		if b {
+			numMatches++
+		}
+	}
+
+	switch f.Op {
+	case noneFieldOperation:
+		return numMatches == 0, nil
+	case anyFieldOperation:
+		return numMatches > 0, nil
+	case allFieldOperation:
+		return numMatches == len(f.Searchers), nil
+	default:
+		return false, fmt.Errorf("unknown operation: %s", f.Op)
+	}
+}
+
 // SearchAndFilter searches through the block data and applies the operation to the results
 func (f Filter) SearchAndFilter(payset []sdk.SignedTxnInBlock) ([]sdk.SignedTxnInBlock, error) {
 	var result []sdk.SignedTxnInBlock
-	switch f.Op {
-	case noneFieldOperation:
-		for _, txn := range payset {
-
-			allFalse := true
-			for _, fs := range f.Searchers {
-				b, err := fs.search(txn)
-				if err != nil {
-					return nil, err
-				}
-				if b {
-					allFalse = false
-					break
-				}
-			}
-
-			if allFalse {
-				result = append(result, txn)
-			}
-
+	for _, txn := range payset {
+		match, err := f.matches(&txn.SignedTxnWithAD)
+		if err != nil {
+			return nil, err
 		}
-		break
-
-	case anyFieldOperation:
-		for _, txn := range payset {
-			for _, fs := range f.Searchers {
-				b, err := fs.search(txn)
-				if err != nil {
-					return nil, err
-				}
-				if b {
-					result = append(result, txn)
-					break
-				}
-			}
+		if match {
+			result = append(result, txn)
 		}
-
-		break
-	case allFieldOperation:
-		for _, txn := range payset {
-
-			allTrue := true
-			for _, fs := range f.Searchers {
-				b, err := fs.search(txn)
-				if err != nil {
-					return nil, err
-				}
-				if !b {
-					allTrue = false
-					break
-				}
-			}
-
-			if allTrue {
-				result = append(result, txn)
-			}
-		}
-		break
-	default:
-		return nil, fmt.Errorf("unknown operation: %s", f.Op)
 	}
 
 	return result, nil

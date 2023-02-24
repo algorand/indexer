@@ -19,9 +19,9 @@ type Searcher struct {
 // This function is ONLY to be used by the filter.field function.
 // The reason being is that without validation of the tag (which is provided by
 // MakeFieldSearcher) then this can panic
-func (f Searcher) search(input sdk.SignedTxnInBlock) (bool, error) {
+func (f Searcher) search(input *sdk.SignedTxnWithAD) (bool, error) {
 
-	val, err := LookupFieldByTag(f.Tag, &input.SignedTxnWithAD)
+	val, err := LookupFieldByTag(f.Tag, input)
 	if err != nil {
 		return false, err
 	}

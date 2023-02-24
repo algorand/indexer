@@ -31,11 +31,9 @@ func TestInternalSearch(t *testing.T) {
 	assert.NoError(t, err)
 
 	result, err := searcher.search(
-		sdk.SignedTxnInBlock{
-			SignedTxnWithAD: sdk.SignedTxnWithAD{
-				SignedTxn: sdk.SignedTxn{
-					AuthAddr: address1,
-				},
+		&sdk.SignedTxnWithAD{
+			SignedTxn: sdk.SignedTxn{
+				AuthAddr: address1,
 			},
 		},
 	)
@@ -44,11 +42,9 @@ func TestInternalSearch(t *testing.T) {
 	assert.True(t, result)
 
 	result, err = searcher.search(
-		sdk.SignedTxnInBlock{
-			SignedTxnWithAD: sdk.SignedTxnWithAD{
-				SignedTxn: sdk.SignedTxn{
-					AuthAddr: address2,
-				},
+		&sdk.SignedTxnWithAD{
+			SignedTxn: sdk.SignedTxn{
+				AuthAddr: address2,
 			},
 		},
 	)
