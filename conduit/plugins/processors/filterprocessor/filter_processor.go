@@ -43,7 +43,7 @@ var sampleConfig string
 func (a *FilterProcessor) Metadata() conduit.Metadata {
 	return conduit.Metadata{
 		Name:         implementationName,
-		Description:  "FilterProcessor Filter Processor",
+		Description:  "Filter transactions out of the results according to a configurable pattern.",
 		Deprecated:   false,
 		SampleConfig: sampleConfig,
 	}
@@ -123,15 +123,14 @@ func (a *FilterProcessor) Close() error {
 
 // Process processes the input data
 func (a *FilterProcessor) Process(input data.BlockData) (data.BlockData, error) {
-
 	var err error
-
+	payset := input.Payset
 	for _, searcher := range a.FieldFilters {
-		input, err = searcher.SearchAndFilter(input)
+		payset, err = searcher.SearchAndFilter(payset)
 		if err != nil {
 			return data.BlockData{}, err
 		}
 	}
-
+	input.Payset = payset
 	return input, err
 }

@@ -3,8 +3,6 @@ package fields
 import (
 	"fmt"
 
-	"github.com/algorand/indexer/data"
-
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
@@ -31,17 +29,17 @@ type Filter struct {
 }
 
 // SearchAndFilter searches through the block data and applies the operation to the results
-func (f Filter) SearchAndFilter(input data.BlockData) (data.BlockData, error) {
-	var newPayset []sdk.SignedTxnInBlock
+func (f Filter) SearchAndFilter(payset []sdk.SignedTxnInBlock) ([]sdk.SignedTxnInBlock, error) {
+	var result []sdk.SignedTxnInBlock
 	switch f.Op {
 	case noneFieldOperation:
-		for _, txn := range input.Payset {
+		for _, txn := range payset {
 
 			allFalse := true
 			for _, fs := range f.Searchers {
 				b, err := fs.search(txn)
 				if err != nil {
-					return data.BlockData{}, err
+					return nil, err
 				}
 				if b {
 					allFalse = false
@@ -50,21 +48,21 @@ func (f Filter) SearchAndFilter(input data.BlockData) (data.BlockData, error) {
 			}
 
 			if allFalse {
-				newPayset = append(newPayset, txn)
+				result = append(result, txn)
 			}
 
 		}
 		break
 
 	case anyFieldOperation:
-		for _, txn := range input.Payset {
+		for _, txn := range payset {
 			for _, fs := range f.Searchers {
 				b, err := fs.search(txn)
 				if err != nil {
-					return data.BlockData{}, err
+					return nil, err
 				}
 				if b {
-					newPayset = append(newPayset, txn)
+					result = append(result, txn)
 					break
 				}
 			}
@@ -72,13 +70,13 @@ func (f Filter) SearchAndFilter(input data.BlockData) (data.BlockData, error) {
 
 		break
 	case allFieldOperation:
-		for _, txn := range input.Payset {
+		for _, txn := range payset {
 
 			allTrue := true
 			for _, fs := range f.Searchers {
 				b, err := fs.search(txn)
 				if err != nil {
-					return data.BlockData{}, err
+					return nil, err
 				}
 				if !b {
 					allTrue = false
@@ -87,15 +85,13 @@ func (f Filter) SearchAndFilter(input data.BlockData) (data.BlockData, error) {
 			}
 
 			if allTrue {
-				newPayset = append(newPayset, txn)
+				result = append(result, txn)
 			}
-
 		}
 		break
 	default:
-		return data.BlockData{}, fmt.Errorf("unknown operation: %s", f.Op)
+		return nil, fmt.Errorf("unknown operation: %s", f.Op)
 	}
 
-	input.Payset = newPayset
-	return input, nil
+	return result, nil
 }
