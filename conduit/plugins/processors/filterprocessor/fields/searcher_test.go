@@ -23,7 +23,7 @@ func TestInternalSearch(t *testing.T) {
 	address1 := sdk.Address{1}
 	address2 := sdk.Address{2}
 
-	var expressionType expression.FilterType = expression.EqualToFilter
+	var expressionType expression.ExpressionType = expression.EqualTo
 	tag := "sgnr"
 	exp, err := expression.MakeExpression(expressionType, address1.String(), "")
 	assert.NoError(t, err)
@@ -55,7 +55,7 @@ func TestInternalSearch(t *testing.T) {
 
 // TestMakeFieldSearcher tests making a field searcher is valid
 func TestMakeFieldSearcher(t *testing.T) {
-	var expressionType expression.FilterType = expression.EqualToFilter
+	var expressionType expression.ExpressionType = expression.EqualTo
 	tag := "sgnr"
 	sampleExpressionStr := "sample"
 	exp, err := expression.MakeExpression(expressionType, sampleExpressionStr, "")
@@ -74,16 +74,16 @@ func TestMakeFieldSearcher(t *testing.T) {
 // TestCheckTagExistsAndHasCorrectFunction tests that the check tag exists and function relation works
 func TestCheckTagExistsAndHasCorrectFunction(t *testing.T) {
 	// check that something that doesn't exist throws an error
-	err := checkTagAndExpressionExist(expression.EqualToFilter, "SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.LoreumIpsum.SDF")
+	err := checkTagAndExpressionExist(expression.EqualTo, "SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.LoreumIpsum.SDF")
 	assert.ErrorContains(t, err, "does not exist in transactions")
 
-	err = checkTagAndExpressionExist(expression.EqualToFilter, "LoreumIpsum")
+	err = checkTagAndExpressionExist(expression.EqualTo, "LoreumIpsum")
 	assert.ErrorContains(t, err, "does not exist in transactions")
 
 	// a made up expression type should throw an error
 	err = checkTagAndExpressionExist("made-up-expression-type", "sgnr")
 	assert.ErrorContains(t, err, "is not supported")
 
-	err = checkTagAndExpressionExist(expression.EqualToFilter, "sgnr")
+	err = checkTagAndExpressionExist(expression.EqualTo, "sgnr")
 	assert.NoError(t, err)
 }

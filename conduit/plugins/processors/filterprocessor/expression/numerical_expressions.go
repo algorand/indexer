@@ -9,7 +9,7 @@ import (
 
 type microAlgoExpression struct {
 	FilterValue basics.MicroAlgos
-	Op          FilterType
+	Op          ExpressionType
 }
 
 func (m microAlgoExpression) Match(input interface{}) (bool, error) {
@@ -20,17 +20,17 @@ func (m microAlgoExpression) Match(input interface{}) (bool, error) {
 	}
 
 	switch m.Op {
-	case LessThanFilter:
+	case LessThan:
 		return inputValue.Raw < m.FilterValue.Raw, nil
-	case LessThanEqualFilter:
+	case LessThanEqual:
 		return inputValue.Raw <= m.FilterValue.Raw, nil
-	case EqualToFilter:
+	case EqualTo:
 		return inputValue.Raw == m.FilterValue.Raw, nil
-	case NotEqualToFilter:
+	case NotEqualTo:
 		return inputValue.Raw != m.FilterValue.Raw, nil
-	case GreaterThanFilter:
+	case GreaterThan:
 		return inputValue.Raw > m.FilterValue.Raw, nil
-	case GreaterThanEqualFilter:
+	case GreaterThanEqual:
 		return inputValue.Raw >= m.FilterValue.Raw, nil
 	default:
 		return false, fmt.Errorf("unknown op: %s", m.Op)
@@ -39,7 +39,7 @@ func (m microAlgoExpression) Match(input interface{}) (bool, error) {
 
 type int64NumericalExpression struct {
 	FilterValue int64
-	Op          FilterType
+	Op          ExpressionType
 }
 
 func (s int64NumericalExpression) Match(input interface{}) (bool, error) {
@@ -49,17 +49,17 @@ func (s int64NumericalExpression) Match(input interface{}) (bool, error) {
 	}
 
 	switch s.Op {
-	case LessThanFilter:
+	case LessThan:
 		return inputValue < s.FilterValue, nil
-	case LessThanEqualFilter:
+	case LessThanEqual:
 		return inputValue <= s.FilterValue, nil
-	case EqualToFilter:
+	case EqualTo:
 		return inputValue == s.FilterValue, nil
-	case NotEqualToFilter:
+	case NotEqualTo:
 		return inputValue != s.FilterValue, nil
-	case GreaterThanFilter:
+	case GreaterThan:
 		return inputValue > s.FilterValue, nil
-	case GreaterThanEqualFilter:
+	case GreaterThanEqual:
 		return inputValue >= s.FilterValue, nil
 	default:
 		return false, fmt.Errorf("unknown op: %s", s.Op)
@@ -69,7 +69,7 @@ func (s int64NumericalExpression) Match(input interface{}) (bool, error) {
 
 type uint64NumericalExpression struct {
 	FilterValue uint64
-	Op          FilterType
+	Op          ExpressionType
 }
 
 func (u uint64NumericalExpression) Match(input interface{}) (bool, error) {
@@ -79,17 +79,17 @@ func (u uint64NumericalExpression) Match(input interface{}) (bool, error) {
 	}
 
 	switch u.Op {
-	case LessThanFilter:
+	case LessThan:
 		return inputValue < u.FilterValue, nil
-	case LessThanEqualFilter:
+	case LessThanEqual:
 		return inputValue <= u.FilterValue, nil
-	case EqualToFilter:
+	case EqualTo:
 		return inputValue == u.FilterValue, nil
-	case NotEqualToFilter:
+	case NotEqualTo:
 		return inputValue != u.FilterValue, nil
-	case GreaterThanFilter:
+	case GreaterThan:
 		return inputValue > u.FilterValue, nil
-	case GreaterThanEqualFilter:
+	case GreaterThanEqual:
 		return inputValue >= u.FilterValue, nil
 
 	default:

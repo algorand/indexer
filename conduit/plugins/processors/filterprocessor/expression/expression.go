@@ -6,36 +6,36 @@ import (
 	"strconv"
 )
 
-// FilterType is the type of the filter (i.e. const, regex, etc)
-type FilterType string
+// ExpressionType is the type of the filter (i.e. const, regex, etc)
+type ExpressionType string
 
 const (
-	// EqualToFilter a filter that applies numerical and string equal to operations
-	EqualToFilter FilterType = "equal"
-	// RegexFilter a filter that applies regex rules to the matching
-	RegexFilter FilterType = "regex"
+	// EqualTo a filter that applies numerical and string equal to operations
+	EqualTo ExpressionType = "equal"
+	// Regex a filter that applies regex rules to the matching
+	Regex ExpressionType = "regex"
 
-	// LessThanFilter a filter that applies numerical less than operation
-	LessThanFilter FilterType = "less-than"
-	// LessThanEqualFilter a filter that applies numerical less than or equal operation
-	LessThanEqualFilter FilterType = "less-than-equal"
-	// GreaterThanFilter a filter that applies numerical greater than operation
-	GreaterThanFilter FilterType = "greater-than"
-	// GreaterThanEqualFilter a filter that applies numerical greater than or equal operation
-	GreaterThanEqualFilter FilterType = "greater-than-equal"
-	// NotEqualToFilter a filter that applies numerical NOT equal to operation
-	NotEqualToFilter FilterType = "not-equal"
+	// LessThan a filter that applies numerical less than operation
+	LessThan ExpressionType = "less-than"
+	// LessThanEqual a filter that applies numerical less than or equal operation
+	LessThanEqual ExpressionType = "less-than-equal"
+	// GreaterThan a filter that applies numerical greater than operation
+	GreaterThan ExpressionType = "greater-than"
+	// GreaterThanEqual a filter that applies numerical greater than or equal operation
+	GreaterThanEqual ExpressionType = "greater-than-equal"
+	// NotEqualTo a filter that applies numerical NOT equal to operation
+	NotEqualTo ExpressionType = "not-equal"
 )
 
 // TypeMap contains all the expression types for validation.
-var TypeMap = map[FilterType]interface{}{
-	RegexFilter:            struct{}{},
-	LessThanFilter:         struct{}{},
-	LessThanEqualFilter:    struct{}{},
-	GreaterThanFilter:      struct{}{},
-	GreaterThanEqualFilter: struct{}{},
-	EqualToFilter:          struct{}{},
-	NotEqualToFilter:       struct{}{},
+var TypeMap = map[ExpressionType]interface{}{
+	Regex:            struct{}{},
+	LessThan:         struct{}{},
+	LessThanEqual:    struct{}{},
+	GreaterThan:      struct{}{},
+	GreaterThanEqual: struct{}{},
+	EqualTo:          struct{}{},
+	NotEqualTo:       struct{}{},
 }
 
 // Expression the expression interface
@@ -56,8 +56,8 @@ func (e *regexExpression) Match(input interface{}) (bool, error) {
 	}
 }
 
-func makeRegexExpression(searchStr string, expressionType FilterType) (Expression, error) {
-	if expressionType != EqualToFilter && expressionType != RegexFilter {
+func makeRegexExpression(searchStr string, expressionType ExpressionType) (Expression, error) {
+	if expressionType != EqualTo && expressionType != Regex {
 		return nil, fmt.Errorf("target type (string) does not support %s filters", expressionType)
 	}
 	r, err := regexp.Compile(searchStr)
@@ -68,8 +68,8 @@ func makeRegexExpression(searchStr string, expressionType FilterType) (Expressio
 	return &regexExpression{Regex: r}, nil
 }
 
-func makeSignedExpression(searchStr string, expressionType FilterType) (Expression, error) {
-	if expressionType == RegexFilter {
+func makeSignedExpression(searchStr string, expressionType ExpressionType) (Expression, error) {
+	if expressionType == Regex {
 		return nil, fmt.Errorf("target type (numeric) does not support %s filters", expressionType)
 	}
 
@@ -84,8 +84,8 @@ func makeSignedExpression(searchStr string, expressionType FilterType) (Expressi
 	}, nil
 }
 
-func makeUnsignedExpression(searchStr string, expressionType FilterType) (Expression, error) {
-	if expressionType == RegexFilter {
+func makeUnsignedExpression(searchStr string, expressionType ExpressionType) (Expression, error) {
+	if expressionType == Regex {
 		return nil, fmt.Errorf("target type (numeric) does not support %s filters", expressionType)
 	}
 
@@ -101,14 +101,14 @@ func makeUnsignedExpression(searchStr string, expressionType FilterType) (Expres
 }
 
 // MakeExpression creates an expression based on an expression type
-func MakeExpression(filterType FilterType, expressionSearchStr string, target interface{}) (exp Expression, err error) {
+func MakeExpression(filterType ExpressionType, expressionSearchStr string, target interface{}) (exp Expression, err error) {
 	switch t := target.(type) {
 	case uint64:
 		return makeUnsignedExpression(expressionSearchStr, filterType)
 	case int64:
 		return makeSignedExpression(expressionSearchStr, filterType)
 	case string:
-		if filterType == EqualToFilter {
+		if filterType == EqualTo {
 			// Equal to for strings is a special case of the regex pattern.
 			expressionSearchStr = fmt.Sprintf("^%s$", regexp.QuoteMeta(expressionSearchStr))
 		}

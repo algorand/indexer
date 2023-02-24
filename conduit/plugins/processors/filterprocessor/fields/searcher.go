@@ -35,7 +35,7 @@ func (f Searcher) search(input *sdk.SignedTxnWithAD) (bool, error) {
 }
 
 // checks that the supplied tag exists in the struct and recovers from any panics
-func checkTagAndExpressionExist(expressionType expression.FilterType, tag string) (outError error) {
+func checkTagAndExpressionExist(expressionType expression.ExpressionType, tag string) (outError error) {
 	_, err := LookupFieldByTag(tag, &sdk.SignedTxnWithAD{})
 
 	if err != nil {
@@ -50,7 +50,7 @@ func checkTagAndExpressionExist(expressionType expression.FilterType, tag string
 }
 
 // MakeFieldSearcher will check that the field exists and that it contains the necessary "conversion" function
-func MakeFieldSearcher(e expression.Expression, expressionType expression.FilterType, tag string) (*Searcher, error) {
+func MakeFieldSearcher(e expression.Expression, expressionType expression.ExpressionType, tag string, searchInner bool) (*Searcher, error) {
 
 	if err := checkTagAndExpressionExist(expressionType, tag); err != nil {
 		return nil, err
