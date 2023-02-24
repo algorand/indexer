@@ -12,8 +12,9 @@ import (
 
 // Searcher searches the struct with an expression
 type Searcher struct {
-	Exp expression.Expression
-	Tag string
+	Exp         expression.Expression
+	Tag         string
+	SearchInner bool
 }
 
 // This function is ONLY to be used by the filter.field function.
@@ -29,6 +30,22 @@ func (f Searcher) search(input *sdk.SignedTxnWithAD) (bool, error) {
 	b, err := f.Exp.Match(val)
 	if err != nil {
 		return false, err
+	}
+
+	if b {
+		return true, err
+	} else if f.SearchInner {
+		// Search for matches in inner transactions
+		var innerMatch bool
+		for i := range input.EvalDelta.InnerTxns {
+			innerMatch, err = f.search(&input.EvalDelta.InnerTxns[i])
+			if err != nil {
+				return false, err
+			}
+			if innerMatch {
+				return true, nil
+			}
+		}
 	}
 
 	return b, nil
@@ -56,5 +73,5 @@ func MakeFieldSearcher(e expression.Expression, expressionType expression.Expres
 		return nil, err
 	}
 
-	return &Searcher{Exp: e, Tag: tag}, nil
+	return &Searcher{Exp: e, Tag: tag, SearchInner: searchInner}, nil
 }
