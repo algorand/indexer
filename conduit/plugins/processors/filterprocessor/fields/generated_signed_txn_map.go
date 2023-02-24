@@ -5,7 +5,7 @@ package fields
 import (
 	"encoding/base64"
 	"fmt"
-	
+
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
