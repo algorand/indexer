@@ -21,7 +21,7 @@ type Searcher struct {
 // MakeFieldSearcher) then this can panic
 func (f Searcher) search(input sdk.SignedTxnInBlock) (bool, error) {
 
-	val, err := LookupFieldByTag(f.Tag, &input)
+	val, err := LookupFieldByTag(f.Tag, &input.SignedTxnWithAD)
 	if err != nil {
 		return false, err
 	}
@@ -36,7 +36,7 @@ func (f Searcher) search(input sdk.SignedTxnInBlock) (bool, error) {
 
 // checks that the supplied tag exists in the struct and recovers from any panics
 func checkTagAndExpressionExist(expressionType expression.FilterType, tag string) (outError error) {
-	_, err := LookupFieldByTag(tag, &sdk.SignedTxnInBlock{})
+	_, err := LookupFieldByTag(tag, &sdk.SignedTxnWithAD{})
 
 	if err != nil {
 		return fmt.Errorf("%s does not exist in transactions.SignedTxnInBlock struct", tag)

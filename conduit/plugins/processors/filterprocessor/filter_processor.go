@@ -84,7 +84,7 @@ func (a *FilterProcessor) Init(ctx context.Context, _ data.InitProvider, cfg plu
 
 			for _, subConfig := range subConfigs {
 
-				t, err := fields.LookupFieldByTag(subConfig.FilterTag, &sdk.SignedTxnInBlock{})
+				t, err := fields.LookupFieldByTag(subConfig.FilterTag, &sdk.SignedTxnWithAD{})
 				if err != nil {
 					return err
 				}
