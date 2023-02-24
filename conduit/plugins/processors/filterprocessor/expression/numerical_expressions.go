@@ -12,7 +12,7 @@ type microAlgoExpression struct {
 	Op          FilterType
 }
 
-func (m microAlgoExpression) Search(input interface{}) (bool, error) {
+func (m microAlgoExpression) Match(input interface{}) (bool, error) {
 
 	inputValue, ok := input.(basics.MicroAlgos)
 	if !ok {
@@ -42,7 +42,7 @@ type int64NumericalExpression struct {
 	Op          FilterType
 }
 
-func (s int64NumericalExpression) Search(input interface{}) (bool, error) {
+func (s int64NumericalExpression) Match(input interface{}) (bool, error) {
 	inputValue, ok := input.(int64)
 	if !ok {
 		return false, fmt.Errorf("unexpected numeric search input \"%v\"", input)
@@ -72,7 +72,7 @@ type uint64NumericalExpression struct {
 	Op          FilterType
 }
 
-func (u uint64NumericalExpression) Search(input interface{}) (bool, error) {
+func (u uint64NumericalExpression) Match(input interface{}) (bool, error) {
 	inputValue, ok := input.(uint64)
 	if !ok {
 		return false, fmt.Errorf("unexpected numeric search input \"%v\"", input)

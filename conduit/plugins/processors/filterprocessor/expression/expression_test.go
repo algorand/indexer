@@ -382,7 +382,7 @@ func TestExpression(t *testing.T) {
 			}
 			require.NoError(t, err)
 
-			match, err := exp.Search(tc.input)
+			match, err := exp.Match(tc.input)
 			if tc.searchErr != "" {
 				assert.ErrorContains(t, err, tc.searchErr)
 				return
@@ -407,6 +407,6 @@ func BenchmarkSearch(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		exp.Search("11")
+		exp.Match("11")
 	}
 }

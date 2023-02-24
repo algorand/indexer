@@ -40,14 +40,14 @@ var TypeMap = map[FilterType]interface{}{
 
 // Expression the expression interface
 type Expression interface {
-	Search(input interface{}) (bool, error)
+	Match(input interface{}) (bool, error)
 }
 
 type regexExpression struct {
 	Regex *regexp.Regexp
 }
 
-func (e *regexExpression) Search(input interface{}) (bool, error) {
+func (e *regexExpression) Match(input interface{}) (bool, error) {
 	switch v := input.(type) {
 	case string:
 		return e.Regex.MatchString(v), nil

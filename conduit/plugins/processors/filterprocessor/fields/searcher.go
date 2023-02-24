@@ -26,7 +26,7 @@ func (f Searcher) search(input *sdk.SignedTxnWithAD) (bool, error) {
 		return false, err
 	}
 
-	b, err := f.Exp.Search(val)
+	b, err := f.Exp.Match(val)
 	if err != nil {
 		return false, err
 	}
