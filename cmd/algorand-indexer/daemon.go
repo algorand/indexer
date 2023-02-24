@@ -378,6 +378,7 @@ func makeConduitConfig(dCfg *daemonConfig, nextRound uint64) pipeline.Config {
 		Importer: pipeline.NameConfigPair{
 			Name: "algod",
 			Config: map[string]interface{}{
+				"mode":    "archival",
 				"netaddr": dCfg.algodAddr,
 				"token":   dCfg.algodToken,
 			},
