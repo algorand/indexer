@@ -101,18 +101,22 @@ func makeUnsignedExpression(searchStr string, expressionType Type) (Expression, 
 }
 
 // MakeExpression creates an expression based on an expression type
-func MakeExpression(filterType Type, expressionSearchStr string, target interface{}) (exp Expression, err error) {
+func MakeExpression(expressionType Type, expressionSearchStr string, target interface{}) (exp Expression, err error) {
+	if _, ok := TypeMap[expressionType]; !ok {
+		return nil, fmt.Errorf("expression type (%s) is not supported", expressionType)
+	}
+
 	switch t := target.(type) {
 	case uint64:
-		return makeUnsignedExpression(expressionSearchStr, filterType)
+		return makeUnsignedExpression(expressionSearchStr, expressionType)
 	case int64:
-		return makeSignedExpression(expressionSearchStr, filterType)
+		return makeSignedExpression(expressionSearchStr, expressionType)
 	case string:
-		if filterType == EqualTo {
+		if expressionType == EqualTo {
 			// Equal to for strings is a special case of the regex pattern.
 			expressionSearchStr = fmt.Sprintf("^%s$", regexp.QuoteMeta(expressionSearchStr))
 		}
-		return makeRegexExpression(expressionSearchStr, filterType)
+		return makeRegexExpression(expressionSearchStr, expressionType)
 
 	default:
 		return nil, fmt.Errorf("unknown expression type: %T", t)

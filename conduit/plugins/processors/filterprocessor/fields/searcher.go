@@ -67,6 +67,7 @@ func checkTagAndExpressionExist(expressionType expression.Type, tag string) (out
 }
 
 // MakeFieldSearcher will check that the field exists and that it contains the necessary "conversion" function
+// TODO: Remove expressionType. It is validated when the expression is created.
 func MakeFieldSearcher(e expression.Expression, expressionType expression.Type, tag string, searchInner bool) (*Searcher, error) {
 
 	if err := checkTagAndExpressionExist(expressionType, tag); err != nil {
