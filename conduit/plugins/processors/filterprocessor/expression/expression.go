@@ -56,6 +56,19 @@ func (e *regexExpression) Match(input interface{}) (bool, error) {
 	}
 }
 
+type stringEqualExpression struct {
+	Str string
+}
+
+func (e *stringEqualExpression) Match(input interface{}) (bool, error) {
+	switch v := input.(type) {
+	case string:
+		return e.Str == v, nil
+	default:
+		return false, fmt.Errorf("unexpected regex search input type (%T)", v)
+	}
+}
+
 func makeRegexExpression(searchStr string, expressionType Type) (Expression, error) {
 	if expressionType != EqualTo && expressionType != Regex {
 		return nil, fmt.Errorf("target type (string) does not support %s filters", expressionType)
@@ -113,8 +126,7 @@ func MakeExpression(expressionType Type, expressionSearchStr string, target inte
 		return makeSignedExpression(expressionSearchStr, expressionType)
 	case string:
 		if expressionType == EqualTo {
-			// Equal to for strings is a special case of the regex pattern.
-			expressionSearchStr = fmt.Sprintf("^%s$", regexp.QuoteMeta(expressionSearchStr))
+			return &stringEqualExpression{Str: expressionSearchStr}, nil
 		}
 		return makeRegexExpression(expressionSearchStr, expressionType)
 
