@@ -6,6 +6,7 @@ ignore:
   - "idb/mocks"
   - "idb/dummy"
   - "util/test"
+  - "conduit/plugins/processors/filterprocessor/fields/generated_signed_txn_map.go"
 
 coverage:
   precision: 2
