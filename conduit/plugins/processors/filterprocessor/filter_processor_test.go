@@ -1023,7 +1023,7 @@ filters:
 
 	output, err := fp.Process(bd)
 	require.NoError(t, err)
-	assert.Subset(t, output.Payset, []sdk.SignedTxnInBlock{bd.Payset[0], bd.Payset[1]})
+	assert.Equal(t, output.Payset, []sdk.SignedTxnInBlock{bd.Payset[0], bd.Payset[1]})
 }
 
 func TestFilterProcessor_SearchInner(t *testing.T) {
@@ -1056,5 +1056,5 @@ filters:
 
 	output, err := fp.Process(bd)
 	require.NoError(t, err)
-	assert.Subset(t, output.Payset, []sdk.SignedTxnInBlock{bd.Payset[1]})
+	assert.Equal(t, output.Payset, []sdk.SignedTxnInBlock{bd.Payset[1]})
 }
