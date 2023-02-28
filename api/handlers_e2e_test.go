@@ -2442,3 +2442,133 @@ func TestApplicationLocal(t *testing.T) {
 	assert.Equal(t, uint64(7), *(*accountC.Account.AppsLocalState)[0].ClosedOutAtRound)
 	assert.Equal(t, uint64(1), (*accountC.Account.AppsLocalState)[0].Schema.NumByteSlice)
 }
+
+func TestAccounts(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	defer shutdownFunc()
+
+	serverCtx, serverCancel := context.WithCancel(context.Background())
+	defer serverCancel()
+	opts := defaultOpts
+	listenAddr := "localhost:8888"
+	go Serve(serverCtx, listenAddr, db, nil, logrus.New(), opts)
+
+	waitForServer(t, listenAddr)
+
+	// make a real HTTP request
+	makeReq := func(t *testing.T, path string, includeDeleted bool) (*http.Response, []byte) {
+		t.Log("making HTTP request path", path)
+		req := fmt.Sprintf("http://%s%s", listenAddr, path)
+		if includeDeleted {
+			req = fmt.Sprintf("%s&include-all=true", req)
+		}
+		resp, err := http.Get(req)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+		require.NoError(t, err)
+		return resp, body
+	}
+
+	// genesis account
+	path := fmt.Sprintf("/v2/accounts/%s?pretty", test.AccountA.String())
+	resp, data := makeReq(t, path, false)
+	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
+	var account generated.AccountResponse
+	err := json.Decode(data, &account)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(0), *account.Account.CreatedAtRound)
+	assert.False(t, *account.Account.Deleted)
+
+	//createAcct := test.MakePaymentTxn(1, 100, 0, 0, 0, 0, test.AccountA, test.AccountE, basics.Address{}, basics.Address{})
+	//closeAcct := test.MakePaymentTxn(1, 0, 100, 0, 0, 0, test.AccountE, test.AccountA, test.AccountA, basics.Address{})
+	//
+	//// account create close create close
+	//txns := []transactions.SignedTxnWithAD{createAcct, closeAcct, createAcct, closeAcct}
+	//prevHeader := test.MakeGenesisBlock().BlockHeader
+	//for _, txn := range txns {
+	//	block, err := test.MakeBlockForTxns(prevHeader, &txn)
+	//	require.NoError(t, err)
+	//	err = proc(&rpcs.EncodedBlockCert{Block: block})
+	//	require.NoError(t, err)
+	//	prevHeader = block.BlockHeader
+	//}
+
+	for i := 1; i <= 4; i++ {
+		vb, err := test.ReadValidatedBlockFromFile(fmt.Sprintf("test_resources/validated_blocks/Accounts%d.vb", i))
+		require.NoError(t, err)
+		err = db.AddBlock(&vb)
+		require.NoError(t, err)
+	}
+
+	path = fmt.Sprintf("/v2/accounts/%s?pretty", test.AccountE.String())
+	resp, data = makeReq(t, path, false)
+	require.Equal(t, http.StatusNotFound, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
+
+	const expectedAssetIdx = 5
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/Accounts5.vb")
+	require.NoError(t, err)
+	err = db.AddBlock(&vb)
+	require.NoError(t, err)
+	stxn, _, err := util.DecodeSignedTxn(vb.Block.BlockHeader, vb.Block.Payset[0])
+	require.NoError(t, err)
+	assetID := crypto.TransactionIDString(stxn.Txn)
+	//createAsset := test.MakeAssetConfigTxn(0, 1000000000000, 0, false, "bogo", "bogocoin", "http://bogocoin.com", test.AccountA)
+	//block, err := test.MakeBlockForTxns(prevHeader, &createAsset)
+	//require.NoError(t, err)
+	//block.BlockHeader.Round = 5
+	//err = proc(&rpcs.EncodedBlockCert{Block: block})
+	//require.NoError(t, err)
+
+	path = fmt.Sprintf("/v2/transactions/%s?pretty", assetID)
+	resp, data = makeReq(t, path, false)
+	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
+	var txn generated.TransactionResponse
+	err = json.Decode(data, &txn)
+	nameb64 := *txn.Transaction.AssetConfigTransaction.Params.NameB64
+	unitNameb64 := *txn.Transaction.AssetConfigTransaction.Params.UnitNameB64
+	require.NoError(t, err)
+	assert.Equal(t, uint64(0), txn.Transaction.AssetConfigTransaction.Params.Decimals)
+	assert.False(t, *txn.Transaction.AssetConfigTransaction.Params.DefaultFrozen)
+	assert.Equal(t, "bogocoin", *txn.Transaction.AssetConfigTransaction.Params.Name)
+	assert.Equal(t, "Ym9nb2NvaW4=", base64.StdEncoding.EncodeToString(nameb64))
+	assert.Equal(t, test.AccountA.String(), *txn.Transaction.AssetConfigTransaction.Params.Reserve)
+	assert.Equal(t, uint64(1000000000000), txn.Transaction.AssetConfigTransaction.Params.Total)
+	assert.Equal(t, "bogo", *txn.Transaction.AssetConfigTransaction.Params.UnitName)
+	assert.Equal(t, uint64(expectedAssetIdx), *txn.Transaction.CreatedAssetIndex)
+	assert.Equal(t, "Ym9nbw==", base64.StdEncoding.EncodeToString(unitNameb64))
+
+	path = fmt.Sprintf("/v2/assets/%d?pretty", 0)
+	resp, data = makeReq(t, path, false)
+	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
+	var asset generated.AssetResponse
+	err = json.Decode(data, &asset)
+	require.NoError(t, err)
+	nameb64 = *asset.Asset.Params.NameB64
+	unitNameb64 = *asset.Asset.Params.UnitNameB64
+	assert.Equal(t, uint64(0), asset.Asset.Params.Decimals)
+	assert.False(t, *asset.Asset.Params.DefaultFrozen)
+	assert.Equal(t, "bogocoin", *asset.Asset.Params.Name)
+	assert.Equal(t, "Ym9nb2NvaW4=", base64.StdEncoding.EncodeToString(nameb64))
+	assert.Equal(t, test.AccountA.String(), *asset.Asset.Params.Reserve)
+	assert.Equal(t, uint64(1000000000000), asset.Asset.Params.Total)
+	assert.Equal(t, "bogo", *asset.Asset.Params.UnitName)
+	assert.Equal(t, "Ym9nbw==", base64.StdEncoding.EncodeToString(unitNameb64))
+
+	path = fmt.Sprintf("/v2/accounts/%s?pretty", test.AccountA.String())
+	resp, data = makeReq(t, path, false)
+	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
+	var acctA generated.AccountResponse
+	err = json.Decode(data, &acctA)
+	require.NoError(t, err)
+	nameb64 = *(*acctA.Account.CreatedAssets)[0].Params.NameB64
+	unitNameb64 = *(*acctA.Account.CreatedAssets)[0].Params.UnitNameB64
+	assert.Equal(t, uint64(0), (*acctA.Account.CreatedAssets)[0].Params.Decimals)
+	assert.False(t, *(*acctA.Account.CreatedAssets)[0].Params.DefaultFrozen)
+	assert.Equal(t, "bogocoin", *(*acctA.Account.CreatedAssets)[0].Params.Name)
+	assert.Equal(t, "Ym9nb2NvaW4=", base64.StdEncoding.EncodeToString(nameb64))
+	assert.Equal(t, test.AccountA.String(), *(*acctA.Account.CreatedAssets)[0].Params.Reserve)
+	assert.Equal(t, uint64(1000000000000), (*acctA.Account.CreatedAssets)[0].Params.Total)
+	assert.Equal(t, "bogo", *(*acctA.Account.CreatedAssets)[0].Params.UnitName)
+	assert.Equal(t, "Ym9nbw==", base64.StdEncoding.EncodeToString(unitNameb64))
+}
