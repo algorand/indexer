@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed" // used to embed config
 	"fmt"
+	"github.com/algorand/go-algorand-sdk/v2/client/v2/common"
 	"net/url"
 	"reflect"
 	"time"
@@ -154,6 +155,18 @@ func (algodImp *algodImporter) Close() error {
 	return nil
 }
 
+func (algodImp *algodImporter) getDelta(rnd uint64) (sdk.LedgerStateDelta, error) {
+	var delta sdk.LedgerStateDelta
+	params := algod.GetLedgerStateDeltaParams{Format: "msgp"}
+	data, err := (*common.Client)(algodImp.aclient).GetRaw(algodImp.ctx, fmt.Sprintf("/v2/deltas/%d", rnd), params, nil)
+	if err != nil {
+		return delta, err
+	}
+
+	err = msgpack.Decode(data, &delta)
+	return delta, err
+}
+
 func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 	var blockbytes []byte
 	var err error
@@ -194,7 +207,7 @@ func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 			// else converted over
 			// Round 0 has no delta associated with it
 			if rnd != 0 {
-				delta, err := algodImp.aclient.GetLedgerStateDelta(rnd).Do(algodImp.ctx)
+				delta, err := algodImp.getDelta(rnd)
 				if err != nil {
 					algodImp.logger.Errorf(
 						"r=%d error getting delta %d", r, rnd)
