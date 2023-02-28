@@ -31,12 +31,12 @@ type SubConfig struct {
 	ExpressionType expression.Type `yaml:"expression-type"`
 	// <code>expression</code> is the user-supplied part of the search or comparison.
 	Expression string `yaml:"expression"`
-	// <code>match-inner</code> tells the filter processor to recursively search inner transactions for the expression.
-	SearchInner bool `yaml:"search-inner"`
 }
 
 // Config configuration for the filter processor
 type Config struct {
+	// <code>search-inner</code> configures the filter processor to recursively search inner transactions for expressions.
+	SearchInner bool `yaml:"search-inner"`
 	/* <code>filters</code> are a list of SubConfig objects with an operation acting as the string key in the map
 
 	filters:
