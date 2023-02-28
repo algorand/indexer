@@ -157,13 +157,15 @@ func (algodImp *algodImporter) Close() error {
 
 func (algodImp *algodImporter) getDelta(rnd uint64) (sdk.LedgerStateDelta, error) {
 	var delta sdk.LedgerStateDelta
-	params := algod.GetLedgerStateDeltaParams{Format: "msgp"}
-	data, err := (*common.Client)(algodImp.aclient).GetRaw(algodImp.ctx, fmt.Sprintf("/v2/deltas/%d", rnd), params, nil)
+	params := struct {
+		Format string `url:"format,omitempty"`
+	}{Format: "msgp"}
+	bytes, err := (*common.Client)(algodImp.aclient).GetRaw(algodImp.ctx, fmt.Sprintf("/v2/deltas/%d", rnd), params, nil)
 	if err != nil {
 		return delta, err
 	}
 
-	err = msgpack.Decode(data, &delta)
+	err = msgpack.Decode(bytes, &delta)
 	return delta, err
 }
 

@@ -92,6 +92,10 @@ github.com/algorand/go-algorand-sdk/v2 v2.0.0-20230209164439-140b997ed9ee h1:OGE
 github.com/algorand/go-algorand-sdk/v2 v2.0.0-20230209164439-140b997ed9ee/go.mod h1:Nt3EHpP8AznLs0/EFfhr0/xsVf5ucnvjNeRygGgbUzM=
 github.com/algorand/go-algorand-sdk/v2 v2.0.0-20230216185416-22ef3b66c617 h1:IOqgNBpxSk23ixJzysAYqRYz04rAE2+d1DJI1sD+z8M=
 github.com/algorand/go-algorand-sdk/v2 v2.0.0-20230216185416-22ef3b66c617/go.mod h1:Nt3EHpP8AznLs0/EFfhr0/xsVf5ucnvjNeRygGgbUzM=
+github.com/algorand/go-algorand-sdk/v2 v2.0.0-20230228201805-5b8c99b1412c h1:KAX6gb3+DLCTBcVhjDtuhcdbCeKnwIYKdj5Dv2JA/nI=
+github.com/algorand/go-algorand-sdk/v2 v2.0.0-20230228201805-5b8c99b1412c/go.mod h1:Nt3EHpP8AznLs0/EFfhr0/xsVf5ucnvjNeRygGgbUzM=
+github.com/algorand/go-algorand-sdk/v2 v2.0.0 h1:hfi+YrzcaH20mrjdIQYOPFKPlJ/ULq9KLhLG9I6LJEY=
+github.com/algorand/go-algorand-sdk/v2 v2.0.0/go.mod h1:Nt3EHpP8AznLs0/EFfhr0/xsVf5ucnvjNeRygGgbUzM=
 github.com/algorand/go-codec v1.1.8 h1:XDSreeeZY8gMst6Edz4RBkl08/DGMJOeHYkoXL2B7wI=
 github.com/algorand/go-codec v1.1.8/go.mod h1:XhzVs6VVyWMLu6cApb9/192gBjGRVGm5cX5j203Heg4=
 github.com/algorand/go-codec/codec v1.1.8 h1:lsFuhcOH2LiEhpBH3BVUUkdevVmwCRyvb7FCAAPeY6U=
