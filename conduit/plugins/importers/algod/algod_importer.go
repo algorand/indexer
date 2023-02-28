@@ -4,7 +4,6 @@ import (
 	"context"
 	_ "embed" // used to embed config
 	"fmt"
-	"github.com/algorand/go-algorand-sdk/v2/client/v2/common"
 	"net/url"
 	"reflect"
 	"time"
@@ -19,6 +18,7 @@ import (
 	"github.com/algorand/indexer/data"
 
 	"github.com/algorand/go-algorand-sdk/v2/client/v2/algod"
+	"github.com/algorand/go-algorand-sdk/v2/client/v2/common"
 	"github.com/algorand/go-algorand-sdk/v2/client/v2/common/models"
 	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
 	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
