@@ -1571,7 +1571,7 @@ func TestGetBlocksTransactionsLimit(t *testing.T) {
 	defer serverCancel()
 	opts := defaultOpts
 	opts.MaxTransactionsLimit = uint64(maxTxns)
-	listenAddr := "localhost:8888"
+	listenAddr := "localhost:8894"
 	go Serve(serverCtx, listenAddr, db, nil, logrus.New(), opts)
 
 	waitForServer(t, listenAddr)
@@ -2130,7 +2130,7 @@ func TestBoxCreateMutateDeleteAgainstHandler(t *testing.T) {
 	runBoxCreateMutateDelete(t, compareAppBoxesAgainstHandler)
 }
 
-func makeReq(t *testing.T, listenAddr string, path string, includeDeleted bool) (*http.Response, []byte) {
+func makeRequest(t *testing.T, listenAddr string, path string, includeDeleted bool) (*http.Response, []byte) {
 	// make a real HTTP request
 	t.Log("making HTTP request path", path)
 	req := fmt.Sprintf("http://%s%s?pretty", listenAddr, path)
@@ -2145,13 +2145,14 @@ func makeReq(t *testing.T, listenAddr string, path string, includeDeleted bool) 
 	return resp, body
 }
 
+// recreate tests from  common.sh/create_delete_tests()
 func TestAppDelete(t *testing.T) {
 	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
 	defer shutdownFunc()
 	serverCtx, serverCancel := context.WithCancel(context.Background())
 	defer serverCancel()
 	opts := defaultOpts
-	listenAddr := "localhost:8888"
+	listenAddr := "localhost:8890"
 	go Serve(serverCtx, listenAddr, db, nil, logrus.New(), opts)
 
 	waitForServer(t, listenAddr)
@@ -2198,7 +2199,7 @@ func TestAppDelete(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			path := fmt.Sprintf("/v2/applications/%d", tc.appID)
-			resp, data := makeReq(t, listenAddr, path, tc.includeDeleted)
+			resp, data := makeRequest(t, listenAddr, path, tc.includeDeleted)
 			if resp.StatusCode != http.StatusOK {
 				require.Equal(t, tc.statusCode, resp.StatusCode)
 				return
@@ -2220,14 +2221,14 @@ func TestAppDelete(t *testing.T) {
 
 	// deleted application excluded
 	path := fmt.Sprintf("/v2/accounts/%s", test.AccountA.String())
-	resp, data := makeReq(t, listenAddr, path, false)
+	resp, data := makeRequest(t, listenAddr, path, false)
 	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
 	var account generated.AccountResponse
 	err = json.Decode(data, &account)
 	require.NoError(t, err)
 	assert.Nil(t, account.Account.CreatedApps)
 	//	deleted application include
-	resp, data = makeReq(t, listenAddr, path, true)
+	resp, data = makeRequest(t, listenAddr, path, true)
 	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
 	err = json.Decode(data, &account)
 	require.NoError(t, err)
@@ -2237,7 +2238,7 @@ func TestAppDelete(t *testing.T) {
 
 	//	query account with an app
 	path = fmt.Sprintf("/v2/accounts/%s", test.AccountB.String())
-	resp, data = makeReq(t, listenAddr, path, false)
+	resp, data = makeRequest(t, listenAddr, path, false)
 	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
 	var accountB generated.AccountResponse
 	err = json.Decode(data, &accountB)
@@ -2253,7 +2254,7 @@ func TestAssetDelete(t *testing.T) {
 	serverCtx, serverCancel := context.WithCancel(context.Background())
 	defer serverCancel()
 	opts := defaultOpts
-	listenAddr := "localhost:8888"
+	listenAddr := "localhost:8891"
 	go Serve(serverCtx, listenAddr, db, nil, logrus.New(), opts)
 
 	waitForServer(t, listenAddr)
@@ -2288,7 +2289,7 @@ func TestAssetDelete(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			path := fmt.Sprintf("/v2/assets/%d", tc.assetID)
-			resp, data := makeReq(t, listenAddr, path, tc.includeDeleted)
+			resp, data := makeRequest(t, listenAddr, path, tc.includeDeleted)
 			if resp.StatusCode != http.StatusOK {
 				require.Equal(t, tc.statusCode, resp.StatusCode)
 				return
@@ -2310,7 +2311,7 @@ func TestAssetDelete(t *testing.T) {
 
 	// deleted asset excluded
 	path := fmt.Sprintf("/v2/accounts/%s", test.AccountA)
-	resp, data := makeReq(t, listenAddr, path, false)
+	resp, data := makeRequest(t, listenAddr, path, false)
 	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
 	var account generated.AccountResponse
 	err = json.Decode(data, &account)
@@ -2318,7 +2319,7 @@ func TestAssetDelete(t *testing.T) {
 	assert.Nil(t, account.Account.Assets)
 
 	// deleted asset include
-	resp, data = makeReq(t, listenAddr, path, true)
+	resp, data = makeRequest(t, listenAddr, path, true)
 	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
 	err = json.Decode(data, &account)
 	require.NoError(t, err)
@@ -2337,7 +2338,7 @@ func TestApplicationLocal(t *testing.T) {
 	serverCtx, serverCancel := context.WithCancel(context.Background())
 	defer serverCancel()
 	opts := defaultOpts
-	listenAddr := "localhost:8888"
+	listenAddr := "localhost:8892"
 	go Serve(serverCtx, listenAddr, db, nil, logrus.New(), opts)
 
 	waitForServer(t, listenAddr)
@@ -2388,7 +2389,7 @@ func TestApplicationLocal(t *testing.T) {
 	// When // Look up AccountA, which has created and opted in an app
 	///////////
 	path := fmt.Sprintf("/v2/accounts/%s", test.AccountA.String())
-	resp, data := makeReq(t, listenAddr, path, false)
+	resp, data := makeRequest(t, listenAddr, path, false)
 	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
 	var accountA generated.AccountResponse
 	err := json.Decode(data, &accountA)
@@ -2402,7 +2403,7 @@ func TestApplicationLocal(t *testing.T) {
 	///////////
 	// deleted app excluded
 	path = fmt.Sprintf("/v2/accounts/%s", test.AccountB.String())
-	resp, data = makeReq(t, listenAddr, path, false)
+	resp, data = makeRequest(t, listenAddr, path, false)
 	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
 	var accountB generated.AccountResponse
 	err = json.Decode(data, &accountB)
@@ -2410,7 +2411,7 @@ func TestApplicationLocal(t *testing.T) {
 	assert.Nil(t, accountB.Account.CreatedAssets)
 
 	// deleted app included
-	resp, data = makeReq(t, listenAddr, path, true)
+	resp, data = makeRequest(t, listenAddr, path, true)
 	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
 	var accountBfull generated.AccountResponse
 	err = json.Decode(data, &accountBfull)
@@ -2423,7 +2424,7 @@ func TestApplicationLocal(t *testing.T) {
 	// When // Look up AccountC, which has optedin/closedout/optedin an app
 	///////////
 	path = fmt.Sprintf("/v2/accounts/%s", test.AccountC.String())
-	resp, data = makeReq(t, listenAddr, path, true)
+	resp, data = makeRequest(t, listenAddr, path, true)
 	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
 	var accountC generated.AccountResponse
 	err = json.Decode(data, &accountC)
@@ -2440,7 +2441,7 @@ func TestAccounts(t *testing.T) {
 	serverCtx, serverCancel := context.WithCancel(context.Background())
 	defer serverCancel()
 	opts := defaultOpts
-	listenAddr := "localhost:8888"
+	listenAddr := "localhost:8893"
 	go Serve(serverCtx, listenAddr, db, nil, logrus.New(), opts)
 
 	waitForServer(t, listenAddr)
@@ -2449,7 +2450,7 @@ func TestAccounts(t *testing.T) {
 	// When // Looking up a genesis account
 	///////////
 	path := fmt.Sprintf("/v2/accounts/%s", test.AccountA.String())
-	resp, data := makeReq(t, listenAddr, path, false)
+	resp, data := makeRequest(t, listenAddr, path, false)
 	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
 	var account generated.AccountResponse
 	err := json.Decode(data, &account)
@@ -2486,7 +2487,7 @@ func TestAccounts(t *testing.T) {
 	// When // Look up AccountE, we should get a 404 status code
 	///////////
 	path = fmt.Sprintf("/v2/accounts/%s", test.AccountE.String())
-	resp, data = makeReq(t, listenAddr, path, false)
+	resp, data = makeRequest(t, listenAddr, path, false)
 	require.Equal(t, http.StatusNotFound, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
 
 	///////////
@@ -2511,7 +2512,7 @@ func TestAccounts(t *testing.T) {
 	// When // Look up transaction containing this asset
 	///////////
 	path = fmt.Sprintf("/v2/transactions/%s", assetID)
-	resp, data = makeReq(t, listenAddr, path, false)
+	resp, data = makeRequest(t, listenAddr, path, false)
 	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
 	var txn generated.TransactionResponse
 	err = json.Decode(data, &txn)
@@ -2534,7 +2535,7 @@ func TestAccounts(t *testing.T) {
 	// When // Look up the asset
 	///////////
 	path = fmt.Sprintf("/v2/assets/%d", 0)
-	resp, data = makeReq(t, listenAddr, path, false)
+	resp, data = makeRequest(t, listenAddr, path, false)
 	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
 	var asset generated.AssetResponse
 	err = json.Decode(data, &asset)
@@ -2555,7 +2556,7 @@ func TestAccounts(t *testing.T) {
 	// When // Look up the account containing this asset
 	///////////
 	path = fmt.Sprintf("/v2/accounts/%s", test.AccountA.String())
-	resp, data = makeReq(t, listenAddr, path, false)
+	resp, data = makeRequest(t, listenAddr, path, false)
 	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
 	var acctA generated.AccountResponse
 	err = json.Decode(data, &acctA)

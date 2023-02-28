@@ -69,11 +69,6 @@ lint: go-algorand
 fmt:
 	go fmt ./...
 
-integration: cmd/algorand-indexer/algorand-indexer
-	mkdir -p test/blockdata
-	curl -s https://algorand-testdata.s3.amazonaws.com/indexer/test_blockdata/create_destroy.tar.bz2 -o test/blockdata/create_destroy.tar.bz2
-	test/postgres_integration_test.sh
-
 # note: when running e2e tests manually be sure to set the e2e filename:
 # 	'export CI_E2E_FILENAME=rel-nightly'
 # To keep the container running at exit set 'export EXTRA="--keep-alive"',
