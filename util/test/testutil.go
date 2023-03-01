@@ -15,7 +15,6 @@ import (
 
 	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/data/basics"
 )
 
 var quiet = false
@@ -66,7 +65,7 @@ func PrintAssetQuery(db idb.IndexerDb, q idb.AssetsQuery) {
 		util.MaybeFail(ar.Error, "asset query %v\n", ar.Error)
 		pjs, err := json.Marshal(ar.Params)
 		util.MaybeFail(err, "json.Marshal params %v\n", err)
-		var creator basics.Address
+		var creator sdk.Address
 		copy(creator[:], ar.Creator)
 		info("%d %s %s\n", ar.AssetID, creator.String(), pjs)
 		count++
