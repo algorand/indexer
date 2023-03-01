@@ -9,7 +9,6 @@ def follower_indexer_scenario(sourcenet):
         "follower_indexer_scenario",
         importer=importers.FollowerAlgodImporter(sourcenet),
         processors=[
-            processors.BlockEvaluator(),
         ],
         exporter=exporters.PostgresqlExporter(),
     )

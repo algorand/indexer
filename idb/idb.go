@@ -13,7 +13,6 @@ import (
 	"github.com/algorand/indexer/types"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/data/basics"
 )
 
 // TxnRow is metadata relating to one transaction in a transaction query.
@@ -296,7 +295,7 @@ type AccountRow struct {
 
 // MaxAPIResourcesPerAccountError records the offending address and resource count that exceeded the limit.
 type MaxAPIResourcesPerAccountError struct {
-	Address basics.Address
+	Address sdk.Address
 
 	TotalAppLocalStates, TotalAppParams, TotalAssets, TotalAssetParams uint64
 }

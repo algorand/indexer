@@ -6,8 +6,6 @@ import (
 	"testing"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/indexer/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -60,7 +58,7 @@ func TestBasic(t *testing.T) {
 
 // Test that when idb.Transactions() returns stale data the first time, we return an error.
 func TestStaleTransactions1(t *testing.T) {
-	var a basics.Address
+	var a sdk.Address
 	a[0] = 'a'
 
 	account := models.Account{
@@ -73,7 +71,7 @@ func TestStaleTransactions1(t *testing.T) {
 	close(ch)
 
 	db := &mocks.IndexerDb{}
-	db.On("GetSpecialAccounts", mock.Anything).Return(transactions.SpecialAddresses{}, nil)
+	db.On("GetSpecialAccounts", mock.Anything).Return(types.SpecialAddresses{}, nil)
 	db.On("Transactions", mock.Anything, mock.Anything).Return(outCh, uint64(7)).Once()
 
 	account, err := AccountAtRound(context.Background(), account, 6, db)
