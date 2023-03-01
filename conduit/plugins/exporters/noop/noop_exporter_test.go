@@ -10,7 +10,7 @@ import (
 	"github.com/algorand/indexer/conduit/data"
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/exporters"
-	testutil "github.com/algorand/indexer/util/test"
+	"github.com/algorand/indexer/conduit/plugins/tools/testutil"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
