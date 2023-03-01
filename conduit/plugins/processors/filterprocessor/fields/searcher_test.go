@@ -139,7 +139,7 @@ func TestInnerTxnSearch(t *testing.T) {
 		// It should have no match with searchInner: false.
 		matches, err = searcher.search(&txnWithInnerMatch)
 
-		// No match on inner txn
+		// Match on inner txn
 		require.NoError(t, err)
 		assert.Equal(t, matches, true)
 	}
