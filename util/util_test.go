@@ -41,7 +41,7 @@ func TestEncodeToAndFromFile(t *testing.T) {
 		bytes, err := ioutil.ReadFile(pretty)
 		require.NoError(t, err)
 		require.Contains(t, string(bytes), "  \"one\": \"one\",\n")
-		require.Contains(t, string(bytes), "\"0\": \"int-key\"")
+		require.Contains(t, string(bytes), `"0": "int-key"`)
 	}
 
 	{
