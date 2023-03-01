@@ -61,7 +61,7 @@ func maybeGetAccount(t *testing.T, db *IndexerDb, address sdk.Address) *models.A
 // and that there are no problems around passing account address pointers to the postgres
 // driver which could be the same pointer if we are not careful.
 func TestWriteReadAccountData(t *testing.T) {
-	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 
 	data := make(map[sdk.Address]sdk.AccountData)
@@ -218,7 +218,7 @@ func generateAppLocalStateDelta(t *testing.T) sdk.AppLocalStateDelta {
 // and that there are no problems around passing account address pointers to the postgres
 // driver which could be the same pointer if we are not careful.
 func TestWriteReadResources(t *testing.T) {
-	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 
 	type datum struct {

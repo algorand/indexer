@@ -140,7 +140,7 @@ func TestWriterSpecialAccounts(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	block := test.MakeGenesisBlockV2()
+	block := test.MakeGenesisBlock()
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -176,8 +176,8 @@ func TestWriterTxnTableBasic(t *testing.T) {
 		BlockHeader: sdk.BlockHeader{
 			Round:       sdk.Round(2),
 			TimeStamp:   333,
-			GenesisID:   test.MakeGenesisV2().ID(),
-			GenesisHash: test.MakeGenesisV2().Hash(),
+			GenesisID:   test.MakeGenesis().ID(),
+			GenesisHash: test.MakeGenesis().Hash(),
 			RewardsState: sdk.RewardsState{
 				RewardsLevel: 111111,
 			},
@@ -189,7 +189,7 @@ func TestWriterTxnTableBasic(t *testing.T) {
 		Payset: make([]sdk.SignedTxnInBlock, 2),
 	}
 
-	stxnad0 := test.MakePaymentTxnV2(
+	stxnad0 := test.MakePaymentTxn(
 		1000, 1, 0, 0, 0, 0, sdk.Address(test.AccountA), sdk.Address(test.AccountB), sdk.Address{},
 		sdk.Address{})
 	var err error
@@ -197,7 +197,7 @@ func TestWriterTxnTableBasic(t *testing.T) {
 		util.EncodeSignedTxn(block.BlockHeader, stxnad0.SignedTxn, stxnad0.ApplyData)
 	require.NoError(t, err)
 
-	stxnad1 := test.MakeAssetConfigTxnV2(
+	stxnad1 := test.MakeAssetConfigTxn(
 		0, 100, 1, false, "ma", "myasset", "myasset.com", sdk.Address(test.AccountA))
 	block.Payset[1], err =
 		util.EncodeSignedTxn(block.BlockHeader, stxnad1.SignedTxn, stxnad1.ApplyData)
@@ -263,15 +263,15 @@ func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
 
 	block := sdk.Block{
 		BlockHeader: sdk.BlockHeader{
-			GenesisID:   test.MakeGenesisV2().ID(),
-			GenesisHash: test.MakeGenesisV2().Hash(),
+			GenesisID:   test.MakeGenesis().ID(),
+			GenesisHash: test.MakeGenesis().Hash(),
 			UpgradeState: sdk.UpgradeState{
 				CurrentProtocol: "future",
 			},
 		},
 		Payset: make(sdk.Payset, 1),
 	}
-	stxnad := test.MakeAssetTransferTxnV2(1, 2, sdk.Address(test.AccountA), sdk.Address(test.AccountB), sdk.Address(test.AccountC))
+	stxnad := test.MakeAssetTransferTxn(1, 2, sdk.Address(test.AccountA), sdk.Address(test.AccountB), sdk.Address(test.AccountC))
 	var err error
 	block.Payset[0], err = util.EncodeSignedTxn(block.BlockHeader, stxnad.SignedTxn, stxnad.ApplyData)
 	require.NoError(t, err)
@@ -325,8 +325,8 @@ func TestWriterTxnParticipationTable(t *testing.T) {
 		return sdk.Block{
 			BlockHeader: sdk.BlockHeader{
 				Round:       sdk.Round(2),
-				GenesisID:   test.MakeGenesisV2().ID(),
-				GenesisHash: test.MakeGenesisV2().Hash(),
+				GenesisID:   test.MakeGenesis().ID(),
+				GenesisHash: test.MakeGenesis().Hash(),
 				UpgradeState: sdk.UpgradeState{
 					CurrentProtocol: "future",
 				},
@@ -336,13 +336,13 @@ func TestWriterTxnParticipationTable(t *testing.T) {
 
 	var tests []testtype
 	{
-		stxnad0 := test.MakePaymentTxnV2(
+		stxnad0 := test.MakePaymentTxn(
 			1000, 1, 0, 0, 0, 0, sdk.Address(test.AccountA), sdk.Address(test.AccountB), sdk.Address{},
 			sdk.Address{})
 		stib0, err := util.EncodeSignedTxn(makeBlockFunc().BlockHeader, stxnad0.SignedTxn, stxnad0.ApplyData)
 		require.NoError(t, err)
 
-		stxnad1 := test.MakeAssetConfigTxnV2(
+		stxnad1 := test.MakeAssetConfigTxn(
 			0, 100, 1, false, "ma", "myasset", "myasset.com", sdk.Address(test.AccountC))
 		stib1, err := util.EncodeSignedTxn(makeBlockFunc().BlockHeader, stxnad1.SignedTxn, stxnad1.ApplyData)
 		require.NoError(t, err)
@@ -371,7 +371,7 @@ func TestWriterTxnParticipationTable(t *testing.T) {
 		tests = append(tests, testcase)
 	}
 	{
-		stxnad := test.MakeCreateAppTxnV2(sdk.Address(test.AccountA))
+		stxnad := test.MakeCreateAppTxn(sdk.Address(test.AccountA))
 		stxnad.Txn.ApplicationCallTxnFields.Accounts =
 			[]sdk.Address{sdk.Address(test.AccountB), sdk.Address(test.AccountC)}
 		stib, err := util.EncodeSignedTxn(makeBlockFunc().BlockHeader, stxnad.SignedTxn, stxnad.ApplyData)
@@ -626,8 +626,8 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 	block := sdk.Block{
 		BlockHeader: sdk.BlockHeader{
 			Round:       sdk.Round(4),
-			GenesisID:   test.MakeGenesisV2().ID(),
-			GenesisHash: test.MakeGenesisV2().Hash(),
+			GenesisID:   test.MakeGenesis().ID(),
+			GenesisHash: test.MakeGenesis().Hash(),
 			UpgradeState: sdk.UpgradeState{
 				CurrentProtocol: "future",
 			},
@@ -635,7 +635,7 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 		Payset: make(sdk.Payset, 1),
 	}
 
-	stxnad := test.MakePaymentTxnV2(
+	stxnad := test.MakePaymentTxn(
 		1000, 1, 0, 0, 0, 0, sdk.Address(test.AccountA), sdk.Address(test.AccountB), sdk.Address{},
 		sdk.Address{})
 	stxnad.Sig[0] = 5 // set signature so that keytype for account is updated
@@ -1351,7 +1351,7 @@ func TestAddBlockInvalidInnerAsset(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	callWithBadInner := test.MakeCreateAppTxnV2(sdk.Address(test.AccountA))
+	callWithBadInner := test.MakeCreateAppTxn(sdk.Address(test.AccountA))
 	callWithBadInner.ApplyData.EvalDelta.InnerTxns = []sdk.SignedTxnWithAD{
 		{
 			ApplyData: sdk.ApplyData{
@@ -1372,8 +1372,8 @@ func TestAddBlockInvalidInnerAsset(t *testing.T) {
 		},
 	}
 
-	genesisBlock := test.MakeGenesisBlockV2()
-	block, err := test.MakeBlockForTxnsV2(genesisBlock.BlockHeader, &callWithBadInner)
+	genesisBlock := test.MakeGenesisBlock()
+	block, err := test.MakeBlockForTxns(genesisBlock.BlockHeader, &callWithBadInner)
 	require.NoError(t, err)
 
 	err = makeTx(db, func(tx pgx.Tx) error {
@@ -1389,14 +1389,14 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	// App call with inner txns, should be intra 0, 1, 2, 3, 4
 	var appAddr sdk.Address
 	appAddr[1] = 99
-	appCall := test.MakeAppCallWithInnerTxnV2(sdk.Address(test.AccountA), appAddr, sdk.Address(test.AccountB), appAddr, sdk.Address(test.AccountC))
+	appCall := test.MakeAppCallWithInnerTxn(sdk.Address(test.AccountA), appAddr, sdk.Address(test.AccountB), appAddr, sdk.Address(test.AccountC))
 
 	// Asset create call, should have intra = 5
-	assetCreate := test.MakeAssetConfigTxnV2(
+	assetCreate := test.MakeAssetConfigTxn(
 		0, 100, 1, false, "ma", "myasset", "myasset.com", sdk.Address(test.AccountD))
 
-	genesisBlock := test.MakeGenesisBlockV2()
-	block, err := test.MakeBlockForTxnsV2(genesisBlock.BlockHeader, &appCall, &assetCreate)
+	genesisBlock := test.MakeGenesisBlock()
+	block, err := test.MakeBlockForTxns(genesisBlock.BlockHeader, &appCall, &assetCreate)
 	require.NoError(t, err)
 
 	err = makeTx(db, func(tx pgx.Tx) error {
@@ -1525,7 +1525,7 @@ func TestWriterAddBlock0(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	block := test.MakeGenesisBlockV2()
+	block := test.MakeGenesisBlock()
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
