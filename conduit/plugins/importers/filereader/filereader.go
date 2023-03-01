@@ -17,7 +17,6 @@ import (
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/exporters/filewriter"
 	"github.com/algorand/indexer/conduit/plugins/importers"
-	"github.com/algorand/indexer/util"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
@@ -73,7 +72,7 @@ func (r *fileReader) Init(ctx context.Context, cfg plugins.PluginConfig, logger 
 
 	genesisFile := path.Join(r.cfg.BlocksDir, "genesis.json")
 	var genesis sdk.Genesis
-	err = util.DecodeJSONFromFile(genesisFile, &genesis, false)
+	err = filewriter.DecodeJSONFromFile(genesisFile, &genesis, false)
 	if err != nil {
 		return nil, fmt.Errorf("Init(): failed to process genesis file: %w", err)
 	}
@@ -99,7 +98,7 @@ func (r *fileReader) GetBlock(rnd uint64) (data.BlockData, error) {
 		filename := path.Join(r.cfg.BlocksDir, fmt.Sprintf(r.cfg.FilenamePattern, rnd))
 		var blockData data.BlockData
 		start := time.Now()
-		err := util.DecodeJSONFromFile(filename, &blockData, false)
+		err := filewriter.DecodeJSONFromFile(filename, &blockData, false)
 		if err != nil && errors.Is(err, fs.ErrNotExist) {
 			// If the file read failed because the file didn't exist, wait before trying again
 			if attempts == 0 {
