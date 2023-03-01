@@ -3,6 +3,7 @@ package filewriter
 import (
 	"context"
 	"fmt"
+	"os"
 	"path"
 	"testing"
 
@@ -111,6 +112,9 @@ func sendData(t *testing.T, fileExp exporters.Exporter, config string, numRounds
 	block := data.BlockData{
 		BlockHeader: sdk.BlockHeader{
 			Round: 3,
+			StateProofTracking: map[sdk.StateProofType]sdk.StateProofTrackingData{
+				0: {StateProofNextRound: 2},
+			},
 		},
 		Payset:      nil,
 		Delta:       nil,
@@ -130,17 +134,20 @@ func sendData(t *testing.T, fileExp exporters.Exporter, config string, numRounds
 	require.Contains(t, err.Error(), "received round 3, expected round 0")
 
 	// write block to file
-	for i := 0; i < numRounds; i++ {
+	for i := sdk.Round(0); int(i) < numRounds; i++ {
 		block = data.BlockData{
 			BlockHeader: sdk.BlockHeader{
-				Round: sdk.Round(i),
+				Round: i,
+				StateProofTracking: map[sdk.StateProofType]sdk.StateProofTrackingData{
+					0: {StateProofNextRound: i},
+				},
 			},
 			Payset: nil,
 			Delta: &sdk.LedgerStateDelta{
 				PrevTimestamp: 1234,
 			},
 			Certificate: &map[string]interface{}{
-				"Round":  sdk.Round(i),
+				"Round":  i,
 				"Period": 2,
 				"Step":   2,
 			},
@@ -162,10 +169,15 @@ func TestExporterReceive(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		filename := fmt.Sprintf(FilePattern, i)
 		path := fmt.Sprintf("%s/blocks/%s", tempdir, filename)
-		assert.FileExists(t, path)
+		require.FileExists(t, path)
+
+		blockBytes, err := os.ReadFile(path)
+		fmt.Println(string(blockBytes))
+		require.NoError(t, err)
+		assert.NotContains(t, string(blockBytes), " 0: ")
 
 		var blockData data.BlockData
-		err := util.DecodeFromFile(path, &blockData, true)
+		err = util.DecodeJSONFromFile(path, &blockData, true)
 		require.Equal(t, sdk.Round(i), blockData.BlockHeader.Round)
 		require.NoError(t, err)
 		require.NotNil(t, blockData.Certificate)
@@ -197,7 +209,7 @@ func TestPatternOverride(t *testing.T) {
 		assert.FileExists(t, path)
 
 		var blockData data.BlockData
-		err := util.DecodeFromFile(path, &blockData, true)
+		err := util.DecodeJSONFromFile(path, &blockData, true)
 		require.Equal(t, sdk.Round(i), blockData.BlockHeader.Round)
 		require.NoError(t, err)
 		require.NotNil(t, blockData.Certificate)
@@ -223,7 +235,7 @@ func TestDropCertificate(t *testing.T) {
 		path := fmt.Sprintf("%s/%s", tempdir, filename)
 		assert.FileExists(t, path)
 		var blockData data.BlockData
-		err := util.DecodeFromFile(path, &blockData, true)
+		err := util.DecodeJSONFromFile(path, &blockData, true)
 		assert.NoError(t, err)
 		assert.Nil(t, blockData.Certificate)
 	}

@@ -94,7 +94,7 @@ func (exp *fileExporter) Receive(exportData data.BlockData) error {
 		}
 
 		blockFile := path.Join(exp.cfg.BlocksDir, fmt.Sprintf(exp.cfg.FilenamePattern, exportData.Round()))
-		err := util.EncodeToFile(blockFile, exportData, true)
+		err := util.EncodeJSONToFile(blockFile, exportData, true)
 		if err != nil {
 			return fmt.Errorf("Receive(): failed to write file %s: %w", blockFile, err)
 		}
