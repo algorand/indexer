@@ -6,8 +6,8 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/algorand/indexer/conduit"
+	"github.com/algorand/indexer/conduit/data"
 	"github.com/algorand/indexer/conduit/plugins"
-	"github.com/algorand/indexer/data"
 )
 
 // Processor an interface that defines an object that can filter and process transactions

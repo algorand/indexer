@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
+	"github.com/algorand/indexer/conduit/data"
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/exporters"
-	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/util"
 	testutil "github.com/algorand/indexer/util/test"
 

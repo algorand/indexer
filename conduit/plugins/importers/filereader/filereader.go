@@ -13,10 +13,10 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/algorand/indexer/conduit"
+	"github.com/algorand/indexer/conduit/data"
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/exporters/filewriter"
 	"github.com/algorand/indexer/conduit/plugins/importers"
-	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/util"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
