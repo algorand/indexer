@@ -7,12 +7,20 @@ import (
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/processors"
 	"github.com/algorand/indexer/data"
 )
+
+// create an empty block data so that txn fields can be set with less vertical space
+func testBlock(numTxn int) data.BlockData {
+	return data.BlockData{
+		Payset: make([]sdk.SignedTxnInBlock, numTxn),
+	}
+}
 
 // TestFilterProcessor_Init_None
 func TestFilterProcessor_Init_None(t *testing.T) {
@@ -1014,8 +1022,39 @@ filters:
 	)
 
 	output, err := fp.Process(bd)
-	assert.NoError(t, err)
-	assert.Equal(t, 2, len(output.Payset))
-	assert.Equal(t, sampleAddr1, output.Payset[0].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Receiver)
-	assert.Equal(t, sampleAddr2, output.Payset[1].SignedTxnWithAD.SignedTxn.Txn.PaymentTxnFields.Receiver)
+	require.NoError(t, err)
+	assert.Equal(t, output.Payset, []sdk.SignedTxnInBlock{bd.Payset[0], bd.Payset[1]})
+}
+
+func TestFilterProcessor_SearchInner(t *testing.T) {
+	sampleAddr1 := sdk.Address{1}
+	cfg := `---
+search-inner: true
+filters:
+  - any:
+    - tag: txn.snd
+      expression-type: equal
+      expression: "` + sampleAddr1.String() + `"
+`
+
+	fp := FilterProcessor{}
+	err := fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(cfg), logrus.New())
+	require.NoError(t, err)
+
+	bd := testBlock(5)
+	bd.Payset[1].EvalDelta.InnerTxns = []sdk.SignedTxnWithAD{
+		{
+			SignedTxn: sdk.SignedTxn{
+				Txn: sdk.Transaction{
+					Header: sdk.Header{
+						Sender: sampleAddr1,
+					},
+				},
+			},
+		},
+	}
+
+	output, err := fp.Process(bd)
+	require.NoError(t, err)
+	assert.Equal(t, output.Payset, []sdk.SignedTxnInBlock{bd.Payset[1]})
 }

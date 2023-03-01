@@ -12,31 +12,48 @@ import (
 
 // Searcher searches the struct with an expression
 type Searcher struct {
-	Exp expression.Expression
-	Tag string
+	Exp         expression.Expression
+	Tag         string
+	SearchInner bool
 }
 
 // This function is ONLY to be used by the filter.field function.
 // The reason being is that without validation of the tag (which is provided by
 // MakeFieldSearcher) then this can panic
-func (f Searcher) search(input sdk.SignedTxnInBlock) (bool, error) {
+func (f Searcher) search(input *sdk.SignedTxnWithAD) (bool, error) {
 
-	val, err := LookupFieldByTag(f.Tag, &input)
+	val, err := LookupFieldByTag(f.Tag, input)
 	if err != nil {
 		return false, err
 	}
 
-	b, err := f.Exp.Search(val)
+	b, err := f.Exp.Match(val)
 	if err != nil {
 		return false, err
+	}
+
+	if b {
+		return true, err
+	} else if f.SearchInner {
+		// Search for matches in inner transactions
+		var innerMatch bool
+		for i := range input.EvalDelta.InnerTxns {
+			innerMatch, err = f.search(&input.EvalDelta.InnerTxns[i])
+			if err != nil {
+				return false, err
+			}
+			if innerMatch {
+				return true, nil
+			}
+		}
 	}
 
 	return b, nil
 }
 
 // checks that the supplied tag exists in the struct and recovers from any panics
-func checkTagAndExpressionExist(expressionType expression.FilterType, tag string) (outError error) {
-	_, err := LookupFieldByTag(tag, &sdk.SignedTxnInBlock{})
+func checkTagAndExpressionExist(expressionType expression.Type, tag string) (outError error) {
+	_, err := LookupFieldByTag(tag, &sdk.SignedTxnWithAD{})
 
 	if err != nil {
 		return fmt.Errorf("%s does not exist in transactions.SignedTxnInBlock struct", tag)
@@ -50,11 +67,12 @@ func checkTagAndExpressionExist(expressionType expression.FilterType, tag string
 }
 
 // MakeFieldSearcher will check that the field exists and that it contains the necessary "conversion" function
-func MakeFieldSearcher(e expression.Expression, expressionType expression.FilterType, tag string) (*Searcher, error) {
+// TODO: Remove expressionType. It is validated when the expression is created.
+func MakeFieldSearcher(e expression.Expression, expressionType expression.Type, tag string, searchInner bool) (*Searcher, error) {
 
 	if err := checkTagAndExpressionExist(expressionType, tag); err != nil {
 		return nil, err
 	}
 
-	return &Searcher{Exp: e, Tag: tag}, nil
+	return &Searcher{Exp: e, Tag: tag, SearchInner: searchInner}, nil
 }

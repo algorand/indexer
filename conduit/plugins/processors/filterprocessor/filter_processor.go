@@ -44,7 +44,7 @@ var sampleConfig string
 func (a *FilterProcessor) Metadata() conduit.Metadata {
 	return conduit.Metadata{
 		Name:         PluginName,
-		Description:  "FilterProcessor Filter Processor",
+		Description:  "Filter transactions out of the results according to a configurable pattern.",
 		Deprecated:   false,
 		SampleConfig: sampleConfig,
 	}
@@ -85,7 +85,7 @@ func (a *FilterProcessor) Init(ctx context.Context, _ data.InitProvider, cfg plu
 
 			for _, subConfig := range subConfigs {
 
-				t, err := fields.LookupFieldByTag(subConfig.FilterTag, &sdk.SignedTxnInBlock{})
+				t, err := fields.LookupFieldByTag(subConfig.FilterTag, &sdk.SignedTxnWithAD{})
 				if err != nil {
 					return err
 				}
@@ -95,7 +95,7 @@ func (a *FilterProcessor) Init(ctx context.Context, _ data.InitProvider, cfg plu
 					return fmt.Errorf("filter processor Init(): could not make expression: %w", err)
 				}
 
-				searcher, err := fields.MakeFieldSearcher(exp, subConfig.ExpressionType, subConfig.FilterTag)
+				searcher, err := fields.MakeFieldSearcher(exp, subConfig.ExpressionType, subConfig.FilterTag, a.cfg.SearchInner)
 				if err != nil {
 					return fmt.Errorf("filter processor Init(): error making field searcher - %w", err)
 				}
@@ -124,15 +124,14 @@ func (a *FilterProcessor) Close() error {
 
 // Process processes the input data
 func (a *FilterProcessor) Process(input data.BlockData) (data.BlockData, error) {
-
 	var err error
-
+	payset := input.Payset
 	for _, searcher := range a.FieldFilters {
-		input, err = searcher.SearchAndFilter(input)
+		payset, err = searcher.SearchAndFilter(payset)
 		if err != nil {
 			return data.BlockData{}, err
 		}
 	}
-
+	input.Payset = payset
 	return input, err
 }
