@@ -4,7 +4,7 @@ This is used to filter transactions to include only the ones that you want. This
 which only require specific applications or accounts.
 
 ## any / all
-One or more top-level operations should be provided. 
+One or more top-level operations should be provided.
 * any: transactions are included if they match `any` of the nested sub expressions.
 * all: transactions are included if they match `all` of the nested sub expressions.
 
@@ -20,7 +20,7 @@ Parts of an expression:
 ### tag
 The full path to a given field. Uses the messagepack encoded names of a canonical transaction. For example:
 * `txn.snd` is the sender.
-* `tsn.amt` is the amount.
+* `txn.amt` is the amount.
 
 For information about the structure of transactions, refer to the [Transaction Structure](https://developer.algorand.org/docs/get-details/transactions/) documentation. For detail about individual fields, refer to the [Transaction Reference](https://developer.algorand.org/docs/get-details/transactions/transactions/) documentation.
 

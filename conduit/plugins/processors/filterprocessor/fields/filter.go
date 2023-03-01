@@ -3,8 +3,6 @@ package fields
 import (
 	"fmt"
 
-	"github.com/algorand/indexer/data"
-
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
@@ -30,72 +28,42 @@ type Filter struct {
 	Searchers []*Searcher
 }
 
-// SearchAndFilter searches through the block data and applies the operation to the results
-func (f Filter) SearchAndFilter(input data.BlockData) (data.BlockData, error) {
-	var newPayset []sdk.SignedTxnInBlock
-	switch f.Op {
-	case noneFieldOperation:
-		for _, txn := range input.Payset {
-
-			allFalse := true
-			for _, fs := range f.Searchers {
-				b, err := fs.search(txn)
-				if err != nil {
-					return data.BlockData{}, err
-				}
-				if b {
-					allFalse = false
-					break
-				}
-			}
-
-			if allFalse {
-				newPayset = append(newPayset, txn)
-			}
-
+func (f Filter) matches(txn *sdk.SignedTxnWithAD) (bool, error) {
+	numMatches := 0
+	for _, fs := range f.Searchers {
+		b, err := fs.search(txn)
+		if err != nil {
+			return false, err
 		}
-		break
-
-	case anyFieldOperation:
-		for _, txn := range input.Payset {
-			for _, fs := range f.Searchers {
-				b, err := fs.search(txn)
-				if err != nil {
-					return data.BlockData{}, err
-				}
-				if b {
-					newPayset = append(newPayset, txn)
-					break
-				}
-			}
+		if b {
+			numMatches++
 		}
-
-		break
-	case allFieldOperation:
-		for _, txn := range input.Payset {
-
-			allTrue := true
-			for _, fs := range f.Searchers {
-				b, err := fs.search(txn)
-				if err != nil {
-					return data.BlockData{}, err
-				}
-				if !b {
-					allTrue = false
-					break
-				}
-			}
-
-			if allTrue {
-				newPayset = append(newPayset, txn)
-			}
-
-		}
-		break
-	default:
-		return data.BlockData{}, fmt.Errorf("unknown operation: %s", f.Op)
 	}
 
-	input.Payset = newPayset
-	return input, nil
+	switch f.Op {
+	case noneFieldOperation:
+		return numMatches == 0, nil
+	case anyFieldOperation:
+		return numMatches > 0, nil
+	case allFieldOperation:
+		return numMatches == len(f.Searchers), nil
+	default:
+		return false, fmt.Errorf("unknown operation: %s", f.Op)
+	}
+}
+
+// SearchAndFilter searches through the block data and applies the operation to the results
+func (f Filter) SearchAndFilter(payset []sdk.SignedTxnInBlock) ([]sdk.SignedTxnInBlock, error) {
+	var result []sdk.SignedTxnInBlock
+	for _, txn := range payset {
+		match, err := f.matches(&txn.SignedTxnWithAD)
+		if err != nil {
+			return nil, err
+		}
+		if match {
+			result = append(result, txn)
+		}
+	}
+
+	return result, nil
 }

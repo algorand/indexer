@@ -28,13 +28,15 @@ type SubConfig struct {
 		<li>not-equal</li>
 	</ul>
 	*/
-	ExpressionType expression.FilterType `yaml:"expression-type"`
+	ExpressionType expression.Type `yaml:"expression-type"`
 	// <code>expression</code> is the user-supplied part of the search or comparison.
 	Expression string `yaml:"expression"`
 }
 
 // Config configuration for the filter processor
 type Config struct {
+	// <code>search-inner</code> configures the filter processor to recursively search inner transactions for expressions.
+	SearchInner bool `yaml:"search-inner"`
 	/* <code>filters</code> are a list of SubConfig objects with an operation acting as the string key in the map
 
 	filters:

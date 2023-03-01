@@ -251,13 +251,13 @@ package {{ .PackageName }}
 import (
 	"encoding/base64"
 	"fmt"
-	
+
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
-// LookupFieldByTag takes a tag and associated SignedTxnInBlock and returns the value
+// LookupFieldByTag takes a tag and associated SignedTxnWithAD and returns the value
 // referenced by the tag.  An error is returned if the tag does not exist
-func LookupFieldByTag(tag string, input *sdk.SignedTxnInBlock) (interface{}, error) {
+func LookupFieldByTag(tag string, input *sdk.SignedTxnWithAD) (interface{}, error) {
 	switch tag {
 {{ range .StructFields }}	case "{{ .TagPath }}":
 		value := {{ ReturnValue . "input" }}
@@ -296,7 +296,7 @@ func main() {
 	}
 
 	// Process fields.
-	fields, errors := getFields(sdk.SignedTxnInBlock{}, ignoreTags)
+	fields, errors := getFields(sdk.SignedTxnWithAD{}, ignoreTags)
 	if len(errors) != 0 {
 		fmt.Fprintln(os.Stderr, "Errors returned while getting struct fields:")
 		for _, err := range errors {
