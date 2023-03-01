@@ -26,7 +26,6 @@ import (
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
 	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
 	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
-	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/protocol"
 	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/test"
@@ -1977,7 +1976,7 @@ func TestGenesisHashCheckAtInitialImport(t *testing.T) {
 	genesisReader := bytes.NewReader(json.Encode(genesis))
 	gen, err := util.ReadGenesis(genesisReader)
 	require.NoError(t, err)
-	imported, err := importer.EnsureInitialImport(db, gen)
+	imported, err := util.EnsureInitialImport(db, gen)
 	require.NoError(t, err)
 	require.True(t, true, imported)
 	// network state should be set
@@ -1991,7 +1990,7 @@ func TestGenesisHashCheckAtInitialImport(t *testing.T) {
 	gen, err = util.ReadGenesis(genesisReader)
 	require.NoError(t, err)
 	// different genesisHash, should fail
-	_, err = importer.EnsureInitialImport(db, gen)
+	_, err = util.EnsureInitialImport(db, gen)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "genesis hash not matching")
 

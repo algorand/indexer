@@ -18,8 +18,8 @@ import (
 	"github.com/algorand/indexer/idb"
 	// Necessary to ensure the postgres implementation has been registered in the idb factory
 	_ "github.com/algorand/indexer/idb/postgres"
-	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/types"
+	iutil "github.com/algorand/indexer/util"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
@@ -79,7 +79,7 @@ func (exp *postgresqlExporter) Init(ctx context.Context, initProvider data.InitP
 	}
 	exp.db = db
 	<-ready
-	_, err = importer.EnsureInitialImport(exp.db, *initProvider.GetGenesis())
+	_, err = iutil.EnsureInitialImport(exp.db, *initProvider.GetGenesis())
 	if err != nil {
 		return fmt.Errorf("error importing genesis: %v", err)
 	}

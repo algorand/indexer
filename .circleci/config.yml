@@ -170,7 +170,6 @@ commands:
       - run:
           command: make test
           no_output_timeout: 15m
-      - run: make integration
       - run: make test-generate
       - run: make fakepackage
 
