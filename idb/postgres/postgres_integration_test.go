@@ -31,7 +31,6 @@ import (
 	"github.com/algorand/indexer/util/test"
 
 	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
-	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-codec/codec"
 )
 
@@ -735,7 +734,7 @@ func TestInnerTxnParticipation(t *testing.T) {
 	// since db.AddBlock uses ApplyData from the block and not from the evaluator,
 	// fake ApplyData to have inner txn
 	// otherwise it requires funding the app account and other special setup
-	var appAddr basics.Address
+	var appAddr sdk.Address
 	appAddr[1] = 99
 	// createApp := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/InnerTxnParticipation.vb")
@@ -1496,7 +1495,7 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 // ReturnInnerTxnFlag is false. If the ReturnInnerTxnFlag is true, it should
 // return the inner txn instead.
 func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
-	var appAddr basics.Address
+	var appAddr sdk.Address
 	appAddr[1] = 99
 
 	tests := []struct {
