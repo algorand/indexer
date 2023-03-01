@@ -2,7 +2,7 @@ package filewriter
 
 //go:generate go run ../../../../cmd/conduit-docs/main.go ../../../../conduit-docs/
 
-//Name: conduit_exporters_filewriter
+//PluginName: conduit_exporters_filewriter
 
 // Config specific to the file exporter
 type Config struct {

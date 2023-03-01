@@ -19,7 +19,8 @@ import (
 )
 
 const (
-	exporterName = "file_writer"
+	// PluginName to use when configuring.
+	PluginName = "file_writer"
 	// FilePattern is used to name the output files.
 	FilePattern = "%[1]d_block.json"
 )
@@ -34,7 +35,7 @@ type fileExporter struct {
 var sampleFile string
 
 var metadata = conduit.Metadata{
-	Name:         exporterName,
+	Name:         PluginName,
 	Description:  "Exporter for writing data to a file.",
 	Deprecated:   false,
 	SampleConfig: sampleFile,
@@ -94,7 +95,7 @@ func (exp *fileExporter) Receive(exportData data.BlockData) error {
 		}
 
 		blockFile := path.Join(exp.cfg.BlocksDir, fmt.Sprintf(exp.cfg.FilenamePattern, exportData.Round()))
-		err := util.EncodeToFile(blockFile, exportData, true)
+		err := util.EncodeJSONToFile(blockFile, exportData, true)
 		if err != nil {
 			return fmt.Errorf("Receive(): failed to write file %s: %w", blockFile, err)
 		}
@@ -112,7 +113,7 @@ func unmarshalConfig(cfg string) (Config, error) {
 }
 
 func init() {
-	exporters.Register(exporterName, exporters.ExporterConstructorFunc(func() exporters.Exporter {
+	exporters.Register(PluginName, exporters.ExporterConstructorFunc(func() exporters.Exporter {
 		return &fileExporter{}
 	}))
 }

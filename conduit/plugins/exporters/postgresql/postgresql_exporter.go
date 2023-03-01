@@ -24,7 +24,8 @@ import (
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
-const exporterName = "postgresql"
+// PluginName to use when configuring.
+const PluginName = "postgresql"
 
 type postgresqlExporter struct {
 	round  uint64
@@ -41,7 +42,7 @@ type postgresqlExporter struct {
 var sampleConfig string
 
 var metadata = conduit.Metadata{
-	Name:         exporterName,
+	Name:         PluginName,
 	Description:  "Exporter for writing data to a postgresql instance.",
 	Deprecated:   false,
 	SampleConfig: sampleConfig,
@@ -146,7 +147,7 @@ func (exp *postgresqlExporter) unmarhshalConfig(cfg string) error {
 }
 
 func init() {
-	exporters.Register(exporterName, exporters.ExporterConstructorFunc(func() exporters.Exporter {
+	exporters.Register(PluginName, exporters.ExporterConstructorFunc(func() exporters.Exporter {
 		return &postgresqlExporter{}
 	}))
 }

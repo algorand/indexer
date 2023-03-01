@@ -9,9 +9,9 @@ import (
 
 	"github.com/algorand/go-algorand-sdk/v2/client/v2/algod"
 	"github.com/algorand/go-algorand-sdk/v2/client/v2/common/models"
+	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
 	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
 	"github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/protocol"
 )
 
 // AlgodHandler is used to handle http requests to a mock algod server
@@ -67,7 +67,7 @@ func MakeGenesisResponder(genesis types.Genesis) func(reqPath string, w http.Res
 	return func(reqPath string, w http.ResponseWriter) bool {
 		if strings.Contains(reqPath, "/genesis") {
 			w.WriteHeader(http.StatusOK)
-			blockbytes := protocol.EncodeJSON(&genesis)
+			blockbytes := json.Encode(&genesis)
 			_, _ = w.Write(blockbytes)
 			return true
 		}
@@ -86,7 +86,7 @@ func BlockAfterResponder(reqPath string, w http.ResponseWriter) bool {
 	if strings.Contains(reqPath, "/wait-for-block-after") {
 		w.WriteHeader(http.StatusOK)
 		nStatus := models.NodeStatus{}
-		_, _ = w.Write(protocol.EncodeJSON(nStatus))
+		_, _ = w.Write(json.Encode(nStatus))
 		return true
 	}
 	return false
@@ -97,7 +97,7 @@ func LedgerStateDeltaResponder(reqPath string, w http.ResponseWriter) bool {
 	if strings.Contains(reqPath, "v2/deltas/") {
 		w.WriteHeader(http.StatusOK)
 		delta := types.LedgerStateDelta{}
-		_, _ = w.Write(protocol.EncodeJSON(delta))
+		_, _ = w.Write(msgpack.Encode(delta))
 		return true
 	}
 	return false

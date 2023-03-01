@@ -54,7 +54,7 @@ func initializeTestData(t *testing.T, dir string, numRounds int) sdk.Genesis {
 		Timestamp:   1234,
 	}
 
-	err := util.EncodeToFile(path.Join(dir, "genesis.json"), genesisA, true)
+	err := util.EncodeJSONToFile(path.Join(dir, "genesis.json"), genesisA, true)
 	require.NoError(t, err)
 
 	for i := 0; i < numRounds; i++ {
@@ -67,7 +67,7 @@ func initializeTestData(t *testing.T, dir string, numRounds int) sdk.Genesis {
 			Certificate: nil,
 		}
 		blockFile := path.Join(dir, fmt.Sprintf(filewriter.FilePattern, i))
-		err = util.EncodeToFile(blockFile, block, true)
+		err = util.EncodeJSONToFile(blockFile, block, true)
 		require.NoError(t, err)
 	}
 
