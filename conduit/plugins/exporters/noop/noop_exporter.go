@@ -14,7 +14,8 @@ import (
 	"github.com/algorand/indexer/data"
 )
 
-var implementationName = "noop"
+// PluginName to use when configuring.
+var PluginName = "noop"
 
 // `noopExporter`s will function without ever erroring. This means they will also process out of order blocks
 // which may or may not be desirable for different use cases--it can hide errors in actual exporters expecting in order
@@ -29,7 +30,7 @@ type noopExporter struct {
 var sampleConfig string
 
 var metadata = conduit.Metadata{
-	Name:         implementationName,
+	Name:         PluginName,
 	Description:  "noop exporter",
 	Deprecated:   false,
 	SampleConfig: sampleConfig,
@@ -66,7 +67,7 @@ func (exp *noopExporter) Round() uint64 {
 }
 
 func init() {
-	exporters.Register(implementationName, exporters.ExporterConstructorFunc(func() exporters.Exporter {
+	exporters.Register(PluginName, exporters.ExporterConstructorFunc(func() exporters.Exporter {
 		return &noopExporter{}
 	}))
 }

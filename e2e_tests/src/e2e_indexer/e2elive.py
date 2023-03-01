@@ -124,6 +124,18 @@ def main():
         os.path.join(tempdir, "net", "Primary", "*", "*.block.sqlite")
     )
     lastblock = countblocks(blockfiles[0])
+    # Reset the secondary node, and enable follow mode.
+    # This is what conduit will connect to for data access.
+    for root, dirs, files in os.walk(os.path.join(tempnet, 'Node', 'tbd-v1')):
+        for f in files:
+            if ".sqlite" in f:
+                os.remove(os.path.join(root, f))
+    cf = {}
+    with open(os.path.join(tempnet, "Node", "config.json"), "r") as config_file:
+        cf = json.load(config_file)
+        cf['EnableFollowMode'] = True
+    with open(os.path.join(tempnet, "Node", "config.json"), "w") as config_file:
+        config_file.write(json.dumps(cf))
     try:
         xrun(["goal", "network", "start", "-r", tempnet])
     except Exception:
@@ -146,7 +158,7 @@ def main():
     atexitrun(["goal", "network", "stop", "-r", tempnet])
 
     psqlstring = ensure_test_db(args.connection_string, args.keep_temps)
-    algoddir = os.path.join(tempnet, "Primary")
+    algoddir = os.path.join(tempnet, "Node")
     aiport = args.indexer_port or random.randint(4000, 30000)
     indexerdir = os.path.join(tempdir, "indexer_data_dir")
     cmd = [
@@ -172,7 +184,7 @@ def main():
     indexerurl = "http://localhost:{}/".format(aiport)
     healthurl = indexerurl + "health"
     for attempt in range(20):
-        (ok, json) = tryhealthurl(healthurl, args.verbose, waitforround=lastblock)
+        (ok, healthJson) = tryhealthurl(healthurl, args.verbose, waitforround=lastblock)
         if ok:
             logger.debug("health round={} OK".format(lastblock))
             break
@@ -180,7 +192,7 @@ def main():
     if not ok:
         logger.error(
             "could not get indexer health, or did not reach round={}\n{}".format(
-                lastblock, json
+                lastblock, healthJson
             )
         )
         sys.stderr.write(indexerout.dump())

@@ -54,7 +54,7 @@ filters:
       expression: "` + sampleAddr2.String() + `"
 `
 
-	fpBuilder, err := processors.ProcessorBuilderByName(implementationName)
+	fpBuilder, err := processors.ProcessorBuilderByName(PluginName)
 	assert.NoError(t, err)
 
 	fp := fpBuilder.New()
@@ -213,7 +213,7 @@ filters:
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 
-			fpBuilder, err := processors.ProcessorBuilderByName(implementationName)
+			fpBuilder, err := processors.ProcessorBuilderByName(PluginName)
 			assert.NoError(t, err)
 
 			fp := fpBuilder.New()
@@ -341,7 +341,7 @@ filters:
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 
-			fpBuilder, err := processors.ProcessorBuilderByName(implementationName)
+			fpBuilder, err := processors.ProcessorBuilderByName(PluginName)
 			assert.NoError(t, err)
 
 			fp := fpBuilder.New()
@@ -501,7 +501,7 @@ filters:
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 
-			fpBuilder, err := processors.ProcessorBuilderByName(implementationName)
+			fpBuilder, err := processors.ProcessorBuilderByName(PluginName)
 			assert.NoError(t, err)
 
 			fp := fpBuilder.New()
@@ -660,7 +660,7 @@ filters:
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 
-			fpBuilder, err := processors.ProcessorBuilderByName(implementationName)
+			fpBuilder, err := processors.ProcessorBuilderByName(PluginName)
 			assert.NoError(t, err)
 
 			fp := fpBuilder.New()
@@ -762,7 +762,7 @@ filters:
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 
-			fpBuilder, err := processors.ProcessorBuilderByName(implementationName)
+			fpBuilder, err := processors.ProcessorBuilderByName(PluginName)
 			assert.NoError(t, err)
 
 			fp := fpBuilder.New()
@@ -804,7 +804,7 @@ filters:
       expression: "` + sampleAddr2.String() + `"
 `
 
-	fpBuilder, err := processors.ProcessorBuilderByName(implementationName)
+	fpBuilder, err := processors.ProcessorBuilderByName(PluginName)
 	assert.NoError(t, err)
 
 	fp := fpBuilder.New()
@@ -903,7 +903,7 @@ filters:
       expression: "` + sampleAddr2.String() + `"
 `
 
-	fpBuilder, err := processors.ProcessorBuilderByName(implementationName)
+	fpBuilder, err := processors.ProcessorBuilderByName(PluginName)
 	assert.NoError(t, err)
 
 	fp := fpBuilder.New()
@@ -976,7 +976,7 @@ filters:
       expression: "` + sampleAddr2.String() + `"
 `
 
-	fpBuilder, err := processors.ProcessorBuilderByName(implementationName)
+	fpBuilder, err := processors.ProcessorBuilderByName(PluginName)
 	assert.NoError(t, err)
 
 	fp := fpBuilder.New()
