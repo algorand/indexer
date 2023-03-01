@@ -69,10 +69,7 @@ func (e *stringEqualExpression) Match(input interface{}) (bool, error) {
 	}
 }
 
-func makeRegexExpression(searchStr string, expressionType Type) (Expression, error) {
-	if expressionType != EqualTo && expressionType != Regex {
-		return nil, fmt.Errorf("target type (string) does not support %s filters", expressionType)
-	}
+func makeRegexExpression(searchStr string) (Expression, error) {
 	r, err := regexp.Compile(searchStr)
 	if err != nil {
 		return nil, err
@@ -125,11 +122,14 @@ func MakeExpression(expressionType Type, expressionSearchStr string, target inte
 	case int64:
 		return makeSignedExpression(expressionSearchStr, expressionType)
 	case string:
-		if expressionType == EqualTo {
+		switch expressionType {
+		case EqualTo:
 			return &stringEqualExpression{Str: expressionSearchStr}, nil
+		case Regex:
+			return makeRegexExpression(expressionSearchStr)
+		default:
+			return nil, fmt.Errorf("target type (string) does not support %s filters", expressionType)
 		}
-		return makeRegexExpression(expressionSearchStr, expressionType)
-
 	default:
 		return nil, fmt.Errorf("unknown expression type: %T", t)
 	}
