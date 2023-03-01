@@ -172,7 +172,6 @@ func TestExporterReceive(t *testing.T) {
 		require.FileExists(t, path)
 
 		blockBytes, err := os.ReadFile(path)
-		fmt.Println(string(blockBytes))
 		require.NoError(t, err)
 		assert.NotContains(t, string(blockBytes), " 0: ")
 
