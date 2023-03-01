@@ -21,7 +21,6 @@ import (
 	"github.com/algorand/indexer/conduit/pipeline"
 	_ "github.com/algorand/indexer/conduit/plugins/exporters/postgresql"
 	_ "github.com/algorand/indexer/conduit/plugins/importers/algod"
-	_ "github.com/algorand/indexer/conduit/plugins/processors/blockprocessor"
 	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
@@ -380,18 +379,7 @@ func makeConduitConfig(dCfg *daemonConfig, nextRound uint64) pipeline.Config {
 			Config: map[string]interface{}{
 				"netaddr": dCfg.algodAddr,
 				"token":   dCfg.algodToken,
-			},
-		},
-		Processors: []pipeline.NameConfigPair{
-			{
-				Name: "block_evaluator",
-				Config: map[string]interface{}{
-					"catchpoint":     dCfg.catchpoint,
-					"data-dir":       dCfg.indexerDataDir,
-					"algod-data-dir": dCfg.algodDataDir,
-					"algod-token":    dCfg.algodToken,
-					"algod-addr":     dCfg.algodAddr,
-				},
+				"mode":    "follower",
 			},
 		},
 		Exporter: pipeline.NameConfigPair{

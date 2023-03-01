@@ -18,6 +18,7 @@ import (
 	"github.com/algorand/indexer/data"
 
 	"github.com/algorand/go-algorand-sdk/v2/client/v2/algod"
+	"github.com/algorand/go-algorand-sdk/v2/client/v2/common"
 	"github.com/algorand/go-algorand-sdk/v2/client/v2/common/models"
 	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
 	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
@@ -155,6 +156,20 @@ func (algodImp *algodImporter) Close() error {
 	return nil
 }
 
+func (algodImp *algodImporter) getDelta(rnd uint64) (sdk.LedgerStateDelta, error) {
+	var delta sdk.LedgerStateDelta
+	params := struct {
+		Format string `url:"format,omitempty"`
+	}{Format: "msgp"}
+	bytes, err := (*common.Client)(algodImp.aclient).GetRaw(algodImp.ctx, fmt.Sprintf("/v2/deltas/%d", rnd), params, nil)
+	if err != nil {
+		return delta, err
+	}
+
+	err = msgpack.Decode(bytes, &delta)
+	return delta, err
+}
+
 func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 	var blockbytes []byte
 	var err error
@@ -195,7 +210,7 @@ func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 			// else converted over
 			// Round 0 has no delta associated with it
 			if rnd != 0 {
-				delta, err := algodImp.aclient.GetLedgerStateDelta(rnd).Do(algodImp.ctx)
+				delta, err := algodImp.getDelta(rnd)
 				if err != nil {
 					algodImp.logger.Errorf(
 						"r=%d error getting delta %d", r, rnd)
