@@ -25,17 +25,13 @@ COVERPKG := $(shell go list ./...  | grep -v '/cmd/' | egrep -v '(testing|test|m
 export GO_IMAGE = golang:$(shell go version | cut -d ' ' -f 3 | tail -c +3 )
 
 # This is the default target, build everything:
-all: conduit cmd/algorand-indexer/algorand-indexer go-algorand idb/postgres/internal/schema/setup_postgres_sql.go idb/mocks/IndexerDb.go
+all: conduit cmd/algorand-indexer/algorand-indexer idb/postgres/internal/schema/setup_postgres_sql.go idb/mocks/IndexerDb.go
 
-conduit: go-algorand
+conduit:
 	go generate ./... && cd cmd/conduit && go build -ldflags="${GOLDFLAGS}"
 
-cmd/algorand-indexer/algorand-indexer: idb/postgres/internal/schema/setup_postgres_sql.go go-algorand
+cmd/algorand-indexer/algorand-indexer: idb/postgres/internal/schema/setup_postgres_sql.go
 	cd cmd/algorand-indexer && go build -ldflags="${GOLDFLAGS}"
-
-go-algorand:
-	git submodule update --init && cd third_party/go-algorand && \
-		make crypto/libs/`scripts/ostype.sh`/`scripts/archtype.sh`/lib/libsodium.a
 
 idb/postgres/internal/schema/setup_postgres_sql.go:	idb/postgres/internal/schema/setup_postgres.sql
 	cd idb/postgres/internal/schema && go generate
@@ -45,16 +41,16 @@ idb/mocks/IndexerDb.go:	idb/idb.go
 	cd idb && mockery --name=IndexerDb
 
 # check that all packages (except tests) compile
-check: go-algorand
+check:
 	go build ./...
 
-package: go-algorand
+package:
 	rm -rf $(PKG_DIR)
 	mkdir -p $(PKG_DIR)
 	misc/release.py --host-only --outdir $(PKG_DIR)
 
 # used in travis test builds; doesn't verify that tag and .version match
-fakepackage: go-algorand
+fakepackage:
 	rm -rf $(PKG_DIR)
 	mkdir -p $(PKG_DIR)
 	misc/release.py --host-only --outdir $(PKG_DIR) --fake-release
@@ -62,7 +58,7 @@ fakepackage: go-algorand
 test: idb/mocks/IndexerDb.go cmd/algorand-indexer/algorand-indexer
 	go test -coverpkg=$(COVERPKG) ./... -coverprofile=coverage.txt -covermode=atomic ${TEST_FLAG}
 
-lint: go-algorand
+lint:
 	golangci-lint run -c .golangci.yml
 	go vet ./...
 
@@ -96,24 +92,8 @@ test-package:
 test-generate:
 	test/test_generate.py
 
-nightly-setup:
-	cd third_party/go-algorand && git fetch && git reset --hard origin/master
-
-nightly-teardown:
-	git submodule update
 
 indexer-v-algod-swagger:
 	pytest -sv misc/parity
 
-indexer-v-algod: nightly-setup indexer-v-algod-swagger nightly-teardown
-
-# fetch and update submodule. it's default to latest rel/nightly branch.
-# to use a different branch, update the branch in .gitmodules for CI build,
-# and for local testing, you may checkout a specific branch in the submodule.
-# after submodule is updated, CI_E2E_FILENAME in .circleci/config.yml should
-# also be updated to use a newer artifact. path copied from s3 bucket,
-# s3://algorand-testdata/indexer/e2e4/
-update-submodule:
-	git submodule update --remote
-
-.PHONY: all test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go go-algorand indexer-v-algod conduit
+.PHONY: all test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go indexer-v-algod conduit

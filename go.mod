@@ -2,11 +2,8 @@ module github.com/algorand/indexer
 
 go 1.17
 
-replace github.com/algorand/go-algorand => ./third_party/go-algorand
-
 require (
 	github.com/algorand/avm-abi v0.2.0
-	github.com/algorand/go-algorand v0.0.0-20220211161928-53b157beb10f
 	github.com/algorand/go-algorand-sdk/v2 v2.0.0-20230228201805-5b8c99b1412c
 	github.com/algorand/go-codec/codec v1.1.8
 	github.com/algorand/go-deadlock v0.2.2
@@ -45,7 +42,6 @@ require (
 	github.com/consensys/gnark-crypto v0.7.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.1 // indirect
 	github.com/davidlazar/go-crypto v0.0.0-20170701192655-dcfb0a7ac018 // indirect
-	github.com/dchest/siphash v1.2.1 // indirect
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v1.13.1 // indirect
 	github.com/docker/go-connections v0.4.0 // indirect

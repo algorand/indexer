@@ -2,8 +2,6 @@ package types
 
 import (
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
 
 // TODO: should these types be defined in the SDK? In the future there could be automation to keep certain
@@ -28,10 +26,4 @@ type EncodedBlockCert struct {
 type SpecialAddresses struct {
 	FeeSink     sdk.Address
 	RewardsPool sdk.Address
-}
-
-// LegercoreValidatedBlock for serialization
-type LegercoreValidatedBlock struct {
-	Blk   bookkeeping.Block
-	Delta ledgercore.StateDelta
 }

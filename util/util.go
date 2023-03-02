@@ -16,11 +16,11 @@ import (
 
 	"github.com/algorand/go-codec/codec"
 	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/protocol"
+	"github.com/algorand/indexer/protocol/config"
 
 	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/config"
-	"github.com/algorand/go-algorand/protocol"
 )
 
 const (
@@ -28,20 +28,9 @@ const (
 )
 
 var prettyHandle *codec.JsonHandle
+var jsonStrictHandle *codec.JsonHandle
 
 var base32Encoder = base32.StdEncoding.WithPadding(base32.NoPadding)
-
-func init() {
-	prettyHandle = new(codec.JsonHandle)
-	prettyHandle.ErrorIfNoField = json.CodecHandle.ErrorIfNoField
-	prettyHandle.ErrorIfNoArrayExpand = json.CodecHandle.ErrorIfNoArrayExpand
-	prettyHandle.Canonical = json.CodecHandle.Canonical
-	prettyHandle.RecursiveEmptyCheck = json.CodecHandle.RecursiveEmptyCheck
-	prettyHandle.Indent = json.CodecHandle.Indent
-	prettyHandle.HTMLCharsAsIs = json.CodecHandle.HTMLCharsAsIs
-	prettyHandle.MapKeyAsString = true
-	prettyHandle.Indent = 2
-}
 
 // EncodeJSONToFile is used to encode an object to a file. If the file ends in .gz it will be gzipped.
 func EncodeJSONToFile(filename string, v interface{}, pretty bool) error {
@@ -66,7 +55,7 @@ func EncodeJSONToFile(filename string, v interface{}, pretty bool) error {
 	if pretty {
 		handle = prettyHandle
 	} else {
-		handle = protocol.JSONStrictHandle
+		handle = jsonStrictHandle
 	}
 	enc := codec.NewEncoder(writer, handle)
 	return enc.Encode(v)
@@ -308,6 +297,23 @@ func checkGenesisHash(db idb.IndexerDb, gh sdk.Digest) error {
 	return nil
 }
 
+// ReadGenesis converts a reader into a Genesis file.
+func ReadGenesis(in io.Reader) (sdk.Genesis, error) {
+	var genesis sdk.Genesis
+	if in == nil {
+		return sdk.Genesis{}, fmt.Errorf("ReadGenesis() err: reader is nil")
+	}
+	gbytes, err := ioutil.ReadAll(in)
+	if err != nil {
+		return sdk.Genesis{}, fmt.Errorf("ReadGenesis() err: %w", err)
+	}
+	err = json.Decode(gbytes, &genesis)
+	if err != nil {
+		return sdk.Genesis{}, fmt.Errorf("ReadGenesis() decode err: %w", err)
+	}
+	return genesis, nil
+}
+
 func init() {
 	oneLineJSONCodecHandle = new(codec.JsonHandle)
 	oneLineJSONCodecHandle.ErrorIfNoField = true
@@ -317,4 +323,23 @@ func init() {
 	oneLineJSONCodecHandle.HTMLCharsAsIs = true
 	oneLineJSONCodecHandle.Indent = 0
 	oneLineJSONCodecHandle.MapKeyAsString = true
+
+	prettyHandle = new(codec.JsonHandle)
+	prettyHandle.ErrorIfNoField = json.CodecHandle.ErrorIfNoField
+	prettyHandle.ErrorIfNoArrayExpand = json.CodecHandle.ErrorIfNoArrayExpand
+	prettyHandle.Canonical = json.CodecHandle.Canonical
+	prettyHandle.RecursiveEmptyCheck = json.CodecHandle.RecursiveEmptyCheck
+	prettyHandle.Indent = json.CodecHandle.Indent
+	prettyHandle.HTMLCharsAsIs = json.CodecHandle.HTMLCharsAsIs
+	prettyHandle.MapKeyAsString = true
+	prettyHandle.Indent = 2
+
+	jsonStrictHandle = new(codec.JsonHandle)
+	jsonStrictHandle.ErrorIfNoField = prettyHandle.ErrorIfNoField
+	jsonStrictHandle.ErrorIfNoArrayExpand = prettyHandle.ErrorIfNoArrayExpand
+	jsonStrictHandle.Canonical = prettyHandle.Canonical
+	jsonStrictHandle.RecursiveEmptyCheck = prettyHandle.RecursiveEmptyCheck
+	jsonStrictHandle.Indent = prettyHandle.Indent
+	jsonStrictHandle.HTMLCharsAsIs = prettyHandle.HTMLCharsAsIs
+	jsonStrictHandle.MapKeyAsString = true
 }

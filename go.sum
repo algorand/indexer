@@ -88,14 +88,10 @@ github.com/algorand/avm-abi v0.2.0 h1:bkjsG+BOEcxUcnGSALLosmltE0JZdg+ZisXKx0UDX2
 github.com/algorand/avm-abi v0.2.0/go.mod h1:+CgwM46dithy850bpTeHh9MC99zpn2Snirb3QTl2O/g=
 github.com/algorand/falcon v0.0.0-20220727072124-02a2a64c4414 h1:nwYN+GQ7Z5OOfZwqBO1ma7DSlP7S1YrKWICOyjkwqrc=
 github.com/algorand/falcon v0.0.0-20220727072124-02a2a64c4414/go.mod h1:OkQyHlGvS0kLNcIWbC21/uQcnbfwSOQm+wiqWwBG9pQ=
-github.com/algorand/go-algorand-sdk/v2 v2.0.0-20230209164439-140b997ed9ee h1:OGE5lhg7vQ+PGCkHW2CZL4oC1uxrJAuqy7Z52cCYzJw=
-github.com/algorand/go-algorand-sdk/v2 v2.0.0-20230209164439-140b997ed9ee/go.mod h1:Nt3EHpP8AznLs0/EFfhr0/xsVf5ucnvjNeRygGgbUzM=
-github.com/algorand/go-algorand-sdk/v2 v2.0.0-20230216185416-22ef3b66c617 h1:IOqgNBpxSk23ixJzysAYqRYz04rAE2+d1DJI1sD+z8M=
-github.com/algorand/go-algorand-sdk/v2 v2.0.0-20230216185416-22ef3b66c617/go.mod h1:Nt3EHpP8AznLs0/EFfhr0/xsVf5ucnvjNeRygGgbUzM=
+github.com/algorand/go-algorand v0.0.0-20230301200117-c5936d285c36 h1:swMhICQ9nnqyiJngy/e9fXQo1k6a27gTJZZlDEOnjas=
+github.com/algorand/go-algorand v0.0.0-20230301200117-c5936d285c36/go.mod h1:jaPLKtS3m139PL98HmnTE7XFecOCxs+Yen+C6BlHpKQ=
 github.com/algorand/go-algorand-sdk/v2 v2.0.0-20230228201805-5b8c99b1412c h1:KAX6gb3+DLCTBcVhjDtuhcdbCeKnwIYKdj5Dv2JA/nI=
 github.com/algorand/go-algorand-sdk/v2 v2.0.0-20230228201805-5b8c99b1412c/go.mod h1:Nt3EHpP8AznLs0/EFfhr0/xsVf5ucnvjNeRygGgbUzM=
-github.com/algorand/go-algorand-sdk/v2 v2.0.0 h1:hfi+YrzcaH20mrjdIQYOPFKPlJ/ULq9KLhLG9I6LJEY=
-github.com/algorand/go-algorand-sdk/v2 v2.0.0/go.mod h1:Nt3EHpP8AznLs0/EFfhr0/xsVf5ucnvjNeRygGgbUzM=
 github.com/algorand/go-codec v1.1.8 h1:XDSreeeZY8gMst6Edz4RBkl08/DGMJOeHYkoXL2B7wI=
 github.com/algorand/go-codec v1.1.8/go.mod h1:XhzVs6VVyWMLu6cApb9/192gBjGRVGm5cX5j203Heg4=
 github.com/algorand/go-codec/codec v1.1.8 h1:lsFuhcOH2LiEhpBH3BVUUkdevVmwCRyvb7FCAAPeY6U=
@@ -105,7 +101,6 @@ github.com/algorand/go-deadlock v0.2.2/go.mod h1:Hat1OXKqKNUcN/iv74FjGhF4hsOE2l7
 github.com/algorand/go-sumhash v0.1.0/go.mod h1:OOe7jdDWUhLkuP1XytkK5gnLu9entAviN5DfDZh6XAc=
 github.com/algorand/go-sumhash v1.0.0 h1:00PkvdWAvPGxjd51eF84gZV81hlx3Yt/5sGeHzmcY0U=
 github.com/algorand/go-sumhash v1.0.0/go.mod h1:OOe7jdDWUhLkuP1XytkK5gnLu9entAviN5DfDZh6XAc=
-github.com/algorand/graphtrace v0.1.0 h1:QemP1iT0W56SExD0NfiU6rsG34/v0Je6bg5UZnptEUM=
 github.com/algorand/graphtrace v0.1.0/go.mod h1:HscLQrzBdH1BH+5oehs3ICd8SYcXvnSL9BjfTu8WHCc=
 github.com/algorand/msgp v1.1.53 h1:D6HKLyvLE6ltfsf8Apsrc+kqYb/CcOZEAfh1DpkPrNg=
 github.com/algorand/msgp v1.1.53/go.mod h1:5K3d58/poT5fPmtiwuQft6GjgSrVEM46KoXdLrID8ZU=
@@ -196,7 +191,6 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davidlazar/go-crypto v0.0.0-20170701192655-dcfb0a7ac018 h1:6xT9KW8zLC5IlbaIF5Q7JNieBoACT7iW0YTxQHR0in0=
 github.com/davidlazar/go-crypto v0.0.0-20170701192655-dcfb0a7ac018/go.mod h1:rQYf4tfk5sSwFsnDg3qYaBxSjsD9S8+59vW0dKUgme4=
-github.com/dchest/siphash v1.2.1 h1:4cLinnzVJDKxTCl9B01807Yiy+W7ZzVHj/KIroQRvT4=
 github.com/dchest/siphash v1.2.1/go.mod h1:q+IRvb2gOSrUnYoPqHiyHXS0FOBBOdl6tONBlVnOnt4=
 github.com/decred/dcrd/crypto/blake256 v1.0.0/go.mod h1:sQl2p6Y26YV+ZOcSTP6thNdn47hh8kt6rqSlvmrXFAc=
 github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.0-20210816181553-5444fa50b93d/go.mod h1:tmAIfUFEirG/Y8jhZ9M+h36obRZAk/1fcSpXwAVlfqE=
