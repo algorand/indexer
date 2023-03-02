@@ -4,34 +4,34 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/algorand/go-algorand/data/basics"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 type microAlgoExpression struct {
-	FilterValue basics.MicroAlgos
+	FilterValue sdk.MicroAlgos
 	Op          Type
 }
 
 func (m microAlgoExpression) Match(input interface{}) (bool, error) {
 
-	inputValue, ok := input.(basics.MicroAlgos)
+	inputValue, ok := input.(sdk.MicroAlgos)
 	if !ok {
 		return false, fmt.Errorf("supplied type (%s) was not microalgos", reflect.TypeOf(input).String())
 	}
 
 	switch m.Op {
 	case LessThan:
-		return inputValue.Raw < m.FilterValue.Raw, nil
+		return inputValue < m.FilterValue, nil
 	case LessThanEqual:
-		return inputValue.Raw <= m.FilterValue.Raw, nil
+		return inputValue <= m.FilterValue, nil
 	case EqualTo:
-		return inputValue.Raw == m.FilterValue.Raw, nil
+		return inputValue == m.FilterValue, nil
 	case NotEqualTo:
-		return inputValue.Raw != m.FilterValue.Raw, nil
+		return inputValue != m.FilterValue, nil
 	case GreaterThan:
-		return inputValue.Raw > m.FilterValue.Raw, nil
+		return inputValue > m.FilterValue, nil
 	case GreaterThanEqual:
-		return inputValue.Raw >= m.FilterValue.Raw, nil
+		return inputValue >= m.FilterValue, nil
 	default:
 		return false, fmt.Errorf("unknown op: %s", m.Op)
 	}
