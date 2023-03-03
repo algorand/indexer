@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-#
-
 import atexit
 import glob
 import gzip
