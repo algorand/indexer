@@ -87,7 +87,7 @@ func (e ExtraOptions) handlerTimeout() time.Duration {
 }
 
 // Serve starts an http server for the indexer API. This call blocks.
-func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, dataError func() error, log *log.Logger, options ExtraOptions) {
+func Serve(ctx context.Context, serveAddr string, db idb.Reader, dataError func() error, log *log.Logger, options ExtraOptions) {
 	e := echo.New()
 	e.HideBanner = true
 

@@ -36,7 +36,7 @@ type ServerImplementation struct {
 	// is from long ago).
 	EnableAddressSearchRoundRewind bool
 
-	db idb.IndexerDb
+	db idb.Reader
 
 	dataError func() error
 
@@ -119,7 +119,7 @@ func validateTransactionFilter(filter *idb.TransactionFilter) error {
 // Handler implementation //
 ////////////////////////////
 
-// MakeHealthCheck returns health check information about indexer and the IndexerDb being used.
+// MakeHealthCheck returns health check information about indexer and the Reader being used.
 // Returns 200 if healthy.
 // (GET /health)
 func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
@@ -1061,7 +1061,7 @@ func notFound(ctx echo.Context, err string) error {
 }
 
 ///////////////////////
-// IndexerDb helpers //
+// Reader helpers //
 ///////////////////////
 
 // fetchApplications fetches all results

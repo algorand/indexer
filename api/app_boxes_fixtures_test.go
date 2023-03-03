@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/algorand/indexer/idb/postgres"
+	"github.com/algorand/indexer/idb"
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/avm-abi/apps"
@@ -39,7 +39,7 @@ var goalEncodingExamples map[string]string = map[string]string{
 	"abi":         `(uint64,string,bool[]):[399,"pls pass",[true,false]]`,
 }
 
-func setupLiveBoxes(t *testing.T, db *postgres.IndexerDb) {
+func setupLiveBoxes(t *testing.T, db *idb.Reader) {
 	deleted := "DELETED"
 
 	firstAppid := sdk.AppIndex(1)

@@ -43,6 +43,7 @@ idb/postgres/internal/schema/setup_postgres_sql.go:	idb/postgres/internal/schema
 idb/mocks/IndexerDb.go:	idb/idb.go
 	go install github.com/vektra/mockery/v2@v2.12.1
 	cd idb && mockery --name=IndexerDb
+	cd idb && mockery --name=Reader
 
 # check that all packages (except tests) compile
 check: go-algorand

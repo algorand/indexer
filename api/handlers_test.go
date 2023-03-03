@@ -651,8 +651,8 @@ func TestFetchTransactions(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			// Setup the mocked responses
-			mockIndexer := &mocks.IndexerDb{}
-			si := testServerImplementation(mockIndexer)
+			mockReader := &mocks.Reader{}
+			si := testServerImplementation(mockReader)
 			si.EnableAddressSearchRoundRewind = true
 			si.timeout = 1 * time.Second
 
@@ -681,7 +681,7 @@ func TestFetchTransactions(t *testing.T) {
 			close(ch)
 			var outCh <-chan idb.TxnRow = ch
 			var round uint64 = 1
-			mockIndexer.On("Transactions", mock.Anything, mock.Anything).Return(outCh, round)
+			mockReader.On("Transactions", mock.Anything, mock.Anything).Return(outCh, round)
 
 			// Call the function
 			results, _, _, err := si.fetchTransactions(context.Background(), idb.TransactionFilter{})
@@ -734,7 +734,7 @@ func TestFetchAccountsRewindRoundTooLarge(t *testing.T) {
 	close(ch)
 	var outCh <-chan idb.AccountRow = ch
 
-	db := &mocks.IndexerDb{}
+	db := &mocks.Reader{}
 	db.On("GetAccounts", mock.Anything, mock.Anything).Return(outCh, uint64(7)).Once()
 
 	si := testServerImplementation(db)
@@ -746,8 +746,8 @@ func TestFetchAccountsRewindRoundTooLarge(t *testing.T) {
 }
 
 func TestLookupApplicationLogsByID(t *testing.T) {
-	mockIndexer := &mocks.IndexerDb{}
-	si := testServerImplementation(mockIndexer)
+	mockReader := &mocks.Reader{}
+	si := testServerImplementation(mockReader)
 	si.EnableAddressSearchRoundRewind = true
 
 	txnBytes := loadResourceFileOrPanic("test_resources/app_call_logs.txn")
@@ -772,7 +772,7 @@ func TestLookupApplicationLogsByID(t *testing.T) {
 	close(ch)
 	var outCh <-chan idb.TxnRow = ch
 	var round uint64 = 1
-	mockIndexer.On("Transactions", mock.Anything, mock.Anything).Return(outCh, round)
+	mockReader.On("Transactions", mock.Anything, mock.Anything).Return(outCh, round)
 
 	appIdx := stxn.Txn.ApplicationID
 	e := echo.New()
@@ -807,9 +807,9 @@ func TestTimeouts(t *testing.T) {
 	// function pointers to execute the different DB operations. We really only
 	// care that they timeout with WaitUntil, but the return arguments need to
 	// be correct to avoid a panic.
-	mostMockFunctions := func(method string) func(mockIndexer *mocks.IndexerDb, timeout <-chan time.Time) {
-		return func(mockIndexer *mocks.IndexerDb, timeout <-chan time.Time) {
-			mockIndexer.
+	mostMockFunctions := func(method string) func(mockReader *mocks.Reader, timeout <-chan time.Time) {
+		return func(mockReader *mocks.Reader, timeout <-chan time.Time) {
+			mockReader.
 				On(method, mock.Anything, mock.Anything, mock.Anything).
 				WaitUntil(timeout).
 				Return(nil, uint64(0))
@@ -820,14 +820,14 @@ func TestTimeouts(t *testing.T) {
 	accountsFunc := mostMockFunctions("GetAccounts")
 	assetsFunc := mostMockFunctions("Assets")
 	balancesFunc := mostMockFunctions("AssetBalances")
-	blockFunc := func(mockIndexer *mocks.IndexerDb, timeout <-chan time.Time) {
-		mockIndexer.
+	blockFunc := func(mockReader *mocks.Reader, timeout <-chan time.Time) {
+		mockReader.
 			On("GetBlock", mock.Anything, mock.Anything, mock.Anything).
 			WaitUntil(timeout).
 			Return(sdk.BlockHeader{}, nil, nil)
 	}
-	healthFunc := func(mockIndexer *mocks.IndexerDb, timeout <-chan time.Time) {
-		mockIndexer.
+	healthFunc := func(mockReader *mocks.Reader, timeout <-chan time.Time) {
+		mockReader.
 			On("Health", mock.Anything, mock.Anything, mock.Anything).
 			WaitUntil(timeout).
 			Return(idb.Health{}, nil)
@@ -837,7 +837,7 @@ func TestTimeouts(t *testing.T) {
 	testcases := []struct {
 		name        string
 		errString   string
-		mockCall    func(mockIndexer *mocks.IndexerDb, timeout <-chan time.Time)
+		mockCall    func(mockReader *mocks.Reader, timeout <-chan time.Time)
 		callHandler func(ctx echo.Context, si ServerImplementation) error
 	}{
 		{
@@ -957,9 +957,9 @@ func TestTimeouts(t *testing.T) {
 			}()
 
 			// Make a mock indexer and tell the mock to timeout.
-			mockIndexer := &mocks.IndexerDb{}
+			mockReader := &mocks.Reader{}
 
-			si := testServerImplementation(mockIndexer)
+			si := testServerImplementation(mockReader)
 			si.timeout = 5 * time.Millisecond
 
 			// Setup context...
@@ -969,7 +969,7 @@ func TestTimeouts(t *testing.T) {
 			c := e.NewContext(req, rec1)
 
 			// configure the mock to timeout, then call the handler.
-			tc.mockCall(mockIndexer, timeout)
+			tc.mockCall(mockReader, timeout)
 			err := tc.callHandler(c, *si)
 
 			require.NoError(t, err)
@@ -1000,8 +1000,8 @@ func TestApplicationLimits(t *testing.T) {
 	}
 
 	// Mock backend to capture default limits
-	mockIndexer := &mocks.IndexerDb{}
-	si := testServerImplementation(mockIndexer)
+	mockReader := &mocks.Reader{}
+	si := testServerImplementation(mockReader)
 	si.timeout = 5 * time.Millisecond
 
 	for _, tc := range testcases {
@@ -1013,7 +1013,7 @@ func TestApplicationLimits(t *testing.T) {
 			c := e.NewContext(req, rec1)
 
 			// check parameters passed to the backend
-			mockIndexer.
+			mockReader.
 				On("Applications", mock.Anything, mock.Anything, mock.Anything).
 				Return(nil, uint64(0)).
 				Run(func(args mock.Arguments) {
@@ -1200,9 +1200,9 @@ func TestBigNumbers(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 
 			// Make a mock indexer.
-			mockIndexer := &mocks.IndexerDb{}
+			mockReader := &mocks.Reader{}
 
-			si := testServerImplementation(mockIndexer)
+			si := testServerImplementation(mockReader)
 
 			// Setup context...
 			e := echo.New()
@@ -1243,8 +1243,8 @@ func TestFetchBlock(t *testing.T) {
 
 	for _, tc := range testcases {
 		// Mock backend
-		mockIndexer := &mocks.IndexerDb{}
-		si := testServerImplementation(mockIndexer)
+		mockReader := &mocks.Reader{}
+		si := testServerImplementation(mockReader)
 		si.timeout = 1 * time.Second
 
 		roundTime := time.Now()
@@ -1269,7 +1269,7 @@ func TestFetchBlock(t *testing.T) {
 				}
 			}
 			// sdk.BlockHeader, []idb.TxnRow, error
-			mockIndexer.
+			mockReader.
 				On("GetBlock", mock.Anything, mock.Anything, mock.Anything).
 				Return(blk.Block.BlockHeader, txnRows, nil)
 

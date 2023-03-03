@@ -10,15 +10,15 @@ import (
 )
 
 // DBUnavailableError is the error returned when a migration is in progress or required.
-var DBUnavailableError = "Indexer DB is not available, try again later."
+var DBUnavailableError = "Reader DB is not available, try again later."
 
-// MigrationMiddleware makes sure a 500 error is returned when the IndexerDb has a migration in progress.
+// MigrationMiddleware makes sure a 500 error is returned when the Reader has a migration in progress.
 type MigrationMiddleware struct {
-	idb idb.IndexerDb
+	idb idb.Reader
 }
 
 // MakeMigrationMiddleware constructs the migration middleware
-func MakeMigrationMiddleware(idb idb.IndexerDb) echo.MiddlewareFunc {
+func MakeMigrationMiddleware(idb idb.Reader) echo.MiddlewareFunc {
 	mw := MigrationMiddleware{
 		idb: idb,
 	}
@@ -26,7 +26,7 @@ func MakeMigrationMiddleware(idb idb.IndexerDb) echo.MiddlewareFunc {
 	return mw.handler
 }
 
-// handler returns a 500 if the IndexerDb is migrating.
+// handler returns a 500 if the Reader is migrating.
 func (mm *MigrationMiddleware) handler(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(ctx echo.Context) error {
 		h, err := mm.idb.Health(ctx.Request().Context())

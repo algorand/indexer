@@ -165,9 +165,14 @@ type IndexerDb interface {
 
 	// GetNextRoundToAccount returns ErrorNotInitialized if genesis is not loaded.
 	GetNextRoundToAccount() (uint64, error)
-	GetSpecialAccounts(ctx context.Context) (types.SpecialAddresses, error)
 	GetNetworkState() (NetworkState, error)
 	SetNetworkState(genesis sdk.Digest) error
+
+	Reader
+}
+
+type Reader interface {
+	GetSpecialAccounts(ctx context.Context) (types.SpecialAddresses, error)
 
 	GetBlock(ctx context.Context, round uint64, options GetBlockOptions) (blockHeader sdk.BlockHeader, transactions []TxnRow, err error)
 

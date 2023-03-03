@@ -23,15 +23,15 @@ func success(ctx echo.Context) error {
 }
 
 func TestMigrationMiddlewareWaiting(t *testing.T) {
-	mockIndexer := &mocks.IndexerDb{}
+	mockReader := &mocks.Reader{}
 
 	hMigrating := idb.Health{
 		IsMigrating: true,
 	}
 
-	mockIndexer.On("Health", mock.Anything, mock.Anything).Return(hMigrating, nil)
+	mockReader.On("Health", mock.Anything, mock.Anything).Return(hMigrating, nil)
 
-	handler := MakeMigrationMiddleware(mockIndexer)(success)
+	handler := MakeMigrationMiddleware(mockReader)(success)
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	c := e.NewContext(req, nil)
@@ -41,15 +41,15 @@ func TestMigrationMiddlewareWaiting(t *testing.T) {
 }
 
 func TestMigrationMiddlewareDone(t *testing.T) {
-	mockIndexer := &mocks.IndexerDb{}
+	mockReader := &mocks.Reader{}
 
 	hReady := idb.Health{
 		IsMigrating: false,
 	}
 
-	mockIndexer.On("Health", mock.Anything, mock.Anything).Return(hReady, nil)
+	mockReader.On("Health", mock.Anything, mock.Anything).Return(hReady, nil)
 
-	handler := MakeMigrationMiddleware(mockIndexer)(success)
+	handler := MakeMigrationMiddleware(mockReader)(success)
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	c := e.NewContext(req, nil)

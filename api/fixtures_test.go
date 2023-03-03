@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/indexer/api/generated/v2"
-	"github.com/algorand/indexer/idb/postgres"
+	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/util/test"
 )
 
@@ -265,7 +265,7 @@ func getProof(path string) (route string, proof prover, err error) {
 }
 
 // WARNING: receiver should not call l.Close()
-func setupIdbAndReturnShutdownFunc(t *testing.T) (db *postgres.IndexerDb, shutdown func()) {
+func setupIdbAndReturnShutdownFunc(t *testing.T) (db *idb.Reader, shutdown func()) {
 	db, dbShutdown := setupIdb(t, test.MakeGenesis())
 
 	shutdown = func() {
@@ -275,7 +275,7 @@ func setupIdbAndReturnShutdownFunc(t *testing.T) (db *postgres.IndexerDb, shutdo
 	return
 }
 
-func setupLiveServerAndReturnShutdownFunc(t *testing.T, db *postgres.IndexerDb) (shutdown func()) {
+func setupLiveServerAndReturnShutdownFunc(t *testing.T, db *idb.Reader) (shutdown func()) {
 	serverCtx, shutdown := context.WithCancel(context.Background())
 	go Serve(serverCtx, fixtestListenAddr, db, nil, logrus.New(), fixtestServerOpts)
 
@@ -459,7 +459,7 @@ func validateLiveVsSaved(t *testing.T, seed *fixture, live *fixture) {
 // NOTE: `live.Witness` is always recalculated via `seed.proof(live.Response)`
 // NOTE: by design, the function always fails the test in the case that the seed fixture is not frozen
 // as a reminder to freeze the test before merging, so that regressions may be detected going forward.
-func validateOrGenerateFixtures(t *testing.T, db *postgres.IndexerDb, seed fixture, owner string) {
+func validateOrGenerateFixtures(t *testing.T, db *idb.Reader, seed fixture, owner string) {
 	require.Equal(t, owner, seed.Owner, "mismatch between purported owners of fixture")
 
 	live := generateLiveFixture(t, seed)

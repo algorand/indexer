@@ -57,14 +57,14 @@ var defaultOpts = ExtraOptions{
 	DisabledMapConfig: MakeDisabledMapConfig(),
 }
 
-type boxTestComparator func(t *testing.T, db *postgres.IndexerDb, appBoxes map[sdk.AppIndex]map[string]string,
+type boxTestComparator func(t *testing.T, db *idb.Reader, appBoxes map[sdk.AppIndex]map[string]string,
 	deletedBoxes map[sdk.AppIndex]map[string]bool, verifyTotals bool)
 
-func testServerImplementation(db idb.IndexerDb) *ServerImplementation {
+func testServerImplementation(db idb.Reader) *ServerImplementation {
 	return &ServerImplementation{db: db, timeout: 30 * time.Second, opts: defaultOpts}
 }
 
-func setupIdb(t *testing.T, genesis sdk.Genesis) (*postgres.IndexerDb, func()) {
+func setupIdb(t *testing.T, genesis sdk.Genesis) (*idb.Reader, func()) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 
 	db, _, err := postgres.OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
@@ -1781,7 +1781,7 @@ func waitForServer(t *testing.T, listenAddr string) {
 }
 
 // compareAppBoxesAgainstHandler is of type BoxTestComparator
-func compareAppBoxesAgainstHandler(t *testing.T, db *postgres.IndexerDb,
+func compareAppBoxesAgainstHandler(t *testing.T, db *idb.Reader,
 	appBoxes map[sdk.AppIndex]map[string]string, deletedBoxes map[sdk.AppIndex]map[string]bool, verifyTotals bool) {
 
 	setupRequest := func(path, paramName, paramValue string) (echo.Context, *ServerImplementation, *httptest.ResponseRecorder) {
