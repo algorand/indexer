@@ -168,9 +168,12 @@ type IndexerDb interface {
 	GetNetworkState() (NetworkState, error)
 	SetNetworkState(genesis sdk.Digest) error
 
+	DeleteTransactions(ctx context.Context, keep uint64) error
+
 	Reader
 }
 
+// Reader pulls data from the db.
 type Reader interface {
 	GetSpecialAccounts(ctx context.Context) (types.SpecialAddresses, error)
 
@@ -187,8 +190,6 @@ type Reader interface {
 	ApplicationBoxes(ctx context.Context, filter ApplicationBoxQuery) (<-chan ApplicationBoxRow, uint64)
 
 	Health(ctx context.Context) (status Health, err error)
-
-	DeleteTransactions(ctx context.Context, keep uint64) error
 }
 
 // GetBlockOptions contains the options when requesting to load a block from the database.
