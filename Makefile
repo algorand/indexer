@@ -92,8 +92,7 @@ test-package:
 test-generate:
 	test/test_generate.py
 
-
-indexer-v-algod-swagger:
+indexer-v-algod:
 	pytest -sv misc/parity
 
 .PHONY: all test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go indexer-v-algod conduit
