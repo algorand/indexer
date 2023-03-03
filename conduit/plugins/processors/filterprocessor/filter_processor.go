@@ -9,11 +9,11 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/algorand/indexer/conduit"
+	"github.com/algorand/indexer/conduit/data"
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/processors"
 	"github.com/algorand/indexer/conduit/plugins/processors/filterprocessor/expression"
 	"github.com/algorand/indexer/conduit/plugins/processors/filterprocessor/fields"
-	"github.com/algorand/indexer/data"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )

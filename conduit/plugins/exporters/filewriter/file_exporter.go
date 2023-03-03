@@ -12,10 +12,9 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/algorand/indexer/conduit"
+	"github.com/algorand/indexer/conduit/data"
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/exporters"
-	"github.com/algorand/indexer/data"
-	"github.com/algorand/indexer/util"
 )
 
 const (
@@ -95,7 +94,7 @@ func (exp *fileExporter) Receive(exportData data.BlockData) error {
 		}
 
 		blockFile := path.Join(exp.cfg.BlocksDir, fmt.Sprintf(exp.cfg.FilenamePattern, exportData.Round()))
-		err := util.EncodeJSONToFile(blockFile, exportData, true)
+		err := EncodeJSONToFile(blockFile, exportData, true)
 		if err != nil {
 			return fmt.Errorf("Receive(): failed to write file %s: %w", blockFile, err)
 		}

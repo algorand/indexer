@@ -6,10 +6,48 @@ import (
 
 	"github.com/jackc/pgx/v4"
 
-	"github.com/algorand/indexer/accounting"
-
 	"github.com/algorand/go-algorand-sdk/v2/types"
 )
+
+// addTransactionParticipants calls function `add` for every address referenced in the
+// given transaction, possibly with repetition.
+func addTransactionParticipants(stxnad *types.SignedTxnWithAD, includeInner bool, add func(address types.Address)) {
+	txn := &stxnad.Txn
+
+	add(txn.Sender)
+
+	switch txn.Type {
+	case types.PaymentTx:
+		add(txn.Receiver)
+		// Close address is optional.
+		if !txn.CloseRemainderTo.IsZero() {
+			add(txn.CloseRemainderTo)
+		}
+	case types.AssetTransferTx:
+		// If asset sender is non-zero, it is a clawback transaction. Otherwise,
+		// the transaction sender address is used.
+		if !txn.AssetSender.IsZero() {
+			add(txn.AssetSender)
+		}
+		add(txn.AssetReceiver)
+		// Asset close address is optional.
+		if !txn.AssetCloseTo.IsZero() {
+			add(txn.AssetCloseTo)
+		}
+	case types.AssetFreezeTx:
+		add(txn.FreezeAccount)
+	case types.ApplicationCallTx:
+		for _, address := range txn.ApplicationCallTxnFields.Accounts {
+			add(address)
+		}
+	}
+
+	if includeInner {
+		for _, inner := range stxnad.ApplyData.EvalDelta.InnerTxns {
+			addTransactionParticipants(&inner, includeInner, add)
+		}
+	}
+}
 
 // getTransactionParticipants returns referenced addresses from the txn and all inner txns
 func getTransactionParticipants(stxnad *types.SignedTxnWithAD, includeInner bool) []types.Address {
@@ -27,7 +65,7 @@ func getTransactionParticipants(stxnad *types.SignedTxnWithAD, includeInner bool
 			res = append(res, address)
 		}
 
-		accounting.GetTransactionParticipants(stxnad, includeInner, add)
+		addTransactionParticipants(stxnad, includeInner, add)
 		return res
 	}
 
@@ -40,7 +78,7 @@ func getTransactionParticipants(stxnad *types.SignedTxnWithAD, includeInner bool
 		participants[address] = struct{}{}
 	}
 
-	accounting.GetTransactionParticipants(stxnad, includeInner, add)
+	addTransactionParticipants(stxnad, includeInner, add)
 
 	res := make([]types.Address, 0, len(participants))
 	for addr := range participants {
