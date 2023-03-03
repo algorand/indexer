@@ -12,10 +12,10 @@ import (
 	"github.com/algorand/go-codec/codec"
 
 	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
-	"github.com/algorand/go-algorand/protocol"
 )
 
 var prettyHandle *codec.JsonHandle
+var jsonStrictHandle *codec.JsonHandle
 
 func init() {
 	prettyHandle = new(codec.JsonHandle)
@@ -27,6 +27,15 @@ func init() {
 	prettyHandle.HTMLCharsAsIs = json.CodecHandle.HTMLCharsAsIs
 	prettyHandle.MapKeyAsString = true
 	prettyHandle.Indent = 2
+
+	jsonStrictHandle = new(codec.JsonHandle)
+	jsonStrictHandle.ErrorIfNoField = prettyHandle.ErrorIfNoField
+	jsonStrictHandle.ErrorIfNoArrayExpand = prettyHandle.ErrorIfNoArrayExpand
+	jsonStrictHandle.Canonical = prettyHandle.Canonical
+	jsonStrictHandle.RecursiveEmptyCheck = prettyHandle.RecursiveEmptyCheck
+	jsonStrictHandle.Indent = prettyHandle.Indent
+	jsonStrictHandle.HTMLCharsAsIs = prettyHandle.HTMLCharsAsIs
+	jsonStrictHandle.MapKeyAsString = true
 }
 
 // EncodeJSONToFile is used to encode an object to a file. If the file ends in .gz it will be gzipped.
@@ -52,7 +61,7 @@ func EncodeJSONToFile(filename string, v interface{}, pretty bool) error {
 	if pretty {
 		handle = prettyHandle
 	} else {
-		handle = protocol.JSONStrictHandle
+		handle = jsonStrictHandle
 	}
 	enc := codec.NewEncoder(writer, handle)
 	return enc.Encode(v)
