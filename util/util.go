@@ -3,6 +3,8 @@ package util
 import (
 	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,10 +13,11 @@ import (
 
 	"github.com/algorand/go-codec/codec"
 	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/protocol"
+	"github.com/algorand/indexer/protocol/config"
 
+	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/config"
-	"github.com/algorand/go-algorand/protocol"
 )
 
 // PrintableUTF8OrEmpty checks to see if the entire string is a UTF8 printable string.
@@ -222,6 +225,23 @@ func checkGenesisHash(db idb.IndexerDb, gh sdk.Digest) error {
 		return fmt.Errorf("genesis hash not matching")
 	}
 	return nil
+}
+
+// ReadGenesis converts a reader into a Genesis file.
+func ReadGenesis(in io.Reader) (sdk.Genesis, error) {
+	var genesis sdk.Genesis
+	if in == nil {
+		return sdk.Genesis{}, fmt.Errorf("ReadGenesis() err: reader is nil")
+	}
+	gbytes, err := ioutil.ReadAll(in)
+	if err != nil {
+		return sdk.Genesis{}, fmt.Errorf("ReadGenesis() err: %w", err)
+	}
+	err = json.Decode(gbytes, &genesis)
+	if err != nil {
+		return sdk.Genesis{}, fmt.Errorf("ReadGenesis() decode err: %w", err)
+	}
+	return genesis, nil
 }
 
 func init() {

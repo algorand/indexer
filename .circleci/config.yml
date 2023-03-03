@@ -121,12 +121,6 @@ commands:
             pip3 install -r misc/requirements.txt
             pip3 install e2e_tests/
 
-      - run:
-          name: sync submodules (go-algorand)
-          command: |
-            git submodule sync
-            git submodule update --init
-
       - run: echo 'export PATH=$PATH:/usr/local/go/bin:$HOME/.local/bin' >> $BASH_ENV
 
   install_linter:

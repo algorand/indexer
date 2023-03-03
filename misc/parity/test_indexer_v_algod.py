@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 from typing import List
 import yaml
+import requests
 
 from git import Repo
 
@@ -24,8 +25,7 @@ PATH_KEY_EXCLUDES = []
 REPO_DIR = Path.cwd()
 INDEXER_SWGR = REPO_DIR / "api" / "indexer.oas2.json"
 
-GOAL_DIR = REPO_DIR / "third_party" / "go-algorand"
-ALGOD_SWGR = GOAL_DIR / "daemon" / "algod" / "api" / "algod.oas2.json"
+ALGOD_SWGR = "https://raw.githubusercontent.com/algorand/go-algorand/rel/nightly/daemon/algod/api/algod.oas2.json"
 
 REPORTS_DIR = REPO_DIR / "misc" / "parity" / "reports"
 
@@ -42,13 +42,10 @@ def print_git_info_once():
     indexer = Repo(REPO_DIR)
     indexer_commit = indexer.git.rev_parse("HEAD")
 
-    goal = Repo(GOAL_DIR)
-    goal_commit = goal.git.rev_parse("HEAD")
-
     print(
         f"""Finished comparing:
     * Indexer Swagger {INDEXER_SWGR} for commit hash {indexer_commit}
-    * Algod Swagger {ALGOD_SWGR} for commit hash {goal_commit}
+    * Algod Swagger {ALGOD_SWGR}
 """
     )
 
@@ -60,9 +57,9 @@ def tsetup():
         indexer = json.loads(f.read())
         indexer = select(indexer, PATH_INCLUDES)
 
-    with open(ALGOD_SWGR, "r") as f:
-        algod = json.loads(f.read())
-        algod = select(algod, PATH_INCLUDES)
+    f=requests.get(ALGOD_SWGR)
+    algod = json.loads(f.text)
+    algod = select(algod, PATH_INCLUDES)
 
     return PATH_KEY_EXCLUDES, indexer, algod
 
