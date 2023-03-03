@@ -34,7 +34,7 @@ func setupIdb(t *testing.T, genesis sdk.Genesis) (*IndexerDb, func()) {
 		shutdownFunc()
 	}
 	vb := types.ValidatedBlock{
-		Block: test.MakeGenesisBlockV2(),
+		Block: test.MakeGenesisBlock(),
 		Delta: sdk.LedgerStateDelta{},
 	}
 	db.AddBlock(&vb)

@@ -77,7 +77,7 @@ func setupIdb(t *testing.T, genesis sdk.Genesis) (*postgres.IndexerDb, func()) {
 
 	err = db.LoadGenesis(genesis)
 	vb := types.ValidatedBlock{
-		Block: test.MakeGenesisBlockV2(),
+		Block: test.MakeGenesisBlock(),
 		Delta: sdk.LedgerStateDelta{},
 	}
 	db.AddBlock(&vb)
@@ -87,7 +87,7 @@ func setupIdb(t *testing.T, genesis sdk.Genesis) (*postgres.IndexerDb, func()) {
 }
 
 func TestApplicationHandlers(t *testing.T) {
-	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 
 	///////////
@@ -226,7 +226,7 @@ func TestApplicationHandlers(t *testing.T) {
 }
 
 func TestAccountExcludeParameters(t *testing.T) {
-	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 
 	///////////
@@ -395,7 +395,7 @@ type accountsErrorResponse struct {
 }
 
 func TestAccountMaxResultsLimit(t *testing.T) {
-	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 
 	///////////
@@ -411,35 +411,35 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 	var txns []sdk.SignedTxnWithAD
 	// make apps and assets
 	for range deletedAppIDs {
-		txns = append(txns, test.MakeCreateAppTxnV2(sdk.Address(test.AccountA)))
+		txns = append(txns, test.MakeCreateAppTxn(sdk.Address(test.AccountA)))
 	}
 	for _, id := range deletedAssetIDs {
-		txns = append(txns, test.MakeAssetConfigTxnV2(0, 100, 0, false, "UNIT",
+		txns = append(txns, test.MakeAssetConfigTxn(0, 100, 0, false, "UNIT",
 			fmt.Sprintf("Asset %d", id), "http://asset.com", sdk.Address(test.AccountA)))
 	}
 	for range expectedAppIDs {
-		txns = append(txns, test.MakeCreateAppTxnV2(sdk.Address(test.AccountA)))
+		txns = append(txns, test.MakeCreateAppTxn(sdk.Address(test.AccountA)))
 	}
 	for _, id := range expectedAssetIDs {
-		txns = append(txns, test.MakeAssetConfigTxnV2(0, 100, 0, false, "UNIT",
+		txns = append(txns, test.MakeAssetConfigTxn(0, 100, 0, false, "UNIT",
 			fmt.Sprintf("Asset %d", id), "http://asset.com", sdk.Address(test.AccountA)))
 	}
 	// delete some apps and assets
 	for _, id := range deletedAppIDs {
-		txns = append(txns, test.MakeAppDestroyTxnV2(id, sdk.Address(test.AccountA)))
+		txns = append(txns, test.MakeAppDestroyTxn(id, sdk.Address(test.AccountA)))
 	}
 	for _, id := range deletedAssetIDs {
-		txns = append(txns, test.MakeAssetDestroyTxnV2(id, sdk.Address(test.AccountA)))
+		txns = append(txns, test.MakeAssetDestroyTxn(id, sdk.Address(test.AccountA)))
 	}
 
 	// opt in to the remaining ones
 	for _, id := range expectedAppIDs {
-		txns = append(txns, test.MakeAppOptInTxnV2(id, sdk.Address(test.AccountA)))
-		txns = append(txns, test.MakeAppOptInTxnV2(id, sdk.Address(test.AccountB)))
+		txns = append(txns, test.MakeAppOptInTxn(id, sdk.Address(test.AccountA)))
+		txns = append(txns, test.MakeAppOptInTxn(id, sdk.Address(test.AccountB)))
 	}
 	for _, id := range expectedAssetIDs {
-		txns = append(txns, test.MakeAssetOptInTxnV2(id, sdk.Address(test.AccountA)))
-		txns = append(txns, test.MakeAssetOptInTxnV2(id, sdk.Address(test.AccountB)))
+		txns = append(txns, test.MakeAssetOptInTxn(id, sdk.Address(test.AccountA)))
+		txns = append(txns, test.MakeAssetOptInTxn(id, sdk.Address(test.AccountB)))
 	}
 
 	ptxns := make([]*sdk.SignedTxnWithAD, len(txns))
@@ -758,7 +758,7 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 }
 
 func TestBlockNotFound(t *testing.T) {
-	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 
 	///////////
@@ -823,7 +823,7 @@ func TestInnerTxn(t *testing.T) {
 		},
 	}
 
-	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 
 	///////////
@@ -874,7 +874,7 @@ func TestInnerTxn(t *testing.T) {
 // transaction group does not allow the root transaction to be returned on both
 // pages.
 func TestPagingRootTxnDeduplication(t *testing.T) {
-	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 
 	///////////
@@ -1000,7 +1000,7 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 }
 
 func TestKeyregTransactionWithStateProofKeys(t *testing.T) {
-	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 
 	///////////
@@ -1097,7 +1097,7 @@ func TestVersion(t *testing.T) {
 	///////////
 	// Given // An API and context
 	///////////
-	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 	api := testServerImplementation(db)
 
@@ -1126,7 +1126,7 @@ func TestVersion(t *testing.T) {
 }
 
 func TestAccountClearsNonUTF8(t *testing.T) {
-	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 
 	///////////
@@ -1255,7 +1255,7 @@ func TestLookupInnerLogs(t *testing.T) {
 		},
 	}
 
-	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 
 	///////////
@@ -1355,7 +1355,7 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 		},
 	}
 
-	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 
 	///////////
@@ -1414,7 +1414,7 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 }
 
 func TestFetchBlockWithExpiredPartAccts(t *testing.T) {
-	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 
 	///////////
@@ -1478,7 +1478,7 @@ func TestFetchBlockWithOptions(t *testing.T) {
 		},
 	}
 
-	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 
 	///////////
@@ -1528,7 +1528,7 @@ func TestFetchBlockWithOptions(t *testing.T) {
 }
 
 func TestGetBlocksTransactionsLimit(t *testing.T) {
-	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 
 	///////////
@@ -1631,7 +1631,7 @@ func TestGetBlocksTransactionsLimit(t *testing.T) {
 }
 
 func TestGetBlockWithCompression(t *testing.T) {
-	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 
 	///////////
@@ -1720,7 +1720,7 @@ func TestGetBlockWithCompression(t *testing.T) {
 }
 
 func TestNoCompressionSupportForNonBlockAPI(t *testing.T) {
-	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 
 	//////////
@@ -1911,7 +1911,7 @@ func compareAppBoxesAgainstHandler(t *testing.T, db *postgres.IndexerDb,
 func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	start := time.Now()
 
-	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 
 	appid := sdk.AppIndex(1)
@@ -2147,7 +2147,7 @@ func makeRequest(t *testing.T, listenAddr string, path string, includeDeleted bo
 
 // recreate tests from  common.sh/create_delete_tests()
 func TestAppDelete(t *testing.T) {
-	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 	serverCtx, serverCancel := context.WithCancel(context.Background())
 	defer serverCancel()
@@ -2249,7 +2249,7 @@ func TestAppDelete(t *testing.T) {
 	assert.Equal(t, uint64(expectedAppIdx2), (*accountB.Account.CreatedApps)[0].Id)
 }
 func TestAssetDelete(t *testing.T) {
-	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 	serverCtx, serverCancel := context.WithCancel(context.Background())
 	defer serverCancel()
@@ -2333,7 +2333,7 @@ func TestAssetDelete(t *testing.T) {
 }
 
 func TestApplicationLocal(t *testing.T) {
-	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 	serverCtx, serverCancel := context.WithCancel(context.Background())
 	defer serverCancel()
@@ -2436,7 +2436,7 @@ func TestApplicationLocal(t *testing.T) {
 }
 
 func TestAccounts(t *testing.T) {
-	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 	serverCtx, serverCancel := context.WithCancel(context.Background())
 	defer serverCancel()

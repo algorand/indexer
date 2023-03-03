@@ -11,10 +11,6 @@ import (
 	"github.com/algorand/indexer/conduit/plugins/processors/filterprocessor/gen/internal"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/crypto"
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/protocol"
 )
 
 // ignoreTags are things that we specifically want to exclude from the output.
@@ -113,20 +109,6 @@ func simpleCast(t reflect.StructField) string {
 		return "uint64"
 	case sdk.TxType:
 		return "string"
-	// go-algorand types
-	case basics.AssetIndex:
-		return "uint64"
-	case basics.AppIndex:
-		return "uint64"
-	case basics.Round:
-		return "uint64"
-	case transactions.OnCompletion:
-		return "uint64"
-	case protocol.StateProofType:
-		return "uint64"
-	case protocol.TxType:
-		return "string"
-
 	}
 	return ""
 
@@ -165,16 +147,6 @@ func castParts(t reflect.StructField) (prefix, postfix string, err error) {
 	case []uint8: // note field
 		encodeB64()
 	case [32]uint8: // asset metadata, lease
-		encodeB64()
-	// go-algorand types
-	case basics.MicroAlgos:
-		// This is a weird struct object with a nested type. Add the cast and subtype.
-		prefix = "uint64("
-		postfix = ".Raw)"
-	case basics.Address:
-		prefix = ""
-		postfix = ".String()"
-	case crypto.Digest:
 		encodeB64()
 	default:
 		prefix = "NOT "

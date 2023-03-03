@@ -12,22 +12,21 @@ import (
 
 	"github.com/algorand/avm-abi/apps"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/go-algorand/config"
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/idb/postgres/internal/writer"
+	"github.com/algorand/indexer/protocol"
+	"github.com/algorand/indexer/protocol/config"
 	"github.com/algorand/indexer/util/test"
 )
 
-type boxTestComparator func(t *testing.T, db *IndexerDb, appBoxes map[basics.AppIndex]map[string]string,
-	deletedBoxes map[basics.AppIndex]map[string]bool, verifyTotals bool)
+type boxTestComparator func(t *testing.T, db *IndexerDb, appBoxes map[sdk.AppIndex]map[string]string,
+	deletedBoxes map[sdk.AppIndex]map[string]bool, verifyTotals bool)
 
 // compareAppBoxesAgainstDB is of type testing.BoxTestComparator
 func compareAppBoxesAgainstDB(t *testing.T, db *IndexerDb,
-	appBoxes map[basics.AppIndex]map[string]string,
-	deletedBoxes map[basics.AppIndex]map[string]bool, verifyTotals bool) {
+	appBoxes map[sdk.AppIndex]map[string]string,
+	deletedBoxes map[sdk.AppIndex]map[string]bool, verifyTotals bool) {
 
 	numQueries := 0
 	sumOfBoxes := 0
@@ -59,7 +58,7 @@ func compareAppBoxesAgainstDB(t *testing.T, db *IndexerDb,
 				}
 			}
 
-			var app basics.AppIndex
+			var app sdk.AppIndex
 			var name, value []byte
 			err = row.Scan(&app, &name, &value)
 			if !boxDeleted {
@@ -75,7 +74,7 @@ func compareAppBoxesAgainstDB(t *testing.T, db *IndexerDb,
 			}
 		}
 		if verifyTotals {
-			addr := appIdx.Address()
+			addr := test.AppAddress(appIdx)
 			msg := fmt.Sprintf("caseNum=%d, appIdx=%d", caseNum, appIdx)
 
 			row := db.db.QueryRow(context.Background(), acctDataSQL, addr[:])
@@ -102,13 +101,13 @@ func compareAppBoxesAgainstDB(t *testing.T, db *IndexerDb,
 func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	start := time.Now()
 
-	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 
-	appid := basics.AppIndex(1)
+	appid := sdk.AppIndex(1)
 
 	// ---- ROUND 1: create and fund the box app  ---- //
-	currentRound := basics.Round(1)
+	currentRound := sdk.Round(1)
 
 	//createTxn, err := test.MakeComplexCreateAppTxn(test.AccountA, test.BoxApprovalProgram, test.BoxClearProgram, 8)
 	//require.NoError(t, err)
@@ -136,7 +135,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	require.Equal(t, uint64(currentRound), *row.Application.CreatedAtRound)
 
 	// ---- ROUND 2: create 8 boxes for appid == 1  ---- //
-	currentRound = basics.Round(2)
+	currentRound = sdk.Round(2)
 
 	boxNames := []string{
 		"a great box",
@@ -149,7 +148,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 		"box #8",
 	}
 
-	expectedAppBoxes := map[basics.AppIndex]map[string]string{}
+	expectedAppBoxes := map[sdk.AppIndex]map[string]string{}
 
 	expectedAppBoxes[appid] = map[string]string{}
 	newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
@@ -176,7 +175,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	comparator(t, db, expectedAppBoxes, nil, true)
 
 	// ---- ROUND 3: populate the boxes appropriately  ---- //
-	currentRound = basics.Round(3)
+	currentRound = sdk.Round(3)
 
 	appBoxesToSet := map[string]string{
 		"a great box":               "it's a wonderful box",
@@ -216,7 +215,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	comparator(t, db, expectedAppBoxes, nil, true)
 
 	// ---- ROUND 4: delete the unhappy boxes  ---- //
-	currentRound = basics.Round(4)
+	currentRound = sdk.Round(4)
 
 	appBoxesToDelete := []string{
 		"not so great box",
@@ -246,7 +245,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	_, round = db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
 
-	deletedBoxes := make(map[basics.AppIndex]map[string]bool)
+	deletedBoxes := make(map[sdk.AppIndex]map[string]bool)
 	deletedBoxes[appid] = make(map[string]bool)
 	for _, deletedBox := range appBoxesToDelete {
 		deletedBoxes[appid][deletedBox] = true
@@ -254,7 +253,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	comparator(t, db, expectedAppBoxes, deletedBoxes, true)
 
 	// ---- ROUND 5: create 3 new boxes, overwriting one of the former boxes  ---- //
-	currentRound = basics.Round(5)
+	currentRound = sdk.Round(5)
 
 	appBoxesToCreate := []string{
 		"fantabulous",
@@ -285,7 +284,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	comparator(t, db, expectedAppBoxes, nil, true)
 
 	// ---- ROUND 6: populate the 3 new boxes  ---- //
-	currentRound = basics.Round(6)
+	currentRound = sdk.Round(6)
 
 	appBoxesToSet = map[string]string{
 		"fantabulous":        "Italian food's the best!", // max char's
@@ -320,7 +319,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 
 // generateRandomBoxes generates a random slice of box keys and values for an app using future consensus params for guidance.
 // NOTE: no attempt is made to adhere to the constraints BytesPerBoxReference etc.
-func generateRandomBoxes(t *testing.T, appIdx basics.AppIndex, maxBoxes int) map[string]string {
+func generateRandomBoxes(t *testing.T, appIdx sdk.AppIndex, maxBoxes int) map[string]string {
 	future := config.Consensus[protocol.ConsensusFuture]
 
 	numBoxes := rand.Intn(maxBoxes + 1)
@@ -345,8 +344,8 @@ func generateRandomBoxes(t *testing.T, appIdx basics.AppIndex, maxBoxes int) map
 	return boxes
 }
 
-func createRandomBoxesWithDelta(t *testing.T, numApps, maxBoxes int) (map[basics.AppIndex]map[string]string, sdk.LedgerStateDelta) {
-	appBoxes := make(map[basics.AppIndex]map[string]string)
+func createRandomBoxesWithDelta(t *testing.T, numApps, maxBoxes int) (map[sdk.AppIndex]map[string]string, sdk.LedgerStateDelta) {
+	appBoxes := make(map[sdk.AppIndex]map[string]string)
 
 	delta := sdk.LedgerStateDelta{
 		KvMods: map[string]sdk.KvValueDelta{},
@@ -356,7 +355,7 @@ func createRandomBoxesWithDelta(t *testing.T, numApps, maxBoxes int) (map[basics
 	}
 
 	for i := 0; i < numApps; i++ {
-		appIndex := basics.AppIndex(rand.Int63())
+		appIndex := sdk.AppIndex(rand.Int63())
 		boxes := generateRandomBoxes(t, appIndex, maxBoxes)
 		appBoxes[appIndex] = boxes
 
@@ -373,7 +372,7 @@ func createRandomBoxesWithDelta(t *testing.T, numApps, maxBoxes int) (map[basics
 	return appBoxes, delta
 }
 
-func randomMutateSomeBoxesWithDelta(t *testing.T, appBoxes map[basics.AppIndex]map[string]string) sdk.LedgerStateDelta {
+func randomMutateSomeBoxesWithDelta(t *testing.T, appBoxes map[sdk.AppIndex]map[string]string) sdk.LedgerStateDelta {
 	var delta sdk.LedgerStateDelta
 	delta.KvMods = make(map[string]sdk.KvValueDelta)
 
@@ -395,8 +394,8 @@ func randomMutateSomeBoxesWithDelta(t *testing.T, appBoxes map[basics.AppIndex]m
 	return delta
 }
 
-func deleteSomeBoxesWithDelta(t *testing.T, appBoxes map[basics.AppIndex]map[string]string) (map[basics.AppIndex]map[string]bool, sdk.LedgerStateDelta) {
-	deletedBoxes := make(map[basics.AppIndex]map[string]bool, len(appBoxes))
+func deleteSomeBoxesWithDelta(t *testing.T, appBoxes map[sdk.AppIndex]map[string]string) (map[sdk.AppIndex]map[string]bool, sdk.LedgerStateDelta) {
+	deletedBoxes := make(map[sdk.AppIndex]map[string]bool, len(appBoxes))
 
 	var delta sdk.LedgerStateDelta
 	delta.KvMods = make(map[string]sdk.KvValueDelta)
@@ -443,7 +442,7 @@ func TestBoxCreateMutateDeleteAgainstDB(t *testing.T) {
 func TestRandomWriteReadBoxes(t *testing.T) {
 	start := time.Now()
 
-	db, shutdownFunc := setupIdb(t, test.MakeGenesisV2())
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 
 	appBoxes, delta := createRandomBoxesWithDelta(t, 10, 2500)

@@ -15,7 +15,6 @@ func RegisterPrometheusMetrics(subsystem string) {
 	deregister()
 	instantiateCollectors(subsystem)
 
-	_ = prometheus.Register(GetAlgodRawBlockTimeSeconds)
 	_ = prometheus.Register(BlockImportTimeSeconds)
 	_ = prometheus.Register(BlockImportTimeSeconds)
 	_ = prometheus.Register(ImportedTxnsPerBlock)
@@ -29,7 +28,6 @@ func RegisterPrometheusMetrics(subsystem string) {
 func deregister() {
 	// Use ImportedTxns as a sentinel value. None or all should be initialized.
 	if ImportedTxns != nil {
-		prometheus.Unregister(GetAlgodRawBlockTimeSeconds)
 		prometheus.Unregister(BlockImportTimeSeconds)
 		prometheus.Unregister(BlockImportTimeSeconds)
 		prometheus.Unregister(ImportedTxnsPerBlock)
@@ -43,14 +41,6 @@ func deregister() {
 }
 
 func instantiateCollectors(subsystem string) {
-	// GetAlgodRawBlockTimeSeconds is used by fetcher
-	GetAlgodRawBlockTimeSeconds = prometheus.NewSummary(
-		prometheus.SummaryOpts{
-			Subsystem: subsystem,
-			Name:      GetAlgodRawBlockTimeName,
-			Help:      "Total response time from Algod's raw block endpoint in seconds.",
-		})
-
 	BlockImportTimeSeconds = prometheus.NewSummary(
 		prometheus.SummaryOpts{
 			Subsystem: subsystem,
@@ -140,10 +130,6 @@ var AllMetricNames = []string{
 
 // Initialize the prometheus objects.
 var (
-	// used by fetcher
-
-	GetAlgodRawBlockTimeSeconds prometheus.Summary
-
 	// used by pipeline
 
 	BlockImportTimeSeconds prometheus.Summary
