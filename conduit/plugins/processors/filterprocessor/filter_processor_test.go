@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/indexer/conduit"
+	"github.com/algorand/indexer/conduit/data"
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/processors"
-	"github.com/algorand/indexer/data"
 )
 
 // create an empty block data so that txn fields can be set with less vertical space

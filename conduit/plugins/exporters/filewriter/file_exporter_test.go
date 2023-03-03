@@ -13,11 +13,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
+	"github.com/algorand/indexer/conduit/data"
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/exporters"
-	"github.com/algorand/indexer/data"
-	"github.com/algorand/indexer/util"
-	testutil "github.com/algorand/indexer/util/test"
+	"github.com/algorand/indexer/conduit/plugins/tools/testutil"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
@@ -176,7 +175,7 @@ func TestExporterReceive(t *testing.T) {
 		assert.NotContains(t, string(blockBytes), " 0: ")
 
 		var blockData data.BlockData
-		err = util.DecodeJSONFromFile(path, &blockData, true)
+		err = DecodeJSONFromFile(path, &blockData, true)
 		require.Equal(t, sdk.Round(i), blockData.BlockHeader.Round)
 		require.NoError(t, err)
 		require.NotNil(t, blockData.Certificate)
@@ -208,7 +207,7 @@ func TestPatternOverride(t *testing.T) {
 		assert.FileExists(t, path)
 
 		var blockData data.BlockData
-		err := util.DecodeJSONFromFile(path, &blockData, true)
+		err := DecodeJSONFromFile(path, &blockData, true)
 		require.Equal(t, sdk.Round(i), blockData.BlockHeader.Round)
 		require.NoError(t, err)
 		require.NotNil(t, blockData.Certificate)
@@ -234,7 +233,7 @@ func TestDropCertificate(t *testing.T) {
 		path := fmt.Sprintf("%s/%s", tempdir, filename)
 		assert.FileExists(t, path)
 		var blockData data.BlockData
-		err := util.DecodeJSONFromFile(path, &blockData, true)
+		err := DecodeJSONFromFile(path, &blockData, true)
 		assert.NoError(t, err)
 		assert.Nil(t, blockData.Certificate)
 	}

@@ -7,9 +7,9 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/algorand/indexer/conduit"
+	"github.com/algorand/indexer/conduit/data"
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/processors"
-	"github.com/algorand/indexer/data"
 )
 
 // PluginName to use when configuring.

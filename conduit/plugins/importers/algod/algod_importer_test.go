@@ -14,7 +14,6 @@ import (
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 
 	"github.com/algorand/indexer/conduit/plugins"
-	"github.com/algorand/indexer/util/test"
 )
 
 var (
@@ -39,7 +38,7 @@ func TestImporterMetadata(t *testing.T) {
 }
 
 func TestCloseSuccess(t *testing.T) {
-	ts := test.NewAlgodServer(test.GenesisResponder)
+	ts := NewAlgodServer(GenesisResponder)
 	testImporter := New()
 	cfgStr := fmt.Sprintf(`---
 mode: %s
@@ -60,7 +59,7 @@ func TestInitSuccess(t *testing.T) {
 	}
 	for _, ttest := range tests {
 		t.Run(ttest.name, func(t *testing.T) {
-			ts := test.NewAlgodServer(test.GenesisResponder)
+			ts := NewAlgodServer(GenesisResponder)
 			testImporter := New()
 			cfgStr := fmt.Sprintf(`---
 mode: %s
@@ -101,7 +100,7 @@ func TestInitModeFailure(t *testing.T) {
 	}
 	for _, ttest := range tests {
 		t.Run(ttest.name, func(t *testing.T) {
-			ts := test.NewAlgodServer(test.GenesisResponder)
+			ts := NewAlgodServer(GenesisResponder)
 			testImporter := New()
 			cfgStr := fmt.Sprintf(`---
 mode: %s
@@ -114,7 +113,7 @@ netaddr: %s
 }
 
 func TestInitGenesisFailure(t *testing.T) {
-	ts := test.NewAlgodServer(test.MakeGenesisResponder(sdk.Genesis{}))
+	ts := NewAlgodServer(MakeGenesisResponder(sdk.Genesis{}))
 	testImporter := New()
 	cfgStr := fmt.Sprintf(`---
 mode: %s
@@ -144,7 +143,7 @@ func TestConfigDefault(t *testing.T) {
 }
 
 func TestWaitForBlockBlockFailure(t *testing.T) {
-	ts := test.NewAlgodServer(test.GenesisResponder)
+	ts := NewAlgodServer(GenesisResponder)
 	testImporter := New()
 	cfgStr := fmt.Sprintf(`---
 mode: %s
@@ -165,15 +164,15 @@ func TestGetBlockSuccess(t *testing.T) {
 		name        string
 		algodServer *httptest.Server
 	}{
-		{"", test.NewAlgodServer(test.GenesisResponder,
-			test.BlockResponder,
-			test.BlockAfterResponder)},
-		{"archival", test.NewAlgodServer(test.GenesisResponder,
-			test.BlockResponder,
-			test.BlockAfterResponder)},
-		{"follower", test.NewAlgodServer(test.GenesisResponder,
-			test.BlockResponder,
-			test.BlockAfterResponder, test.LedgerStateDeltaResponder)},
+		{"", NewAlgodServer(GenesisResponder,
+			BlockResponder,
+			BlockAfterResponder)},
+		{"archival", NewAlgodServer(GenesisResponder,
+			BlockResponder,
+			BlockAfterResponder)},
+		{"follower", NewAlgodServer(GenesisResponder,
+			BlockResponder,
+			BlockAfterResponder, LedgerStateDeltaResponder)},
 	}
 	for _, ttest := range tests {
 		t.Run(ttest.name, func(t *testing.T) {
@@ -214,12 +213,12 @@ func TestGetBlockContextCancelled(t *testing.T) {
 		name        string
 		algodServer *httptest.Server
 	}{
-		{"archival", test.NewAlgodServer(test.GenesisResponder,
-			test.BlockResponder,
-			test.BlockAfterResponder)},
-		{"follower", test.NewAlgodServer(test.GenesisResponder,
-			test.BlockResponder,
-			test.BlockAfterResponder, test.LedgerStateDeltaResponder)},
+		{"archival", NewAlgodServer(GenesisResponder,
+			BlockResponder,
+			BlockAfterResponder)},
+		{"follower", NewAlgodServer(GenesisResponder,
+			BlockResponder,
+			BlockAfterResponder, LedgerStateDeltaResponder)},
 	}
 
 	for _, ttest := range tests {
@@ -246,10 +245,10 @@ func TestGetBlockFailure(t *testing.T) {
 		name        string
 		algodServer *httptest.Server
 	}{
-		{"archival", test.NewAlgodServer(test.GenesisResponder,
-			test.BlockAfterResponder)},
-		{"follower", test.NewAlgodServer(test.GenesisResponder,
-			test.BlockAfterResponder, test.LedgerStateDeltaResponder)},
+		{"archival", NewAlgodServer(GenesisResponder,
+			BlockAfterResponder)},
+		{"follower", NewAlgodServer(GenesisResponder,
+			BlockAfterResponder, LedgerStateDeltaResponder)},
 	}
 	for _, ttest := range tests {
 		t.Run(ttest.name, func(t *testing.T) {

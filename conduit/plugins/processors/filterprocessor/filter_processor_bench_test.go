@@ -9,8 +9,8 @@ import (
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/indexer/conduit"
+	"github.com/algorand/indexer/conduit/data"
 	"github.com/algorand/indexer/conduit/plugins"
-	"github.com/algorand/indexer/data"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )

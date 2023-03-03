@@ -22,7 +22,6 @@ import (
 	_ "github.com/algorand/indexer/conduit/plugins/exporters/postgresql"
 	_ "github.com/algorand/indexer/conduit/plugins/importers/algod"
 	"github.com/algorand/indexer/config"
-	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
 	iutil "github.com/algorand/indexer/util"
 )
@@ -305,7 +304,7 @@ func runDaemon(daemonConfig *daemonConfig) error {
 	}
 
 	if daemonConfig.algodDataDir != "" {
-		daemonConfig.algodAddr, daemonConfig.algodToken, _, err = fetcher.AlgodArgsForDataDir(daemonConfig.algodDataDir)
+		daemonConfig.algodAddr, daemonConfig.algodToken, _, err = config.AlgodArgsForDataDir(daemonConfig.algodDataDir)
 		if err != nil {
 			return fmt.Errorf("algod data dir err, %v", err)
 		}

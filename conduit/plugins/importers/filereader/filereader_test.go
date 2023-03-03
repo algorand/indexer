@@ -14,11 +14,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
+	"github.com/algorand/indexer/conduit/data"
 	"github.com/algorand/indexer/conduit/plugins"
 	"github.com/algorand/indexer/conduit/plugins/exporters/filewriter"
 	"github.com/algorand/indexer/conduit/plugins/importers"
-	"github.com/algorand/indexer/data"
-	"github.com/algorand/indexer/util"
 )
 
 var (
@@ -54,7 +53,7 @@ func initializeTestData(t *testing.T, dir string, numRounds int) sdk.Genesis {
 		Timestamp:   1234,
 	}
 
-	err := util.EncodeJSONToFile(path.Join(dir, "genesis.json"), genesisA, true)
+	err := filewriter.EncodeJSONToFile(path.Join(dir, "genesis.json"), genesisA, true)
 	require.NoError(t, err)
 
 	for i := 0; i < numRounds; i++ {
@@ -67,7 +66,7 @@ func initializeTestData(t *testing.T, dir string, numRounds int) sdk.Genesis {
 			Certificate: nil,
 		}
 		blockFile := path.Join(dir, fmt.Sprintf(filewriter.FilePattern, i))
-		err = util.EncodeJSONToFile(blockFile, block, true)
+		err = filewriter.EncodeJSONToFile(blockFile, block, true)
 		require.NoError(t, err)
 	}
 
