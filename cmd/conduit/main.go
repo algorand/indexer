@@ -69,13 +69,17 @@ func runConduitCmdWithConfig(args *conduit.Args) error {
 
 	if pCfg.LogFile != "" {
 		fmt.Printf("Writing logs to file: %s\n", pCfg.LogFile)
+	} else {
+		fmt.Println("Writing logs to console.")
 	}
 
 	ctx := context.Background()
 	pipeline, err := pipeline.MakePipeline(ctx, pCfg, logger)
 	if err != nil {
 		err = fmt.Errorf("pipeline creation error: %w", err)
-		// If there is a log file, write the error to a log in addition to printing it.
+
+		// Make sure the error is written to stdout once.
+		fmt.Println(err)
 		if pCfg.LogFile != "" {
 			logger.Error(err)
 		}
