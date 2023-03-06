@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
-	"github.com/algorand/indexer/cmd/conduit/internal/init"
+	"github.com/algorand/indexer/cmd/conduit/internal/initialize"
 	"github.com/algorand/indexer/cmd/conduit/internal/list"
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/conduit/loggers"
@@ -30,7 +30,7 @@ var (
 
 // init() function for main package
 func init() {
-	conduitCmd.AddCommand(init.InitCommand)
+	conduitCmd.AddCommand(initialize.InitCommand)
 	conduitCmd.AddCommand(list.Command)
 }
 

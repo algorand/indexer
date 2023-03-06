@@ -1,4 +1,4 @@
-package init
+package initialize
 
 import (
 	_ "embed"
@@ -13,6 +13,7 @@ import (
 	"github.com/algorand/indexer/conduit/pipeline"
 )
 
+// InitCommand is the init subcommand.
 var InitCommand = makeInitCmd()
 
 const defaultDataDirectory = "data"
