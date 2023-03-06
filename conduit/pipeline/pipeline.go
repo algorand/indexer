@@ -91,7 +91,7 @@ func MakePipelineConfig(args *conduit.Args) (*Config, error) {
 	}
 
 	if !util.IsDir(args.ConduitDataDir) {
-		return nil, fmt.Errorf("MakePipelineConfig(): invalid data dir")
+		return nil, fmt.Errorf("MakePipelineConfig(): invalid data dir '%s'", args.ConduitDataDir)
 	}
 
 	// Search for pipeline configuration in data directory
@@ -588,7 +588,7 @@ func MakePipeline(ctx context.Context, cfg *Config, logger *log.Logger) (Pipelin
 
 	importerBuilder, err := importers.ImporterBuilderByName(importerName)
 	if err != nil {
-		return nil, fmt.Errorf("MakePipeline(): could not find importer builder with name: %s", importerName)
+		return nil, fmt.Errorf("MakePipeline(): could not build importer '%s': %w", importerName, err)
 	}
 
 	importer := importerBuilder.New()
@@ -602,7 +602,7 @@ func MakePipeline(ctx context.Context, cfg *Config, logger *log.Logger) (Pipelin
 
 		processorBuilder, err := processors.ProcessorBuilderByName(processorName)
 		if err != nil {
-			return nil, fmt.Errorf("MakePipeline(): could not find processor builder with name: %s", processorName)
+			return nil, fmt.Errorf("MakePipeline(): could not build processor '%s': %w", processorName, err)
 		}
 
 		processor := processorBuilder.New()
@@ -616,7 +616,7 @@ func MakePipeline(ctx context.Context, cfg *Config, logger *log.Logger) (Pipelin
 
 	exporterBuilder, err := exporters.ExporterBuilderByName(exporterName)
 	if err != nil {
-		return nil, fmt.Errorf("MakePipeline(): could not find exporter builder with name: %s", exporterName)
+		return nil, fmt.Errorf("MakePipeline(): could not build exporter '%s': %w", exporterName, err)
 	}
 
 	exporter := exporterBuilder.New()
