@@ -139,6 +139,8 @@ func TestLogFile(t *testing.T) {
 		require.NoError(t, err)
 		dataStr := string(data)
 		require.Contains(t, dataStr, "{")
+		require.Contains(t, dataStr, "\nWriting logs to console.")
+		require.Contains(t, dataStr, "\npipeline creation error")
 	})
 
 	// logging to file
@@ -152,5 +154,9 @@ func TestLogFile(t *testing.T) {
 		require.NoError(t, err)
 		logdataStr := string(logdata)
 		require.Contains(t, logdataStr, "{")
+		// written to stdout and logfile
+		require.Contains(t, dataStr, "\npipeline creation error")
+		require.Contains(t, dataStr, "\nWriting logs to file:")
+		require.Contains(t, logdataStr, `"msg":"pipeline creation error`)
 	})
 }
