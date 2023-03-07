@@ -66,7 +66,7 @@ Alternatively, modify `e2e_tests/docker/indexer/Dockerfile` by swapping out `$CI
 
 ### Creating new Conduit e2e tests
 
-##Creating a new plugin fixture
+## Creating a new plugin fixture
 All plugins for e2e tests are organized in `e2e_tests/src/e2e_conduit/fixtures/` under the proper directory structure. For example, processor plugin fixtures are under `e2e_tests/src/e2e_conduit/fixtures/processors/`.
 
 To create a new plugin, create a new class under the proper directory which subclasses `PluginFixture`.  
@@ -91,7 +91,7 @@ the data section of your plugin's config when running it in Conduit.
 Here, similarly to `config_input`, we set values on the `config_output` map. This map is what will be passed between plugins during initialization via the `accumulated_config`. If your plugin is creating any resources or initializing any values which other plugins need to know about, they should be set in the `config_output`.
 
 
-##Creating a new scenario using your plugin
+## Creating a new scenario using your plugin
 A `Scenario` is an abstraction for a given instantiation of a Conduit pipeline. In order to run a coduit e2e test, create a scenario in `e2e_tests/src/e2e_conduit/scenarios` and ensure that it is run in `e2e_tests/src/e2e_conduit/e2econduit.py`.
 
 For example,
