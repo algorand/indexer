@@ -7,8 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/algorand/go-algorand/data/basics"
-
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
 	"github.com/algorand/indexer/idb/postgres/internal/types"
 )
@@ -55,9 +54,9 @@ func TestCreateAppBoxTable(t *testing.T) {
 	require.NoError(t, err)
 
 	appBoxSQL := `SELECT app, name, value FROM app_box WHERE app = $1 AND name = $2`
-	appIdx := basics.AppIndex(42)
+	appIdx := sdk.AppIndex(42)
 	boxName := "I do not exist"
-	var app basics.AppIndex
+	var app sdk.AppIndex
 	var name, value []byte
 	row := db.db.QueryRow(context.Background(), appBoxSQL, appIdx, []byte(boxName))
 	err = row.Scan(&app, &name, &value)
