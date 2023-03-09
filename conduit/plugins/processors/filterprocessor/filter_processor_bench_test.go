@@ -24,6 +24,23 @@ func blockData(addr sdk.Address, numInner int) (block data.BlockData, searchTag 
 				SignedTxnWithAD: sdk.SignedTxnWithAD{
 					SignedTxn: sdk.SignedTxn{
 						AuthAddr: addr,
+						Txn: sdk.Transaction{
+							Header: sdk.Header{
+								Group: sdk.Digest{1},
+							},
+						},
+					},
+				},
+			},
+			{
+				SignedTxnWithAD: sdk.SignedTxnWithAD{
+					SignedTxn: sdk.SignedTxn{
+						AuthAddr: addr,
+						Txn: sdk.Transaction{
+							Header: sdk.Header{
+								Group: sdk.Digest{1},
+							},
+						},
 					},
 				},
 			},
@@ -52,21 +69,26 @@ func BenchmarkProcess(b *testing.B) {
 	addr[0] = 0x01
 
 	var table = []struct {
-		input int
+		input         int
+		omitGroupTxns bool
 	}{
-		{input: 0},
-		{input: 10},
-		{input: 100},
+		{input: 0, omitGroupTxns: true},
+		{input: 10, omitGroupTxns: true},
+		{input: 100, omitGroupTxns: true},
+		{input: 0, omitGroupTxns: false},
+		{input: 10, omitGroupTxns: false},
+		{input: 100, omitGroupTxns: false},
 	}
 	for _, v := range table {
-		b.Run(fmt.Sprintf("inner_txn_count_%d", v.input), func(b *testing.B) {
+		b.Run(fmt.Sprintf("inner_txn_count_%d_omitGrouptxns_%t", v.input, v.omitGroupTxns), func(b *testing.B) {
 			bd, tag := blockData(addr, v.input)
 			cfgStr := fmt.Sprintf(`search-inner: true
+omit-group-transactions: %t
 filters:
   - all:
     - tag: %s
       expression-type: equal
-      expression: "%s"`, tag, addr.String())
+      expression: "%s"`, v.omitGroupTxns, tag, addr.String())
 
 			fp := &FilterProcessor{}
 			err := fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(cfgStr), logrus.New())
@@ -76,7 +98,7 @@ filters:
 			{
 				out, err := fp.Process(bd)
 				require.NoError(b, err)
-				require.Len(b, out.Payset, 1)
+				require.Len(b, out.Payset, 2)
 			}
 
 			// Ignore the setup cost above.
