@@ -19,7 +19,7 @@ func TestInternalSearch(t *testing.T) {
 	tag := "sgnr"
 	exp, err := expression.MakeExpression(expressionType, address1.String(), "")
 	require.NoError(t, err)
-	searcher, err := MakeFieldSearcher(exp, expressionType, tag, false)
+	searcher, err := MakeFieldSearcher(exp, expressionType, tag, false, false)
 	require.NoError(t, err)
 
 	result, err := searcher.search(
@@ -52,12 +52,12 @@ func TestMakeFieldSearcher(t *testing.T) {
 	sampleExpressionStr := "sample"
 	exp, err := expression.MakeExpression(expressionType, sampleExpressionStr, "")
 	require.NoError(t, err)
-	searcher, err := MakeFieldSearcher(exp, expressionType, tag, false)
+	searcher, err := MakeFieldSearcher(exp, expressionType, tag, false, false)
 	require.NoError(t, err)
 	require.NotNil(t, searcher)
 	assert.Equal(t, searcher.Tag, tag)
 
-	searcher, err = MakeFieldSearcher(exp, "made-up-expression-type", sampleExpressionStr, false)
+	searcher, err = MakeFieldSearcher(exp, "made-up-expression-type", sampleExpressionStr, false, false)
 	require.Error(t, err)
 }
 
@@ -104,7 +104,7 @@ func TestInnerTxnSearch(t *testing.T) {
 
 	{
 		// searchInner: false
-		searcher, err := MakeFieldSearcher(exp, expression.EqualTo, "txn.snd", false)
+		searcher, err := MakeFieldSearcher(exp, expression.EqualTo, "txn.snd", false, false)
 		require.NoError(t, err)
 
 		// Provide the matching inner transaction.
@@ -125,7 +125,7 @@ func TestInnerTxnSearch(t *testing.T) {
 
 	{
 		// searchInner: true
-		searcher, err := MakeFieldSearcher(exp, expression.EqualTo, "txn.snd", true)
+		searcher, err := MakeFieldSearcher(exp, expression.EqualTo, "txn.snd", true, false)
 		require.NoError(t, err)
 
 		// Provide the matching inner transaction.

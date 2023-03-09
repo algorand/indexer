@@ -37,6 +37,9 @@ type SubConfig struct {
 type Config struct {
 	// <code>search-inner</code> configures the filter processor to recursively search inner transactions for expressions.
 	SearchInner bool `yaml:"search-inner"`
+	// <code>omit-group-transactions</code> configures the filter processor to return the matched transaction without its grouped transactions.
+	OmitGroupTransactions bool `yaml:"omit-group-transactions"`
+
 	/* <code>filters</code> are a list of SubConfig objects with an operation acting as the string key in the map
 
 	filters:

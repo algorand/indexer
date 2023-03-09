@@ -95,7 +95,7 @@ func (a *FilterProcessor) Init(ctx context.Context, _ data.InitProvider, cfg plu
 					return fmt.Errorf("filter processor Init(): could not make expression: %w", err)
 				}
 
-				searcher, err := fields.MakeFieldSearcher(exp, subConfig.ExpressionType, subConfig.FilterTag, a.cfg.SearchInner)
+				searcher, err := fields.MakeFieldSearcher(exp, subConfig.ExpressionType, subConfig.FilterTag, a.cfg.SearchInner, a.cfg.OmitGroupTransactions)
 				if err != nil {
 					return fmt.Errorf("filter processor Init(): error making field searcher - %w", err)
 				}
@@ -132,6 +132,32 @@ func (a *FilterProcessor) Process(input data.BlockData) (data.BlockData, error) 
 			return data.BlockData{}, err
 		}
 	}
+	if !a.cfg.OmitGroupTransactions {
+		gtxns := groupTxns(&input.Payset)
+		matchedTxns := payset
+		payset = make([]sdk.SignedTxnInBlock, 0)
+		included := make(map[sdk.Digest]bool)
+		for _, match := range matchedTxns {
+			if match.Txn.Group != (sdk.Digest{}) {
+				if _, ok := included[match.Txn.Group]; !ok {
+					// txn has a groupID, get all the txns in the same group
+					payset = append(payset, gtxns[match.Txn.Group]...)
+					included[match.Txn.Group] = true
+				}
+			} else {
+				payset = append(payset, match)
+			}
+		}
+	}
 	input.Payset = payset
 	return input, err
+}
+
+func groupTxns(payset *[]sdk.SignedTxnInBlock) map[sdk.Digest][]sdk.SignedTxnInBlock {
+	gtxns := make(map[sdk.Digest][]sdk.SignedTxnInBlock)
+	// group txns by groupID
+	for _, p := range *payset {
+		gtxns[p.Txn.Header.Group] = append(gtxns[p.Txn.Header.Group], p)
+	}
+	return gtxns
 }

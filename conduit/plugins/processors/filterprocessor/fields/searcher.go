@@ -12,9 +12,10 @@ import (
 
 // Searcher searches the struct with an expression
 type Searcher struct {
-	Exp         expression.Expression
-	Tag         string
-	SearchInner bool
+	Exp             expression.Expression
+	Tag             string
+	SearchInner     bool
+	OmitGroupedTxns bool
 }
 
 // This function is ONLY to be used by the filter.field function.
@@ -68,11 +69,11 @@ func checkTagAndExpressionExist(expressionType expression.Type, tag string) (out
 
 // MakeFieldSearcher will check that the field exists and that it contains the necessary "conversion" function
 // TODO: Remove expressionType. It is validated when the expression is created.
-func MakeFieldSearcher(e expression.Expression, expressionType expression.Type, tag string, searchInner bool) (*Searcher, error) {
+func MakeFieldSearcher(e expression.Expression, expressionType expression.Type, tag string, searchInner bool, omnitGroupedTxns bool) (*Searcher, error) {
 
 	if err := checkTagAndExpressionExist(expressionType, tag); err != nil {
 		return nil, err
 	}
 
-	return &Searcher{Exp: e, Tag: tag, SearchInner: searchInner}, nil
+	return &Searcher{Exp: e, Tag: tag, SearchInner: searchInner, OmitGroupedTxns: omnitGroupedTxns}, nil
 }

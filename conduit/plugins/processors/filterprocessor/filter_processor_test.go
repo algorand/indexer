@@ -1058,3 +1058,530 @@ filters:
 	require.NoError(t, err)
 	assert.Equal(t, output.Payset, []sdk.SignedTxnInBlock{bd.Payset[1]})
 }
+
+func TestFilterProcessor_OmitGroupedTxnsDefault(t *testing.T) {
+	sampleAddr1 := sdk.Address{1}
+	sampleAddr2 := sdk.Address{2}
+
+	bd := data.BlockData{}
+	bd.Payset = append(bd.Payset,
+		sdk.SignedTxnInBlock{
+			SignedTxnWithAD: sdk.SignedTxnWithAD{
+				SignedTxn: sdk.SignedTxn{
+					AuthAddr: sampleAddr1,
+					Txn: sdk.Transaction{
+						PaymentTxnFields: sdk.PaymentTxnFields{
+							Receiver: sampleAddr1,
+							Amount:   123,
+						},
+						Header: sdk.Header{
+							Sender: sampleAddr2,
+							Group:  sdk.Digest{1},
+						},
+					},
+				},
+				ApplyData: sdk.ApplyData{
+					EvalDelta: sdk.EvalDelta{
+						InnerTxns: []sdk.SignedTxnWithAD{
+							{
+								SignedTxn: sdk.SignedTxn{
+									Txn: sdk.Transaction{
+										Header: sdk.Header{
+											Sender:    sampleAddr1,
+											GenesisID: "testnet",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		sdk.SignedTxnInBlock{
+			SignedTxnWithAD: sdk.SignedTxnWithAD{
+				SignedTxn: sdk.SignedTxn{
+					AuthAddr: sampleAddr1,
+					Txn: sdk.Transaction{
+						PaymentTxnFields: sdk.PaymentTxnFields{
+							Receiver: sampleAddr1,
+							Amount:   99,
+						},
+						Header: sdk.Header{
+							Sender: sampleAddr2,
+							Group:  sdk.Digest{2},
+						},
+					},
+				},
+			},
+		},
+		sdk.SignedTxnInBlock{
+			SignedTxnWithAD: sdk.SignedTxnWithAD{
+				SignedTxn: sdk.SignedTxn{
+					AuthAddr: sampleAddr1,
+					Txn: sdk.Transaction{
+						PaymentTxnFields: sdk.PaymentTxnFields{
+							Receiver: sampleAddr1,
+							Amount:   1,
+						},
+						Header: sdk.Header{
+							Sender: sampleAddr1,
+							Note:   []byte("I don't have a group id."),
+						},
+					},
+				},
+				ApplyData: sdk.ApplyData{
+					EvalDelta: sdk.EvalDelta{
+						InnerTxns: []sdk.SignedTxnWithAD{
+							{
+								SignedTxn: sdk.SignedTxn{
+									Txn: sdk.Transaction{
+										Header: sdk.Header{
+											Sender: sampleAddr1,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		sdk.SignedTxnInBlock{
+			SignedTxnWithAD: sdk.SignedTxnWithAD{
+				SignedTxn: sdk.SignedTxn{
+					AuthAddr: sampleAddr1,
+					Txn: sdk.Transaction{
+						Header: sdk.Header{
+							Sender: sampleAddr2,
+							Group:  sdk.Digest{1},
+						},
+						AssetConfigTxnFields: sdk.AssetConfigTxnFields{
+							ConfigAsset: 0,
+							AssetParams: sdk.AssetParams{
+								Total:     10,
+								UnitName:  "assetA",
+								AssetName: "assetA",
+							},
+						},
+					},
+				},
+			},
+		},
+		sdk.SignedTxnInBlock{
+			SignedTxnWithAD: sdk.SignedTxnWithAD{
+				SignedTxn: sdk.SignedTxn{
+					AuthAddr: sampleAddr1,
+					Txn: sdk.Transaction{
+						Header: sdk.Header{
+							Sender: sampleAddr2,
+							Group:  sdk.Digest{2},
+						},
+						ApplicationFields: sdk.ApplicationFields{
+							ApplicationCallTxnFields: sdk.ApplicationCallTxnFields{
+								ApplicationID: 1,
+							},
+						},
+					},
+				},
+				ApplyData: sdk.ApplyData{
+					EvalDelta: sdk.EvalDelta{
+						InnerTxns: []sdk.SignedTxnWithAD{
+							{
+								SignedTxn: sdk.SignedTxn{
+									Txn: sdk.Transaction{
+										Header: sdk.Header{
+											Sender: sampleAddr1,
+										},
+									},
+								},
+								ApplyData: sdk.ApplyData{
+									EvalDelta: sdk.EvalDelta{
+										InnerTxns: []sdk.SignedTxnWithAD{
+											{
+												SignedTxn: sdk.SignedTxn{
+													Txn: sdk.Transaction{
+														Header: sdk.Header{
+															Sender:    sampleAddr1,
+															LastValid: 10,
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		sdk.SignedTxnInBlock{
+			SignedTxnWithAD: sdk.SignedTxnWithAD{
+				SignedTxn: sdk.SignedTxn{
+					AuthAddr: sampleAddr1,
+					Txn: sdk.Transaction{
+						PaymentTxnFields: sdk.PaymentTxnFields{
+							Receiver: sampleAddr2,
+							Amount:   120,
+						},
+						Header: sdk.Header{
+							Sender: sampleAddr1,
+						},
+					},
+				},
+			},
+		},
+	)
+	{
+		// matched txns and txns in the same group are returned
+		cfg := `---
+filters:
+  - any:
+    - tag: txn.amt
+      expression-type: greater-than
+      expression: 100
+`
+		fp := FilterProcessor{}
+		err := fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(cfg), logrus.New())
+		require.NoError(t, err)
+
+		output, err := fp.Process(bd)
+		require.NoError(t, err)
+		// txns in the same group should be returned
+		require.Equal(t, 3, len(output.Payset))
+		// txns in group 1
+		assert.Equal(t, bd.Payset[0], output.Payset[0])
+		assert.Equal(t, bd.Payset[3], output.Payset[1])
+		// a payment txn
+		assert.Equal(t, bd.Payset[5], output.Payset[2])
+	}
+
+	{
+		// multiple matched txns and their grouped txns
+		cfg := `---
+filters:
+  - any:
+    - tag: txn.snd
+      expression-type: equal
+      expression: "` + sampleAddr2.String() + `"
+`
+		fp := FilterProcessor{}
+		err := fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(cfg), logrus.New())
+		require.NoError(t, err)
+		output, err := fp.Process(bd)
+		require.NoError(t, err)
+		// both txn groups should be returned
+		require.Equal(t, 4, len(output.Payset))
+		// group 1 txns
+		assert.Equal(t, bd.Payset[0], output.Payset[0])
+		assert.Equal(t, bd.Payset[3], output.Payset[1])
+		// group 2 txns
+		assert.Equal(t, bd.Payset[1], output.Payset[2])
+		assert.Equal(t, bd.Payset[4], output.Payset[3])
+	}
+
+	{
+		// match inner txn and return its top level txn and grouped txns
+		cfg := `---
+search-inner: true
+filters:
+  - any:
+    - tag: txn.gen
+      expression-type: equal
+      expression: "testnet"
+`
+		fp := FilterProcessor{}
+		err := fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(cfg), logrus.New())
+		require.NoError(t, err)
+		output, err := fp.Process(bd)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(output.Payset))
+		// group 1 txns
+		assert.Equal(t, bd.Payset[0], output.Payset[0])
+		assert.Equal(t, bd.Payset[3], output.Payset[1])
+	}
+
+	{
+		// match inner txn of an inner txn and return its top level txn and grouped txns
+		cfg := `---
+search-inner: true
+filters:
+  - any:
+    - tag: txn.lv
+      expression-type: equal
+      expression: 10
+`
+		fp := FilterProcessor{}
+		err := fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(cfg), logrus.New())
+		require.NoError(t, err)
+		output, err := fp.Process(bd)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(output.Payset))
+		// group 2 txns
+		assert.Equal(t, bd.Payset[1], output.Payset[0])
+		assert.Equal(t, bd.Payset[4], output.Payset[1])
+	}
+}
+
+func TestFilterProcessor_OmitGroupedTxnsTrue(t *testing.T) {
+	sampleAddr1 := sdk.Address{1}
+	sampleAddr2 := sdk.Address{2}
+
+	bd := data.BlockData{}
+	bd.Payset = append(bd.Payset,
+		sdk.SignedTxnInBlock{
+			SignedTxnWithAD: sdk.SignedTxnWithAD{
+				SignedTxn: sdk.SignedTxn{
+					AuthAddr: sampleAddr1,
+					Txn: sdk.Transaction{
+						PaymentTxnFields: sdk.PaymentTxnFields{
+							Receiver: sampleAddr1,
+							Amount:   123,
+						},
+						Header: sdk.Header{
+							Sender: sampleAddr2,
+							Group:  sdk.Digest{1},
+						},
+					},
+				},
+				ApplyData: sdk.ApplyData{
+					EvalDelta: sdk.EvalDelta{
+						InnerTxns: []sdk.SignedTxnWithAD{
+							{
+								SignedTxn: sdk.SignedTxn{
+									Txn: sdk.Transaction{
+										Header: sdk.Header{
+											Sender:    sampleAddr1,
+											GenesisID: "testnet",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		sdk.SignedTxnInBlock{
+			SignedTxnWithAD: sdk.SignedTxnWithAD{
+				SignedTxn: sdk.SignedTxn{
+					AuthAddr: sampleAddr1,
+					Txn: sdk.Transaction{
+						PaymentTxnFields: sdk.PaymentTxnFields{
+							Receiver: sampleAddr1,
+							Amount:   99,
+						},
+						Header: sdk.Header{
+							Sender: sampleAddr2,
+							Group:  sdk.Digest{2},
+						},
+					},
+				},
+			},
+		},
+		sdk.SignedTxnInBlock{
+			SignedTxnWithAD: sdk.SignedTxnWithAD{
+				SignedTxn: sdk.SignedTxn{
+					AuthAddr: sampleAddr1,
+					Txn: sdk.Transaction{
+						PaymentTxnFields: sdk.PaymentTxnFields{
+							Receiver: sampleAddr1,
+							Amount:   1,
+						},
+						Header: sdk.Header{
+							Sender: sampleAddr1,
+							Note:   []byte("I don't have a group id."),
+						},
+					},
+				},
+				ApplyData: sdk.ApplyData{
+					EvalDelta: sdk.EvalDelta{
+						InnerTxns: []sdk.SignedTxnWithAD{
+							{
+								SignedTxn: sdk.SignedTxn{
+									Txn: sdk.Transaction{
+										Header: sdk.Header{
+											Sender: sampleAddr1,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		sdk.SignedTxnInBlock{
+			SignedTxnWithAD: sdk.SignedTxnWithAD{
+				SignedTxn: sdk.SignedTxn{
+					AuthAddr: sampleAddr1,
+					Txn: sdk.Transaction{
+						Header: sdk.Header{
+							Sender: sampleAddr2,
+							Group:  sdk.Digest{1},
+						},
+						AssetConfigTxnFields: sdk.AssetConfigTxnFields{
+							ConfigAsset: 0,
+							AssetParams: sdk.AssetParams{
+								Total:     10,
+								UnitName:  "assetA",
+								AssetName: "assetA",
+							},
+						},
+					},
+				},
+			},
+		},
+		sdk.SignedTxnInBlock{
+			SignedTxnWithAD: sdk.SignedTxnWithAD{
+				SignedTxn: sdk.SignedTxn{
+					AuthAddr: sampleAddr1,
+					Txn: sdk.Transaction{
+						Header: sdk.Header{
+							Sender: sampleAddr2,
+							Group:  sdk.Digest{2},
+						},
+						ApplicationFields: sdk.ApplicationFields{
+							ApplicationCallTxnFields: sdk.ApplicationCallTxnFields{
+								ApplicationID: 1,
+							},
+						},
+					},
+				},
+				ApplyData: sdk.ApplyData{
+					EvalDelta: sdk.EvalDelta{
+						InnerTxns: []sdk.SignedTxnWithAD{
+							{
+								SignedTxn: sdk.SignedTxn{
+									Txn: sdk.Transaction{
+										Header: sdk.Header{
+											Sender: sampleAddr1,
+										},
+									},
+								},
+								ApplyData: sdk.ApplyData{
+									EvalDelta: sdk.EvalDelta{
+										InnerTxns: []sdk.SignedTxnWithAD{
+											{
+												SignedTxn: sdk.SignedTxn{
+													Txn: sdk.Transaction{
+														Header: sdk.Header{
+															Sender:    sampleAddr1,
+															LastValid: 10,
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		sdk.SignedTxnInBlock{
+			SignedTxnWithAD: sdk.SignedTxnWithAD{
+				SignedTxn: sdk.SignedTxn{
+					AuthAddr: sampleAddr1,
+					Txn: sdk.Transaction{
+						PaymentTxnFields: sdk.PaymentTxnFields{
+							Receiver: sampleAddr2,
+							Amount:   120,
+						},
+						Header: sdk.Header{
+							Sender: sampleAddr1,
+						},
+					},
+				},
+			},
+		},
+	)
+	{
+		// matched txns are returned, exclude grouped txns
+		cfg := `---
+omit-group-transactions: true
+filters:
+  - any:
+    - tag: txn.amt
+      expression-type: greater-than
+      expression: 100
+`
+		fp := FilterProcessor{}
+		err := fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(cfg), logrus.New())
+		require.NoError(t, err)
+
+		output, err := fp.Process(bd)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(output.Payset))
+		// txn with groupID 1
+		assert.Equal(t, bd.Payset[0], output.Payset[0])
+		// a payment txn
+		assert.Equal(t, bd.Payset[5], output.Payset[1])
+	}
+
+	{
+		// return all matched txns
+		cfg := `---
+omit-group-transactions: true
+filters:
+  - any:
+    - tag: txn.snd
+      expression-type: equal
+      expression: "` + sampleAddr2.String() + `"
+`
+		fp := FilterProcessor{}
+		err := fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(cfg), logrus.New())
+		require.NoError(t, err)
+		output, err := fp.Process(bd)
+		require.NoError(t, err)
+		require.Equal(t, 4, len(output.Payset))
+		assert.Equal(t, bd.Payset[0], output.Payset[0])
+		assert.Equal(t, bd.Payset[1], output.Payset[1])
+		assert.Equal(t, bd.Payset[3], output.Payset[2])
+		assert.Equal(t, bd.Payset[4], output.Payset[3])
+	}
+
+	{
+		// match inner txn, exclude grouped txns
+		cfg := `---
+search-inner: true
+omit-group-transactions: true
+filters:
+  - any:
+    - tag: txn.gen
+      expression-type: equal
+      expression: "testnet"
+`
+		fp := FilterProcessor{}
+		err := fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(cfg), logrus.New())
+		require.NoError(t, err)
+		output, err := fp.Process(bd)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(output.Payset))
+		assert.Equal(t, bd.Payset[0], output.Payset[0])
+	}
+
+	{
+		// match inner txn of an inner txn, exclude grouped txns
+		cfg := `---
+search-inner: true
+omit-group-transactions: true
+filters:
+  - any:
+    - tag: txn.lv
+      expression-type: equal
+      expression: 10
+`
+		fp := FilterProcessor{}
+		err := fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(cfg), logrus.New())
+		require.NoError(t, err)
+		output, err := fp.Process(bd)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(output.Payset))
+		assert.Equal(t, bd.Payset[4], output.Payset[0])
+	}
+}
