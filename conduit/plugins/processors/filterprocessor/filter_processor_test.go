@@ -1059,13 +1059,12 @@ filters:
 	assert.Equal(t, output.Payset, []sdk.SignedTxnInBlock{bd.Payset[1]})
 }
 
-func TestFilterProcessor_OmitGroupedTxnsDefault(t *testing.T) {
+func createPaysetGroupedTxns() []sdk.SignedTxnInBlock {
 	sampleAddr1 := sdk.Address{1}
 	sampleAddr2 := sdk.Address{2}
-
-	bd := data.BlockData{}
-	bd.Payset = append(bd.Payset,
-		sdk.SignedTxnInBlock{
+	return []sdk.SignedTxnInBlock{
+		// a txn in group 1 with an inner txn
+		{
 			SignedTxnWithAD: sdk.SignedTxnWithAD{
 				SignedTxn: sdk.SignedTxn{
 					AuthAddr: sampleAddr1,
@@ -1098,7 +1097,8 @@ func TestFilterProcessor_OmitGroupedTxnsDefault(t *testing.T) {
 				},
 			},
 		},
-		sdk.SignedTxnInBlock{
+		// a simple txn in group 2
+		{
 			SignedTxnWithAD: sdk.SignedTxnWithAD{
 				SignedTxn: sdk.SignedTxn{
 					AuthAddr: sampleAddr1,
@@ -1115,7 +1115,8 @@ func TestFilterProcessor_OmitGroupedTxnsDefault(t *testing.T) {
 				},
 			},
 		},
-		sdk.SignedTxnInBlock{
+		// a txn with inner txn
+		{
 			SignedTxnWithAD: sdk.SignedTxnWithAD{
 				SignedTxn: sdk.SignedTxn{
 					AuthAddr: sampleAddr1,
@@ -1147,7 +1148,8 @@ func TestFilterProcessor_OmitGroupedTxnsDefault(t *testing.T) {
 				},
 			},
 		},
-		sdk.SignedTxnInBlock{
+		// 2nd txn in group 1
+		{
 			SignedTxnWithAD: sdk.SignedTxnWithAD{
 				SignedTxn: sdk.SignedTxn{
 					AuthAddr: sampleAddr1,
@@ -1168,7 +1170,8 @@ func TestFilterProcessor_OmitGroupedTxnsDefault(t *testing.T) {
 				},
 			},
 		},
-		sdk.SignedTxnInBlock{
+		// 2nd txn in group 2, nested inner txns
+		{
 			SignedTxnWithAD: sdk.SignedTxnWithAD{
 				SignedTxn: sdk.SignedTxn{
 					AuthAddr: sampleAddr1,
@@ -1217,7 +1220,8 @@ func TestFilterProcessor_OmitGroupedTxnsDefault(t *testing.T) {
 				},
 			},
 		},
-		sdk.SignedTxnInBlock{
+		// a simple txn
+		{
 			SignedTxnWithAD: sdk.SignedTxnWithAD{
 				SignedTxn: sdk.SignedTxn{
 					AuthAddr: sampleAddr1,
@@ -1233,6 +1237,14 @@ func TestFilterProcessor_OmitGroupedTxnsDefault(t *testing.T) {
 				},
 			},
 		},
+	}
+}
+
+func TestFilterProcessor_OmitGroupedTxnsDefault(t *testing.T) {
+	sampleAddr := sdk.Address{2}
+	bd := data.BlockData{}
+	bd.Payset = append(bd.Payset,
+		createPaysetGroupedTxns()...,
 	)
 	{
 		// matched txns and txns in the same group are returned
@@ -1265,7 +1277,7 @@ filters:
   - any:
     - tag: txn.snd
       expression-type: equal
-      expression: "` + sampleAddr2.String() + `"
+      expression: "` + sampleAddr.String() + `"
 `
 		fp := FilterProcessor{}
 		err := fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(cfg), logrus.New())
@@ -1326,179 +1338,11 @@ filters:
 }
 
 func TestFilterProcessor_OmitGroupedTxnsTrue(t *testing.T) {
-	sampleAddr1 := sdk.Address{1}
-	sampleAddr2 := sdk.Address{2}
+	sampleAddr := sdk.Address{2}
 
 	bd := data.BlockData{}
 	bd.Payset = append(bd.Payset,
-		sdk.SignedTxnInBlock{
-			SignedTxnWithAD: sdk.SignedTxnWithAD{
-				SignedTxn: sdk.SignedTxn{
-					AuthAddr: sampleAddr1,
-					Txn: sdk.Transaction{
-						PaymentTxnFields: sdk.PaymentTxnFields{
-							Receiver: sampleAddr1,
-							Amount:   123,
-						},
-						Header: sdk.Header{
-							Sender: sampleAddr2,
-							Group:  sdk.Digest{1},
-						},
-					},
-				},
-				ApplyData: sdk.ApplyData{
-					EvalDelta: sdk.EvalDelta{
-						InnerTxns: []sdk.SignedTxnWithAD{
-							{
-								SignedTxn: sdk.SignedTxn{
-									Txn: sdk.Transaction{
-										Header: sdk.Header{
-											Sender:    sampleAddr1,
-											GenesisID: "testnet",
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		sdk.SignedTxnInBlock{
-			SignedTxnWithAD: sdk.SignedTxnWithAD{
-				SignedTxn: sdk.SignedTxn{
-					AuthAddr: sampleAddr1,
-					Txn: sdk.Transaction{
-						PaymentTxnFields: sdk.PaymentTxnFields{
-							Receiver: sampleAddr1,
-							Amount:   99,
-						},
-						Header: sdk.Header{
-							Sender: sampleAddr2,
-							Group:  sdk.Digest{2},
-						},
-					},
-				},
-			},
-		},
-		sdk.SignedTxnInBlock{
-			SignedTxnWithAD: sdk.SignedTxnWithAD{
-				SignedTxn: sdk.SignedTxn{
-					AuthAddr: sampleAddr1,
-					Txn: sdk.Transaction{
-						PaymentTxnFields: sdk.PaymentTxnFields{
-							Receiver: sampleAddr1,
-							Amount:   1,
-						},
-						Header: sdk.Header{
-							Sender: sampleAddr1,
-							Note:   []byte("I don't have a group id."),
-						},
-					},
-				},
-				ApplyData: sdk.ApplyData{
-					EvalDelta: sdk.EvalDelta{
-						InnerTxns: []sdk.SignedTxnWithAD{
-							{
-								SignedTxn: sdk.SignedTxn{
-									Txn: sdk.Transaction{
-										Header: sdk.Header{
-											Sender: sampleAddr1,
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		sdk.SignedTxnInBlock{
-			SignedTxnWithAD: sdk.SignedTxnWithAD{
-				SignedTxn: sdk.SignedTxn{
-					AuthAddr: sampleAddr1,
-					Txn: sdk.Transaction{
-						Header: sdk.Header{
-							Sender: sampleAddr2,
-							Group:  sdk.Digest{1},
-						},
-						AssetConfigTxnFields: sdk.AssetConfigTxnFields{
-							ConfigAsset: 0,
-							AssetParams: sdk.AssetParams{
-								Total:     10,
-								UnitName:  "assetA",
-								AssetName: "assetA",
-							},
-						},
-					},
-				},
-			},
-		},
-		sdk.SignedTxnInBlock{
-			SignedTxnWithAD: sdk.SignedTxnWithAD{
-				SignedTxn: sdk.SignedTxn{
-					AuthAddr: sampleAddr1,
-					Txn: sdk.Transaction{
-						Header: sdk.Header{
-							Sender: sampleAddr2,
-							Group:  sdk.Digest{2},
-						},
-						ApplicationFields: sdk.ApplicationFields{
-							ApplicationCallTxnFields: sdk.ApplicationCallTxnFields{
-								ApplicationID: 1,
-							},
-						},
-					},
-				},
-				ApplyData: sdk.ApplyData{
-					EvalDelta: sdk.EvalDelta{
-						InnerTxns: []sdk.SignedTxnWithAD{
-							{
-								SignedTxn: sdk.SignedTxn{
-									Txn: sdk.Transaction{
-										Header: sdk.Header{
-											Sender: sampleAddr1,
-										},
-									},
-								},
-								ApplyData: sdk.ApplyData{
-									EvalDelta: sdk.EvalDelta{
-										InnerTxns: []sdk.SignedTxnWithAD{
-											{
-												SignedTxn: sdk.SignedTxn{
-													Txn: sdk.Transaction{
-														Header: sdk.Header{
-															Sender:    sampleAddr1,
-															LastValid: 10,
-														},
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		sdk.SignedTxnInBlock{
-			SignedTxnWithAD: sdk.SignedTxnWithAD{
-				SignedTxn: sdk.SignedTxn{
-					AuthAddr: sampleAddr1,
-					Txn: sdk.Transaction{
-						PaymentTxnFields: sdk.PaymentTxnFields{
-							Receiver: sampleAddr2,
-							Amount:   120,
-						},
-						Header: sdk.Header{
-							Sender: sampleAddr1,
-						},
-					},
-				},
-			},
-		},
+		createPaysetGroupedTxns()...,
 	)
 	{
 		// matched txns are returned, exclude grouped txns
@@ -1531,7 +1375,7 @@ filters:
   - any:
     - tag: txn.snd
       expression-type: equal
-      expression: "` + sampleAddr2.String() + `"
+      expression: "` + sampleAddr.String() + `"
 `
 		fp := FilterProcessor{}
 		err := fp.Init(context.Background(), &conduit.PipelineInitProvider{}, plugins.MakePluginConfig(cfg), logrus.New())
