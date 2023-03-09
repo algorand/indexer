@@ -61,10 +61,10 @@ func BenchmarkProcess(b *testing.B) {
 	for _, v := range table {
 		b.Run(fmt.Sprintf("inner_txn_count_%d", v.input), func(b *testing.B) {
 			bd, tag := blockData(addr, v.input)
-			cfgStr := fmt.Sprintf(`filters:
+			cfgStr := fmt.Sprintf(`search-inner: true
+filters:
   - all:
     - tag: %s
-      search-inner: true
       expression-type: equal
       expression: "%s"`, tag, addr.String())
 
