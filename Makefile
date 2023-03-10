@@ -73,6 +73,12 @@ fmt:
 e2e: cmd/algorand-indexer/algorand-indexer
 	cd e2e_tests/docker/indexer/ && docker-compose build --build-arg GO_IMAGE=${GO_IMAGE} && docker-compose up --exit-code-from e2e
 
+e2e-filter-test: cmd/algorand-indexer/algorand-indexer conduit
+	cd e2e_tests/docker/indexer-filtered/ && docker-compose build --build-arg GO_IMAGE=${GO_IMAGE} && docker-compose up --exit-code-from e2e-read
+
+e2e-filter-test-nightly: cmd/algorand-indexer/algorand-indexer conduit
+	cd e2e_tests/docker/indexer-filtered/ && docker-compose build --build-arg GO_IMAGE=${GO_IMAGE} --build-arg CHANNEL=nightly && docker-compose up --exit-code-from e2e-read
+
 e2e-nightly: cmd/algorand-indexer/algorand-indexer
 	cd e2e_tests/docker/indexer/ && docker-compose build --build-arg GO_IMAGE=${GO_IMAGE} --build-arg CHANNEL=nightly && docker-compose up --exit-code-from e2e
 

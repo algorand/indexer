@@ -1,0 +1,11 @@
+log-level: info
+importer:
+  name: "algod"
+  config:
+    netaddr: "$ALGOD_ADDR"
+    token: "$ALGOD_TOKEN"
+    mode: "follower"
+exporter:
+  name: "postgresql"
+  config:
+    connection-string: $CONNECTION_STRING
