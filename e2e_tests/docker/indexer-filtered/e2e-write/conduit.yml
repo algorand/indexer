@@ -5,6 +5,14 @@ importer:
     netaddr: "$ALGOD_ADDR"
     token: "$ALGOD_TOKEN"
     mode: "follower"
+processors:
+  - name: "filter_processor"
+    config:
+      filters:
+        - any:
+          - tag: "txn.type"
+            expression-type: "equal"
+            expression: "pay"
 exporter:
   name: "postgresql"
   config:
