@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y apt-utils curl git git-core bsdmainutil
 RUN mkdir -p /opt/go/indexer
 RUN mkdir -p /opt/conduit-dir
 RUN mkdir -p /opt/algod-dir
-COPY .. /opt/go/indexer
+COPY . /opt/go/indexer
 WORKDIR /opt/go/indexer
 RUN rm -f $HOME/go/bin/algod
 RUN rm -f /opt/go/indexer/cmd/conduit/conduit
