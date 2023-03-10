@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y apt-utils curl git git-core bsdmainutil
 
 # Setup files for test
 RUN mkdir -p /opt/go/indexer
-COPY .. /opt/go/indexer
+COPY . /opt/go/indexer
 WORKDIR /opt/go/indexer
 RUN rm -f /opt/go/indexer/cmd/algorand-indexer/algorand-indexer
 RUN make
