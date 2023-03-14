@@ -65,20 +65,6 @@ indexer_filespec = [
     ],
 ]
 
-conduit_filespec = [
-    [
-        ["conduit"],
-        "cmd/conduit",
-        "usr/bin",
-        ""
-    ],
-    [
-        ["LICENSE"],
-        "",
-        None,
-        "",
-    ],
-]
 
 debian_copyright_top = """Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: Algorand Indexer
@@ -336,14 +322,11 @@ def main():
             continue
         logger.info("GOOS=%s GOARCH=%s DEB_HOST_ARCH=%s", goos, goarch, debarch)
         compile("cmd/algorand-indexer", goos, goarch, ldflags)
-        compile("cmd/conduit", goos, goarch)
         if args.build_only:
             logger.debug("skip packaging")
             continue
         indexer_tarname = build_tar("algorand-indexer", goos, goarch, version, indexer_filespec, outdir)
         logger.info("\t%s", indexer_tarname)
-        conduit_tarname = build_tar("conduit", goos, goarch, version, conduit_filespec, outdir)
-        logger.info("\t%s", conduit_tarname)
         if (not args.no_deb) and (debarch is not None):
             debname = build_deb(debarch, version, indexer_filespec, outdir)
             logger.info("\t%s", debname)
