@@ -80,10 +80,6 @@ def main():
     # Sane default for lastblock--used for read_only runs
     lastblock = 93
     algoddir = None
-    if not args.read_only:
-        tempnet, lastblock = setup_algod(tempdir, args.source_net, args.s3_source_net)
-        algoddir = os.path.join(tempnet, "Node")
-
     if args.keep_alive:
         # register after keep_temps so that the temp files are still there.
         atexitrun(["sleep", "infinity"])
@@ -104,6 +100,8 @@ def main():
     if args.read_only:
         cmd.append("--no-algod")
     else:
+        tempnet, lastblock = setup_algod(tempdir, args.source_net, args.s3_source_net)
+        algoddir = os.path.join(tempnet, "Node")
         cmd.append("--algod")
         cmd.append(algoddir)
     logger.debug("%s", " ".join(map(repr, cmd)))
