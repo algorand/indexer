@@ -4,6 +4,7 @@ go 1.17
 
 require (
 	github.com/algorand/avm-abi v0.2.0
+	github.com/algorand/conduit v0.0.0-20230313160909-dfab75d562ae
 	github.com/algorand/go-algorand-sdk/v2 v2.0.0-20230228201805-5b8c99b1412c
 	github.com/algorand/go-codec/codec v1.1.8
 	github.com/algorand/oapi-codegen v1.12.0-algorand.0
@@ -29,7 +30,6 @@ require (
 
 require (
 	github.com/Microsoft/go-winio v0.4.14 // indirect
-	github.com/algorand/conduit v0.0.0-20230313160909-dfab75d562ae // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
