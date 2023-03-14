@@ -74,10 +74,6 @@ e2e: cmd/algorand-indexer/algorand-indexer
 e2e-nightly: cmd/algorand-indexer/algorand-indexer
 	cd e2e_tests/docker/indexer/ && docker-compose build --build-arg GO_IMAGE=${GO_IMAGE} --build-arg CHANNEL=nightly && docker-compose up --exit-code-from e2e
 
-# note: when running e2e tests manually be sure to set the e2e filename: 'export CI_E2E_FILENAME=rel-nightly'
-e2e-conduit:
-	export PATH=$(GOPATH1)/bin:$(PATH); pip3 install e2e_tests/ && e2econduit --s3-source-net ${CI_E2E_FILENAME} --conduit-bin cmd/conduit/conduit
-
 deploy:
 	mule/deploy.sh
 
@@ -93,4 +89,4 @@ test-generate:
 indexer-v-algod:
 	pytest -sv misc/parity
 
-.PHONY: all test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go indexer-v-algod conduit
+.PHONY: all test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go indexer-v-algod

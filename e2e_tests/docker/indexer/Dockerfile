@@ -21,6 +21,10 @@ RUN ./update.sh -i -c $CHANNEL -n -d ./ -p /go/bin/
 WORKDIR /opt/go/indexer
 RUN make
 ENV PATH="${HOME}/go/bin/:${PATH}"
+WORKDIR /opt/go
+RUN git clone https://github.com/algorand/conduit
+WORKDIR /opt/go/conduit
+RUN make
 WORKDIR ./e2e_tests
 RUN pip3 install ./
 
