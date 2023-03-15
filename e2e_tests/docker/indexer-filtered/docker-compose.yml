@@ -1,0 +1,39 @@
+version: '3'
+
+services:
+  e2e-write:
+    build:
+      context: ../../../.
+      dockerfile: ./e2e_tests/docker/indexer-filtered/e2e-write/Dockerfile
+      args:
+        - CI_E2E_FILENAME=${CI_E2E_FILENAME}
+    depends_on:
+      e2e-db-filtered:
+        condition: service_healthy
+    environment:
+      CONNECTION_STRING: "host=e2e-db-filtered port=5432 user=algorand password=algorand dbname=indexer_db sslmode=disable"
+      # Add --keep-alive to this variable to pause the container on an error
+      # EXTRA: "${EXTRA}"
+
+  e2e-read:
+    build:
+      context: ../../../.
+      dockerfile: ./e2e_tests/docker/indexer-filtered/e2e-read/Dockerfile
+    depends_on:
+      - e2e-write
+    environment:
+      CONNECTION_STRING: "host=e2e-db-filtered port=5432 user=algorand password=algorand dbname=indexer_db sslmode=disable"
+      # Add --keep-alive to this variable to pause the container on an error
+      EXTRA: "${EXTRA}"
+
+  e2e-db-filtered:
+    image: "postgres:13-alpine"
+    ports:
+      - 45432:5432
+    environment:
+      POSTGRES_USER: algorand
+      POSTGRES_PASSWORD: algorand
+      POSTGRES_DB: indexer_db
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -q " ]
+

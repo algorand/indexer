@@ -59,6 +59,12 @@ def main():
         "--s3-source-net",
         help="AWS S3 key suffix to test network tarball containing Primary and other nodes. Must be a tar bz2 file.",
     )
+    ap.add_argument(
+        "--read-only",
+        default=False,
+        type=bool,
+        help="Run the indexer daemon in read-only mode.",
+    )
     ap.add_argument("--verbose", default=False, action="store_true")
     args = ap.parse_args()
     if args.verbose:
@@ -66,23 +72,96 @@ def main():
     else:
         logging.basicConfig(level=logging.INFO)
     indexer_bin = find_binary(args.indexer_bin)
-    sourcenet = args.source_net
+    tempdir = tempfile.mkdtemp()
+    if not args.keep_temps:
+        atexit.register(shutil.rmtree, tempdir, onerror=logger.error)
+    else:
+        logger.info("leaving temp dir %r", tempdir)
+    # Sane default for lastblock--used for read_only runs
+    lastblock = 93
+    algoddir = None
+    if args.keep_alive:
+        # register after keep_temps so that the temp files are still there.
+        atexitrun(["sleep", "infinity"])
+    psqlstring = ensure_test_db(args.connection_string, args.keep_temps)
+    aiport = args.indexer_port or random.randint(4000, 30000)
+    indexerdir = os.path.join(tempdir, "indexer_data_dir")
+    cmd = [
+        indexer_bin,
+        "daemon",
+        "--data-dir",
+        indexerdir,
+        "-P",
+        psqlstring,
+        "--dev-mode",
+        "--server",
+        ":{}".format(aiport),
+    ]
+    if args.read_only:
+        cmd.append("--no-algod")
+    else:
+        tempnet, lastblock = setup_algod(tempdir, args.source_net, args.s3_source_net)
+        algoddir = os.path.join(tempnet, "Node")
+        cmd.append("--algod")
+        cmd.append(algoddir)
+    logger.debug("%s", " ".join(map(repr, cmd)))
+    indexerdp = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    indexerout = subslurp(indexerdp.stdout)
+    indexerout.start()
+    atexit.register(indexerdp.kill)
+    time.sleep(0.2)
+
+    indexerurl = "http://localhost:{}/".format(aiport)
+    healthurl = indexerurl + "health"
+    for attempt in range(20):
+        (ok, healthJson) = tryhealthurl(healthurl, args.verbose, waitforround=lastblock)
+        if ok:
+            logger.debug("health round={} OK".format(lastblock))
+            break
+        time.sleep(0.5)
+    if not ok:
+        logger.error(
+            "could not get indexer health, or did not reach round={}\n{}".format(
+                lastblock, healthJson
+            )
+        )
+        sys.stderr.write(indexerout.dump())
+        return 1
+    try:
+        logger.info("reached expected round={}".format(lastblock))
+        if not args.read_only:
+            xrun(
+                [
+                    "validate-accounting",
+                    "--verbose",
+                    "--algod",
+                    algoddir,
+                    "--indexer",
+                    indexerurl,
+                ],
+                timeout=20,
+            )
+        xrun(
+            ["go", "run", "cmd/e2equeries/main.go", "-pg", psqlstring, "-q"], timeout=15
+        )
+    except Exception:
+        sys.stderr.write(indexerout.dump())
+        raise
+    dt = time.time() - start
+    sys.stdout.write("indexer e2etest OK ({:.1f}s)\n".format(dt))
+
+    return 0
+
+
+def setup_algod(tempdir, sourcenet, s3_source_net):
     source_is_tar = False
     if not sourcenet:
         e2edata = os.getenv("E2EDATA")
         sourcenet = e2edata and os.path.join(e2edata, "net")
     if sourcenet and hassuffix(sourcenet, ".tar", ".tar.gz", ".tar.bz2", ".tar.xz"):
         source_is_tar = True
-    tempdir = tempfile.mkdtemp()
-    if not args.keep_temps:
-        atexit.register(shutil.rmtree, tempdir, onerror=logger.error)
-    else:
-        logger.info("leaving temp dir %r", tempdir)
-    if args.keep_alive:
-        # register after keep_temps so that the temp files are still there.
-        atexitrun(["sleep", "infinity"])
     if not (source_is_tar or (sourcenet and os.path.isdir(sourcenet))):
-        tarname = args.s3_source_net
+        tarname = s3_source_net
         if not tarname:
             raise Exception(
                 "Must provide either local or s3 network to run test against"
@@ -154,70 +233,7 @@ def main():
         raise
 
     atexitrun(["goal", "network", "stop", "-r", tempnet])
-
-    psqlstring = ensure_test_db(args.connection_string, args.keep_temps)
-    algoddir = os.path.join(tempnet, "Node")
-    aiport = args.indexer_port or random.randint(4000, 30000)
-    indexerdir = os.path.join(tempdir, "indexer_data_dir")
-    cmd = [
-        indexer_bin,
-        "daemon",
-        "--data-dir",
-        indexerdir,
-        "-P",
-        psqlstring,
-        "--dev-mode",
-        "--algod",
-        algoddir,
-        "--server",
-        ":{}".format(aiport),
-    ]
-    logger.debug("%s", " ".join(map(repr, cmd)))
-    indexerdp = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    indexerout = subslurp(indexerdp.stdout)
-    indexerout.start()
-    atexit.register(indexerdp.kill)
-    time.sleep(0.2)
-
-    indexerurl = "http://localhost:{}/".format(aiport)
-    healthurl = indexerurl + "health"
-    for attempt in range(20):
-        (ok, healthJson) = tryhealthurl(healthurl, args.verbose, waitforround=lastblock)
-        if ok:
-            logger.debug("health round={} OK".format(lastblock))
-            break
-        time.sleep(0.5)
-    if not ok:
-        logger.error(
-            "could not get indexer health, or did not reach round={}\n{}".format(
-                lastblock, healthJson
-            )
-        )
-        sys.stderr.write(indexerout.dump())
-        return 1
-    try:
-        logger.info("reached expected round={}".format(lastblock))
-        xrun(
-            [
-                "validate-accounting",
-                "--verbose",
-                "--algod",
-                algoddir,
-                "--indexer",
-                indexerurl,
-            ],
-            timeout=20,
-        )
-        xrun(
-            ["go", "run", "cmd/e2equeries/main.go", "-pg", psqlstring, "-q"], timeout=15
-        )
-    except Exception:
-        sys.stderr.write(indexerout.dump())
-        raise
-    dt = time.time() - start
-    sys.stdout.write("indexer e2etest OK ({:.1f}s)\n".format(dt))
-
-    return 0
+    return tempnet, lastblock
 
 
 def tryhealthurl(healthurl, verbose=False, waitforround=200):
