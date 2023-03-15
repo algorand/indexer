@@ -17,10 +17,6 @@ import (
 
 	"github.com/algorand/indexer/api"
 	"github.com/algorand/indexer/api/generated/v2"
-	"github.com/algorand/indexer/conduit"
-	"github.com/algorand/indexer/conduit/pipeline"
-	_ "github.com/algorand/indexer/conduit/plugins/exporters/postgresql"
-	_ "github.com/algorand/indexer/conduit/plugins/importers/algod"
 	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/idb"
 	iutil "github.com/algorand/indexer/util"
@@ -28,13 +24,8 @@ import (
 
 type daemonConfig struct {
 	flags                     *pflag.FlagSet
-	algodDataDir              string
-	algodAddr                 string
-	algodToken                string
 	daemonServerAddr          string
-	noAlgod                   bool
 	developerMode             bool
-	allowMigration            bool
 	metricsMode               string
 	tokenString               string
 	writeTimeout              time.Duration
@@ -55,13 +46,10 @@ type daemonConfig struct {
 	defaultApplicationsLimit  uint32
 	enableAllParameters       bool
 	indexerDataDir            string
-	initLedger                bool
-	catchpoint                string
 	cpuProfile                string
 	pidFilePath               string
 	configFile                string
 	suppliedAPIConfigFile     string
-	genesisJSONPath           string
 }
 
 // DaemonCmd creates the main cobra command, initializes flags, and viper aliases
@@ -80,15 +68,9 @@ func DaemonCmd() *cobra.Command {
 		},
 	}
 	cfg.flags = daemonCmd.Flags()
-	cfg.flags.StringVarP(&cfg.algodDataDir, "algod", "d", "", "path to algod data dir, or $ALGORAND_DATA")
-	cfg.flags.StringVarP(&cfg.algodAddr, "algod-net", "", "", "host:port of algod")
-	cfg.flags.StringVarP(&cfg.algodToken, "algod-token", "", "", "api access token for algod")
-	cfg.flags.StringVarP(&cfg.genesisJSONPath, "genesis", "g", "", "path to genesis.json (defaults to genesis.json in algod data dir if that was set)")
 	cfg.flags.StringVarP(&cfg.daemonServerAddr, "server", "S", ":8980", "host:port to serve API on (default :8980)")
-	cfg.flags.BoolVarP(&cfg.noAlgod, "no-algod", "", false, "disable connecting to algod for block following")
 	cfg.flags.StringVarP(&cfg.tokenString, "token", "t", "", "an optional auth token, when set REST calls must use this token in a bearer format, or in a 'X-Indexer-API-Token' header")
 	cfg.flags.BoolVarP(&cfg.developerMode, "dev-mode", "", false, "allow performance intensive operations like searching for accounts at a particular round")
-	cfg.flags.BoolVarP(&cfg.allowMigration, "allow-migration", "", false, "allow migrations to happen even when no algod connected")
 	cfg.flags.StringVarP(&cfg.metricsMode, "metrics-mode", "", "OFF", "configure the /metrics endpoint to [ON, OFF, VERBOSE]")
 	cfg.flags.DurationVarP(&cfg.writeTimeout, "write-timeout", "", 30*time.Second, "set the maximum duration to wait before timing out writes to a http response, breaking connection")
 	cfg.flags.DurationVarP(&cfg.readTimeout, "read-timeout", "", 5*time.Second, "set the maximum duration for reading the entire request")
@@ -111,8 +93,6 @@ func DaemonCmd() *cobra.Command {
 	cfg.flags.Uint32VarP(&cfg.defaultBoxesLimit, "default-boxes-limit", "", 1000, "set the default allowed Limit parameter for searching an app's boxes")
 
 	cfg.flags.StringVarP(&cfg.indexerDataDir, "data-dir", "i", "", "path to indexer data dir, or $INDEXER_DATA")
-	cfg.flags.BoolVar(&cfg.initLedger, "init-ledger", true, "initialize local ledger using sequential mode")
-	cfg.flags.StringVarP(&cfg.catchpoint, "catchpoint", "", "", "initialize local ledger using fast catchup")
 
 	cfg.flags.StringVarP(&cfg.cpuProfile, "cpuprofile", "", "", "file to record cpu profile to")
 	cfg.flags.StringVarP(&cfg.pidFilePath, "pidfile", "", "", "file to write daemon's process id to")
@@ -219,9 +199,6 @@ func runDaemon(daemonConfig *daemonConfig) error {
 	if daemonConfig.configFile == "" {
 		daemonConfig.configFile = os.Getenv("INDEXER_CONFIGFILE")
 	}
-	if daemonConfig.algodDataDir == "" {
-		daemonConfig.algodDataDir = os.Getenv("ALGORAND_DATA")
-	}
 
 	// Create the data directory if necessary/possible
 	if err = configureIndexerDataDir(daemonConfig.indexerDataDir); err != nil {
@@ -239,10 +216,6 @@ func runDaemon(daemonConfig *daemonConfig) error {
 	}
 	// We need to re-run this because loading the config file could change these
 	config.BindFlagSet(daemonConfig.flags)
-
-	if !daemonConfig.noAlgod && daemonConfig.indexerDataDir == "" {
-		return fmt.Errorf("indexer data directory was not provided")
-	}
 
 	// Configure the logger as soon as we're able so that it can be used.
 	err = configureLogger()
@@ -303,55 +276,18 @@ func runDaemon(daemonConfig *daemonConfig) error {
 		}()
 	}
 
-	if daemonConfig.algodDataDir != "" {
-		daemonConfig.algodAddr, daemonConfig.algodToken, _, err = config.AlgodArgsForDataDir(daemonConfig.algodDataDir)
-		if err != nil {
-			return fmt.Errorf("algod data dir err, %v", err)
-		}
-	} else if daemonConfig.algodAddr == "" || daemonConfig.algodToken == "" {
-		// no algod was found
-		logger.Info("no algod was found, provide either --algod OR --algod-net and --algod-token to enable")
-		daemonConfig.noAlgod = true
-	}
-	if daemonConfig.noAlgod {
-		logger.Info("algod block following disabled")
-	}
-
 	opts := idb.IndexerDbOptions{}
-	if daemonConfig.noAlgod && !daemonConfig.allowMigration {
-		opts.ReadOnly = true
-	}
+	opts.ReadOnly = true
 
 	opts.MaxConn = daemonConfig.maxConn
 	opts.IndexerDatadir = daemonConfig.indexerDataDir
-	opts.AlgodDataDir = daemonConfig.algodDataDir
-	opts.AlgodToken = daemonConfig.algodToken
-	opts.AlgodAddr = daemonConfig.algodAddr
 
-	db, availableCh, err := indexerDbFromFlags(opts)
+	db, _, err := indexerDbFromFlags(opts)
 	if err != nil {
 		return err
 	}
 	defer db.Close()
 	var dataError func() error
-	if daemonConfig.noAlgod != true {
-		// Wait until the database is available.
-		<-availableCh
-		var nextRound uint64
-		nextRound, err = db.GetNextRoundToAccount()
-		if err == idb.ErrorNotInitialized {
-			nextRound = 0
-		} else if err != nil {
-			return err
-		}
-		pipeline := runConduitPipeline(ctx, nextRound, daemonConfig)
-		if pipeline != nil {
-			dataError = pipeline.Error
-			defer pipeline.Stop()
-		}
-	} else {
-		logger.Info("No block importer configured.")
-	}
 
 	fmt.Printf("serving on %s\n", daemonConfig.daemonServerAddr)
 	logger.Infof("serving on %s", daemonConfig.daemonServerAddr)
@@ -360,57 +296,6 @@ func runDaemon(daemonConfig *daemonConfig) error {
 
 	api.Serve(ctx, daemonConfig.daemonServerAddr, db, dataError, logger, options)
 	return err
-}
-
-func makeConduitConfig(dCfg *daemonConfig, nextRound uint64) pipeline.Config {
-	return pipeline.Config{
-		RetryCount: 10,
-		RetryDelay: 1 * time.Second,
-		ConduitArgs: &conduit.Args{
-			ConduitDataDir:    dCfg.indexerDataDir,
-			NextRoundOverride: nextRound,
-		},
-		HideBanner:       true,
-		Metrics:          pipeline.Metrics{Prefix: "conduit"},
-		PipelineLogLevel: logger.GetLevel().String(),
-		Importer: pipeline.NameConfigPair{
-			Name: "algod",
-			Config: map[string]interface{}{
-				"netaddr": dCfg.algodAddr,
-				"token":   dCfg.algodToken,
-				"mode":    "follower",
-			},
-		},
-		Exporter: pipeline.NameConfigPair{
-			Name: "postgresql",
-			Config: map[string]interface{}{
-				"connection-string": postgresAddr,
-				"max-conn":          dCfg.maxConn,
-				"test":              dummyIndexerDb,
-			},
-		},
-	}
-
-}
-
-func runConduitPipeline(ctx context.Context, nextRound uint64, dCfg *daemonConfig) pipeline.Pipeline {
-	// Need to redefine exitHandler() for every go-routine
-	defer exitHandler()
-
-	var conduit pipeline.Pipeline
-	var err error
-	pcfg := makeConduitConfig(dCfg, nextRound)
-	if conduit, err = pipeline.MakePipeline(ctx, &pcfg, logger); err != nil {
-		logger.Errorf("%v", err)
-		panic(exit{1})
-	}
-	err = conduit.Init()
-	if err != nil {
-		logger.Errorf("%v", err)
-		panic(exit{1})
-	}
-	conduit.Start()
-	return conduit
 }
 
 // makeOptions converts CLI options to server options

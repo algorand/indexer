@@ -48,6 +48,16 @@ def main():
         help="port to run indexer on. defaults to random in [4000,30000]",
     )
     ap.add_argument(
+        "--conduit-bin",
+        default=None,
+        help="path to the conduit binary, otherwise search PATH"
+    )
+    ap.add_argument(
+        "--conduit-dir",
+        default=None,
+        help="Path to the directory in which to run conduit. Required when not read-only."
+    )
+    ap.add_argument(
         "--connection-string",
         help="Use this connection string instead of attempting to manage a local database.",
     )
@@ -85,25 +95,34 @@ def main():
         atexitrun(["sleep", "infinity"])
     psqlstring = ensure_test_db(args.connection_string, args.keep_temps)
     aiport = args.indexer_port or random.randint(4000, 30000)
-    indexerdir = os.path.join(tempdir, "indexer_data_dir")
     cmd = [
         indexer_bin,
         "daemon",
-        "--data-dir",
-        indexerdir,
         "-P",
         psqlstring,
         "--dev-mode",
         "--server",
         ":{}".format(aiport),
     ]
-    if args.read_only:
-        cmd.append("--no-algod")
-    else:
+    conduitout = None
+    if not args.read_only:
+        conduit_bin = find_binary(args.conduit_bin, binary_name="conduit")
+        if not args.conduit_dir:
+            raise Exception("Must provide --conduit-dir when not readonly")
         tempnet, lastblock = setup_algod(tempdir, args.source_net, args.s3_source_net)
         algoddir = os.path.join(tempnet, "Node")
-        cmd.append("--algod")
-        cmd.append(algoddir)
+        with open(os.path.join(algoddir, "algod.token"), "r") as token_file:
+            algod_token = token_file.read()
+        with open(os.path.join(algoddir, "algod.net"), "r") as net_file:
+            algod_net = net_file.read()
+        cfg = None
+        with open(os.path.join(args.conduit_dir, "conduit.yml"), "r") as conduit_cfg:
+            cfg = conduit_cfg.read()
+        cfg = cfg.format(ALGOD_ADDR=algod_net, ALGOD_TOKEN=algod_token, CONNECTION_STRING=psqlstring)
+        with open(os.path.join(args.conduit_dir, "conduit.yml"), "w") as conduit_cfg:
+            conduit_cfg.write(cfg)
+        conduitout = run_conduit(conduit_bin, args.conduit_dir, algod_token, algod_net)
+        time.sleep(5)
     logger.debug("%s", " ".join(map(repr, cmd)))
     indexerdp = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     indexerout = subslurp(indexerdp.stdout)
@@ -125,6 +144,8 @@ def main():
                 lastblock, healthJson
             )
         )
+        if conduitout:
+            sys.stderr.write(conduitout.dump())
         sys.stderr.write(indexerout.dump())
         return 1
     try:
@@ -145,6 +166,8 @@ def main():
             ["go", "run", "cmd/e2equeries/main.go", "-pg", psqlstring, "-q"], timeout=15
         )
     except Exception:
+        if conduitout:
+            sys.stderr.write(conduitout.dump())
         sys.stderr.write(indexerout.dump())
         raise
     dt = time.time() - start
@@ -252,6 +275,15 @@ def tryhealthurl(healthurl, verbose=False, waitforround=200):
         if verbose:
             logging.warning("GET %s %s", healthurl, e)
         return (False, "")
+
+
+def run_conduit(conduit_binary, conduit_dir, algod_token, algod_net):
+    conduitcmd = [conduit_binary, "-d", conduit_dir,]
+    conduitproc = subprocess.Popen(conduitcmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    conduitout = subslurp(conduitproc.stdout)
+    conduitout.start()
+    atexit.register(conduitproc.kill)
+    return conduitout
 
 
 class subslurp:

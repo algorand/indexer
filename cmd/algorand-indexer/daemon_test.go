@@ -194,16 +194,9 @@ func TestIndexerPidFileCreateFailExpectError(t *testing.T) {
 	}
 }
 
-func TestIndexerMissingDataDir(t *testing.T) {
-	cfg := &daemonConfig{}
-	cfg.flags = pflag.NewFlagSet("indexer", 0)
-	assert.EqualError(t, runDaemon(cfg), "indexer data directory was not provided")
-}
-
 func TestOptionalIndexerDataDir(t *testing.T) {
 	cfg := &daemonConfig{}
 	cfg.flags = pflag.NewFlagSet("indexer", 0)
-	cfg.noAlgod = true
 	// gets to the error beyond the indexer data dir check.
 	assert.EqualError(t, runDaemon(cfg), "no import db set")
 }
