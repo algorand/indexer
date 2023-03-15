@@ -123,7 +123,6 @@ def main():
             conduit_cfg.write(cfg)
         conduitout = run_conduit(conduit_bin, args.conduit_dir, algod_token, algod_net)
         time.sleep(5)
-
     logger.debug("%s", " ".join(map(repr, cmd)))
     indexerdp = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     indexerout = subslurp(indexerdp.stdout)

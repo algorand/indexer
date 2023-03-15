@@ -20,3 +20,4 @@ dependencies = [
 [project.scripts]
 e2elive = "e2e_indexer.e2elive:main"
 validate-accounting = "e2e_indexer.validate_accounting:main"
+get-test-data = "e2e_common.get_test_data:main"

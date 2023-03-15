@@ -139,6 +139,7 @@ commands:
             ./update.sh -i -c stable -n -d ./ -p /usr/local/go/bin
             export GOPATH=/usr/local/go/
       - run: make e2e
+      - run: make e2e-filter-test
 
   run_e2e_tests_nightly:
     steps:
@@ -149,6 +150,7 @@ commands:
             ./update.sh -i -c nightly -n -d ./ -p /usr/local/go/bin
             export GOPATH=/usr/local/go/
       - run: make e2e-nightly
+      - run: make e2e-filter-test-nightly
 
   run_tests:
     steps:
