@@ -4,7 +4,6 @@ go 1.17
 
 require (
 	github.com/algorand/avm-abi v0.2.0
-	github.com/algorand/conduit v0.0.0-20230313160909-dfab75d562ae
 	github.com/algorand/go-algorand-sdk/v2 v2.0.0-20230228201805-5b8c99b1412c
 	github.com/algorand/go-codec/codec v1.1.8
 	github.com/algorand/oapi-codegen v1.12.0-algorand.0
@@ -43,7 +42,6 @@ require (
 	github.com/go-openapi/swag v0.19.5 // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/google/go-querystring v1.0.0 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect

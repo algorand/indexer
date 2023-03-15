@@ -25,10 +25,11 @@ WORKDIR /opt/go
 RUN git clone https://github.com/algorand/conduit
 WORKDIR /opt/go/conduit
 RUN make
-WORKDIR ./e2e_tests
+WORKDIR /opt/go/indexer/e2e_tests
 RUN pip3 install ./
+RUN mkdir -p /opt/tmp-conduit && cp /opt/go/indexer/e2e_tests/docker/indexer/conduit.yml /opt/tmp-conduit/
 
 ENV INDEXER_DATA="${HOME}/indexer/"
 WORKDIR /opt/go/indexer
 # Run test script
-ENTRYPOINT ["/bin/bash", "-c", "sleep 5 && e2elive $EXTRA --connection-string \"$CONNECTION_STRING\" --s3-source-net \"$CI_E2E_FILENAME\" --indexer-bin /opt/go/indexer/cmd/algorand-indexer/algorand-indexer --indexer-port 9890"]
+ENTRYPOINT ["/bin/bash", "-c", "sleep 5 && e2elive $EXTRA --connection-string \"$CONNECTION_STRING\" --s3-source-net \"$CI_E2E_FILENAME\" --indexer-bin /opt/go/indexer/cmd/algorand-indexer/algorand-indexer --indexer-port 9890 --conduit-bin /opt/go/conduit/cmd/conduit/conduit --conduit-dir /opt/tmp-conduit"]

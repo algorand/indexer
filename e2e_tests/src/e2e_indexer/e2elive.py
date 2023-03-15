@@ -48,6 +48,16 @@ def main():
         help="port to run indexer on. defaults to random in [4000,30000]",
     )
     ap.add_argument(
+        "--conduit-bin",
+        default=None,
+        help="path to the conduit binary, otherwise search PATH"
+    )
+    ap.add_argument(
+        "--conduit-dir",
+        default=None,
+        help="Path to the directory in which to run conduit. Required when not read-only."
+    )
+    ap.add_argument(
         "--connection-string",
         help="Use this connection string instead of attempting to manage a local database.",
     )
@@ -59,6 +69,12 @@ def main():
         "--s3-source-net",
         help="AWS S3 key suffix to test network tarball containing Primary and other nodes. Must be a tar bz2 file.",
     )
+    ap.add_argument(
+        "--read-only",
+        default=False,
+        type=bool,
+        help="Run the indexer daemon in read-only mode.",
+    )
     ap.add_argument("--verbose", default=False, action="store_true")
     args = ap.parse_args()
     if args.verbose:
@@ -66,23 +82,110 @@ def main():
     else:
         logging.basicConfig(level=logging.INFO)
     indexer_bin = find_binary(args.indexer_bin)
-    sourcenet = args.source_net
+    conduit_bin = find_binary(args.conduit_bin, binary_name="conduit")
+    tempdir = tempfile.mkdtemp()
+    if not args.keep_temps:
+        atexit.register(shutil.rmtree, tempdir, onerror=logger.error)
+    else:
+        logger.info("leaving temp dir %r", tempdir)
+    # Sane default for lastblock--used for read_only runs
+    lastblock = 93
+    algoddir = None
+    if args.keep_alive:
+        # register after keep_temps so that the temp files are still there.
+        atexitrun(["sleep", "infinity"])
+    psqlstring = ensure_test_db(args.connection_string, args.keep_temps)
+    aiport = args.indexer_port or random.randint(4000, 30000)
+    cmd = [
+        indexer_bin,
+        "daemon",
+        "-P",
+        psqlstring,
+        "--dev-mode",
+        "--server",
+        ":{}".format(aiport),
+    ]
+    conduitout = None
+    if not args.read_only:
+        if not args.conduit_dir:
+            raise Exception("Must provide --conduit-dir when not readonly")
+        tempnet, lastblock = setup_algod(tempdir, args.source_net, args.s3_source_net)
+        algoddir = os.path.join(tempnet, "Node")
+        with open(os.path.join(algoddir, "algod.token"), "r") as token_file:
+            algod_token = token_file.read()
+        with open(os.path.join(algoddir, "algod.net"), "r") as net_file:
+            algod_net = net_file.read()
+        cfg = None
+        with open(os.path.join(args.conduit_dir, "conduit.yml"), "r") as conduit_cfg:
+            cfg = conduit_cfg.read()
+        cfg = cfg.format(ALGOD_ADDR=algod_net, ALGOD_TOKEN=algod_token, CONNECTION_STRING=psqlstring)
+        with open(os.path.join(args.conduit_dir, "conduit.yml"), "w") as conduit_cfg:
+            conduit_cfg.write(cfg)
+        conduitout = run_conduit(conduit_bin, args.conduit_dir, algod_token, algod_net)
+        time.sleep(5)
+
+    logger.debug("%s", " ".join(map(repr, cmd)))
+    indexerdp = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    indexerout = subslurp(indexerdp.stdout)
+    indexerout.start()
+    atexit.register(indexerdp.kill)
+    time.sleep(0.2)
+
+    indexerurl = "http://localhost:{}/".format(aiport)
+    healthurl = indexerurl + "health"
+    for attempt in range(20):
+        (ok, healthJson) = tryhealthurl(healthurl, args.verbose, waitforround=lastblock)
+        if ok:
+            logger.debug("health round={} OK".format(lastblock))
+            break
+        time.sleep(0.5)
+    if not ok:
+        logger.error(
+            "could not get indexer health, or did not reach round={}\n{}".format(
+                lastblock, healthJson
+            )
+        )
+        if conduitout:
+            sys.stderr.write(conduitout.dump())
+        sys.stderr.write(indexerout.dump())
+        return 1
+    try:
+        logger.info("reached expected round={}".format(lastblock))
+        if not args.read_only:
+            xrun(
+                [
+                    "validate-accounting",
+                    "--verbose",
+                    "--algod",
+                    algoddir,
+                    "--indexer",
+                    indexerurl,
+                ],
+                timeout=20,
+            )
+        xrun(
+            ["go", "run", "cmd/e2equeries/main.go", "-pg", psqlstring, "-q"], timeout=15
+        )
+    except Exception:
+        if conduitout:
+            sys.stderr.write(conduitout.dump())
+        sys.stderr.write(indexerout.dump())
+        raise
+    dt = time.time() - start
+    sys.stdout.write("indexer e2etest OK ({:.1f}s)\n".format(dt))
+
+    return 0
+
+
+def setup_algod(tempdir, sourcenet, s3_source_net):
     source_is_tar = False
     if not sourcenet:
         e2edata = os.getenv("E2EDATA")
         sourcenet = e2edata and os.path.join(e2edata, "net")
     if sourcenet and hassuffix(sourcenet, ".tar", ".tar.gz", ".tar.bz2", ".tar.xz"):
         source_is_tar = True
-    tempdir = tempfile.mkdtemp()
-    if not args.keep_temps:
-        atexit.register(shutil.rmtree, tempdir, onerror=logger.error)
-    else:
-        logger.info("leaving temp dir %r", tempdir)
-    if args.keep_alive:
-        # register after keep_temps so that the temp files are still there.
-        atexitrun(["sleep", "infinity"])
     if not (source_is_tar or (sourcenet and os.path.isdir(sourcenet))):
-        tarname = args.s3_source_net
+        tarname = s3_source_net
         if not tarname:
             raise Exception(
                 "Must provide either local or s3 network to run test against"
@@ -154,70 +257,7 @@ def main():
         raise
 
     atexitrun(["goal", "network", "stop", "-r", tempnet])
-
-    psqlstring = ensure_test_db(args.connection_string, args.keep_temps)
-    algoddir = os.path.join(tempnet, "Node")
-    aiport = args.indexer_port or random.randint(4000, 30000)
-    indexerdir = os.path.join(tempdir, "indexer_data_dir")
-    cmd = [
-        indexer_bin,
-        "daemon",
-        "--data-dir",
-        indexerdir,
-        "-P",
-        psqlstring,
-        "--dev-mode",
-        "--algod",
-        algoddir,
-        "--server",
-        ":{}".format(aiport),
-    ]
-    logger.debug("%s", " ".join(map(repr, cmd)))
-    indexerdp = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    indexerout = subslurp(indexerdp.stdout)
-    indexerout.start()
-    atexit.register(indexerdp.kill)
-    time.sleep(0.2)
-
-    indexerurl = "http://localhost:{}/".format(aiport)
-    healthurl = indexerurl + "health"
-    for attempt in range(20):
-        (ok, healthJson) = tryhealthurl(healthurl, args.verbose, waitforround=lastblock)
-        if ok:
-            logger.debug("health round={} OK".format(lastblock))
-            break
-        time.sleep(0.5)
-    if not ok:
-        logger.error(
-            "could not get indexer health, or did not reach round={}\n{}".format(
-                lastblock, healthJson
-            )
-        )
-        sys.stderr.write(indexerout.dump())
-        return 1
-    try:
-        logger.info("reached expected round={}".format(lastblock))
-        xrun(
-            [
-                "validate-accounting",
-                "--verbose",
-                "--algod",
-                algoddir,
-                "--indexer",
-                indexerurl,
-            ],
-            timeout=20,
-        )
-        xrun(
-            ["go", "run", "cmd/e2equeries/main.go", "-pg", psqlstring, "-q"], timeout=15
-        )
-    except Exception:
-        sys.stderr.write(indexerout.dump())
-        raise
-    dt = time.time() - start
-    sys.stdout.write("indexer e2etest OK ({:.1f}s)\n".format(dt))
-
-    return 0
+    return tempnet, lastblock
 
 
 def tryhealthurl(healthurl, verbose=False, waitforround=200):
@@ -236,6 +276,15 @@ def tryhealthurl(healthurl, verbose=False, waitforround=200):
         if verbose:
             logging.warning("GET %s %s", healthurl, e)
         return (False, "")
+
+
+def run_conduit(conduit_binary, conduit_dir, algod_token, algod_net):
+    conduitcmd = [conduit_binary, "-d", conduit_dir,]
+    conduitproc = subprocess.Popen(conduitcmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    conduitout = subslurp(conduitproc.stdout)
+    conduitout.start()
+    atexit.register(conduitproc.kill)
+    return conduitout
 
 
 class subslurp:
