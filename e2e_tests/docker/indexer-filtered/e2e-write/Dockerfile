@@ -24,7 +24,11 @@ RUN ./update.sh -i -c $CHANNEL -n -d ./ -p /go/bin/
 WORKDIR /opt/go/indexer
 RUN make
 ENV PATH="${HOME}/go/bin/:${PATH}"
-WORKDIR ./e2e_tests
+WORKDIR /opt/go
+RUN git clone https://github.com/algorand/conduit
+WORKDIR /opt/go/conduit
+RUN make
+WORKDIR /opt/go/indexer/e2e_tests
 RUN pip3 install ./
 
 ENV INDEXER_DATA="${HOME}/indexer/"
@@ -39,4 +43,4 @@ CMD ["/bin/bash", "-c", \
 export ALGOD_ADDR=http://$(cat /opt/algod-dir/net/Node/algod.net) && \
 export ALGOD_TOKEN=$(cat /opt/algod-dir/net/Node/algod.token) && \
 cat ./e2e_tests/docker/indexer-filtered/e2e-write/conduit.yml | envsubst > /opt/conduit-dir/conduit.yml && \
-/opt/go/indexer/cmd/conduit/conduit -d /opt/conduit-dir"]
+/opt/go/conduit/cmd/conduit/conduit -d /opt/conduit-dir"]

@@ -82,7 +82,6 @@ def main():
     else:
         logging.basicConfig(level=logging.INFO)
     indexer_bin = find_binary(args.indexer_bin)
-    conduit_bin = find_binary(args.conduit_bin, binary_name="conduit")
     tempdir = tempfile.mkdtemp()
     if not args.keep_temps:
         atexit.register(shutil.rmtree, tempdir, onerror=logger.error)
@@ -107,6 +106,7 @@ def main():
     ]
     conduitout = None
     if not args.read_only:
+        conduit_bin = find_binary(args.conduit_bin, binary_name="conduit")
         if not args.conduit_dir:
             raise Exception("Must provide --conduit-dir when not readonly")
         tempnet, lastblock = setup_algod(tempdir, args.source_net, args.s3_source_net)
