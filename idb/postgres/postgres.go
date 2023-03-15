@@ -175,6 +175,12 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 
 // AddBlock is part of idb.IndexerDb.
 func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
+	protoVersion := protocol.ConsensusVersion(vb.Block.CurrentProtocol)
+	_, ok := config.Consensus[protoVersion]
+	if !ok {
+		return fmt.Errorf("unknown protocol (%s) detected, this usually means you need to upgrade", protoVersion)
+	}
+
 	block := vb.Block
 	round := block.BlockHeader.Round
 	db.log.Printf("adding block %d", round)
