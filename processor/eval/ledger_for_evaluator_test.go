@@ -9,10 +9,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/algorand/avm-abi/apps"
 	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/rpcs"
@@ -557,9 +557,9 @@ func compareAppBoxesAgainstLedger(t *testing.T, ld indxLedger.LedgerForEvaluator
 	for appIdx, boxes := range appBoxes {
 		for key, expectedValue := range boxes {
 			msg := fmt.Sprintf("caseNum=%d, appIdx=%d, key=%#v", caseNum, appIdx, key)
-			expectedAppIdx, _, err := logic.SplitBoxKey(key)
+			expectedAppIdx, _, err := apps.SplitBoxKey(key)
 			require.NoError(t, err, msg)
-			require.Equal(t, appIdx, expectedAppIdx, msg)
+			require.Equal(t, uint64(appIdx), expectedAppIdx, msg)
 
 			boxDeleted := false
 			if deletedBoxes != nil {
@@ -636,7 +636,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 	newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 	boxTxns := make([]*transactions.SignedTxnWithAD, 0)
 	for _, boxName := range boxNames {
-		expectedAppBoxes[appid][logic.MakeBoxKey(appid, boxName)] = newBoxValue
+		expectedAppBoxes[appid][apps.MakeBoxKey(uint64(appid), boxName)] = newBoxValue
 
 		args := []string{"create", boxName}
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
@@ -678,7 +678,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(appid, boxName)
+		key := apps.MakeBoxKey(uint64(appid), boxName)
 		expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
@@ -709,7 +709,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(appid, boxName)
+		key := apps.MakeBoxKey(uint64(appid), boxName)
 		delete(expectedAppBoxes[appid], key)
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
@@ -744,7 +744,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(appid, boxName)
+		key := apps.MakeBoxKey(uint64(appid), boxName)
 		expectedAppBoxes[appid] = make(map[string]string)
 		expectedAppBoxes[appid][key] = newBoxValue
 	}
@@ -775,7 +775,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(appid, boxName)
+		key := apps.MakeBoxKey(uint64(appid), boxName)
 		expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)

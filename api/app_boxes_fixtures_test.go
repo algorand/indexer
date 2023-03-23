@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/algorand/avm-abi/apps"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/indexer/processor"
@@ -17,7 +17,7 @@ import (
 )
 
 func goalEncode(t *testing.T, s string) string {
-	b1, err := logic.NewAppCallBytes(s)
+	b1, err := apps.NewAppCallBytes(s)
 	require.NoError(t, err, s)
 	b2, err := b1.Raw()
 	require.NoError(t, err)
@@ -95,7 +95,7 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 	newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 	boxTxns := make([]*transactions.SignedTxnWithAD, 0)
 	for _, boxName := range boxNames {
-		expectedAppBoxes[firstAppid][logic.MakeBoxKey(firstAppid, boxName)] = newBoxValue
+		expectedAppBoxes[firstAppid][apps.MakeBoxKey(uint64(firstAppid), boxName)] = newBoxValue
 		args := []string{"create", boxName}
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(firstAppid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
@@ -131,7 +131,7 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(firstAppid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(firstAppid, boxName)
+		key := apps.MakeBoxKey(uint64(firstAppid), boxName)
 		expectedAppBoxes[firstAppid][key] = valPrefix + newBoxValue[len(valPrefix):]
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
@@ -159,7 +159,7 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(firstAppid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(firstAppid, boxName)
+		key := apps.MakeBoxKey(uint64(firstAppid), boxName)
 		expectedAppBoxes[firstAppid][key] = deleted
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
@@ -188,7 +188,7 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(firstAppid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(firstAppid, boxName)
+		key := apps.MakeBoxKey(uint64(firstAppid), boxName)
 		expectedAppBoxes[firstAppid][key] = newBoxValue
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
@@ -217,7 +217,7 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(firstAppid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(firstAppid, boxName)
+		key := apps.MakeBoxKey(uint64(firstAppid), boxName)
 		expectedAppBoxes[firstAppid][key] = valPrefix + newBoxValue[len(valPrefix):]
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
@@ -242,7 +242,7 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 	expectedAppBoxes[thirdAppid] = map[string]string{}
 	for _, boxName := range encodingExamples {
 		args := []string{"create", boxName}
-		expectedAppBoxes[thirdAppid][logic.MakeBoxKey(thirdAppid, boxName)] = newBoxValue
+		expectedAppBoxes[thirdAppid][apps.MakeBoxKey(uint64(thirdAppid), boxName)] = newBoxValue
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(thirdAppid), test.AccountC, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 	}
@@ -267,7 +267,7 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(thirdAppid), test.AccountC, args, []string{valPrefix})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(thirdAppid, valPrefix)
+		key := apps.MakeBoxKey(uint64(thirdAppid), valPrefix)
 		expectedAppBoxes[thirdAppid][key] = valPrefix + newBoxValue[len(valPrefix):]
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
