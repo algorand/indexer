@@ -193,7 +193,7 @@ func resultsPrinter(config Params, printCurl, printSkipped bool, results <-chan 
 			ErrorLog.Printf("===================================================================")
 			ErrorLog.Printf("%s", time.Now().Format("2006-01-02 3:4:5 PM"))
 			ErrorLog.Printf("Resource: %s", r.Details.Resource)
-			if r.Details.Resource == "account" {
+			if r.Details.Resource == "address" {
 				ErrorLog.Printf("Account: %s", r.Details.Address)
 				ErrorLog.Printf("Rounds Match: %t", r.SameRound)
 			}
@@ -239,7 +239,7 @@ func resultsPrinter(config Params, printCurl, printSkipped bool, results <-chan 
 					}
 				}
 				// Optionally print curl command.
-				if printCurl && r.Details.Resource == "account" {
+				if printCurl && r.Details.Resource == "address" {
 					ErrorLog.Printf("echo 'Algod:'")
 					ErrorLog.Printf("curl -q -s -H 'Authorization: Bearer %s' '%s/v2/accounts/%s?pretty'", config.AlgodToken, config.AlgodURL, r.Details.Address)
 					ErrorLog.Printf("echo 'Indexer:'")
