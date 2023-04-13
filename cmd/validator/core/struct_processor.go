@@ -45,6 +45,35 @@ func (gp StructProcessor) ProcessAddress(algodData, indexerData []byte) (Result,
 	return Result{Equal: true}, nil
 }
 
+func (gp StructProcessor) ProcessBox(algodData, indexerData []byte) (Result, error) {
+	var indexerResponse generated.Box
+	err := json.Unmarshal(indexerData, &indexerResponse)
+	if err != nil {
+		return Result{}, fmt.Errorf("unable to parse indexer data ('%s'): %v", string(indexerData), err)
+	}
+	indexerValue := indexerResponse.Value
+
+	var algodResponse generated.Box
+	err = json.Unmarshal(algodData, &algodResponse)
+	if err != nil {
+		return Result{}, fmt.Errorf("unable to parse algod data ('%s'): %v", string(algodData), err)
+	}
+    algodValue := algodResponse.Value
+
+	if !bytes.Equal (algodValue, indexerValue) {
+		return Result{
+			Equal:     false,
+			Retries:   0,
+			Details: &ErrorDetails{
+				Algod:   mustEncode(algodResponse),
+				Indexer: mustEncode(indexerResponse),
+				Diff:    []string{"values"},
+			},
+		}, nil
+	}
+	return Result{Equal: true}, nil
+}
+
 // equals compares the indexer and algod accounts, and returns a slice of differences
 func equals(indexer, algod generated.Account) (differences []string) {
 	//differences := make([]string, 0)

@@ -19,6 +19,33 @@ func mustEncode(data interface{}) string {
 	return string(result)
 }
 
+func (gp DynamicProcessor) ProcessBox (algodData, indexerData []byte) (Result, error) {
+	var indexerBox map[string]interface{}
+	err := json.Unmarshal(indexerData, &indexerBox)
+	if err != nil {
+		return Result{}, fmt.Errorf("unable to parse indexer data ('%s'): %v", string(indexerData), err)
+	}
+
+	var algodBox map[string]interface{}
+	err = json.Unmarshal(algodData, &algodBox)
+	if err != nil {
+		return Result{}, fmt.Errorf("unable to parse algod data ('%s'): %v", string(algodData), err)
+	}
+
+	if !reflect.DeepEqual(indexerBox, algodBox) {
+		return Result{
+			Equal:   false,
+			Retries: 0,
+			Details: &ErrorDetails{
+				Algod:   fmt.Sprintf("RawJson\n%s\n", mustEncode(algodBox), mustEncode(algodBox)),
+				Indexer: fmt.Sprintf("RawJson\n%s\n", mustEncode(indexerBox), mustEncode(indexerBox)),
+				Diff:    nil,
+			},
+		}, nil
+	}
+	return Result{Equal: true}, nil
+}
+
 // ProcessAddress is the entrypoint for the DynamicProcessor.
 func (gp DynamicProcessor) ProcessAddress(algodData, indexerData []byte) (Result, error) {
 	var indexerAcct map[string]interface{}

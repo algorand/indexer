@@ -45,7 +45,7 @@ func init() {
 	ValidatorCmd.Flags().StringVar(&addr, "addr", "", "If provided validate a single address instead of reading Stdin.")
 	ValidatorCmd.Flags().IntVar(&threads, "threads", 4, "Number of worker threads to initialize.")
 	ValidatorCmd.Flags().IntVar(&processorNum, "processor", 0, "Choose compare algorithm [0 = Struct, 1 = Reflection]")
-	ValidatorCmd.Flags().BoolVar(&printCurl, "print-commands", false, "Print curl commands, including tokens, to query algod and indexer.")
+	ValidatorCmd.Flags().BoolVar(&printCurl, "print-commands", false, "Print curl commands, including tokens, to query algod and indexer accounts.")
 	ValidatorCmd.Flags().StringVarP(&errorLogFile, "error-log-file", "e", "", "When specified, error messages are written to this file instead of to stderr.")
 	ValidatorCmd.Flags().BoolVar(&printSkipped, "print-skipped", false, "Include accounts which were skipped in the error log.")
 }
@@ -186,9 +186,16 @@ func resultsPrinter(config Params, printCurl, printSkipped bool, results <-chan 
 			}
 			ErrorLog.Printf("===================================================================")
 			ErrorLog.Printf("%s", time.Now().Format("2006-01-02 3:4:5 PM"))
-			ErrorLog.Printf("Account: %s", r.Details.Address)
+			ErrorLog.Printf("Resource: %s", r.Details.Resource)
+            if r.Details.Resource == "account" {
+    			ErrorLog.Printf("Account: %s", r.Details.Address)
+    			ErrorLog.Printf("Rounds Match: %t", r.SameRound)
+            }
+            if r.Details.Resource == "box" {
+    			ErrorLog.Printf("Appid: %s", r.Details.Appid)
+    			ErrorLog.Printf("Boxname: %s", r.Details.Boxname)
+            }
 			ErrorLog.Printf("Retries: %d", r.Retries)
-			ErrorLog.Printf("Rounds Match: %t", r.SameRound)
 
 			// Print error message if there is one.
 			if r.SkipReason != NotSkipped {
@@ -196,7 +203,7 @@ func resultsPrinter(config Params, printCurl, printSkipped bool, results <-chan 
 				case SkipLimitReached:
 					ErrorLog.Printf("Address skipped: too many asset and/or accounts to return\n")
 				case SkipAccountNotFound:
-					ErrorLog.Printf("Address skipped: account not found, probably deleted\n")
+					ErrorLog.Printf("Address skipped: account/appid+boxname not found, probably deleted\n")
 				default:
 					ErrorLog.Printf("Address skipped: Unknown reason (%s)\n", r.SkipReason)
 				}
@@ -214,11 +221,17 @@ func resultsPrinter(config Params, printCurl, printSkipped bool, results <-chan 
 					}
 				}
 				// Optionally print curl command.
-				if printCurl {
+				if printCurl && r.Details.Resource == "account" {
 					ErrorLog.Printf("echo 'Algod:'")
 					ErrorLog.Printf("curl -q -s -H 'Authorization: Bearer %s' '%s/v2/accounts/%s?pretty'", config.AlgodToken, config.AlgodURL, r.Details.Address)
 					ErrorLog.Printf("echo 'Indexer:'")
 					ErrorLog.Printf("curl -q -s -H 'Authorization: Bearer %s' '%s/v2/accounts/%s?pretty'", config.IndexerToken, config.IndexerURL, r.Details.Address)
+				}
+				if printCurl && r.Details.Resource == "box" {
+					ErrorLog.Printf("echo 'Algod:'")
+                    ErrorLog.Printf("curl -q -s -H 'Authorization: Bearer %s' '%s/v2/applications/%s/box?name=b64:%s?pretty'", config.AlgodToken, config.AlgodURL, r.Details.Appid, r.Details.Boxname)
+					ErrorLog.Printf("echo 'Indexer:'")
+                    ErrorLog.Printf("curl -q -s -H 'Authorization: Bearer %s' '%s/v2/applications/%s/box?name=b64:%s?pretty'", config.IndexerToken, config.IndexerURL, r.Details.Appid, r.Details.Boxname)
 				}
 			}
 		}
