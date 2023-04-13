@@ -153,7 +153,6 @@ func resultsPrinter(config Params, printCurl, printSkipped bool, results <-chan 
 		fmt.Printf("Skipped (%s): %d\n", SkipBoxFailedLookup, skipCounts[SkipBoxFailedLookup])
 		fmt.Printf("Skipped (%s): %d\n", SkipBoxWrongAppid, skipCounts[SkipBoxWrongAppid])
 		fmt.Printf("Skipped (%s): %d\n", SkipBoxMultiple, skipCounts[SkipBoxMultiple])
-		fmt.Printf("Skipped (%s): %d\n", SkipBoxNoBoxes, skipCounts[SkipBoxNoBoxes])
 		fmt.Printf("Skipped (%s): %d\n", SkipBoxWrongBox, skipCounts[SkipBoxWrongBox])
 		fmt.Printf("Retry count: %d\n", numRetries)
 		fmt.Printf("Checks per second: %f\n", float64(numResults+numRetries)/duration.Seconds())
@@ -218,8 +217,6 @@ func resultsPrinter(config Params, printCurl, printSkipped bool, results <-chan 
 					ErrorLog.Printf("Box skipped: wrong appid\n")
 				case SkipBoxMultiple:
 					ErrorLog.Printf("Box skipped: multiple boxes\n")
-				case SkipBoxNoBoxes:
-					ErrorLog.Printf("Box skipped: no boxes (box name url parameter not set)\n")
 				case SkipBoxWrongBox:
 					ErrorLog.Printf("Box skipped: wrong box\n")
 				default:

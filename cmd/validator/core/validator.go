@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -53,7 +54,6 @@ const (
 	SkipBoxFailedLookup Skip = "box-failed-lookup"
 	SkipBoxWrongAppid   Skip = "box-wrong-appid"
 	SkipBoxMultiple     Skip = "box-multiple-boxes"
-	SkipBoxNoBoxes      Skip = "box-no-boxes"
 	SkipBoxWrongBox     Skip = "box-wrong-box"
 )
 
@@ -152,8 +152,7 @@ func CallProcessor(processor Processor, input string, config Params, results cha
 }
 
 func callProcessorBox(processor Processor, appid string, boxname string, config Params, results chan<- Result) {
-	boxname = strings.ReplaceAll(boxname, "+", "%2B")
-	boxname = strings.ReplaceAll(boxname, "/", "%2F")
+	boxname = url.QueryEscape(boxname)
 
 	algodDataURL := fmt.Sprintf("%s/v2/applications/%s/box?name=b64:%s", config.AlgodURL, appid, boxname)
 	indexerDataURL := fmt.Sprintf("%s/v2/applications/%s/box?name=b64:%s", config.IndexerURL, appid, boxname)
@@ -185,7 +184,7 @@ func callProcessorBox(processor Processor, appid string, boxname string, config 
 			case strings.Contains(string(indexerData), api.ErrMultipleBoxes):
 				results <- resultBoxSkip(err, appid, boxname, SkipBoxMultiple)
 			case strings.Contains(string(indexerData), api.ErrNoBoxesFound):
-				results <- resultBoxSkip(err, appid, boxname, SkipBoxNoBoxes)
+				results <- resultBoxError(err, appid, boxname)
 			case strings.Contains(string(indexerData), api.ErrWrongBoxFound):
 				results <- resultBoxSkip(err, appid, boxname, SkipBoxWrongBox)
 			default:
@@ -366,8 +365,8 @@ func resultBoxError(err error, appid string, boxname string) Result {
 func resultBoxSkip(err error, appid string, boxname string, skip Skip) Result {
 	result := resultResourceError(err, "box")
 	result.SkipReason = skip
-	result.Details.Appid = appid,
-	result.Details.Boxname = boxname,
+	result.Details.Appid = appid
+	result.Details.Boxname = boxname
 	return result
 }
 
