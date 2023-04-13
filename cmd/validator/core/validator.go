@@ -49,6 +49,12 @@ const (
 	NotSkipped          Skip = ""
 	SkipLimitReached    Skip = "account-limit"
 	SkipAccountNotFound Skip = "missing-account"
+	SkipBoxNotFound     Skip = "box-not-found"
+	SkipBoxFailedLookup Skip = "box-failed-lookup"
+	SkipBoxWrongAppid   Skip = "box-wrong-appid"
+	SkipBoxMultiple     Skip = "box-multiple-boxes"
+	SkipBoxNoBoxes      Skip = "box-no-boxes"
+	SkipBoxWrongBox     Skip = "box-wrong-box"
 )
 
 // Result is the output of ProcessAddress.
@@ -154,8 +160,8 @@ func CallProcessorBox(processor Processor, appid string, boxname string, config 
 	if err != nil {
 		err = fmt.Errorf("error getting algod data (%s): %w", algodData, err)
 		switch {
-		case strings.Contains(string(algodData), api.ErrResultLimitReached):
-			results <- resultBoxSkip(err, appid, boxname, SkipLimitReached)
+		case strings.Contains(string(algodData), api.ErrBoxNotFound):
+			results <- resultBoxSkip(err, appid, boxname, SkipBoxNotFound)
 		default:
 			results <- resultBoxError(err, appid, boxname)
 		}
@@ -168,10 +174,16 @@ func CallProcessorBox(processor Processor, appid string, boxname string, config 
 		if err != nil {
 			err = fmt.Errorf("error getting indexer data (%s): %w", indexerData, err)
 			switch {
-			case strings.Contains(string(indexerData), api.ErrResultLimitReached):
-				results <- resultBoxSkip(err, appid, boxname, SkipLimitReached)
-			case strings.Contains(string(indexerData), api.ErrNoAccountsFound):
-				results <- resultBoxSkip(err, appid, boxname, SkipAccountNotFound)
+			case strings.Contains(string(indexerData), api.ErrFailedLookingUpBoxes):
+				results <- resultBoxSkip(err, appid, boxname, SkipBoxFailedLookup)
+			case strings.Contains(string(indexerData), api.ErrWrongAppidFound):
+				results <- resultBoxSkip(err, appid, boxname, SkipBoxWrongAppid)
+			case strings.Contains(string(indexerData), api.ErrMultipleBoxes):
+				results <- resultBoxSkip(err, appid, boxname, SkipBoxMultiple)
+			case strings.Contains(string(indexerData), api.ErrNoBoxesFound):
+				results <- resultBoxSkip(err, appid, boxname, SkipBoxNoBoxes)
+			case strings.Contains(string(indexerData), api.ErrWrongBoxFound):
+				results <- resultBoxSkip(err, appid, boxname, SkipBoxWrongBox)
 			default:
 				results <- resultBoxError(err, appid, boxname)
 			}

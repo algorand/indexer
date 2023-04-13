@@ -46,6 +46,7 @@ const (
 	ErrResultLimitReached              = "Result limit exceeded"
 	errValueExceedingInt64             = "searching by round or application-id or asset-id or filter by value greater than 9223372036854775807 is not supported"
 	errTransactionsLimitReached        = "Max transactions limit exceeded. header-only flag should be enabled"
+    ErrBoxNotFound                     = "box not found"
 )
 
 var errUnknownAddressRole string

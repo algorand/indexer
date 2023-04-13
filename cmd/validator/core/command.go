@@ -149,6 +149,12 @@ func resultsPrinter(config Params, printCurl, printSkipped bool, results <-chan 
 		fmt.Printf("\n\nNumber of errors: [%d / %d]\n", numErrors, numResults)
 		fmt.Printf("Skipped (%s): %d\n", SkipLimitReached, skipCounts[SkipLimitReached])
 		fmt.Printf("Skipped (%s): %d\n", SkipAccountNotFound, skipCounts[SkipAccountNotFound])
+		fmt.Printf("Skipped (%s): %d\n", SkipBoxNotFound, skipCounts[SkipBoxNotFound])
+		fmt.Printf("Skipped (%s): %d\n", SkipBoxFailedLookup, skipCounts[SkipBoxFailedLookup])
+		fmt.Printf("Skipped (%s): %d\n", SkipBoxWrongAppid, skipCounts[SkipBoxWrongAppid])
+		fmt.Printf("Skipped (%s): %d\n", SkipBoxMultiple, skipCounts[SkipBoxMultiple])
+		fmt.Printf("Skipped (%s): %d\n", SkipBoxNoBoxes, skipCounts[SkipBoxNoBoxes])
+		fmt.Printf("Skipped (%s): %d\n", SkipBoxWrongBox, skipCounts[SkipBoxWrongBox])
 		fmt.Printf("Retry count: %d\n", numRetries)
 		fmt.Printf("Checks per second: %f\n", float64(numResults+numRetries)/duration.Seconds())
 		fmt.Printf("Test duration: %s\n", time.Time{}.Add(duration).Format("15:04:05"))
@@ -204,6 +210,18 @@ func resultsPrinter(config Params, printCurl, printSkipped bool, results <-chan 
 					ErrorLog.Printf("Address skipped: too many asset and/or accounts to return\n")
 				case SkipAccountNotFound:
 					ErrorLog.Printf("Address skipped: account/appid+boxname not found, probably deleted\n")
+				case SkipBoxNotFound:
+					ErrorLog.Printf("Box skipped: not found\n")
+				case SkipBoxFailedLookup:
+					ErrorLog.Printf("Box skipped: failed lookup\n")
+				case SkipBoxWrongAppid:
+					ErrorLog.Printf("Box skipped: wrong appid\n")
+				case SkipBoxMultiple:
+					ErrorLog.Printf("Box skipped: multiple boxes\n")
+				case SkipBoxNoBoxes:
+					ErrorLog.Printf("Box skipped: no boxes (box name url parameter not set)\n")
+				case SkipBoxWrongBox:
+					ErrorLog.Printf("Box skipped: wrong box\n")
 				default:
 					ErrorLog.Printf("Address skipped: Unknown reason (%s)\n", r.SkipReason)
 				}
