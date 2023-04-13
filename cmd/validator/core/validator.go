@@ -384,7 +384,7 @@ func resultSkip(err error, address string, skip Skip) Result {
 		SkipReason: skip,
 		Retries:    0,
 		Details: &ErrorDetails{
-			Resource: "account",
+			Resource: "address",
 			Address:  address,
 		},
 	}
