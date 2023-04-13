@@ -129,6 +129,10 @@ func Start(work <-chan string, processorID ProcessorID, threads int, config Para
 }
 
 // CallProcessor invokes the processor with a retry mechanism.
+// Accepted input formats:
+// 1: "(b64 or not encoded address)"
+// 2: "address,(b64 or not encoded address)"
+// 3: "box,(appid),(b64 encoded box name)"
 func CallProcessor(processor Processor, input string, config Params, results chan<- Result) {
 	split := strings.Split(input, ",")
 	if len(split) == 1 {
