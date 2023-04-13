@@ -222,9 +222,6 @@ func CallProcessorAddress(processor Processor, addrInput string, config Params, 
 	algodDataURL := fmt.Sprintf("%s/v2/accounts/%s", config.AlgodURL, addr)
 	indexerDataURL := fmt.Sprintf("%s/v2/accounts/%s", config.IndexerURL, addr)
 
-    fmt.Println("algodDataURL: ", algodDataURL)
-    fmt.Println("indexerDataURL: ", indexerDataURL)
-
 	// Fetch algod account data outside the retry loop. When the data desynchronizes we'll keep fetching indexer data until it
 	// catches up with the first algod account query.
 	algodData, err := getData(algodDataURL, config.AlgodToken)
