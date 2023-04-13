@@ -18,7 +18,7 @@ func init() {
 	var (
 		config       Params
 		addr         string
-        box          string
+		box          string
 		threads      int
 		processorNum int
 		printCurl    bool
@@ -62,9 +62,9 @@ func run(config Params, errorLogFile, addr string, box string, threads int, proc
 	if len(config.IndexerURL) == 0 {
 		ErrorLog.Fatalf("indexer-url parameter is required.")
 	}
-    if len(box) > 0 && len(addr) > 0 {
+	if len(box) > 0 && len(addr) > 0 {
 		ErrorLog.Fatalf("You can validate a single address or a single box but not both.")
-    }
+	}
 
 	if errorLogFile != "" {
 		_, err := os.Stat(errorLogFile)
@@ -100,7 +100,7 @@ func run(config Params, errorLogFile, addr string, box string, threads int, proc
 			// Process a single box
 			CallProcessor(processor, "box,"+box, config, results)
 			close(results)
-        } else {
+		} else {
 			// Process from stdin
 			start(ProcessorID(processorNum), threads, config, results)
 		}
