@@ -364,17 +364,11 @@ func resultBoxError(err error, appid string, boxname string) Result {
 }
 
 func resultBoxSkip(err error, appid string, boxname string, skip Skip) Result {
-	return Result{
-		Equal:      false,
-		Error:      err,
-		SkipReason: skip,
-		Retries:    0,
-		Details: &ErrorDetails{
-			Resource: "box",
-			Appid:    appid,
-			Boxname:  boxname,
-		},
-	}
+	result := resultResourceError(err, "box")
+	result.SkipReason = skip
+	result.Details.Appid = appid,
+	result.Details.Boxname = boxname,
+	return result
 }
 
 func resultError(err error, address string) Result {
