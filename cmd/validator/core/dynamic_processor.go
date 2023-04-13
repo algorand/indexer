@@ -37,8 +37,8 @@ func (gp DynamicProcessor) ProcessBox(algodData, indexerData []byte) (Result, er
 			Equal:   false,
 			Retries: 0,
 			Details: &ErrorDetails{
-				Algod:    fmt.Sprintf("RawJson\n%s\n", mustEncode(algodBox), mustEncode(algodBox)),
-				Indexer:  fmt.Sprintf("RawJson\n%s\n", mustEncode(indexerBox), mustEncode(indexerBox)),
+				Algod:    fmt.Sprintf("RawJson\n%s\n", mustEncode(algodBox)),
+				Indexer:  fmt.Sprintf("RawJson\n%s\n", mustEncode(indexerBox)),
 				Diff:     nil,
 				Resource: "box",
 			},
