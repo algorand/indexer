@@ -600,30 +600,30 @@ func (si *ServerImplementation) LookupApplicationBoxByIDAndName(ctx echo.Context
 			return notFound(ctx, fmt.Sprintf("%s: round=%d, appid=%d, boxName=%s", errNoApplicationsFound, round, applicationID, encodedBoxName))
 		}
 		// sql.ErrNoRows is the only expected error condition
-		msg := fmt.Sprintf("%s: round=?=%d, appid=%d, boxName=%s", errFailedLookingUpBoxes, round, applicationID, encodedBoxName)
+		msg := fmt.Sprintf("%s: round=?=%d, appid=%d, boxName=%s", ErrFailedLookingUpBoxes, round, applicationID, encodedBoxName)
 		return indexerError(ctx, fmt.Errorf("%s: %w", msg, err))
 	}
 
 	if len(boxes) == 0 { // this is an unexpected situation as should have received a sql.ErrNoRows from fetchApplicationBoxes's err
-		msg := fmt.Sprintf("%s: round=?=%d, appid=%d, boxName=%s", errFailedLookingUpBoxes, round, applicationID, encodedBoxName)
+		msg := fmt.Sprintf("%s: round=?=%d, appid=%d, boxName=%s", ErrFailedLookingUpBoxes, round, applicationID, encodedBoxName)
 		return indexerError(ctx, fmt.Errorf(msg))
 	}
 
 	if appid != generated.ApplicationId(applicationID) {
-		return indexerError(ctx, fmt.Errorf("%s: round=%d, appid=%d, wrong appid=%d, boxName=%s", errWrongAppidFound, round, applicationID, appid, encodedBoxName))
+		return indexerError(ctx, fmt.Errorf("%s: round=%d, appid=%d, wrong appid=%d, boxName=%s", ErrWrongAppidFound, round, applicationID, appid, encodedBoxName))
 	}
 
 	if len(boxes) > 1 {
-		return indexerError(ctx, fmt.Errorf("%s: round=%d, appid=%d, boxName=%s", errMultipleBoxes, round, applicationID, encodedBoxName))
+		return indexerError(ctx, fmt.Errorf("%s: round=%d, appid=%d, boxName=%s", ErrMultipleBoxes, round, applicationID, encodedBoxName))
 	}
 
 	box := boxes[0]
 	if len(box.Name) == 0 && len(boxName) > 0 {
-		return notFound(ctx, fmt.Sprintf("%s: round=%d, appid=%d, boxName=%s", errNoBoxesFound, round, applicationID, encodedBoxName))
+		return notFound(ctx, fmt.Sprintf("%s: round=%d, appid=%d, boxName=%s", ErrNoBoxesFound, round, applicationID, encodedBoxName))
 	}
 
 	if string(box.Name) != string(boxName) {
-		return indexerError(ctx, fmt.Errorf("%s: round=%d, appid=%d, boxName=%s", errWrongBoxFound, round, applicationID, encodedBoxName))
+		return indexerError(ctx, fmt.Errorf("%s: round=%d, appid=%d, boxName=%s", ErrWrongBoxFound, round, applicationID, encodedBoxName))
 	}
 
 	return ctx.JSON(http.StatusOK, generated.BoxResponse(box))
@@ -678,7 +678,7 @@ func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, appl
 	}
 
 	if appid != generated.ApplicationId(applicationID) {
-		return indexerError(ctx, fmt.Errorf("%s: round=%d, appid=%d, wrong appid=%d", errWrongAppidFound, round, applicationID, appid))
+		return indexerError(ctx, fmt.Errorf("%s: round=%d, appid=%d, wrong appid=%d", ErrWrongAppidFound, round, applicationID, appid))
 	}
 
 	var next *string
