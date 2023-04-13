@@ -132,12 +132,12 @@ func Start(work <-chan string, processorID ProcessorID, threads int, config Para
 func CallProcessor(processor Processor, input string, config Params, results chan<- Result) {
 	split := strings.Split(input, ",")
 	if len(split) == 1 {
-		CallProcessorAddress(processor, split[0], config, results)
+		callProcessorAddress(processor, split[0], config, results)
 	} else {
 		if split[0] == "address" && len(split) == 2 {
-			CallProcessorAddress(processor, split[1], config, results)
+			callProcessorAddress(processor, split[1], config, results)
 		} else if split[0] == "box" && len(split) == 3 {
-			CallProcessorBox(processor, split[1], split[2], config, results)
+			callProcessorBox(processor, split[1], split[2], config, results)
 		} else {
 			err := fmt.Errorf("invalid resource")
 			results <- resultResourceError(err, input)
@@ -147,7 +147,7 @@ func CallProcessor(processor Processor, input string, config Params, results cha
 	}
 }
 
-func CallProcessorBox(processor Processor, appid string, boxname string, config Params, results chan<- Result) {
+func callProcessorBox(processor Processor, appid string, boxname string, config Params, results chan<- Result) {
 	boxname = strings.ReplaceAll(boxname, "+", "%2B")
 	boxname = strings.ReplaceAll(boxname, "/", "%2F")
 
@@ -223,7 +223,7 @@ func CallProcessorBox(processor Processor, appid string, boxname string, config 
 	}
 }
 
-func CallProcessorAddress(processor Processor, addrInput string, config Params, results chan<- Result) {
+func callProcessorAddress(processor Processor, addrInput string, config Params, results chan<- Result) {
 	addr, err := normalizeAddress(addrInput)
 	if err != nil {
 		results <- resultError(err, addr)

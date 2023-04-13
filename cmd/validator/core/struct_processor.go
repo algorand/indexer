@@ -14,7 +14,7 @@ import (
 type StructProcessor struct {
 }
 
-// ProcessAddress is the entrypoint for the StructProcessor
+// ProcessAddress is the entrypoint for the StructProcessor's account comparator
 func (gp StructProcessor) ProcessAddress(algodData, indexerData []byte) (Result, error) {
 	var indexerResponse generated.AccountResponse
 	err := json.Unmarshal(indexerData, &indexerResponse)
@@ -46,6 +46,7 @@ func (gp StructProcessor) ProcessAddress(algodData, indexerData []byte) (Result,
 	return Result{Equal: true}, nil
 }
 
+// ProcessBox is the entrypoint for the StructProcessor's box comparator
 func (gp StructProcessor) ProcessBox(algodData, indexerData []byte) (Result, error) {
 	var indexerResponse generated.Box
 	err := json.Unmarshal(indexerData, &indexerResponse)

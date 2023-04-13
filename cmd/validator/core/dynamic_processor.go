@@ -19,6 +19,7 @@ func mustEncode(data interface{}) string {
 	return string(result)
 }
 
+// ProcessBox is the entrypoint for the DynamicProcessor's box comparator.
 func (gp DynamicProcessor) ProcessBox(algodData, indexerData []byte) (Result, error) {
 	var indexerBox map[string]interface{}
 	err := json.Unmarshal(indexerData, &indexerBox)
@@ -47,7 +48,7 @@ func (gp DynamicProcessor) ProcessBox(algodData, indexerData []byte) (Result, er
 	return Result{Equal: true}, nil
 }
 
-// ProcessAddress is the entrypoint for the DynamicProcessor.
+// ProcessAddress is the entrypoint for the DynamicProcessor's address comparator.
 func (gp DynamicProcessor) ProcessAddress(algodData, indexerData []byte) (Result, error) {
 	var indexerAcct map[string]interface{}
 	err := json.Unmarshal(indexerData, &indexerAcct)
