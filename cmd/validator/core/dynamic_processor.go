@@ -75,6 +75,7 @@ func (gp DynamicProcessor) ProcessAddress(algodData, indexerData []byte) (Result
 		return Result{
 			Equal:   false,
 			Retries: 0,
+            Resource: "address",
 			Details: &ErrorDetails{
 				Algod:   fmt.Sprintf("RawJson\n%s\nNormalizedJson\n%s\n", mustEncode(algodAcct), mustEncode(algodNorm)),
 				Indexer: fmt.Sprintf("RawJson\n%s\nNormalizedJson\n%s\n", mustEncode(indexerAcct), mustEncode(indexerNorm)),

@@ -36,6 +36,7 @@ func (gp StructProcessor) ProcessAddress(algodData, indexerData []byte) (Result,
 			SameRound: indexerAcct.Round == algodAcct.Round,
 			Retries:   0,
 			Details: &ErrorDetails{
+                Resource: "account",
 				Algod:   mustEncode(algodAcct),
 				Indexer: mustEncode(indexerAcct),
 				Diff:    differences,
@@ -65,6 +66,7 @@ func (gp StructProcessor) ProcessBox(algodData, indexerData []byte) (Result, err
 			Equal:     false,
 			Retries:   0,
 			Details: &ErrorDetails{
+                Resource: "box",
 				Algod:   mustEncode(algodResponse),
 				Indexer: mustEncode(indexerResponse),
 				Diff:    []string{"values"},
