@@ -44,7 +44,7 @@ func init() {
 	ValidatorCmd.Flags().IntVarP(&config.Retries, "retries", "", 5, "Number of retry attempts when a difference is detected.")
 	ValidatorCmd.Flags().IntVarP(&config.RetryDelayMS, "retry-delay", "", 1000, "Time in milliseconds to sleep between retries.")
 	ValidatorCmd.Flags().StringVar(&addr, "addr", "", "If provided validate a single address instead of reading Stdin.")
-	ValidatorCmd.Flags().StringVar(&box, "box", "", "If provided validate a single box (in the format "appid,b64boxname") instead of reading Stdin.")
+	ValidatorCmd.Flags().StringVar(&box, "box", "", "If provided validate a single box (in the format \"appid,b64boxname\") instead of reading Stdin.")
 	ValidatorCmd.Flags().IntVar(&threads, "threads", 4, "Number of worker threads to initialize.")
 	ValidatorCmd.Flags().IntVar(&processorNum, "processor", 0, "Choose compare algorithm [0 = Struct, 1 = Reflection]")
 	ValidatorCmd.Flags().BoolVar(&printCurl, "print-commands", false, "Print curl commands, including tokens, to query algod and indexer contents.")
