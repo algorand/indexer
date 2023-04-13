@@ -17,7 +17,7 @@ function help () {
 }
 
 #default selection queries
-SELECTION_QUERY="select app, encode(name,'base64') from app_box limit 1000"
+SELECTION_QUERY="select 'box'||','||app||','||encode(name,'base64') from app_box limit 1000"
 SELECTION_QUERY_COPY="COPY (select 'box'||','||app||','||encode(name,'base64') from app_box) TO stdout"
 
 START_TIME=$SECONDS
