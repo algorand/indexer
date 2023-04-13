@@ -19,7 +19,7 @@ func mustEncode(data interface{}) string {
 	return string(result)
 }
 
-func (gp DynamicProcessor) ProcessBox (algodData, indexerData []byte) (Result, error) {
+func (gp DynamicProcessor) ProcessBox(algodData, indexerData []byte) (Result, error) {
 	var indexerBox map[string]interface{}
 	err := json.Unmarshal(indexerData, &indexerBox)
 	if err != nil {
@@ -37,10 +37,10 @@ func (gp DynamicProcessor) ProcessBox (algodData, indexerData []byte) (Result, e
 			Equal:   false,
 			Retries: 0,
 			Details: &ErrorDetails{
-				Algod:   fmt.Sprintf("RawJson\n%s\n", mustEncode(algodBox), mustEncode(algodBox)),
-				Indexer: fmt.Sprintf("RawJson\n%s\n", mustEncode(indexerBox), mustEncode(indexerBox)),
-				Diff:    nil,
-                Resource: "box",
+				Algod:    fmt.Sprintf("RawJson\n%s\n", mustEncode(algodBox), mustEncode(algodBox)),
+				Indexer:  fmt.Sprintf("RawJson\n%s\n", mustEncode(indexerBox), mustEncode(indexerBox)),
+				Diff:     nil,
+				Resource: "box",
 			},
 		}, nil
 	}
@@ -76,10 +76,10 @@ func (gp DynamicProcessor) ProcessAddress(algodData, indexerData []byte) (Result
 			Equal:   false,
 			Retries: 0,
 			Details: &ErrorDetails{
-                Resource: "address",
-				Algod:   fmt.Sprintf("RawJson\n%s\nNormalizedJson\n%s\n", mustEncode(algodAcct), mustEncode(algodNorm)),
-				Indexer: fmt.Sprintf("RawJson\n%s\nNormalizedJson\n%s\n", mustEncode(indexerAcct), mustEncode(indexerNorm)),
-				Diff:    nil,
+				Resource: "address",
+				Algod:    fmt.Sprintf("RawJson\n%s\nNormalizedJson\n%s\n", mustEncode(algodAcct), mustEncode(algodNorm)),
+				Indexer:  fmt.Sprintf("RawJson\n%s\nNormalizedJson\n%s\n", mustEncode(indexerAcct), mustEncode(indexerNorm)),
+				Diff:     nil,
 			},
 		}, nil
 	}

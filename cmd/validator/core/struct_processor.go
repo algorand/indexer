@@ -36,10 +36,10 @@ func (gp StructProcessor) ProcessAddress(algodData, indexerData []byte) (Result,
 			SameRound: indexerAcct.Round == algodAcct.Round,
 			Retries:   0,
 			Details: &ErrorDetails{
-                Resource: "account",
-				Algod:   mustEncode(algodAcct),
-				Indexer: mustEncode(indexerAcct),
-				Diff:    differences,
+				Resource: "account",
+				Algod:    mustEncode(algodAcct),
+				Indexer:  mustEncode(indexerAcct),
+				Diff:     differences,
 			},
 		}, nil
 	}
@@ -59,17 +59,17 @@ func (gp StructProcessor) ProcessBox(algodData, indexerData []byte) (Result, err
 	if err != nil {
 		return Result{}, fmt.Errorf("unable to parse algod data ('%s'): %v", string(algodData), err)
 	}
-    algodValue := algodResponse.Value
+	algodValue := algodResponse.Value
 
-	if !bytes.Equal (algodValue, indexerValue) {
+	if !bytes.Equal(algodValue, indexerValue) {
 		return Result{
-			Equal:     false,
-			Retries:   0,
+			Equal:   false,
+			Retries: 0,
 			Details: &ErrorDetails{
-                Resource: "box",
-				Algod:   mustEncode(algodResponse),
-				Indexer: mustEncode(indexerResponse),
-				Diff:    []string{"values"},
+				Resource: "box",
+				Algod:    mustEncode(algodResponse),
+				Indexer:  mustEncode(indexerResponse),
+				Diff:     []string{"values"},
 			},
 		}, nil
 	}

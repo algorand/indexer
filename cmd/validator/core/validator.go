@@ -37,7 +37,7 @@ var ErrorLog *log.Logger
 // Processor is the algorithm to fetch and compare data from indexer and algod
 type Processor interface {
 	ProcessAddress(algodData []byte, indexerData []byte) (Result, error)
-	ProcessBox    (algodData []byte, indexerData []byte) (Result, error)
+	ProcessBox(algodData []byte, indexerData []byte) (Result, error)
 }
 
 // Skip indicates why something was skipped.
@@ -65,13 +65,13 @@ type Result struct {
 
 // ErrorDetails are additional details attached to a result in the event of an error.
 type ErrorDetails struct {
-    Resource string
-	Address string
-    Appid   string
-    Boxname string
-	Algod   string
-	Indexer string
-	Diff    []string
+	Resource string
+	Address  string
+	Appid    string
+	Boxname  string
+	Algod    string
+	Indexer  string
+	Diff     []string
 }
 
 // ProcessorID is used to select which processor to use for validation.
@@ -124,30 +124,29 @@ func Start(work <-chan string, processorID ProcessorID, threads int, config Para
 
 // CallProcessor invokes the processor with a retry mechanism.
 func CallProcessor(processor Processor, input string, config Params, results chan<- Result) {
-    split := strings.Split(input, ",")
-    if len(split) == 1 {
-        CallProcessorAddress(processor, split[0], config, results)
-    } else {
-        if split[0] == "address" && len(split) == 2 {
-            CallProcessorAddress(processor, split[1], config, results)
-        } else
-        if split[0] == "box" && len(split) == 3 {
-            CallProcessorBox(processor, split[1], split[2], config, results)
-        } else {
-            err := fmt.Errorf("invalid resource")
-            results <- resultResourceError(err, input)
-            return
-        }
+	split := strings.Split(input, ",")
+	if len(split) == 1 {
+		CallProcessorAddress(processor, split[0], config, results)
+	} else {
+		if split[0] == "address" && len(split) == 2 {
+			CallProcessorAddress(processor, split[1], config, results)
+		} else if split[0] == "box" && len(split) == 3 {
+			CallProcessorBox(processor, split[1], split[2], config, results)
+		} else {
+			err := fmt.Errorf("invalid resource")
+			results <- resultResourceError(err, input)
+			return
+		}
 
-    }
+	}
 }
 
 func CallProcessorBox(processor Processor, appid string, boxname string, config Params, results chan<- Result) {
-    boxname = strings.ReplaceAll(boxname, "+", "%2B")
-    boxname = strings.ReplaceAll(boxname, "/", "%2F")
+	boxname = strings.ReplaceAll(boxname, "+", "%2B")
+	boxname = strings.ReplaceAll(boxname, "/", "%2F")
 
-    algodDataURL := fmt.Sprintf("%s/v2/applications/%s/box?name=b64:%s", config.AlgodURL, appid, boxname)
-    indexerDataURL := fmt.Sprintf("%s/v2/applications/%s/box?name=b64:%s", config.IndexerURL, appid, boxname)
+	algodDataURL := fmt.Sprintf("%s/v2/applications/%s/box?name=b64:%s", config.AlgodURL, appid, boxname)
+	indexerDataURL := fmt.Sprintf("%s/v2/applications/%s/box?name=b64:%s", config.IndexerURL, appid, boxname)
 
 	// Fetch algod box outside the retry loop. When the data desynchronizes we'll keep fetching indexer data until it
 	// catches up with the first algod box query.
@@ -187,9 +186,9 @@ func CallProcessorBox(processor Processor, appid string, boxname string, config 
 				Error:   fmt.Errorf("error processing box %s, %s: %v", appid, boxname, err),
 				Retries: i,
 				Details: &ErrorDetails{
-                    Appid: appid,
-                    Boxname: boxname,
-                    Resource: "box",
+					Appid:    appid,
+					Boxname:  boxname,
+					Resource: "box",
 				},
 			}
 			return
@@ -200,8 +199,8 @@ func CallProcessorBox(processor Processor, appid string, boxname string, config 
 			result.Retries = i
 			if result.Details != nil {
 				result.Details.Resource = "box"
-                result.Details.Appid = appid
-                result.Details.Boxname = boxname
+				result.Details.Appid = appid
+				result.Details.Boxname = boxname
 			}
 			results <- result
 			return
@@ -334,33 +333,33 @@ func getData(url, token string) ([]byte, error) {
 	return data, ioErr
 }
 
-func resultResourceError (err error, resource string) Result {
-    return Result{
-        Equal:      false,
-        Error:      err,
-        SkipReason: NotSkipped,
-        Retries:    0,
-        Details: &ErrorDetails{
-            Resource: resource,
-        },
-    }
+func resultResourceError(err error, resource string) Result {
+	return Result{
+		Equal:      false,
+		Error:      err,
+		SkipReason: NotSkipped,
+		Retries:    0,
+		Details: &ErrorDetails{
+			Resource: resource,
+		},
+	}
 }
 func resultBoxError(err error, appid string, boxname string) Result {
-    return resultBoxSkip(err, appid, boxname, NotSkipped)
+	return resultBoxSkip(err, appid, boxname, NotSkipped)
 }
 
-func resultBoxSkip (err error, appid string, boxname string, skip Skip) Result {
-    return Result{
-        Equal:      false,
-        Error:      err,
-        SkipReason: skip,
-        Retries:    0,
-        Details: &ErrorDetails{
-            Resource: "box",
-            Appid:   appid,
-            Boxname: boxname,
-        },
-    }
+func resultBoxSkip(err error, appid string, boxname string, skip Skip) Result {
+	return Result{
+		Equal:      false,
+		Error:      err,
+		SkipReason: skip,
+		Retries:    0,
+		Details: &ErrorDetails{
+			Resource: "box",
+			Appid:    appid,
+			Boxname:  boxname,
+		},
+	}
 }
 
 func resultError(err error, address string) Result {
@@ -374,8 +373,8 @@ func resultSkip(err error, address string, skip Skip) Result {
 		SkipReason: skip,
 		Retries:    0,
 		Details: &ErrorDetails{
-            Resource: "account",
-			Address: address,
+			Resource: "account",
+			Address:  address,
 		},
 	}
 }

@@ -187,14 +187,14 @@ func resultsPrinter(config Params, printCurl, printSkipped bool, results <-chan 
 			ErrorLog.Printf("===================================================================")
 			ErrorLog.Printf("%s", time.Now().Format("2006-01-02 3:4:5 PM"))
 			ErrorLog.Printf("Resource: %s", r.Details.Resource)
-            if r.Details.Resource == "account" {
-    			ErrorLog.Printf("Account: %s", r.Details.Address)
-    			ErrorLog.Printf("Rounds Match: %t", r.SameRound)
-            }
-            if r.Details.Resource == "box" {
-    			ErrorLog.Printf("Appid: %s", r.Details.Appid)
-    			ErrorLog.Printf("Boxname: %s", r.Details.Boxname)
-            }
+			if r.Details.Resource == "account" {
+				ErrorLog.Printf("Account: %s", r.Details.Address)
+				ErrorLog.Printf("Rounds Match: %t", r.SameRound)
+			}
+			if r.Details.Resource == "box" {
+				ErrorLog.Printf("Appid: %s", r.Details.Appid)
+				ErrorLog.Printf("Boxname: %s", r.Details.Boxname)
+			}
 			ErrorLog.Printf("Retries: %d", r.Retries)
 
 			// Print error message if there is one.
@@ -229,9 +229,9 @@ func resultsPrinter(config Params, printCurl, printSkipped bool, results <-chan 
 				}
 				if printCurl && r.Details.Resource == "box" {
 					ErrorLog.Printf("echo 'Algod:'")
-                    ErrorLog.Printf("curl -q -s -H 'Authorization: Bearer %s' '%s/v2/applications/%s/box?name=b64:%s?pretty'", config.AlgodToken, config.AlgodURL, r.Details.Appid, r.Details.Boxname)
+					ErrorLog.Printf("curl -q -s -H 'Authorization: Bearer %s' '%s/v2/applications/%s/box?name=b64:%s?pretty'", config.AlgodToken, config.AlgodURL, r.Details.Appid, r.Details.Boxname)
 					ErrorLog.Printf("echo 'Indexer:'")
-                    ErrorLog.Printf("curl -q -s -H 'Authorization: Bearer %s' '%s/v2/applications/%s/box?name=b64:%s?pretty'", config.IndexerToken, config.IndexerURL, r.Details.Appid, r.Details.Boxname)
+					ErrorLog.Printf("curl -q -s -H 'Authorization: Bearer %s' '%s/v2/applications/%s/box?name=b64:%s?pretty'", config.IndexerToken, config.IndexerURL, r.Details.Appid, r.Details.Boxname)
 				}
 			}
 		}
