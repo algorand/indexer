@@ -347,9 +347,9 @@ func getData(url, token string) ([]byte, error) {
 
 func resultResourceError(err error, resource string) Result {
 	return Result{
-		Equal:      false,
-		Error:      err,
-		Retries:    0,
+		Equal:   false,
+		Error:   err,
+		Retries: 0,
 		Details: &ErrorDetails{
 			Resource: resource,
 		},
