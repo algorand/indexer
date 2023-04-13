@@ -45,7 +45,7 @@ func init() {
 	ValidatorCmd.Flags().StringVar(&addr, "addr", "", "If provided validate a single address instead of reading Stdin.")
 	ValidatorCmd.Flags().IntVar(&threads, "threads", 4, "Number of worker threads to initialize.")
 	ValidatorCmd.Flags().IntVar(&processorNum, "processor", 0, "Choose compare algorithm [0 = Struct, 1 = Reflection]")
-	ValidatorCmd.Flags().BoolVar(&printCurl, "print-commands", false, "Print curl commands, including tokens, to query algod and indexer accounts.")
+	ValidatorCmd.Flags().BoolVar(&printCurl, "print-commands", false, "Print curl commands, including tokens, to query algod and indexer contents.")
 	ValidatorCmd.Flags().StringVarP(&errorLogFile, "error-log-file", "e", "", "When specified, error messages are written to this file instead of to stderr.")
 	ValidatorCmd.Flags().BoolVar(&printSkipped, "print-skipped", false, "Include accounts which were skipped in the error log.")
 }
