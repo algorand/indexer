@@ -337,7 +337,6 @@ func resultResourceError(err error, resource string) Result {
 	return Result{
 		Equal:      false,
 		Error:      err,
-		SkipReason: NotSkipped,
 		Retries:    0,
 		Details: &ErrorDetails{
 			Resource: resource,
