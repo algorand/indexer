@@ -18,6 +18,7 @@ func init() {
 	var (
 		config       Params
 		addr         string
+        box          string
 		threads      int
 		processorNum int
 		printCurl    bool
@@ -30,7 +31,7 @@ func init() {
 		Short: "validator",
 		Long:  "Compare algod and indexer to each other and report any discrepencies.",
 		Run: func(cmd *cobra.Command, _ []string) {
-			run(config, errorLogFile, addr, threads, processorNum, printCurl, printSkipped)
+			run(config, errorLogFile, addr, box, threads, processorNum, printCurl, printSkipped)
 		},
 	}
 
@@ -43,6 +44,7 @@ func init() {
 	ValidatorCmd.Flags().IntVarP(&config.Retries, "retries", "", 5, "Number of retry attempts when a difference is detected.")
 	ValidatorCmd.Flags().IntVarP(&config.RetryDelayMS, "retry-delay", "", 1000, "Time in milliseconds to sleep between retries.")
 	ValidatorCmd.Flags().StringVar(&addr, "addr", "", "If provided validate a single address instead of reading Stdin.")
+	ValidatorCmd.Flags().StringVar(&box, "box", "", "If provided validate a single (appid,b64boxname) instead of reading Stdin.")
 	ValidatorCmd.Flags().IntVar(&threads, "threads", 4, "Number of worker threads to initialize.")
 	ValidatorCmd.Flags().IntVar(&processorNum, "processor", 0, "Choose compare algorithm [0 = Struct, 1 = Reflection]")
 	ValidatorCmd.Flags().BoolVar(&printCurl, "print-commands", false, "Print curl commands, including tokens, to query algod and indexer contents.")
@@ -50,7 +52,7 @@ func init() {
 	ValidatorCmd.Flags().BoolVar(&printSkipped, "print-skipped", false, "Include accounts which were skipped in the error log.")
 }
 
-func run(config Params, errorLogFile, addr string, threads int, processorNum int, printCurl, printSkipped bool) {
+func run(config Params, errorLogFile, addr string, box string, threads int, processorNum int, printCurl, printSkipped bool) {
 	if len(config.AlgodURL) == 0 {
 		ErrorLog.Fatalf("algod-url parameter is required.")
 	}
@@ -60,6 +62,9 @@ func run(config Params, errorLogFile, addr string, threads int, processorNum int
 	if len(config.IndexerURL) == 0 {
 		ErrorLog.Fatalf("indexer-url parameter is required.")
 	}
+    if len(box) > 0 && len(addr) > 0 {
+		ErrorLog.Fatalf("You can validate a single address or a single box but not both.")
+    }
 
 	if errorLogFile != "" {
 		_, err := os.Stat(errorLogFile)
@@ -84,9 +89,18 @@ func run(config Params, errorLogFile, addr string, threads int, processorNum int
 			}
 
 			// Process a single address
-			CallProcessor(processor, addr, config, results)
+			CallProcessor(processor, "address,"+addr, config, results)
 			close(results)
-		} else {
+		} else if len(box) != 0 {
+			processor, err := MakeProcessor(ProcessorID(processorNum))
+			if err != nil {
+				ErrorLog.Fatalf("%s.\n", err)
+			}
+
+			// Process a single box
+			CallProcessor(processor, "box,"+box, config, results)
+			close(results)
+        } else {
 			// Process from stdin
 			start(ProcessorID(processorNum), threads, config, results)
 		}
