@@ -18,6 +18,7 @@ func init() {
 	var (
 		config       Params
 		addr         string
+		box          string
 		threads      int
 		processorNum int
 		printCurl    bool
@@ -30,7 +31,7 @@ func init() {
 		Short: "validator",
 		Long:  "Compare algod and indexer to each other and report any discrepencies.",
 		Run: func(cmd *cobra.Command, _ []string) {
-			run(config, errorLogFile, addr, threads, processorNum, printCurl, printSkipped)
+			run(config, errorLogFile, addr, box, threads, processorNum, printCurl, printSkipped)
 		},
 	}
 
@@ -43,14 +44,15 @@ func init() {
 	ValidatorCmd.Flags().IntVarP(&config.Retries, "retries", "", 5, "Number of retry attempts when a difference is detected.")
 	ValidatorCmd.Flags().IntVarP(&config.RetryDelayMS, "retry-delay", "", 1000, "Time in milliseconds to sleep between retries.")
 	ValidatorCmd.Flags().StringVar(&addr, "addr", "", "If provided validate a single address instead of reading Stdin.")
+	ValidatorCmd.Flags().StringVar(&box, "box", "", "If provided validate a single box (in the format \"appid,b64boxname\") instead of reading Stdin.")
 	ValidatorCmd.Flags().IntVar(&threads, "threads", 4, "Number of worker threads to initialize.")
 	ValidatorCmd.Flags().IntVar(&processorNum, "processor", 0, "Choose compare algorithm [0 = Struct, 1 = Reflection]")
-	ValidatorCmd.Flags().BoolVar(&printCurl, "print-commands", false, "Print curl commands, including tokens, to query algod and indexer.")
+	ValidatorCmd.Flags().BoolVar(&printCurl, "print-commands", false, "Print curl commands, including tokens, to query algod and indexer contents.")
 	ValidatorCmd.Flags().StringVarP(&errorLogFile, "error-log-file", "e", "", "When specified, error messages are written to this file instead of to stderr.")
 	ValidatorCmd.Flags().BoolVar(&printSkipped, "print-skipped", false, "Include accounts which were skipped in the error log.")
 }
 
-func run(config Params, errorLogFile, addr string, threads int, processorNum int, printCurl, printSkipped bool) {
+func run(config Params, errorLogFile, addr string, box string, threads int, processorNum int, printCurl, printSkipped bool) {
 	if len(config.AlgodURL) == 0 {
 		ErrorLog.Fatalf("algod-url parameter is required.")
 	}
@@ -59,6 +61,9 @@ func run(config Params, errorLogFile, addr string, threads int, processorNum int
 	}
 	if len(config.IndexerURL) == 0 {
 		ErrorLog.Fatalf("indexer-url parameter is required.")
+	}
+	if len(box) > 0 && len(addr) > 0 {
+		ErrorLog.Fatalf("You can validate a single address or a single box but not both.")
 	}
 
 	if errorLogFile != "" {
@@ -84,7 +89,16 @@ func run(config Params, errorLogFile, addr string, threads int, processorNum int
 			}
 
 			// Process a single address
-			CallProcessor(processor, addr, config, results)
+			CallProcessor(processor, "address,"+addr, config, results)
+			close(results)
+		} else if len(box) != 0 {
+			processor, err := MakeProcessor(ProcessorID(processorNum))
+			if err != nil {
+				ErrorLog.Fatalf("%s.\n", err)
+			}
+
+			// Process a single box
+			CallProcessor(processor, "box,"+box, config, results)
 			close(results)
 		} else {
 			// Process from stdin
@@ -149,6 +163,11 @@ func resultsPrinter(config Params, printCurl, printSkipped bool, results <-chan 
 		fmt.Printf("\n\nNumber of errors: [%d / %d]\n", numErrors, numResults)
 		fmt.Printf("Skipped (%s): %d\n", SkipLimitReached, skipCounts[SkipLimitReached])
 		fmt.Printf("Skipped (%s): %d\n", SkipAccountNotFound, skipCounts[SkipAccountNotFound])
+		fmt.Printf("Skipped (%s): %d\n", SkipBoxNotFound, skipCounts[SkipBoxNotFound])
+		fmt.Printf("Skipped (%s): %d\n", SkipBoxFailedLookup, skipCounts[SkipBoxFailedLookup])
+		fmt.Printf("Skipped (%s): %d\n", SkipBoxWrongAppid, skipCounts[SkipBoxWrongAppid])
+		fmt.Printf("Skipped (%s): %d\n", SkipBoxMultiple, skipCounts[SkipBoxMultiple])
+		fmt.Printf("Skipped (%s): %d\n", SkipBoxWrongBox, skipCounts[SkipBoxWrongBox])
 		fmt.Printf("Retry count: %d\n", numRetries)
 		fmt.Printf("Checks per second: %f\n", float64(numResults+numRetries)/duration.Seconds())
 		fmt.Printf("Test duration: %s\n", time.Time{}.Add(duration).Format("15:04:05"))
@@ -186,9 +205,16 @@ func resultsPrinter(config Params, printCurl, printSkipped bool, results <-chan 
 			}
 			ErrorLog.Printf("===================================================================")
 			ErrorLog.Printf("%s", time.Now().Format("2006-01-02 3:4:5 PM"))
-			ErrorLog.Printf("Account: %s", r.Details.Address)
+			ErrorLog.Printf("Resource: %s", r.Details.Resource)
+			if r.Details.Resource == "address" {
+				ErrorLog.Printf("Account: %s", r.Details.Address)
+				ErrorLog.Printf("Rounds Match: %t", r.SameRound)
+			}
+			if r.Details.Resource == "box" {
+				ErrorLog.Printf("Appid: %s", r.Details.Appid)
+				ErrorLog.Printf("Boxname: %s", r.Details.Boxname)
+			}
 			ErrorLog.Printf("Retries: %d", r.Retries)
-			ErrorLog.Printf("Rounds Match: %t", r.SameRound)
 
 			// Print error message if there is one.
 			if r.SkipReason != NotSkipped {
@@ -196,7 +222,17 @@ func resultsPrinter(config Params, printCurl, printSkipped bool, results <-chan 
 				case SkipLimitReached:
 					ErrorLog.Printf("Address skipped: too many asset and/or accounts to return\n")
 				case SkipAccountNotFound:
-					ErrorLog.Printf("Address skipped: account not found, probably deleted\n")
+					ErrorLog.Printf("Address skipped: account/appid+boxname not found, probably deleted\n")
+				case SkipBoxNotFound:
+					ErrorLog.Printf("Box skipped: not found\n")
+				case SkipBoxFailedLookup:
+					ErrorLog.Printf("Box skipped: failed lookup\n")
+				case SkipBoxWrongAppid:
+					ErrorLog.Printf("Box skipped: wrong appid\n")
+				case SkipBoxMultiple:
+					ErrorLog.Printf("Box skipped: multiple boxes\n")
+				case SkipBoxWrongBox:
+					ErrorLog.Printf("Box skipped: wrong box\n")
 				default:
 					ErrorLog.Printf("Address skipped: Unknown reason (%s)\n", r.SkipReason)
 				}
@@ -214,11 +250,17 @@ func resultsPrinter(config Params, printCurl, printSkipped bool, results <-chan 
 					}
 				}
 				// Optionally print curl command.
-				if printCurl {
+				if printCurl && r.Details.Resource == "address" {
 					ErrorLog.Printf("echo 'Algod:'")
 					ErrorLog.Printf("curl -q -s -H 'Authorization: Bearer %s' '%s/v2/accounts/%s?pretty'", config.AlgodToken, config.AlgodURL, r.Details.Address)
 					ErrorLog.Printf("echo 'Indexer:'")
 					ErrorLog.Printf("curl -q -s -H 'Authorization: Bearer %s' '%s/v2/accounts/%s?pretty'", config.IndexerToken, config.IndexerURL, r.Details.Address)
+				}
+				if printCurl && r.Details.Resource == "box" {
+					ErrorLog.Printf("echo 'Algod:'")
+					ErrorLog.Printf("curl -q -s -H 'Authorization: Bearer %s' '%s/v2/applications/%s/box?name=b64:%s?pretty'", config.AlgodToken, config.AlgodURL, r.Details.Appid, r.Details.Boxname)
+					ErrorLog.Printf("echo 'Indexer:'")
+					ErrorLog.Printf("curl -q -s -H 'Authorization: Bearer %s' '%s/v2/applications/%s/box?name=b64:%s?pretty'", config.IndexerToken, config.IndexerURL, r.Details.Appid, r.Details.Boxname)
 				}
 			}
 		}

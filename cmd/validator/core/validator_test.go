@@ -20,6 +20,9 @@ type mockProcessor struct {
 func (m *mockProcessor) ProcessAddress(_ []byte, _ []byte) (Result, error) {
 	return m.result, m.err
 }
+func (m *mockProcessor) ProcessBox(_ []byte, _ []byte) (Result, error) {
+	return m.result, m.err
+}
 
 func TestCallProcessor(t *testing.T) {
 	mockParams := Params{

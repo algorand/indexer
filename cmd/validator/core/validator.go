@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -37,6 +38,7 @@ var ErrorLog *log.Logger
 // Processor is the algorithm to fetch and compare data from indexer and algod
 type Processor interface {
 	ProcessAddress(algodData []byte, indexerData []byte) (Result, error)
+	ProcessBox(algodData []byte, indexerData []byte) (Result, error)
 }
 
 // Skip indicates why something was skipped.
@@ -48,6 +50,11 @@ const (
 	NotSkipped          Skip = ""
 	SkipLimitReached    Skip = "account-limit"
 	SkipAccountNotFound Skip = "missing-account"
+	SkipBoxNotFound     Skip = "box-not-found"
+	SkipBoxFailedLookup Skip = "box-failed-lookup"
+	SkipBoxWrongAppid   Skip = "box-wrong-appid"
+	SkipBoxMultiple     Skip = "box-multiple-boxes"
+	SkipBoxWrongBox     Skip = "box-wrong-box"
 )
 
 // Result is the output of ProcessAddress.
@@ -64,10 +71,13 @@ type Result struct {
 
 // ErrorDetails are additional details attached to a result in the event of an error.
 type ErrorDetails struct {
-	Address string
-	Algod   string
-	Indexer string
-	Diff    []string
+	Resource string
+	Address  string
+	Appid    string
+	Boxname  string
+	Algod    string
+	Indexer  string
+	Diff     []string
 }
 
 // ProcessorID is used to select which processor to use for validation.
@@ -119,7 +129,104 @@ func Start(work <-chan string, processorID ProcessorID, threads int, config Para
 }
 
 // CallProcessor invokes the processor with a retry mechanism.
-func CallProcessor(processor Processor, addrInput string, config Params, results chan<- Result) {
+// Accepted input formats:
+// 1: "(b64 or not encoded address)"
+// 2: "address,(b64 or not encoded address)"
+// 3: "box,(appid),(b64 encoded box name)"
+func CallProcessor(processor Processor, input string, config Params, results chan<- Result) {
+	split := strings.Split(input, ",")
+	if len(split) == 1 {
+		callProcessorAddress(processor, split[0], config, results)
+	} else {
+		if split[0] == "address" && len(split) == 2 {
+			callProcessorAddress(processor, split[1], config, results)
+		} else if split[0] == "box" && len(split) == 3 {
+			callProcessorBox(processor, split[1], split[2], config, results)
+		} else {
+			err := fmt.Errorf("invalid resource")
+			results <- resultResourceError(err, input)
+			return
+		}
+
+	}
+}
+
+func callProcessorBox(processor Processor, appid string, boxname string, config Params, results chan<- Result) {
+	boxname = url.QueryEscape(boxname)
+
+	algodDataURL := fmt.Sprintf("%s/v2/applications/%s/box?name=b64:%s", config.AlgodURL, appid, boxname)
+	indexerDataURL := fmt.Sprintf("%s/v2/applications/%s/box?name=b64:%s", config.IndexerURL, appid, boxname)
+
+	// Fetch algod box outside the retry loop. When the data desynchronizes we'll keep fetching indexer data until it
+	// catches up with the first algod box query.
+	algodData, err := getData(algodDataURL, config.AlgodToken)
+	if err != nil {
+		err = fmt.Errorf("error getting algod data (%s): %w", algodData, err)
+		switch {
+		case strings.Contains(string(algodData), api.ErrBoxNotFound):
+			results <- resultBoxSkip(err, appid, boxname, SkipBoxNotFound)
+		default:
+			results <- resultBoxError(err, appid, boxname)
+		}
+		return
+	}
+
+	// Retry loop.
+	for i := 0; true; i++ {
+		indexerData, err := getData(indexerDataURL, config.IndexerToken)
+		if err != nil {
+			err = fmt.Errorf("error getting indexer data (%s): %w", indexerData, err)
+			switch {
+			case strings.Contains(string(indexerData), api.ErrFailedLookingUpBoxes):
+				results <- resultBoxSkip(err, appid, boxname, SkipBoxFailedLookup)
+			case strings.Contains(string(indexerData), api.ErrWrongAppidFound):
+				results <- resultBoxSkip(err, appid, boxname, SkipBoxWrongAppid)
+			case strings.Contains(string(indexerData), api.ErrMultipleBoxes):
+				results <- resultBoxSkip(err, appid, boxname, SkipBoxMultiple)
+			case strings.Contains(string(indexerData), api.ErrNoBoxesFound):
+				results <- resultBoxError(err, appid, boxname)
+			case strings.Contains(string(indexerData), api.ErrWrongBoxFound):
+				results <- resultBoxSkip(err, appid, boxname, SkipBoxWrongBox)
+			default:
+				results <- resultBoxError(err, appid, boxname)
+			}
+			return
+		}
+
+		result, err := processor.ProcessBox(algodData, indexerData)
+		if err != nil {
+			// If there is an error return immediately and cram the error.
+			results <- Result{
+				Equal:   false,
+				Error:   fmt.Errorf("error processing box %s, %s: %v", appid, boxname, err),
+				Retries: i,
+				Details: &ErrorDetails{
+					Appid:    appid,
+					Boxname:  boxname,
+					Resource: "box",
+				},
+			}
+			return
+		}
+
+		if result.Equal || (i >= config.Retries) {
+			// Return when results are equal, or when finished retrying.
+			result.Retries = i
+			if result.Details != nil {
+				result.Details.Resource = "box"
+				result.Details.Appid = appid
+				result.Details.Boxname = boxname
+			}
+			results <- result
+			return
+		}
+
+		// Wait before trying again to allow indexer to catch up to the algod account data.
+		time.Sleep(time.Duration(config.RetryDelayMS) * time.Millisecond)
+	}
+}
+
+func callProcessorAddress(processor Processor, addrInput string, config Params, results chan<- Result) {
 	addr, err := normalizeAddress(addrInput)
 	if err != nil {
 		results <- resultError(err, addr)
@@ -241,6 +348,28 @@ func getData(url, token string) ([]byte, error) {
 	return data, ioErr
 }
 
+func resultResourceError(err error, resource string) Result {
+	return Result{
+		Equal:   false,
+		Error:   err,
+		Retries: 0,
+		Details: &ErrorDetails{
+			Resource: resource,
+		},
+	}
+}
+func resultBoxError(err error, appid string, boxname string) Result {
+	return resultBoxSkip(err, appid, boxname, NotSkipped)
+}
+
+func resultBoxSkip(err error, appid string, boxname string, skip Skip) Result {
+	result := resultResourceError(err, "box")
+	result.SkipReason = skip
+	result.Details.Appid = appid
+	result.Details.Boxname = boxname
+	return result
+}
+
 func resultError(err error, address string) Result {
 	return resultSkip(err, address, NotSkipped)
 }
@@ -252,7 +381,8 @@ func resultSkip(err error, address string, skip Skip) Result {
 		SkipReason: skip,
 		Retries:    0,
 		Details: &ErrorDetails{
-			Address: address,
+			Resource: "address",
+			Address:  address,
 		},
 	}
 }

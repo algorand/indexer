@@ -19,7 +19,36 @@ func mustEncode(data interface{}) string {
 	return string(result)
 }
 
-// ProcessAddress is the entrypoint for the DynamicProcessor.
+// ProcessBox is the entrypoint for the DynamicProcessor's box comparator.
+func (gp DynamicProcessor) ProcessBox(algodData, indexerData []byte) (Result, error) {
+	var indexerBox map[string]interface{}
+	err := json.Unmarshal(indexerData, &indexerBox)
+	if err != nil {
+		return Result{}, fmt.Errorf("unable to parse indexer data ('%s'): %v", string(indexerData), err)
+	}
+
+	var algodBox map[string]interface{}
+	err = json.Unmarshal(algodData, &algodBox)
+	if err != nil {
+		return Result{}, fmt.Errorf("unable to parse algod data ('%s'): %v", string(algodData), err)
+	}
+
+	if !reflect.DeepEqual(indexerBox, algodBox) {
+		return Result{
+			Equal:   false,
+			Retries: 0,
+			Details: &ErrorDetails{
+				Algod:    fmt.Sprintf("RawJson\n%s\n", mustEncode(algodBox)),
+				Indexer:  fmt.Sprintf("RawJson\n%s\n", mustEncode(indexerBox)),
+				Diff:     nil,
+				Resource: "box",
+			},
+		}, nil
+	}
+	return Result{Equal: true}, nil
+}
+
+// ProcessAddress is the entrypoint for the DynamicProcessor's address comparator.
 func (gp DynamicProcessor) ProcessAddress(algodData, indexerData []byte) (Result, error) {
 	var indexerAcct map[string]interface{}
 	err := json.Unmarshal(indexerData, &indexerAcct)
@@ -48,9 +77,10 @@ func (gp DynamicProcessor) ProcessAddress(algodData, indexerData []byte) (Result
 			Equal:   false,
 			Retries: 0,
 			Details: &ErrorDetails{
-				Algod:   fmt.Sprintf("RawJson\n%s\nNormalizedJson\n%s\n", mustEncode(algodAcct), mustEncode(algodNorm)),
-				Indexer: fmt.Sprintf("RawJson\n%s\nNormalizedJson\n%s\n", mustEncode(indexerAcct), mustEncode(indexerNorm)),
-				Diff:    nil,
+				Resource: "address",
+				Algod:    fmt.Sprintf("RawJson\n%s\nNormalizedJson\n%s\n", mustEncode(algodAcct), mustEncode(algodNorm)),
+				Indexer:  fmt.Sprintf("RawJson\n%s\nNormalizedJson\n%s\n", mustEncode(indexerAcct), mustEncode(indexerNorm)),
+				Diff:     nil,
 			},
 		}, nil
 	}

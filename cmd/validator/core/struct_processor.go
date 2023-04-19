@@ -14,7 +14,7 @@ import (
 type StructProcessor struct {
 }
 
-// ProcessAddress is the entrypoint for the StructProcessor
+// ProcessAddress is the entrypoint for the StructProcessor's account comparator
 func (gp StructProcessor) ProcessAddress(algodData, indexerData []byte) (Result, error) {
 	var indexerResponse generated.AccountResponse
 	err := json.Unmarshal(indexerData, &indexerResponse)
@@ -36,9 +36,41 @@ func (gp StructProcessor) ProcessAddress(algodData, indexerData []byte) (Result,
 			SameRound: indexerAcct.Round == algodAcct.Round,
 			Retries:   0,
 			Details: &ErrorDetails{
-				Algod:   mustEncode(algodAcct),
-				Indexer: mustEncode(indexerAcct),
-				Diff:    differences,
+				Resource: "address",
+				Algod:    mustEncode(algodAcct),
+				Indexer:  mustEncode(indexerAcct),
+				Diff:     differences,
+			},
+		}, nil
+	}
+	return Result{Equal: true}, nil
+}
+
+// ProcessBox is the entrypoint for the StructProcessor's box comparator
+func (gp StructProcessor) ProcessBox(algodData, indexerData []byte) (Result, error) {
+	var indexerResponse generated.Box
+	err := json.Unmarshal(indexerData, &indexerResponse)
+	if err != nil {
+		return Result{}, fmt.Errorf("unable to parse indexer data ('%s'): %v", string(indexerData), err)
+	}
+	indexerValue := indexerResponse.Value
+
+	var algodResponse generated.Box
+	err = json.Unmarshal(algodData, &algodResponse)
+	if err != nil {
+		return Result{}, fmt.Errorf("unable to parse algod data ('%s'): %v", string(algodData), err)
+	}
+	algodValue := algodResponse.Value
+
+	if !bytes.Equal(algodValue, indexerValue) {
+		return Result{
+			Equal:   false,
+			Retries: 0,
+			Details: &ErrorDetails{
+				Resource: "box",
+				Algod:    mustEncode(algodResponse),
+				Indexer:  mustEncode(indexerResponse),
+				Diff:     []string{"values"},
 			},
 		}, nil
 	}

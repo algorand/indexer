@@ -4,13 +4,25 @@ This tool is used to verify indexer and algod have the same account data.
 
 # Usage
 
-When running, validator looks for newline separated accounts from standard in. Progress is written to standard out, and any errors detected are written to stderr.
+When running, validator looks for newline separated accounts or boxes from standard in. 
+
+Accounts are specified on a line by themselves, or by the word "accounts," followed by the account.
+Boxes are specified by a comma-separated list of the word "box", the appid, and the b64 encoded box name.
+
+Progress is written to standard out, and any errors detected are written to stderr.
 
 This can be used along with the [generate_accounts.sh](../../misc/generate_accounts.sh) to generate a stream of accounts.
+[generate_boxes.sh](../../misc/generate_boxes.sh) can generate a stream of boxes. 
 
 For example here is how you would run the program with accounts generated from `generate_accounts.sh` and errors redirected to a file:
 ```
 ~$ ./generate_accounts.sh --pg_user postgres --pg_pass postgres --pg_url localhost --pg_db mainnet_database --pg_port 5432 | ./validator --algod-url http://localhost:4160 --algod-token token_here --indexer-url http://localhost:8980 --threads 4 --retries 5 2> errors.txt
+```
+
+and here is how you would run the program to compare boxes:
+
+```
+~$ ./generate_boxes.sh --pg_user postgres --pg_pass postgres --pg_url localhost --pg_db mainnet_database --pg_port 5432 | ./validator --algod-url http://localhost:4160 --algod-token token_here --indexer-url http://localhost:8980 --threads 4 --retries 5 2> errors.txt
 ```
 
 ## generate_accounts.sh
@@ -38,6 +50,8 @@ options:
   --query        -> [optional] Query to use for selecting accounts.
 ```
 
+
+
 ### --query
 
 This option allows you to select exactly which accounts to return. This can be useful during a migration to test partial results. For example if accounts are processed alphabetically you can select the accounts with the following:
@@ -51,6 +65,23 @@ T6N8XpIVr7TQtp7tgIboae9WEmQzK4GM6qCrNipsC6g=
       --pg_port 5432\
       --pg_db indexer_database\
       --query "COPY (select encode(addr, 'base64') from account where addr<decode('T6N8XpIVr7TQtp7tgIboae9WEmQzK4GM6qCrNipsC6g=','base64')) TO stdout"
+```
+
+## generate_boxes.sh
+
+Like generate_accounts, but generates a list of appids and box names.
+```
+$ ./generate_boxes.sh -h
+This script generates a stream of appids and box names  and prints them to stdout.
+
+Requires 'psql' command to be available.
+
+options:
+  --pg_user      -> Postgres username.
+  --pg_pass      -> Postgres password.
+  --pg_url       -> Postgres url (without http).
+  --pg_port      -> Postgres port.
+  --pg_db        -> Postgres database.
 ```
 
 # Building
