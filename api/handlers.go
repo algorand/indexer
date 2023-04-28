@@ -1104,6 +1104,7 @@ func (si *ServerImplementation) fetchApplicationBoxes(ctx context.Context, param
 			if appid == 0 {
 				appid = generated.ApplicationId(result.App)
 			}
+			result.Box.Round = uint64(round)
 			boxes = append(boxes, result.Box)
 		}
 
