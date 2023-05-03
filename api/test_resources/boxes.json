@@ -1084,12 +1084,13 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"name\":\"YSBncmVhdCBib3g=\",\"value\":\"aXQncyBhIHdvbmRlcmZ1bCBib3gAAAAAAAAAAAAAAAA=\"}\n"
+        "body": "{\"name\":\"YSBncmVhdCBib3g=\",\"round\":9,\"value\":\"aXQncyBhIHdvbmRlcmZ1bCBib3gAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
         "goType": "generated.BoxResponse",
         "box": {
           "name": "YSBncmVhdCBib3g=",
+          "round": 9,
           "value": "aXQncyBhIHdvbmRlcmZ1bCBib3gAAAAAAAAAAAAAAAA="
         }
       },
@@ -1110,7 +1111,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"name\":\"c3Ry\",\"value\":\"c3RyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
+        "body": "{\"name\":\"c3Ry\",\"round\":9,\"value\":\"c3RyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
         "goType": "generated.BoxResponse",
@@ -1136,7 +1137,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"name\":\"AAAAAAAAAGQ=\",\"value\":\"AAAAAAAAAGQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
+        "body": "{\"name\":\"AAAAAAAAAGQ=\",\"round\":9,\"value\":\"AAAAAAAAAGQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
         "goType": "generated.BoxResponse",
@@ -1162,7 +1163,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"name\":\"YmFzZTMy\",\"value\":\"YmFzZTMyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
+        "body": "{\"name\":\"YmFzZTMy\",\"round\":9,\"value\":\"YmFzZTMyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
         "goType": "generated.BoxResponse",
@@ -1188,7 +1189,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"name\":\"YjY0\",\"value\":\"YjY0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
+        "body": "{\"name\":\"YjY0\",\"round\":9,\"value\":\"YjY0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
         "goType": "generated.BoxResponse",
@@ -1214,7 +1215,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"name\":\"YmFzZTY0\",\"value\":\"YmFzZTY0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
+        "body": "{\"name\":\"YmFzZTY0\",\"round\":9,\"value\":\"YmFzZTY0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
         "goType": "generated.BoxResponse",
@@ -1240,7 +1241,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"name\":\"c3RyaW5n\",\"value\":\"c3RyaW5nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
+        "body": "{\"name\":\"c3RyaW5n\",\"round\":9,\"value\":\"c3RyaW5nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
         "goType": "generated.BoxResponse",
@@ -1266,7 +1267,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"name\":\"AAAAAAAAACo=\",\"value\":\"AAAAAAAAACoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
+        "body": "{\"name\":\"AAAAAAAAACo=\",\"round\":9,\"value\":\"AAAAAAAAACoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
         "goType": "generated.BoxResponse",
@@ -1292,7 +1293,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"name\":\"AAAAAAAAAY8ADAAWAAhwbHMgcGFzcwACgA==\",\"value\":\"AAAAAAAAAY8ADAAWAAhwbHMgcGFzcwACgAAAAAAAAAA=\"}\n"
+        "body": "{\"name\":\"AAAAAAAAAY8ADAAWAAhwbHMgcGFzcwACgA==\",\"round\":9,\"value\":\"AAAAAAAAAY8ADAAWAAhwbHMgcGFzcwACgAAAAAAAAAA=\"}\n"
       },
       "witness": {
         "goType": "generated.BoxResponse",
@@ -1318,7 +1319,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"name\":\"WybsRnqz5Ux5MxW1SJI+w3ZiTT0p5wCDvSVV7yTag4M=\",\"value\":\"WybsRnqz5Ux5MxW1SJI+w3ZiTT0p5wCDvSVV7yTag4M=\"}\n"
+        "body": "{\"name\":\"WybsRnqz5Ux5MxW1SJI+w3ZiTT0p5wCDvSVV7yTag4M=\",\"round\":9,\"value\":\"WybsRnqz5Ux5MxW1SJI+w3ZiTT0p5wCDvSVV7yTag4M=\"}\n"
       },
       "witness": {
         "goType": "generated.BoxResponse",
@@ -1344,7 +1345,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"name\":\"1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg=\",\"value\":\"1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg=\"}\n"
+        "body": "{\"name\":\"1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg=\",\"round\":9,\"value\":\"1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg=\"}\n"
       },
       "witness": {
         "goType": "generated.BoxResponse",
@@ -1370,7 +1371,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"name\":\"YjMy\",\"value\":\"YjMyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
+        "body": "{\"name\":\"YjMy\",\"round\":9,\"value\":\"YjMyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
         "goType": "generated.BoxResponse",
@@ -1396,7 +1397,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"name\":\"Ynl0ZSBiYXNlMzI=\",\"value\":\"Ynl0ZSBiYXNlMzIAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
+        "body": "{\"name\":\"Ynl0ZSBiYXNlMzI=\",\"round\":9,\"value\":\"Ynl0ZSBiYXNlMzIAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
         "goType": "generated.BoxResponse",
@@ -1422,7 +1423,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"name\":\"Ynl0ZSBiYXNlNjQ=\",\"value\":\"Ynl0ZSBiYXNlNjQAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
+        "body": "{\"name\":\"Ynl0ZSBiYXNlNjQ=\",\"round\":9,\"value\":\"Ynl0ZSBiYXNlNjQAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
         "goType": "generated.BoxResponse",

@@ -1089,7 +1089,7 @@ func (si *ServerImplementation) fetchApplications(ctx context.Context, params id
 	return apps, round, nil
 }
 
-// fetchApplications fetches all results
+// fetchApplicationBoxes fetches all results
 func (si *ServerImplementation) fetchApplicationBoxes(ctx context.Context, params idb.ApplicationBoxQuery) (appid generated.ApplicationId, boxes []generated.Box, round uint64, err error) {
 	boxes = make([]generated.Box, 0)
 
@@ -1104,6 +1104,7 @@ func (si *ServerImplementation) fetchApplicationBoxes(ctx context.Context, param
 			if appid == 0 {
 				appid = generated.ApplicationId(result.App)
 			}
+			result.Box.Round = round
 			boxes = append(boxes, result.Box)
 		}
 
