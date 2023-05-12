@@ -16,7 +16,6 @@ workflows:
     jobs:
       - test:
           name: test_with_go_<< matrix.go_version >>
-          context: slack-secrets
           matrix: &go-version-matrix
             parameters:
               go_version: ["1.17.9"]
@@ -49,7 +48,6 @@ jobs:
     environment:
       CI_E2E_FILENAME: "fa6ad40d/rel-nightly"
     steps:
-      - fail_intentionally
       - go/install:
           version: << parameters.go_version >>
       - install_dependencies
@@ -58,21 +56,6 @@ jobs:
       # Change this to run_e2e_tests once we have stable algod binaries containing delta APIs
       - run_e2e_tests_nightly
       - codecov/upload
-      - slack/notify:
-          channel: "#lamprey-builds"
-          event: fail
-          custom: |
-            {
-              "blocks": [
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "Intentional FAIL for experimental purposes: <$CIRCLE_BUILD_URL|$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME>\n(<https://app.circleci.com/pipelines/github/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME?branch=$CIRCLE_BRANCH|$CIRCLE_BRANCH>) \n- <$CIRCLE_BUILD_URL|$CIRCLE_JOB> failed\n\n"
-                  }
-                }
-              ]
-            }
 
   test_nightly:
     machine:
@@ -128,13 +111,6 @@ jobs:
             }
 
 commands:
-  fail_intentionally:
-    description: Fail intentionally
-    steps:
-      - run:
-          name: Fail intentionally
-          command: exit 1
-
   install_dependencies:
     description: prepare machine for next steps
     steps:
