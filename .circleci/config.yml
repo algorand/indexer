@@ -2,8 +2,8 @@ version: 2.1
 
 orbs:
   go: circleci/go@1.7.0
-  slack: circleci/slack@4.7.1
-  codecov: codecov/codecov@3.1.1
+  slack: circleci/slack@4.12.5
+  codecov: codecov/codecov@3.2.4
 
 parameters:
   ubuntu_image:
@@ -16,7 +16,7 @@ workflows:
     jobs:
       - test:
           name: test_with_go_<< matrix.go_version >>
-          context: slack-secrets  # TODO: don't merge with this context for on-commit workflow
+          context: lamprey-secrets  # TODO: don't merge with this context for on-commit workflow
           matrix: &go-version-matrix
             parameters:
               go_version: ["1.17.9"]
@@ -31,13 +31,13 @@ workflows:
     jobs:
       - test_nightly:
           name: nightly_test_with_go_<< matrix.go_version >>
-          context: slack-secrets
+          context: lamprey-secrets
           matrix: &go-version-matrix
             parameters:
               go_version: ["1.17.9"]
       - indexer_vs_algod_nightly:
           name: nightly_test_indexer_vs_algod
-          context: slack-secrets
+          context: lamprey-secrets
 
 jobs:
   test:
@@ -60,7 +60,7 @@ jobs:
       - run_e2e_tests_nightly
       - codecov/upload
       - slack/notify: # TODO: don't merge with this notification for on-commit workflow
-          channel: "#C056CK9PYRY"
+          channel: "056CK9PYRY"
           event: fail
           custom: |
             {
