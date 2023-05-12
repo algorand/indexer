@@ -73,6 +73,7 @@ jobs:
       - run_e2e_tests_nightly
       - codecov/upload
       - slack/notify: &slack-fail-event
+          channel: C056CK9PYRY # #lamprey-builds
           event: fail
           custom: |
             {
@@ -93,6 +94,7 @@ jobs:
       - install_dependencies
       - run_indexer_vs_algod
       - slack/notify: &slack-fail-event
+          channel: C056CK9PYRY # #lamprey-builds
           event: fail
           custom: |
             {
