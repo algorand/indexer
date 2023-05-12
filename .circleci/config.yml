@@ -3,7 +3,7 @@ version: 2.1
 orbs:
   go: circleci/go@1.7.0
   slack: circleci/slack@4.7.1
-  codecov: codecov/codecov@3.1.1
+  codecov: codecov/codecov@3.2.4
 
 parameters:
   ubuntu_image:
@@ -57,7 +57,7 @@ jobs:
       - run_tests
       # TODO: fix this NOW!!!
       # Change this to run_e2e_tests once we have stable algod binaries containing delta APIs
-      - run_e2e_tests_nightly
+      # - run_e2e_tests_nightly
       - codecov/upload
       - slack/notify: # TODO: don't merge with this notification for on-commit workflow
           channel: C056CK9PYRY
@@ -92,7 +92,7 @@ jobs:
       - run_e2e_tests_nightly
       - codecov/upload
       - slack/notify: &slack-fail-event
-          channel: C056CK9PYRY
+          channel: C056CK9PYRY # #lamprey-builds
           event: fail
           custom: |
             {
@@ -113,7 +113,7 @@ jobs:
       - install_dependencies
       - run_indexer_vs_algod
       - slack/notify: &slack-fail-event
-          channel: C056CK9PYRY
+          channel: C056CK9PYRY # #lamprey-builds
           event: fail
           custom: |
             {
