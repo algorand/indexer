@@ -56,7 +56,6 @@ jobs:
       # Change this to run_e2e_tests once we have stable algod binaries containing delta APIs
       - run_e2e_tests_nightly
       - codecov/upload
-
   test_nightly:
     machine:
       image: << pipeline.parameters.ubuntu_image >>
