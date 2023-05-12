@@ -58,7 +58,7 @@ jobs:
       - run_e2e_tests_nightly
       - codecov/upload
       - slack/notify: &slack-fail-event
-          channel: "#lamprey-builds"
+          # channel: "#lamprey-builds"
           event: fail
           custom: |
             {
