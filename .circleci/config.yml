@@ -16,6 +16,7 @@ workflows:
     jobs:
       - test:
           name: test_with_go_<< matrix.go_version >>
+          context: slack-secrets
           matrix: &go-version-matrix
             parameters:
               go_version: ["1.17.9"]
@@ -58,7 +59,7 @@ jobs:
       - run_e2e_tests_nightly
       - codecov/upload
       - slack/notify: &slack-fail-event
-          # channel: "#lamprey-builds"
+          channel: "#lamprey-builds"
           event: fail
           custom: |
             {
