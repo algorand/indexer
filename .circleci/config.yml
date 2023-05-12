@@ -30,13 +30,13 @@ workflows:
     jobs:
       - test_nightly:
           name: nightly_test_with_go_<< matrix.go_version >>
-          context: slack-secrets
+          context: lamprey-secrets
           matrix: &go-version-matrix
             parameters:
               go_version: ["1.17.9"]
       - indexer_vs_algod_nightly:
           name: nightly_test_indexer_vs_algod
-          context: slack-secrets
+          context: lamprey-secrets
 
 jobs:
   test:
@@ -73,7 +73,6 @@ jobs:
       - run_e2e_tests_nightly
       - codecov/upload
       - slack/notify: &slack-fail-event
-          channel: "#lamprey-builds"
           event: fail
           custom: |
             {
@@ -94,7 +93,6 @@ jobs:
       - install_dependencies
       - run_indexer_vs_algod
       - slack/notify: &slack-fail-event
-          channel: "#lamprey-builds"
           event: fail
           custom: |
             {
