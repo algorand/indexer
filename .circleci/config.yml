@@ -16,7 +16,7 @@ workflows:
     jobs:
       - test:
           name: test_with_go_<< matrix.go_version >>
-          context: slack-secrets
+          context: slack-secrets  # TODO: don't merge with this context for on-commit workflow
           matrix: &go-version-matrix
             parameters:
               go_version: ["1.17.9"]
@@ -49,17 +49,18 @@ jobs:
     environment:
       CI_E2E_FILENAME: "fa6ad40d/rel-nightly"
     steps:
-      - fail_intentionally
+      - fail_intentionally # TODO: don't merge with this step
       - go/install:
           version: << parameters.go_version >>
       - install_dependencies
       - install_linter
       - run_tests
+      # TODO: fix this NOW!!!
       # Change this to run_e2e_tests once we have stable algod binaries containing delta APIs
       - run_e2e_tests_nightly
       - codecov/upload
-      - slack/notify:
-          channel: "#lamprey-builds"
+      - slack/notify: # TODO: don't merge with this notification for on-commit workflow
+          channel: "#C056CK9PYRY"
           event: fail
           custom: |
             {
@@ -128,7 +129,7 @@ jobs:
             }
 
 commands:
-  fail_intentionally:
+  fail_intentionally: # TODO: don't merge with this command
     description: Fail intentionally
     steps:
       - run:
