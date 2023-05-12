@@ -57,7 +57,7 @@ jobs:
       # Change this to run_e2e_tests once we have stable algod binaries containing delta APIs
       - run_e2e_tests_nightly
       - codecov/upload
-      - slack/notify:
+      - slack/notify: &slack-fail-event
           channel: "#lamprey-builds"
           event: fail
           template: basic_fail_1
