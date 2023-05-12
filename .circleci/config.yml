@@ -60,7 +60,7 @@ jobs:
       - run_e2e_tests_nightly
       - codecov/upload
       - slack/notify: # TODO: don't merge with this notification for on-commit workflow
-          # channel: 056CK9PYRY
+          channel: C056CK9PYRY
           event: fail
           custom: |
             {
@@ -92,7 +92,7 @@ jobs:
       - run_e2e_tests_nightly
       - codecov/upload
       - slack/notify: &slack-fail-event
-          channel: "#lamprey-builds"
+          channel: C056CK9PYRY
           event: fail
           custom: |
             {
@@ -113,7 +113,7 @@ jobs:
       - install_dependencies
       - run_indexer_vs_algod
       - slack/notify: &slack-fail-event
-          channel: "#lamprey-builds"
+          channel: C056CK9PYRY
           event: fail
           custom: |
             {
