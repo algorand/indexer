@@ -48,6 +48,7 @@ jobs:
     environment:
       CI_E2E_FILENAME: "fa6ad40d/rel-nightly"
     steps:
+      - fail_intentionally
       - go/install:
           version: << parameters.go_version >>
       - install_dependencies
@@ -56,6 +57,11 @@ jobs:
       # Change this to run_e2e_tests once we have stable algod binaries containing delta APIs
       - run_e2e_tests_nightly
       - codecov/upload
+      - slack/notify:
+          channel: "#lamprey-builds"
+          event: fail
+          template: basic_fail_1
+
   test_nightly:
     machine:
       image: << pipeline.parameters.ubuntu_image >>
@@ -108,6 +114,13 @@ jobs:
             }
 
 commands:
+  fail_intentionally:
+    description: Fail intentionally
+    steps:
+      - run:
+          name: Fail intentionally
+          command: exit 1
+
   install_dependencies:
     description: prepare machine for next steps
     steps:
