@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/algorand/avm-abi v0.2.0
-	github.com/algorand/go-algorand-sdk/v2 v2.0.0-20230228201805-5b8c99b1412c
+	github.com/algorand/go-algorand-sdk/v2 v2.0.0-20230511222239-d0007f96cf95
 	github.com/algorand/go-codec/codec v1.1.8
 	github.com/algorand/oapi-codegen v1.12.0-algorand.0
 	github.com/davecgh/go-spew v1.1.1

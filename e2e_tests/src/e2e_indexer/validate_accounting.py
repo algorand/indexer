@@ -6,6 +6,7 @@
 #  pip install "msgpack >=1" py-algorand-sdk
 
 import base64
+from dataclasses import asdict, dataclass
 import json
 import logging
 import os
@@ -35,6 +36,89 @@ fee_niceaddr = algosdk.encoding.encode_address(fee_addr)
 ssl_no_validate = None
 
 graceful_stop = False
+
+DEFAULT_MISMATCHES = 10
+DEFAULT_THREADS = 4
+
+
+@dataclass
+class Arguments:
+    algod: str = None
+    algod_net: str = None
+    algod_token: str = None
+    genesis: str = None
+    limit: int = None
+    indexer: str = None
+    indexer_token: str = None
+    asset: str = None
+    mismatches: int = DEFAULT_MISMATCHES
+    quiet: bool = False
+    verbose: bool = False
+    accounts: str = None
+    ssl_no_validate: bool = False
+    threads: int = DEFAULT_THREADS
+    gtaddr: str = None
+    shard: str = None
+
+    def asdict(self):
+        return asdict(self)
+
+
+def get_args() -> Arguments:
+    import argparse
+
+    ap = argparse.ArgumentParser()
+    ap.add_argument("-d", "--algod", default=None, help="algorand data dir")
+    ap.add_argument("--algod-net", default=None, help="algod host:port")
+    ap.add_argument("--algod-token", default=None, help="algod token")
+    ap.add_argument("--genesis", default=None, help="path to genesis.json")
+    ap.add_argument(
+        "--limit", default=None, type=int, help="debug limit number of accoutns to dump"
+    )
+    ap.add_argument("--indexer", default=None, help="URL to indexer to fetch from")
+    ap.add_argument("--indexer-token", default=None, help="indexer API token")
+    ap.add_argument(
+        "--asset", default=None, help="filter on accounts possessing asset id"
+    )
+    ap.add_argument(
+        "--mismatches",
+        default=DEFAULT_MISMATCHES,
+        type=int,
+        help="max number of mismatches to show details on (0 for no limit)",
+    )
+    # Dohhh... so which is it: quiet or verbose?
+    # TODO: only keep one of these
+    ap.add_argument("-q", "--quiet", default=False, action="store_true")
+    ap.add_argument("--verbose", default=False, action="store_true")
+    ap.add_argument("--accounts", help="comma separated list of accounts to test")
+    ap.add_argument("--ssl-no-validate", default=False, action="store_true")
+    ap.add_argument(
+        "--threads",
+        default=DEFAULT_THREADS,
+        type=int,
+        help="number of request-compare threads to run",
+    )
+    ap.add_argument("--gtaddr", default=None, help="fetch accounts after this addr")
+    ap.add_argument("--shard", default=None, help="a/b for a in [1..b]")
+    args = ap.parse_args()
+    return Arguments(
+        algod=args.algod,
+        algod_net=args.algod_net,
+        algod_token=args.algod_token,
+        genesis=args.genesis,
+        limit=args.limit,
+        indexer=args.indexer,
+        indexer_token=args.indexer_token,
+        asset=args.asset,
+        mismatches=args.mismatches,
+        quiet=args.quiet,
+        verbose=args.verbose,
+        accounts=args.accounts,
+        ssl_no_validate=args.ssl_no_validate,
+        threads=args.threads,
+        gtaddr=args.gtaddr,
+        shard=args.shard,
+    )
 
 
 def do_graceful_stop(signum, frame):
@@ -788,42 +872,8 @@ def check_from_algod(args):
     return i2a_checker
 
 
-def main():
-    import argparse
-
-    ap = argparse.ArgumentParser()
-    ap.add_argument("-d", "--algod", default=None, help="algorand data dir")
-    ap.add_argument("--algod-net", default=None, help="algod host:port")
-    ap.add_argument("--algod-token", default=None, help="algod token")
-    ap.add_argument("--genesis", default=None, help="path to genesis.json")
-    ap.add_argument(
-        "--limit", default=None, type=int, help="debug limit number of accoutns to dump"
-    )
-    ap.add_argument("--indexer", default=None, help="URL to indexer to fetch from")
-    ap.add_argument("--indexer-token", default=None, help="indexer API token")
-    ap.add_argument(
-        "--asset", default=None, help="filter on accounts possessing asset id"
-    )
-    ap.add_argument(
-        "--mismatches",
-        default=10,
-        type=int,
-        help="max number of mismatches to show details on (0 for no limit)",
-    )
-    ap.add_argument("-q", "--quiet", default=False, action="store_true")
-    ap.add_argument("--verbose", default=False, action="store_true")
-    ap.add_argument("--accounts", help="comma separated list of accounts to test")
-    ap.add_argument("--ssl-no-validate", default=False, action="store_true")
-    ap.add_argument(
-        "--threads",
-        default=4,
-        type=int,
-        help="number of request-compare threads to run",
-    )
-    ap.add_argument("--gtaddr", default=None, help="fetch accounts after this addr")
-    ap.add_argument("--shard", default=None, help="a/b for a in [1..b]")
-    args = ap.parse_args()
-
+def validate_accounting(**kwargs) -> int:
+    args = Arguments(**kwargs)
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
     else:
@@ -843,7 +893,6 @@ def main():
     if args.gtaddr and args.shard:
         logger.error("--gtaddr and --shard are incompatible")
         return 1
-    out = sys.stdout
     err = sys.stderr
 
     i2a_checker = check_from_algod(args)
@@ -908,6 +957,11 @@ def main():
     if retval == 0:
         logger.info("validate_accounting OK")
     return retval
+
+
+def main():
+    args = get_args()
+    return validate_accounting(**args.asdict())
 
 
 if __name__ == "__main__":

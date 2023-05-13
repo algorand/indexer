@@ -78,6 +78,7 @@ def xrun(cmd, *args, **kwargs):
     kwargs["stderr"] = subprocess.STDOUT
     cmdr = " ".join(map(repr, cmd))
     try:
+        logger.debug(f"subprocess.Popen({cmdr, args, kwargs})")
         p = subprocess.Popen(cmd, *args, **kwargs)
     except Exception as e:
         logger.error("subprocess failed {}".format(cmdr), exc_info=True)
@@ -121,6 +122,26 @@ def xrun(cmd, *args, **kwargs):
         )
 
 
+def nxrun(func, **kwargs):
+    """
+    nxrun = NOT xrun
+    Like xrun but for python and to
+        * call directly
+        * without a timeout
+        * with **kwargs only
+    """
+    fname = func.__name__
+    try:
+        result = func(**kwargs)
+        if result > 0:
+            logger.error(msg := f"Non-zero return code {result} = {fname}({kwargs=})")
+            raise Exception(msg)
+    except Exception as e:
+        logger.error(f"Exception in {fname}({kwargs=}): {e}", exc_info=True)
+        raise
+    return 0
+
+
 def atexitrun(cmd, *args, **kwargs):
     cargs = [cmd] + list(args)
     atexit.register(xrun, *cargs, **kwargs)
@@ -148,7 +169,9 @@ def ensure_test_db(connection_string, keep_temps=False):
         return connection_string
     # create a temporary database
     dbname = "e2eindex_{}_{}".format(int(time.time()), random.randrange(1000))
+    logger.debug(f'xrun: {"dropdb", "--if-exists", dbname}')
     xrun(["dropdb", "--if-exists", dbname], timeout=5)
+    logger.debug(f'xrun: {"createdb", dbname}')
     xrun(["createdb", dbname], timeout=5)
     if not keep_temps:
         atexitrun(["dropdb", "--if-exists", dbname], timeout=5)
@@ -182,7 +205,7 @@ def firstFromS3Prefix(
             break
 
     if not found_needle:
-        logger.warning("file {} not found in s3://{}/{}".format(desired_filename, bucket, prefix))
+        logger.warning(f"file {desired_filename} not found in s3://{bucket}/{prefix}")
     return found_needle
 
 
