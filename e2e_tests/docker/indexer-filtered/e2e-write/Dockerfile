@@ -25,7 +25,7 @@ WORKDIR /opt/go/indexer
 RUN make
 ENV PATH="${HOME}/go/bin/:${PATH}"
 WORKDIR /opt/go
-RUN git clone https://github.com/algorand/conduit
+RUN git clone -b 23may-indexer-import-types https://github.com/algorand/conduit
 WORKDIR /opt/go/conduit
 RUN make
 WORKDIR /opt/go/indexer/e2e_tests
