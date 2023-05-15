@@ -30,7 +30,7 @@ WORKDIR /opt/go/indexer
 RUN make
 ENV PATH="${HOME}/go/bin/:${PATH}"
 WORKDIR /opt/go
-RUN git clone --depth 1 -b master https://github.com/algorand/conduit
+RUN git clone --depth 1 -b bug-deltas-not-in-genesis https://github.com/algorand/conduit
 WORKDIR /opt/go/conduit
 RUN make
 WORKDIR /opt/go/indexer/e2e_tests
