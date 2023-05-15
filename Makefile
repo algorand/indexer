@@ -82,7 +82,7 @@ fmt:
 # once the container is paused use 'docker exec <id> bash' to inspect temp
 # files in `/tmp/*/'
 # export CI_E2E_FILENAME := f9acfc35/rel-nightly
-# export EXTRA := --keep-alive --verbose
+export EXTRA := --verbose
 e2e: cmd/algorand-indexer/algorand-indexer
 	cd e2e_tests/docker/indexer/ && docker-compose build --build-arg GO_IMAGE=${GO_IMAGE} && docker-compose up --exit-code-from e2e
 
