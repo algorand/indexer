@@ -27,6 +27,19 @@ export GO_IMAGE = golang:$(shell go version | cut -d ' ' -f 3 | tail -c +3 )
 # This is the default target, build everything:
 all: cmd/algorand-indexer/algorand-indexer idb/postgres/internal/schema/setup_postgres_sql.go idb/mocks/IndexerDb.go
 
+echo:
+	@echo "SRCPATH: $(SRCPATH)"
+	@echo "VERSION: $(VERSION)"
+	@echo "OS_TYPE: $(OS_TYPE)"
+	@echo "ARCH: $(ARCH)"
+	@echo "PKG_DIR: $(PKG_DIR)"
+	@echo "CPATH: $(CPATH)"
+	@echo "LIBRARY_PATH: $(LIBRARY_PATH)"
+	@echo "GOPATH: $(GOPATH)"
+	@echo "GOPATH1: $(GOPATH1)"
+	@echo "GOLDFLAGS: $(GOLDFLAGS)"
+
+
 
 cmd/algorand-indexer/algorand-indexer: idb/postgres/internal/schema/setup_postgres_sql.go
 	cd cmd/algorand-indexer && go build -ldflags="${GOLDFLAGS}"
@@ -68,6 +81,8 @@ fmt:
 # To keep the container running at exit set 'export EXTRA="--keep-alive"',
 # once the container is paused use 'docker exec <id> bash' to inspect temp
 # files in `/tmp/*/'
+# export CI_E2E_FILENAME := f9acfc35/rel-nightly
+# export EXTRA := --keep-alive --verbose
 e2e: cmd/algorand-indexer/algorand-indexer
 	cd e2e_tests/docker/indexer/ && docker-compose build --build-arg GO_IMAGE=${GO_IMAGE} && docker-compose up --exit-code-from e2e
 
@@ -77,7 +92,11 @@ e2e-filter-test: cmd/algorand-indexer/algorand-indexer
 e2e-filter-test-nightly: cmd/algorand-indexer/algorand-indexer
 	cd e2e_tests/docker/indexer-filtered/ && docker-compose build --build-arg GO_IMAGE=${GO_IMAGE} --build-arg CHANNEL=nightly && docker-compose up --exit-code-from e2e-read
 
+# export CI_E2E_FILENAME := rel-nightly
+# export EXTRA := --keep-alive --verbose
+# export CI_E2E_FILENAME := f9acfc35/rel-nightly
 e2e-nightly: cmd/algorand-indexer/algorand-indexer
+	cd e2e_tests/docker/indexer/ && docker-compose rm -f e2e-db
 	cd e2e_tests/docker/indexer/ && docker-compose build --build-arg GO_IMAGE=${GO_IMAGE} --build-arg CHANNEL=nightly && docker-compose up --exit-code-from e2e
 
 deploy:

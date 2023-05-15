@@ -7,6 +7,14 @@ RUN echo "Go image: $GO_IMAGE"
 # Misc dependencies
 ENV HOME /opt
 ENV DEBIAN_FRONTEND noninteractive
+
+# BEGIN STUFF FOR just >--->
+RUN wget -qO - 'https://proget.makedeb.org/debian-feeds/prebuilt-mpr.pub' | gpg --dearmor | tee /usr/share/keyrings/prebuilt-mpr-archive-keyring.gpg 1> /dev/null
+RUN apt-get update && apt-get install -y lsb-release
+RUN echo "deb [arch=amd64 signed-by=/usr/share/keyrings/prebuilt-mpr-archive-keyring.gpg] https://proget.makedeb.org prebuilt-mpr $(lsb_release -cs)" | tee /etc/apt/sources.list.d/prebuilt-mpr.list
+RUN apt-get update && apt-get install -y just
+# <---< STUFF FOR just ENDS HERE
+
 RUN apt-get update && apt-get install -y apt-utils curl git git-core bsdmainutils python3 python3-pip make bash libtool libboost-math-dev libffi-dev wget
 
 # Setup files for test

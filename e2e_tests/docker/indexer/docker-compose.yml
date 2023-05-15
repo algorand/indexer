@@ -10,6 +10,8 @@ services:
       CI_E2E_FILENAME: "${CI_E2E_FILENAME}"
       # Add --keep-alive to this variable to pause the container on an error
       EXTRA: "${EXTRA}"
+    volumes:
+      - ./conduit:/opt/go/indexer/just
 
   e2e-db:
     image: "postgres:13-alpine"
