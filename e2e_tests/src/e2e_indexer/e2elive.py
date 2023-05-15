@@ -112,17 +112,6 @@ def main():
     try:
         logger.info("reached expected round={}".format(lastblock))
         if not args.read_only:
-            # xrun(
-            #     [
-            #         "validate-accounting",
-            #         "--verbose",
-            #         "--algod",
-            #         algoddir,
-            #         "--indexer",
-            #         indexerurl,
-            #     ],
-            #     timeout=20,
-            # )
             va_args = VAArgs(verbose=True, algod=algoddir, indexer=indexerurl)
             nxrun(validate_accounting, **va_args.asdict())
         xrun(

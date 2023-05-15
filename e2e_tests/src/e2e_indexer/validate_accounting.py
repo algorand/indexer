@@ -740,6 +740,7 @@ def token_addr_from_args(args):
         token = args.algod_token
     if not addr.startswith("http"):
         addr = "http://" + addr
+    logger.info(f"algod {addr=} {token=}")
     return token, addr
 
 
@@ -749,6 +750,14 @@ def compare(indexer_account, i2a_checker, algod, indexer, indexer_headers):
         return
     algod_account = algod.account_info(niceaddr)
     if algod_account["round"] != indexer_account["round"]:
+        logger.warning(
+            f'round mismatch: {algod_account["round"]=} VS {indexer_account["round"]=}: {niceaddr=}'
+        )
+        # TODO: Don't merge with the following comments
+        # return
+        # this no longer is guaranteed to work because not all accounts are rewindable
+        # EG:
+        # '{"message":"failed while searching for account: error while rewinding account: ...[55,13]: rewinding past txn type appl is not currently supported"}
         indexer_account = indexerAccountFromAddr(
             indexer,
             niceaddr,
@@ -878,6 +887,8 @@ def validate_accounting(**kwargs) -> int:
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO)
+
+    logger.info(f"Begin validate_accounting with {args=}")
 
     if not args.indexer:
         logger.error("need --indexer to specify root url of indexer api")

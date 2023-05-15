@@ -125,7 +125,7 @@ def xrun(cmd, *args, **kwargs):
 def nxrun(func, **kwargs):
     """
     nxrun = NOT xrun
-    Like xrun but for python and to
+    Like xrun but for executing python code and to
         * call directly
         * without a timeout
         * with **kwargs only
