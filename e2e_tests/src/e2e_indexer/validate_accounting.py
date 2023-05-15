@@ -753,11 +753,6 @@ def compare(indexer_account, i2a_checker, algod, indexer, indexer_headers):
         logger.warning(
             f'round mismatch: {algod_account["round"]=} VS {indexer_account["round"]=}: {niceaddr=}'
         )
-        # TODO: Don't merge with the following comments
-        # return
-        # this no longer is guaranteed to work because not all accounts are rewindable
-        # EG:
-        # '{"message":"failed while searching for account: error while rewinding account: ...[55,13]: rewinding past txn type appl is not currently supported"}
         indexer_account = indexerAccountFromAddr(
             indexer,
             niceaddr,
