@@ -29,11 +29,7 @@ from e2e_common.util import (
     countblocks,
 )
 import e2e_indexer.validate_accounting
-from e2e_indexer.validate_accounting import (
-    Arguments as VAArgs,
-    logger as va_logger,
-    validate_accounting,
-)
+from e2e_indexer.validate_accounting import logger as va_logger, validate_accounting
 
 logger = logging.getLogger(__name__)
 
@@ -112,8 +108,7 @@ def main():
     try:
         logger.info("reached expected round={}".format(lastblock))
         if not args.read_only:
-            va_args = VAArgs(verbose=True, algod=algoddir, indexer=indexerurl)
-            nxrun(validate_accounting, **va_args.asdict())
+            nxrun(validate_accounting, verbose=True, algod=algoddir, indexer=indexerurl)
         xrun(
             ["go", "run", "cmd/e2equeries/main.go", "-pg", psqlstring, "-q"], timeout=15
         )

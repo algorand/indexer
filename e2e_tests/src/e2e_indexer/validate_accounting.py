@@ -877,13 +877,13 @@ def check_from_algod(args):
 
 
 def validate_accounting(**kwargs) -> int:
+    logger.info(f"Begin validate_accounting with {kwargs=}")
+
     args = Arguments(**kwargs)
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO)
-
-    logger.info(f"Begin validate_accounting with {args=}")
 
     if not args.indexer:
         logger.error("need --indexer to specify root url of indexer api")
