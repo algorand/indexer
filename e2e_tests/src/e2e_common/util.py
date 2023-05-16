@@ -129,6 +129,8 @@ def nxrun(func, **kwargs):
         * call directly
         * without a timeout
         * with **kwargs only
+
+    NOTE: xrun has the advantage of shielding the caller from any side effects. So be aware when choosing nxrun over xrun
     """
     fname = func.__name__
     try:
