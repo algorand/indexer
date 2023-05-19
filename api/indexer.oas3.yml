@@ -2122,7 +2122,7 @@
             "type": "integer"
           },
           "close-amount": {
-            "description": "Number of assets transfered to the close-to account as part of the transaction.",
+            "description": "Number of assets transferred to the close-to account as part of the transaction.",
             "type": "integer",
             "x-algorand-format": "uint64"
           },
