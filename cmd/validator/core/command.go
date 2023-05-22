@@ -113,7 +113,7 @@ func run(config Params, errorLogFile, addr string, box string, threads int, proc
 	}
 }
 
-// start kicks off a bunch of  go routines to compare addresses, it also creates a work channel to feed the workers and
+// start kicks off a bunch of go routines to compare addresses, it also creates a work channel to feed the workers and
 // fills the work channel by reading from os.Stdin. Results are returned to the results channel.
 func start(processorID ProcessorID, threads int, config Params, results chan<- Result) {
 	work := make(chan string, 100*threads)
