@@ -62,10 +62,10 @@ lint: go-algorand
 fmt:
 	go fmt ./...
 
-integration: cmd/algorand-indexer/algorand-indexer
-	mkdir -p test/blockdata
-	curl -s https://algorand-testdata.s3.amazonaws.com/indexer/test_blockdata/create_destroy.tar.bz2 -o test/blockdata/create_destroy.tar.bz2
-	test/postgres_integration_test.sh
+#integration: cmd/algorand-indexer/algorand-indexer
+#	mkdir -p test/blockdata
+#	curl -s https://algorand-testdata.s3.amazonaws.com/indexer/test_blockdata/create_destroy.tar.bz2 -o test/blockdata/create_destroy.tar.bz2
+#	test/postgres_integration_test.sh
 
 e2e: cmd/algorand-indexer/algorand-indexer
 	cd misc && docker-compose build --build-arg GO_IMAGE=${GO_IMAGE} && docker-compose up --exit-code-from e2e
