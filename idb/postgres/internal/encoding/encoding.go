@@ -50,14 +50,32 @@ func decodeBase64(data string) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(data)
 }
 
+func convertExpiredAccounts(accounts []sdk.Address) []AlgodEncodedAddress {
+	res := make([]AlgodEncodedAddress, len(accounts))
+	for i, addr := range accounts {
+		res[i] = AlgodEncodedAddress(addr)
+	}
+	return res
+}
+
+func unconvertExpiredAccounts(accounts []AlgodEncodedAddress) []sdk.Address {
+	res := make([]sdk.Address, len(accounts))
+	for i, addr := range accounts {
+		res[i] = sdk.Address(addr)
+	}
+	return res
+}
+
 func convertBlockHeader(header sdk.BlockHeader) blockHeader {
 	return blockHeader{
-		BlockHeader: header,
+		BlockHeader:                          header,
+		ExpiredParticipationAccountsOverride: convertExpiredAccounts(header.ExpiredParticipationAccounts),
 	}
 }
 
 func unconvertBlockHeader(header blockHeader) sdk.BlockHeader {
 	res := header.BlockHeader
+	res.ExpiredParticipationAccounts = unconvertExpiredAccounts(header.ExpiredParticipationAccountsOverride)
 	return res
 }
 

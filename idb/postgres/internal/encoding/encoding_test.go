@@ -1,6 +1,7 @@
 package encoding
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
@@ -227,16 +228,26 @@ func TestBlockHeaderEncoding(t *testing.T) {
 			FeeSink:     newaddr(),
 			RewardsPool: newaddr(),
 		},
+		ParticipationUpdates: sdk.ParticipationUpdates{
+			ExpiredParticipationAccounts: []sdk.Address{newaddr()},
+		},
 	}
 
 	buf := EncodeBlockHeader(header)
 
-	expectedString := `{"fees":"AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","prev":"BQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","rnd":3,"rwd":"AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}`
+	template := `{"fees":"AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","partupdrmv":["%s"],"prev":"BQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","rnd":3,"rwd":"AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}`
+	expectedString := fmt.Sprintf(template, "AMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANVWEXNA")
 	assert.Equal(t, expectedString, string(buf))
 
 	headerNew, err := DecodeBlockHeader(buf)
 	require.NoError(t, err)
 	assert.Equal(t, header, headerNew)
+
+	// Lenient decode from the corrupted data
+	badString := fmt.Sprintf(template, "AwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+	headerNewFromBad, err := DecodeBlockHeader([]byte(badString))
+	require.NoError(t, err)
+	assert.Equal(t, header, headerNewFromBad)
 }
 
 // Test that the encoding of byteArray in JSON is as expected and that decoding results in

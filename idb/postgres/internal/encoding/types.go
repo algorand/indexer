@@ -4,8 +4,30 @@ import (
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
+type AlgodEncodedAddress sdk.Address
+
+// MarshalText returns the address string as an array of bytes
+func (addr *AlgodEncodedAddress) MarshalText() ([]byte, error) {
+	var a sdk.Address
+	copy(a[:], addr[:])
+	return []byte(a.String()), nil
+}
+
+// UnmarshalText initializes the Address from an array of bytes.
+// The bytes may be in the base32 checksum format, or the raw bytes base64 encoded.
+func (addr *AlgodEncodedAddress) UnmarshalText(text []byte) error {
+	var a sdk.Address
+	err := a.UnmarshalText(text)
+	if err != nil {
+		return err
+	}
+	copy(addr[:], a[:])
+	return nil
+}
+
 type blockHeader struct {
 	sdk.BlockHeader
+	ExpiredParticipationAccountsOverride []AlgodEncodedAddress `codec:"partupdrmv"`
 }
 
 type assetParams struct {
