@@ -29,8 +29,8 @@ var goalEncodingExamples map[string]string = map[string]string{
 	"string":      "string",
 	"int":         "42",
 	"integer":     "100",
-	"addr":        basics.AppIndex(3).Address().String(),
-	"address":     basics.AppIndex(5).Address().String(),
+	"addr":        basics.AppIndex(1003).Address().String(),
+	"address":     basics.AppIndex(1005).Address().String(),
 	"b32":         base32.StdEncoding.EncodeToString([]byte("b32")),
 	"base32":      base32.StdEncoding.EncodeToString([]byte("base32")),
 	"byte base32": base32.StdEncoding.EncodeToString([]byte("byte base32")),
@@ -43,9 +43,9 @@ var goalEncodingExamples map[string]string = map[string]string{
 func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 	deleted := "DELETED"
 
-	firstAppid := basics.AppIndex(1)
-	secondAppid := basics.AppIndex(3)
-	thirdAppid := basics.AppIndex(5)
+	firstAppid := basics.AppIndex(1001)
+	secondAppid := basics.AppIndex(1003)
+	thirdAppid := basics.AppIndex(1005)
 
 	// ---- ROUND 1: create and fund the box app and another app which won't have boxes ---- //
 	currentRound := basics.Round(1)
