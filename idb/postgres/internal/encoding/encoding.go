@@ -70,6 +70,9 @@ func (addr *AlgodEncodedAddress) UnmarshalText(text []byte) error {
 }
 
 func convertExpiredAccounts(accounts []sdk.Address) []AlgodEncodedAddress {
+	if len(accounts) == 0 {
+		return nil
+	}
 	res := make([]AlgodEncodedAddress, len(accounts))
 	for i, addr := range accounts {
 		res[i] = AlgodEncodedAddress(addr)
@@ -78,6 +81,9 @@ func convertExpiredAccounts(accounts []sdk.Address) []AlgodEncodedAddress {
 }
 
 func unconvertExpiredAccounts(accounts []AlgodEncodedAddress) []sdk.Address {
+	if len(accounts) == 0 {
+		return nil
+	}
 	res := make([]sdk.Address, len(accounts))
 	for i, addr := range accounts {
 		res[i] = sdk.Address(addr)
