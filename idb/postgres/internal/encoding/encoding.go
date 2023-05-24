@@ -50,6 +50,25 @@ func decodeBase64(data string) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(data)
 }
 
+// MarshalText returns the address string as an array of bytes
+func (addr *AlgodEncodedAddress) MarshalText() ([]byte, error) {
+	var a sdk.Address
+	copy(a[:], addr[:])
+	return []byte(a.String()), nil
+}
+
+// UnmarshalText initializes the Address from an array of bytes.
+// The bytes may be in the base32 checksum format, or the raw bytes base64 encoded.
+func (addr *AlgodEncodedAddress) UnmarshalText(text []byte) error {
+	var a sdk.Address
+	err := a.UnmarshalText(text)
+	if err != nil {
+		return err
+	}
+	copy(addr[:], a[:])
+	return nil
+}
+
 func convertExpiredAccounts(accounts []sdk.Address) []AlgodEncodedAddress {
 	res := make([]AlgodEncodedAddress, len(accounts))
 	for i, addr := range accounts {
