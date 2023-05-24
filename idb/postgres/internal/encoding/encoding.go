@@ -4,18 +4,17 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	sdk_types "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-codec/codec"
+	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/idb/postgres/internal/types"
+	"github.com/algorand/indexer/util"
 
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
-	"github.com/algorand/go-codec/codec"
-
-	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/idb/postgres/internal/types"
-	"github.com/algorand/indexer/util"
 )
 
 var jsonCodecHandle *codec.JsonHandle

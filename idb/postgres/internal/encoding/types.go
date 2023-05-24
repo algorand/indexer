@@ -8,6 +8,7 @@ import (
 	"github.com/algorand/go-algorand/data/transactions"
 )
 
+// AlgodEncodedAddress is an address encoded in the format used by algod.
 type AlgodEncodedAddress basics.Address
 
 type blockHeader struct {
