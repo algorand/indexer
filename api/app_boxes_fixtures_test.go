@@ -25,12 +25,13 @@ func goalEncode(t *testing.T, s string) string {
 }
 
 var goalEncodingExamples map[string]string = map[string]string{
-	"str":         "str",
-	"string":      "string",
-	"int":         "42",
-	"integer":     "100",
-	"addr":        basics.AppIndex(1003).Address().String(),
-	"address":     basics.AppIndex(1005).Address().String(),
+	"str":     "str",
+	"string":  "string",
+	"int":     "42",
+	"integer": "100",
+	// the following two addresses are now considered "impossible". However, they are still valid as box names.
+	"addr":        basics.AppIndex(3).Address().String(),
+	"address":     basics.AppIndex(5).Address().String(),
 	"b32":         base32.StdEncoding.EncodeToString([]byte("b32")),
 	"base32":      base32.StdEncoding.EncodeToString([]byte("base32")),
 	"byte base32": base32.StdEncoding.EncodeToString([]byte("byte base32")),
@@ -367,7 +368,7 @@ var boxSeedFixture = fixture{
 		{
 			Name: "Creator account - not an app account - no params",
 			Request: requestInfo{
-				Path:   "/v2/accounts/LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY",
+				Path:   "/v2/accounts/FPKJ7KD37AEIB3MJ6WXEXJIZH4DACLBNCR5PNUQREUWMC2YLIWFH2NHX24",
 				Params: []param{},
 			},
 		},

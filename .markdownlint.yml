@@ -1,0 +1,7 @@
+default: true
+
+MD010:
+  code_blocks: false
+
+MD013:
+  line_length: 200
