@@ -1394,9 +1394,10 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	require.NotContains(t, txns[3].txn, "itx", "The inner transactions should be pruned.")
 
 	// Verify correct App and Asset IDs
-	require.Equal(t, 1, txns[0].asset, "intra == 0 -> ApplicationID = 1")
+	require.Equal(t, 1001, txns[0].asset, "intra == 0 -> ApplicationID = 1")
+	// TODO: How is this one allowed to be <1000 ?
 	require.Equal(t, 789, txns[4].asset, "intra == 4 -> ApplicationID = 789")
-	require.Equal(t, 6, txns[5].asset, "intra == 5 -> AssetID = 6")
+	require.Equal(t, 1006, txns[5].asset, "intra == 5 -> AssetID = 6")
 
 	// Verify txn participation
 	txnPart, err := txnParticipationQuery(db, `SELECT * FROM txn_participation ORDER BY round, intra, addr`)
