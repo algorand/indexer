@@ -157,7 +157,7 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	defer shutdownFunc()
 	defer l.Close()
 
-	assetid := uint64(1)
+	assetid := uint64(1001)
 	amt := uint64(10000)
 	total := uint64(1000000)
 
@@ -207,7 +207,7 @@ func TestReCreateAssetHolding(t *testing.T) {
 
 	block := test.MakeGenesisBlock()
 	for i, frozen := range []bool{true, false} {
-		assetid := uint64(1 + 5*i)
+		assetid := uint64(1001 + 5*i)
 		///////////
 		// Given //
 		// A new asset with default-frozen, AccountB opts-in and has its frozen state
@@ -253,7 +253,7 @@ func TestNoopOptins(t *testing.T) {
 	// An asset with default-frozen = true, AccountB opts in, is unfrozen, then has a
 	// no-op opt-in
 	///////////
-	assetid := uint64(1)
+	assetid := uint64(1001)
 
 	createAsset := test.MakeAssetConfigTxn(
 		0, uint64(1000000), uint64(6), true, "icicles", "frozen coin",
@@ -342,7 +342,7 @@ func TestBlockWithTransactions(t *testing.T) {
 	defer l.Close()
 
 	round := uint64(1)
-	assetid := uint64(1)
+	assetid := uint64(1001)
 	amt := uint64(10000)
 	total := uint64(1000000)
 
@@ -527,7 +527,7 @@ func TestIgnoreDefaultFrozenConfigUpdate(t *testing.T) {
 	defer shutdownFunc()
 	defer l.Close()
 
-	assetid := uint64(1)
+	assetid := uint64(1001)
 	total := uint64(1000000)
 
 	///////////
@@ -566,7 +566,7 @@ func TestZeroTotalAssetCreate(t *testing.T) {
 	defer shutdownFunc()
 	defer l.Close()
 
-	assetid := uint64(1)
+	assetid := uint64(1001)
 	total := uint64(0)
 
 	///////////
@@ -629,7 +629,7 @@ func TestDestroyAssetBasic(t *testing.T) {
 	defer shutdownFunc()
 	defer l.Close()
 
-	assetID := uint64(1)
+	assetID := uint64(1001)
 
 	// Create an asset.
 	txn := test.MakeAssetConfigTxn(0, 4, 0, false, "uu", "aa", "", test.AccountA)
@@ -665,7 +665,7 @@ func TestDestroyAssetZeroSupply(t *testing.T) {
 	defer shutdownFunc()
 	defer l.Close()
 
-	assetID := uint64(1)
+	assetID := uint64(1001)
 
 	// Create an asset. Set total supply to 0.
 	txn0 := test.MakeAssetConfigTxn(0, 0, 0, false, "uu", "aa", "", test.AccountA)
@@ -695,7 +695,7 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 
 	defer l.Close()
 
-	assetID := uint64(1)
+	assetID := uint64(1001)
 
 	// Create an asset. Create a transaction where all special addresses are different
 	// from creator's address.
@@ -762,7 +762,7 @@ func TestAssetFreezeTxnParticipation(t *testing.T) {
 	///////////
 
 	// Create a block with freeze txn
-	assetid := uint64(1)
+	assetid := uint64(1001)
 
 	createAsset := test.MakeAssetConfigTxn(
 		0, uint64(1000000), uint64(6), false, "mcn", "my coin", "http://antarctica.com",
@@ -979,7 +979,7 @@ func TestLargeAssetAmount(t *testing.T) {
 
 	defer l.Close()
 
-	assetid := uint64(1)
+	assetid := uint64(1001)
 	txn := test.MakeAssetConfigTxn(
 		0, math.MaxUint64, 0, false, "mc", "mycoin", "", test.AccountA)
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
@@ -1107,7 +1107,7 @@ func TestNonDisplayableUTF8(t *testing.T) {
 		},
 	}
 
-	assetID := uint64(1)
+	assetID := uint64(1001)
 	innerAssetID := uint64(999)
 
 	for _, testcase := range tests {
@@ -1209,7 +1209,7 @@ func TestReconfigAsset(t *testing.T) {
 	unit := "co\000in"
 	name := "algo"
 	url := "https://algorand.com"
-	assetID := uint64(1)
+	assetID := uint64(1001)
 
 	txn := test.MakeAssetConfigTxn(
 		0, math.MaxUint64, 0, false, unit, name, url, test.AccountA)
@@ -1362,7 +1362,7 @@ func TestAddBlockAssetCloseAmountInTxnExtra(t *testing.T) {
 	defer shutdownFunc()
 	defer l.Close()
 
-	assetid := uint64(1)
+	assetid := uint64(1001)
 
 	createAsset := test.MakeAssetConfigTxn(
 		0, uint64(1000000), uint64(6), false, "mcn", "my coin", "http://antarctica.com",
@@ -1493,7 +1493,7 @@ func TestAddBlockCreateDeleteAssetSameRound(t *testing.T) {
 
 	defer l.Close()
 
-	assetid := uint64(1)
+	assetid := uint64(1001)
 	createTxn := test.MakeAssetConfigTxn(0, 3, 0, false, "", "", "", test.AccountA)
 	deleteTxn := test.MakeAssetDestroyTxn(assetid, test.AccountA)
 	block, err := test.MakeBlockForTxns(
@@ -1550,7 +1550,7 @@ func TestAddBlockCreateDeleteAppSameRound(t *testing.T) {
 
 	defer l.Close()
 
-	appid := uint64(1)
+	appid := uint64(1001)
 	createTxn := test.MakeCreateAppTxn(test.AccountA)
 	deleteTxn := test.MakeAppDestroyTxn(appid, test.AccountA)
 	block, err := test.MakeBlockForTxns(
@@ -1585,7 +1585,7 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 
 	defer l.Close()
 
-	appid := uint64(1)
+	appid := uint64(1001)
 	createTxn := test.MakeCreateAppTxn(test.AccountA)
 	optInTxn := test.MakeAppOptInTxn(appid, test.AccountB)
 	optOutTxn := test.MakeAppOptOutTxn(appid, test.AccountB)
@@ -1878,12 +1878,12 @@ func TestTxnAssetID(t *testing.T) {
 
 	defer l.Close()
 
-	assetid := uint64(1)
+	assetid := uint64(1001)
 	createAssetTxn := test.MakeAssetConfigTxn(
 		0, 0, 0, false, "myasset", "ma", "", test.AccountA)
 	configAssetTxn := test.MakeAssetConfigTxn(
 		assetid, 0, 0, false, "myasset", "ma", "", test.AccountA)
-	appid := uint64(3)
+	appid := uint64(1003)
 	createAppTxn := test.MakeCreateAppTxn(test.AccountA)
 	destroyAppTxn := test.MakeAppDestroyTxn(appid, test.AccountA)
 
@@ -2265,8 +2265,8 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 
 	// AssetAmountLT
 	txnA := test.MakeAssetConfigTxn(0, 100, 0, false, "test", "test", "", test.AccountA)
-	txnB := test.MakeAssetOptInTxn(1, test.AccountB)
-	txnC := test.MakeAssetTransferTxn(1, 10, test.AccountA, test.AccountB, basics.Address{})
+	txnB := test.MakeAssetOptInTxn(1001, test.AccountB)
+	txnC := test.MakeAssetTransferTxn(1001, 10, test.AccountA, test.AccountB, basics.Address{})
 
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &txnA, &txnB, &txnC)
 	require.NoError(t, err)
@@ -2285,8 +2285,8 @@ func TestTransactionFilterAssetAmount(t *testing.T) {
 
 	// AssetAmountGT
 	txnD := test.MakeAssetConfigTxn(0, math.MaxUint64, 0, false, "test2", "test2", "", test.AccountA)
-	txnE := test.MakeAssetOptInTxn(4, test.AccountB)
-	txnF := test.MakeAssetTransferTxn(4, math.MaxUint64, test.AccountA, test.AccountB, basics.Address{})
+	txnE := test.MakeAssetOptInTxn(1004, test.AccountB)
+	txnF := test.MakeAssetTransferTxn(1004, math.MaxUint64, test.AccountA, test.AccountB, basics.Address{})
 
 	block, err = test.MakeBlockForTxns(block.BlockHeader, &txnD, &txnE, &txnF)
 	require.NoError(t, err)

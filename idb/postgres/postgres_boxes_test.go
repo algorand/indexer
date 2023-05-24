@@ -111,7 +111,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 
 	defer l.Close()
 
-	appid := basics.AppIndex(1)
+	appid := basics.AppIndex(1001)
 
 	// ---- ROUND 1: create and fund the box app  ---- //
 	currentRound := basics.Round(1)

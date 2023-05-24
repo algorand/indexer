@@ -101,7 +101,7 @@ func TestApplicationHandlers(t *testing.T) {
 	// Given // A block containing an app call txn with ExtraProgramPages, that the creator and another account have opted into
 	///////////
 
-	const expectedAppIdx = 1 // must be 1 since this is the first txn
+	const expectedAppIdx = 1001 // must be 1001 since this is the first txn
 	const extraPages = 2
 	txn := transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
@@ -243,8 +243,8 @@ func TestAccountExcludeParameters(t *testing.T) {
 	// Given // A block containing a creator of an app, an asset, who also holds and has opted-into those apps.
 	///////////
 
-	const expectedAppIdx = 1 // must be 1 since this is the first txn
-	const expectedAssetIdx = 2
+	const expectedAppIdx = 1001 // must be 1001 since this is the first txn
+	const expectedAssetIdx = 1002
 	createAppTxn := test.MakeCreateAppTxn(test.AccountA)
 	createAssetTxn := test.MakeAssetConfigTxn(0, 100, 0, false, "UNIT", "Asset 2", "http://asset2.com", test.AccountA)
 	appOptInTxnA := test.MakeAppOptInTxn(expectedAppIdx, test.AccountA)
@@ -416,10 +416,10 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 	//       // deleted 5 assets, and another address that has opted into the 5 apps and 5 assets remaining
 	///////////
 
-	deletedAppIDs := []uint64{1, 2, 3, 4, 5}
-	deletedAssetIDs := []uint64{6, 7, 8, 9, 10}
-	expectedAppIDs := []uint64{11, 12, 13, 14, 15}
-	expectedAssetIDs := []uint64{16, 17, 18, 19, 20}
+	deletedAppIDs := []uint64{1001, 1002, 1003, 1004, 1005}
+	deletedAssetIDs := []uint64{1006, 1007, 1008, 1009, 1010}
+	expectedAppIDs := []uint64{1011, 1012, 1013, 1014, 1015}
+	expectedAssetIDs := []uint64{1016, 1017, 1018, 1019, 1020}
 
 	var txns []transactions.SignedTxnWithAD
 	// make apps and assets
@@ -1925,7 +1925,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	defer shutdownFunc()
 	defer l.Close()
 
-	appid := basics.AppIndex(1)
+	appid := basics.AppIndex(1001)
 
 	// ---- ROUND 1: create and fund the box app  ---- //
 	currentRound := basics.Round(1)

@@ -1,7 +1,7 @@
 {
   "file": "boxes.json",
   "owner": "TestBoxes",
-  "lastModified": "2022-09-23 12:04:49.038378 -0500 CDT m=+3.705634393",
+  "lastModified": "2023-05-23 23:14:38.33355 -0500 CDT m=+4.071078639",
   "frozen": true,
   "cases": [
     {
@@ -14,12 +14,30 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"accounts\":[{\"address\":\"GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY\",\"amount\":999999499000,\"amount-without-pending-rewards\":999999499000,\"created-apps\":[{\"created-at-round\":1,\"deleted\":false,\"id\":1,\"params\":{\"approval-program\":\"CCABADEYQQB6MRtBAHU2GgCABmNyZWF0ZRJBABiBIDEbgQISQAAFSDYaAhc2GgFMuURCAE42GgCABmRlbGV0ZRJBAAg2GgG8REIANzYaAIADc2V0EkEACzYaASI2GgK7QgAgNhoAgAVjaGVjaxJBABE2GgEiNhoCFbo2GgISREIAAQCBAQ==\",\"clear-state-program\":\"CIEB\",\"creator\":\"GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}}],\"created-at-round\":0,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"sig-type\":\"sig\",\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":1,\"total-created-assets\":0},{\"address\":\"LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU\",\"amount\":999999499000,\"amount-without-pending-rewards\":999999499000,\"created-apps\":[{\"created-at-round\":1,\"deleted\":false,\"id\":3,\"params\":{\"approval-program\":\"CCABADEYQQB6MRtBAHU2GgCABmNyZWF0ZRJBABiBIDEbgQISQAAFSDYaAhc2GgFMuURCAE42GgCABmRlbGV0ZRJBAAg2GgG8REIANzYaAIADc2V0EkEACzYaASI2GgK7QgAgNhoAgAVjaGVjaxJBABE2GgEiNhoCFbo2GgISREIAAQCBAQ==\",\"clear-state-program\":\"CIEB\",\"creator\":\"N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}}],\"created-at-round\":0,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"sig-type\":\"sig\",\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":1,\"total-created-assets\":0},{\"address\":\"OKUWMFFEKF4B4D7FRQYBVV3C2SNS54ZO4WZ2MJ3576UYKFDHM5P3AFMRWE\",\"amount\":999999499000,\"amount-without-pending-rewards\":999999499000,\"created-at-round\":0,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"sig-type\":\"sig\",\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"WCS6TVPJRBSARHLN2326LRU5BYVJZUKI2VJ53CAWKYYHDE455ZGKANWMGM\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":477,\"total-boxes\":9,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"ZROKLZW4GVOK5WQIF2GUR6LHFVEZBMV56BIQEQD4OTIZL2BPSYYUKFBSHM\",\"amount\":3000,\"amount-without-pending-rewards\":3000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"2SYXFSCZAQCZ7YIFUCUZYOVR7G6Y3UBGSJIWT4EZ4CO3T6WVYTMHVSANOY\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":570,\"total-boxes\":13,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"4C3S3A5II6AYMEADSW7EVL7JAKVU2ASJMMJAGVUROIJHYMS6B24NCXVEWM\",\"amount\":100000,\"amount-without-pending-rewards\":100000,\"created-at-round\":0,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"NotParticipating\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"6TB2ZQA2GEEDH6XTIOH5A7FUSGINXDPW5ONN6XBOBBGGUXVHRQTITAIIVI\",\"amount\":1000000000000,\"amount-without-pending-rewards\":1000000000000,\"created-at-round\":0,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0}],\"current-round\":9,\"next-token\":\"6TB2ZQA2GEEDH6XTIOH5A7FUSGINXDPW5ONN6XBOBBGGUXVHRQTITAIIVI\"}\n"
+        "body": "{\"accounts\":[{\"address\":\"FPKJ7KD37AEIB3MJ6WXEXJIZH4DACLBNCR5PNUQREUWMC2YLIWFH2NHX24\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY\",\"amount\":999999499000,\"amount-without-pending-rewards\":999999499000,\"created-apps\":[{\"created-at-round\":1,\"deleted\":false,\"id\":1001,\"params\":{\"approval-program\":\"CCABADEYQQB6MRtBAHU2GgCABmNyZWF0ZRJBABiBIDEbgQISQAAFSDYaAhc2GgFMuURCAE42GgCABmRlbGV0ZRJBAAg2GgG8REIANzYaAIADc2V0EkEACzYaASI2GgK7QgAgNhoAgAVjaGVjaxJBABE2GgEiNhoCFbo2GgISREIAAQCBAQ==\",\"clear-state-program\":\"CIEB\",\"creator\":\"GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}}],\"created-at-round\":0,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"sig-type\":\"sig\",\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":1,\"total-created-assets\":0},{\"address\":\"N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU\",\"amount\":999999499000,\"amount-without-pending-rewards\":999999499000,\"created-apps\":[{\"created-at-round\":1,\"deleted\":false,\"id\":1003,\"params\":{\"approval-program\":\"CCABADEYQQB6MRtBAHU2GgCABmNyZWF0ZRJBABiBIDEbgQISQAAFSDYaAhc2GgFMuURCAE42GgCABmRlbGV0ZRJBAAg2GgG8REIANzYaAIADc2V0EkEACzYaASI2GgK7QgAgNhoAgAVjaGVjaxJBABE2GgEiNhoCFbo2GgISREIAAQCBAQ==\",\"clear-state-program\":\"CIEB\",\"creator\":\"N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}}],\"created-at-round\":0,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"sig-type\":\"sig\",\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":1,\"total-created-assets\":0},{\"address\":\"OKSDOCOXVGMBXQ5TP5YA4VWTZWZJLJP3OMIILPHMHGHURUFE2Q3JP62QNU\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":477,\"total-boxes\":9,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"OKUWMFFEKF4B4D7FRQYBVV3C2SNS54ZO4WZ2MJ3576UYKFDHM5P3AFMRWE\",\"amount\":999999499000,\"amount-without-pending-rewards\":999999499000,\"created-at-round\":0,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"sig-type\":\"sig\",\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"ZROKLZW4GVOK5WQIF2GUR6LHFVEZBMV56BIQEQD4OTIZL2BPSYYUKFBSHM\",\"amount\":3000,\"amount-without-pending-rewards\":3000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"2473OSBX37GQG3RVAS7CT7FXGOO7MTZ5UWKL4TZHLQUNOZZDDAHBYWIWGQ\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":570,\"total-boxes\":13,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"4C3S3A5II6AYMEADSW7EVL7JAKVU2ASJMMJAGVUROIJHYMS6B24NCXVEWM\",\"amount\":100000,\"amount-without-pending-rewards\":100000,\"created-at-round\":0,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"NotParticipating\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"6TB2ZQA2GEEDH6XTIOH5A7FUSGINXDPW5ONN6XBOBBGGUXVHRQTITAIIVI\",\"amount\":1000000000000,\"amount-without-pending-rewards\":1000000000000,\"created-at-round\":0,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0}],\"current-round\":9,\"next-token\":\"6TB2ZQA2GEEDH6XTIOH5A7FUSGINXDPW5ONN6XBOBBGGUXVHRQTITAIIVI\"}\n"
       },
       "witness": {
         "goType": "generated.AccountsResponse",
         "accounts": {
           "accounts": [
+            {
+              "address": "FPKJ7KD37AEIB3MJ6WXEXJIZH4DACLBNCR5PNUQREUWMC2YLIWFH2NHX24",
+              "amount": 500000,
+              "amount-without-pending-rewards": 500000,
+              "created-at-round": 1,
+              "deleted": false,
+              "pending-rewards": 0,
+              "reward-base": 0,
+              "rewards": 0,
+              "round": 9,
+              "status": "Offline",
+              "total-apps-opted-in": 0,
+              "total-assets-opted-in": 0,
+              "total-box-bytes": 0,
+              "total-boxes": 0,
+              "total-created-apps": 0,
+              "total-created-assets": 0
+            },
             {
               "address": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
               "amount": 999999499000,
@@ -28,7 +46,7 @@
                 {
                   "created-at-round": 1,
                   "deleted": false,
-                  "id": 1,
+                  "id": 1001,
                   "params": {
                     "approval-program": "CCABADEYQQB6MRtBAHU2GgCABmNyZWF0ZRJBABiBIDEbgQISQAAFSDYaAhc2GgFMuURCAE42GgCABmRlbGV0ZRJBAAg2GgG8REIANzYaAIADc2V0EkEACzYaASI2GgK7QgAgNhoAgAVjaGVjaxJBABE2GgEiNhoCFbo2GgISREIAAQCBAQ==",
                     "clear-state-program": "CIEB",
@@ -60,24 +78,6 @@
               "total-created-assets": 0
             },
             {
-              "address": "LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY",
-              "amount": 500000,
-              "amount-without-pending-rewards": 500000,
-              "created-at-round": 1,
-              "deleted": false,
-              "pending-rewards": 0,
-              "reward-base": 0,
-              "rewards": 0,
-              "round": 9,
-              "status": "Offline",
-              "total-apps-opted-in": 0,
-              "total-assets-opted-in": 0,
-              "total-box-bytes": 0,
-              "total-boxes": 0,
-              "total-created-apps": 0,
-              "total-created-assets": 0
-            },
-            {
               "address": "N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU",
               "amount": 999999499000,
               "amount-without-pending-rewards": 999999499000,
@@ -85,7 +85,7 @@
                 {
                   "created-at-round": 1,
                   "deleted": false,
-                  "id": 3,
+                  "id": 1003,
                   "params": {
                     "approval-program": "CCABADEYQQB6MRtBAHU2GgCABmNyZWF0ZRJBABiBIDEbgQISQAAFSDYaAhc2GgFMuURCAE42GgCABmRlbGV0ZRJBAAg2GgG8REIANzYaAIADc2V0EkEACzYaASI2GgK7QgAgNhoAgAVjaGVjaxJBABE2GgEiNhoCFbo2GgISREIAAQCBAQ==",
                     "clear-state-program": "CIEB",
@@ -117,6 +117,24 @@
               "total-created-assets": 0
             },
             {
+              "address": "OKSDOCOXVGMBXQ5TP5YA4VWTZWZJLJP3OMIILPHMHGHURUFE2Q3JP62QNU",
+              "amount": 500000,
+              "amount-without-pending-rewards": 500000,
+              "created-at-round": 1,
+              "deleted": false,
+              "pending-rewards": 0,
+              "reward-base": 0,
+              "rewards": 0,
+              "round": 9,
+              "status": "Offline",
+              "total-apps-opted-in": 0,
+              "total-assets-opted-in": 0,
+              "total-box-bytes": 477,
+              "total-boxes": 9,
+              "total-created-apps": 0,
+              "total-created-assets": 0
+            },
+            {
               "address": "OKUWMFFEKF4B4D7FRQYBVV3C2SNS54ZO4WZ2MJ3576UYKFDHM5P3AFMRWE",
               "amount": 999999499000,
               "amount-without-pending-rewards": 999999499000,
@@ -132,24 +150,6 @@
               "total-assets-opted-in": 0,
               "total-box-bytes": 0,
               "total-boxes": 0,
-              "total-created-apps": 0,
-              "total-created-assets": 0
-            },
-            {
-              "address": "WCS6TVPJRBSARHLN2326LRU5BYVJZUKI2VJ53CAWKYYHDE455ZGKANWMGM",
-              "amount": 500000,
-              "amount-without-pending-rewards": 500000,
-              "created-at-round": 1,
-              "deleted": false,
-              "pending-rewards": 0,
-              "reward-base": 0,
-              "rewards": 0,
-              "round": 9,
-              "status": "Offline",
-              "total-apps-opted-in": 0,
-              "total-assets-opted-in": 0,
-              "total-box-bytes": 477,
-              "total-boxes": 9,
               "total-created-apps": 0,
               "total-created-assets": 0
             },
@@ -172,7 +172,7 @@
               "total-created-assets": 0
             },
             {
-              "address": "2SYXFSCZAQCZ7YIFUCUZYOVR7G6Y3UBGSJIWT4EZ4CO3T6WVYTMHVSANOY",
+              "address": "2473OSBX37GQG3RVAS7CT7FXGOO7MTZ5UWKL4TZHLQUNOZZDDAHBYWIWGQ",
               "amount": 500000,
               "amount-without-pending-rewards": 500000,
               "created-at-round": 1,
@@ -242,7 +242,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"applications\":[{\"created-at-round\":1,\"deleted\":false,\"id\":1,\"params\":{\"approval-program\":\"CCABADEYQQB6MRtBAHU2GgCABmNyZWF0ZRJBABiBIDEbgQISQAAFSDYaAhc2GgFMuURCAE42GgCABmRlbGV0ZRJBAAg2GgG8REIANzYaAIADc2V0EkEACzYaASI2GgK7QgAgNhoAgAVjaGVjaxJBABE2GgEiNhoCFbo2GgISREIAAQCBAQ==\",\"clear-state-program\":\"CIEB\",\"creator\":\"GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}},{\"created-at-round\":1,\"deleted\":false,\"id\":3,\"params\":{\"approval-program\":\"CCABADEYQQB6MRtBAHU2GgCABmNyZWF0ZRJBABiBIDEbgQISQAAFSDYaAhc2GgFMuURCAE42GgCABmRlbGV0ZRJBAAg2GgG8REIANzYaAIADc2V0EkEACzYaASI2GgK7QgAgNhoAgAVjaGVjaxJBABE2GgEiNhoCFbo2GgISREIAAQCBAQ==\",\"clear-state-program\":\"CIEB\",\"creator\":\"N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}}],\"current-round\":9,\"next-token\":\"3\"}\n"
+        "body": "{\"applications\":[{\"created-at-round\":1,\"deleted\":false,\"id\":1001,\"params\":{\"approval-program\":\"CCABADEYQQB6MRtBAHU2GgCABmNyZWF0ZRJBABiBIDEbgQISQAAFSDYaAhc2GgFMuURCAE42GgCABmRlbGV0ZRJBAAg2GgG8REIANzYaAIADc2V0EkEACzYaASI2GgK7QgAgNhoAgAVjaGVjaxJBABE2GgEiNhoCFbo2GgISREIAAQCBAQ==\",\"clear-state-program\":\"CIEB\",\"creator\":\"GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}},{\"created-at-round\":1,\"deleted\":false,\"id\":1003,\"params\":{\"approval-program\":\"CCABADEYQQB6MRtBAHU2GgCABmNyZWF0ZRJBABiBIDEbgQISQAAFSDYaAhc2GgFMuURCAE42GgCABmRlbGV0ZRJBAAg2GgG8REIANzYaAIADc2V0EkEACzYaASI2GgK7QgAgNhoAgAVjaGVjaxJBABE2GgEiNhoCFbo2GgISREIAAQCBAQ==\",\"clear-state-program\":\"CIEB\",\"creator\":\"N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}}],\"current-round\":9,\"next-token\":\"1003\"}\n"
       },
       "witness": {
         "goType": "generated.ApplicationsResponse",
@@ -251,7 +251,7 @@
             {
               "created-at-round": 1,
               "deleted": false,
-              "id": 1,
+              "id": 1001,
               "params": {
                 "approval-program": "CCABADEYQQB6MRtBAHU2GgCABmNyZWF0ZRJBABiBIDEbgQISQAAFSDYaAhc2GgFMuURCAE42GgCABmRlbGV0ZRJBAAg2GgG8REIANzYaAIADc2V0EkEACzYaASI2GgK7QgAgNhoAgAVjaGVjaxJBABE2GgEiNhoCFbo2GgISREIAAQCBAQ==",
                 "clear-state-program": "CIEB",
@@ -269,7 +269,7 @@
             {
               "created-at-round": 1,
               "deleted": false,
-              "id": 3,
+              "id": 1003,
               "params": {
                 "approval-program": "CCABADEYQQB6MRtBAHU2GgCABmNyZWF0ZRJBABiBIDEbgQISQAAFSDYaAhc2GgFMuURCAE42GgCABmRlbGV0ZRJBAAg2GgG8REIANzYaAIADc2V0EkEACzYaASI2GgK7QgAgNhoAgAVjaGVjaxJBABE2GgEiNhoCFbo2GgISREIAAQCBAQ==",
                 "clear-state-program": "CIEB",
@@ -286,7 +286,7 @@
             }
           ],
           "current-round": 9,
-          "next-token": "3"
+          "next-token": "1003"
         }
       },
       "witnessError": null
@@ -307,16 +307,16 @@
       "witnessError": "404 error"
     },
     {
-      "name": "Lookup app 3 (funded with no boxes)",
+      "name": "Lookup app 1003 (funded with no boxes)",
       "request": {
-        "path": "/v2/applications/3",
+        "path": "/v2/applications/1003",
         "params": [],
-        "url": "http://localhost:8999/v2/applications/3",
+        "url": "http://localhost:8999/v2/applications/1003",
         "route": "/v2/applications/:application-id"
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"application\":{\"created-at-round\":1,\"deleted\":false,\"id\":3,\"params\":{\"approval-program\":\"CCABADEYQQB6MRtBAHU2GgCABmNyZWF0ZRJBABiBIDEbgQISQAAFSDYaAhc2GgFMuURCAE42GgCABmRlbGV0ZRJBAAg2GgG8REIANzYaAIADc2V0EkEACzYaASI2GgK7QgAgNhoAgAVjaGVjaxJBABE2GgEiNhoCFbo2GgISREIAAQCBAQ==\",\"clear-state-program\":\"CIEB\",\"creator\":\"N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}},\"current-round\":9}\n"
+        "body": "{\"application\":{\"created-at-round\":1,\"deleted\":false,\"id\":1003,\"params\":{\"approval-program\":\"CCABADEYQQB6MRtBAHU2GgCABmNyZWF0ZRJBABiBIDEbgQISQAAFSDYaAhc2GgFMuURCAE42GgCABmRlbGV0ZRJBAAg2GgG8REIANzYaAIADc2V0EkEACzYaASI2GgK7QgAgNhoAgAVjaGVjaxJBABE2GgEiNhoCFbo2GgISREIAAQCBAQ==\",\"clear-state-program\":\"CIEB\",\"creator\":\"N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}},\"current-round\":9}\n"
       },
       "witness": {
         "goType": "generated.ApplicationResponse",
@@ -324,7 +324,7 @@
           "application": {
             "created-at-round": 1,
             "deleted": false,
-            "id": 3,
+            "id": 1003,
             "params": {
               "approval-program": "CCABADEYQQB6MRtBAHU2GgCABmNyZWF0ZRJBABiBIDEbgQISQAAFSDYaAhc2GgFMuURCAE42GgCABmRlbGV0ZRJBAAg2GgG8REIANzYaAIADc2V0EkEACzYaASI2GgK7QgAgNhoAgAVjaGVjaxJBABE2GgEiNhoCFbo2GgISREIAAQCBAQ==",
               "clear-state-program": "CIEB",
@@ -345,16 +345,16 @@
       "witnessError": null
     },
     {
-      "name": "Lookup app 1 (funded with boxes)",
+      "name": "Lookup app 1001 (funded with boxes)",
       "request": {
-        "path": "/v2/applications/1",
+        "path": "/v2/applications/1001",
         "params": [],
-        "url": "http://localhost:8999/v2/applications/1",
+        "url": "http://localhost:8999/v2/applications/1001",
         "route": "/v2/applications/:application-id"
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"application\":{\"created-at-round\":1,\"deleted\":false,\"id\":1,\"params\":{\"approval-program\":\"CCABADEYQQB6MRtBAHU2GgCABmNyZWF0ZRJBABiBIDEbgQISQAAFSDYaAhc2GgFMuURCAE42GgCABmRlbGV0ZRJBAAg2GgG8REIANzYaAIADc2V0EkEACzYaASI2GgK7QgAgNhoAgAVjaGVjaxJBABE2GgEiNhoCFbo2GgISREIAAQCBAQ==\",\"clear-state-program\":\"CIEB\",\"creator\":\"GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}},\"current-round\":9}\n"
+        "body": "{\"application\":{\"created-at-round\":1,\"deleted\":false,\"id\":1001,\"params\":{\"approval-program\":\"CCABADEYQQB6MRtBAHU2GgCABmNyZWF0ZRJBABiBIDEbgQISQAAFSDYaAhc2GgFMuURCAE42GgCABmRlbGV0ZRJBAAg2GgG8REIANzYaAIADc2V0EkEACzYaASI2GgK7QgAgNhoAgAVjaGVjaxJBABE2GgEiNhoCFbo2GgISREIAAQCBAQ==\",\"clear-state-program\":\"CIEB\",\"creator\":\"GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}},\"current-round\":9}\n"
       },
       "witness": {
         "goType": "generated.ApplicationResponse",
@@ -362,7 +362,7 @@
           "application": {
             "created-at-round": 1,
             "deleted": false,
-            "id": 1,
+            "id": 1001,
             "params": {
               "approval-program": "CCABADEYQQB6MRtBAHU2GgCABmNyZWF0ZRJBABiBIDEbgQISQAAFSDYaAhc2GgFMuURCAE42GgCABmRlbGV0ZRJBAAg2GgG8REIANzYaAIADc2V0EkEACzYaASI2GgK7QgAgNhoAgAVjaGVjaxJBABE2GgEiNhoCFbo2GgISREIAAQCBAQ==",
               "clear-state-program": "CIEB",
@@ -383,16 +383,16 @@
       "witnessError": null
     },
     {
-      "name": "Lookup DELETED app 5 (funded with encoding test named boxes)",
+      "name": "Lookup DELETED app 1005 (funded with encoding test named boxes)",
       "request": {
-        "path": "/v2/applications/5",
+        "path": "/v2/applications/1005",
         "params": [],
-        "url": "http://localhost:8999/v2/applications/5",
+        "url": "http://localhost:8999/v2/applications/1005",
         "route": "/v2/applications/:application-id"
       },
       "response": {
         "statusCode": 404,
-        "body": "{\"message\":\"no application found for application-id: 5\"}\n"
+        "body": "{\"message\":\"no application found for application-id: 1005\"}\n"
       },
       "witness": null,
       "witnessError": "404 error"
@@ -400,20 +400,20 @@
     {
       "name": "Creator account - not an app account - no params",
       "request": {
-        "path": "/v2/accounts/LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY",
+        "path": "/v2/accounts/FPKJ7KD37AEIB3MJ6WXEXJIZH4DACLBNCR5PNUQREUWMC2YLIWFH2NHX24",
         "params": [],
-        "url": "http://localhost:8999/v2/accounts/LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY",
+        "url": "http://localhost:8999/v2/accounts/FPKJ7KD37AEIB3MJ6WXEXJIZH4DACLBNCR5PNUQREUWMC2YLIWFH2NHX24",
         "route": "/v2/accounts/:account-id"
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"account\":{\"address\":\"LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},\"current-round\":9}\n"
+        "body": "{\"account\":{\"address\":\"FPKJ7KD37AEIB3MJ6WXEXJIZH4DACLBNCR5PNUQREUWMC2YLIWFH2NHX24\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},\"current-round\":9}\n"
       },
       "witness": {
         "goType": "generated.AccountResponse",
         "account": {
           "account": {
-            "address": "LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY",
+            "address": "FPKJ7KD37AEIB3MJ6WXEXJIZH4DACLBNCR5PNUQREUWMC2YLIWFH2NHX24",
             "amount": 500000,
             "amount-without-pending-rewards": 500000,
             "created-at-round": 1,
@@ -436,22 +436,22 @@
       "witnessError": null
     },
     {
-      "name": "App 3 (as account) totals no boxes - no params",
+      "name": "App 1003 (as account) totals no boxes - no params",
       "request": {
-        "path": "/v2/accounts/LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY",
+        "path": "/v2/accounts/FPKJ7KD37AEIB3MJ6WXEXJIZH4DACLBNCR5PNUQREUWMC2YLIWFH2NHX24",
         "params": [],
-        "url": "http://localhost:8999/v2/accounts/LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY",
+        "url": "http://localhost:8999/v2/accounts/FPKJ7KD37AEIB3MJ6WXEXJIZH4DACLBNCR5PNUQREUWMC2YLIWFH2NHX24",
         "route": "/v2/accounts/:account-id"
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"account\":{\"address\":\"LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},\"current-round\":9}\n"
+        "body": "{\"account\":{\"address\":\"FPKJ7KD37AEIB3MJ6WXEXJIZH4DACLBNCR5PNUQREUWMC2YLIWFH2NHX24\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},\"current-round\":9}\n"
       },
       "witness": {
         "goType": "generated.AccountResponse",
         "account": {
           "account": {
-            "address": "LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY",
+            "address": "FPKJ7KD37AEIB3MJ6WXEXJIZH4DACLBNCR5PNUQREUWMC2YLIWFH2NHX24",
             "amount": 500000,
             "amount-without-pending-rewards": 500000,
             "created-at-round": 1,
@@ -474,22 +474,22 @@
       "witnessError": null
     },
     {
-      "name": "App 1 (as account) totals with boxes - no params",
+      "name": "App 1001 (as account) totals with boxes - no params",
       "request": {
-        "path": "/v2/accounts/WCS6TVPJRBSARHLN2326LRU5BYVJZUKI2VJ53CAWKYYHDE455ZGKANWMGM",
+        "path": "/v2/accounts/OKSDOCOXVGMBXQ5TP5YA4VWTZWZJLJP3OMIILPHMHGHURUFE2Q3JP62QNU",
         "params": [],
-        "url": "http://localhost:8999/v2/accounts/WCS6TVPJRBSARHLN2326LRU5BYVJZUKI2VJ53CAWKYYHDE455ZGKANWMGM",
+        "url": "http://localhost:8999/v2/accounts/OKSDOCOXVGMBXQ5TP5YA4VWTZWZJLJP3OMIILPHMHGHURUFE2Q3JP62QNU",
         "route": "/v2/accounts/:account-id"
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"account\":{\"address\":\"WCS6TVPJRBSARHLN2326LRU5BYVJZUKI2VJ53CAWKYYHDE455ZGKANWMGM\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":477,\"total-boxes\":9,\"total-created-apps\":0,\"total-created-assets\":0},\"current-round\":9}\n"
+        "body": "{\"account\":{\"address\":\"OKSDOCOXVGMBXQ5TP5YA4VWTZWZJLJP3OMIILPHMHGHURUFE2Q3JP62QNU\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":477,\"total-boxes\":9,\"total-created-apps\":0,\"total-created-assets\":0},\"current-round\":9}\n"
       },
       "witness": {
         "goType": "generated.AccountResponse",
         "account": {
           "account": {
-            "address": "WCS6TVPJRBSARHLN2326LRU5BYVJZUKI2VJ53CAWKYYHDE455ZGKANWMGM",
+            "address": "OKSDOCOXVGMBXQ5TP5YA4VWTZWZJLJP3OMIILPHMHGHURUFE2Q3JP62QNU",
             "amount": 500000,
             "amount-without-pending-rewards": 500000,
             "created-at-round": 1,
@@ -569,42 +569,42 @@
       "witnessError": null
     },
     {
-      "name": "Boxes of app 3 with no boxes: no params",
+      "name": "Boxes of app 1003 with no boxes: no params",
       "request": {
-        "path": "/v2/applications/3/boxes",
+        "path": "/v2/applications/1003/boxes",
         "params": [],
-        "url": "http://localhost:8999/v2/applications/3/boxes",
+        "url": "http://localhost:8999/v2/applications/1003/boxes",
         "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"application-id\":3,\"boxes\":[]}\n"
+        "body": "{\"application-id\":1003,\"boxes\":[]}\n"
       },
       "witness": {
         "goType": "generated.BoxesResponse",
         "boxes": {
-          "application-id": 3,
+          "application-id": 1003,
           "boxes": []
         }
       },
       "witnessError": null
     },
     {
-      "name": "Boxes of DELETED app 5 with goal encoded boxes: no params",
+      "name": "Boxes of DELETED app 1005 with goal encoded boxes: no params",
       "request": {
-        "path": "/v2/applications/5/boxes",
+        "path": "/v2/applications/1005/boxes",
         "params": [],
-        "url": "http://localhost:8999/v2/applications/5/boxes",
+        "url": "http://localhost:8999/v2/applications/1005/boxes",
         "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"application-id\":5,\"boxes\":[{\"name\":\"AAAAAAAAACo=\"},{\"name\":\"AAAAAAAAAGQ=\"},{\"name\":\"AAAAAAAAAY8ADAAWAAhwbHMgcGFzcwACgA==\"},{\"name\":\"WybsRnqz5Ux5MxW1SJI+w3ZiTT0p5wCDvSVV7yTag4M=\"},{\"name\":\"YjMy\"},{\"name\":\"YjY0\"},{\"name\":\"YmFzZTMy\"},{\"name\":\"YmFzZTY0\"},{\"name\":\"Ynl0ZSBiYXNlMzI=\"},{\"name\":\"Ynl0ZSBiYXNlNjQ=\"},{\"name\":\"c3Ry\"},{\"name\":\"c3RyaW5n\"},{\"name\":\"1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg=\"}],\"next-token\":\"b64:1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg=\"}\n"
+        "body": "{\"application-id\":1005,\"boxes\":[{\"name\":\"AAAAAAAAACo=\"},{\"name\":\"AAAAAAAAAGQ=\"},{\"name\":\"AAAAAAAAAY8ADAAWAAhwbHMgcGFzcwACgA==\"},{\"name\":\"WybsRnqz5Ux5MxW1SJI+w3ZiTT0p5wCDvSVV7yTag4M=\"},{\"name\":\"YjMy\"},{\"name\":\"YjY0\"},{\"name\":\"YmFzZTMy\"},{\"name\":\"YmFzZTY0\"},{\"name\":\"Ynl0ZSBiYXNlMzI=\"},{\"name\":\"Ynl0ZSBiYXNlNjQ=\"},{\"name\":\"c3Ry\"},{\"name\":\"c3RyaW5n\"},{\"name\":\"1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg=\"}],\"next-token\":\"b64:1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg=\"}\n"
       },
       "witness": {
         "goType": "generated.BoxesResponse",
         "boxes": {
-          "application-id": 5,
+          "application-id": 1005,
           "boxes": [
             {
               "name": "AAAAAAAAACo="
@@ -652,21 +652,21 @@
       "witnessError": null
     },
     {
-      "name": "Boxes of app 1 with boxes: no params",
+      "name": "Boxes of app 1001 with boxes: no params",
       "request": {
-        "path": "/v2/applications/1/boxes",
+        "path": "/v2/applications/1001/boxes",
         "params": [],
-        "url": "http://localhost:8999/v2/applications/1/boxes",
+        "url": "http://localhost:8999/v2/applications/1001/boxes",
         "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"QVZNIGlzIHRoZSBuZXcgRVZN\"},{\"name\":\"SSB3aWxsIGJlIGFzc2ltaWxhdGVk\"},{\"name\":\"Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ==\"},{\"name\":\"YSBncmVhdCBib3g=\"},{\"name\":\"YW5vdGhlciBncmVhdCBib3g=\"},{\"name\":\"Ym94ICM4\"},{\"name\":\"ZGlzYXBwb2ludGluZyBib3g=\"},{\"name\":\"ZG9uJ3QgYm94IG1lIGluIHRoaXMgd2F5\"},{\"name\":\"ZmFudGFidWxvdXM=\"}],\"next-token\":\"b64:ZmFudGFidWxvdXM=\"}\n"
+        "body": "{\"application-id\":1001,\"boxes\":[{\"name\":\"QVZNIGlzIHRoZSBuZXcgRVZN\"},{\"name\":\"SSB3aWxsIGJlIGFzc2ltaWxhdGVk\"},{\"name\":\"Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ==\"},{\"name\":\"YSBncmVhdCBib3g=\"},{\"name\":\"YW5vdGhlciBncmVhdCBib3g=\"},{\"name\":\"Ym94ICM4\"},{\"name\":\"ZGlzYXBwb2ludGluZyBib3g=\"},{\"name\":\"ZG9uJ3QgYm94IG1lIGluIHRoaXMgd2F5\"},{\"name\":\"ZmFudGFidWxvdXM=\"}],\"next-token\":\"b64:ZmFudGFidWxvdXM=\"}\n"
       },
       "witness": {
         "goType": "generated.BoxesResponse",
         "boxes": {
-          "application-id": 1,
+          "application-id": 1001,
           "boxes": [
             {
               "name": "QVZNIGlzIHRoZSBuZXcgRVZN"
@@ -702,26 +702,26 @@
       "witnessError": null
     },
     {
-      "name": "Boxes of app 1 with boxes: limit 3 - page 1",
+      "name": "Boxes of app 1001 with boxes: limit 3 - page 1",
       "request": {
-        "path": "/v2/applications/1/boxes",
+        "path": "/v2/applications/1001/boxes",
         "params": [
           {
             "name": "limit",
             "value": "3"
           }
         ],
-        "url": "http://localhost:8999/v2/applications/1/boxes?limit=3",
+        "url": "http://localhost:8999/v2/applications/1001/boxes?limit=3",
         "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"QVZNIGlzIHRoZSBuZXcgRVZN\"},{\"name\":\"SSB3aWxsIGJlIGFzc2ltaWxhdGVk\"},{\"name\":\"Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ==\"}],\"next-token\":\"b64:Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ==\"}\n"
+        "body": "{\"application-id\":1001,\"boxes\":[{\"name\":\"QVZNIGlzIHRoZSBuZXcgRVZN\"},{\"name\":\"SSB3aWxsIGJlIGFzc2ltaWxhdGVk\"},{\"name\":\"Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ==\"}],\"next-token\":\"b64:Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ==\"}\n"
       },
       "witness": {
         "goType": "generated.BoxesResponse",
         "boxes": {
-          "application-id": 1,
+          "application-id": 1001,
           "boxes": [
             {
               "name": "QVZNIGlzIHRoZSBuZXcgRVZN"
@@ -739,9 +739,9 @@
       "witnessError": null
     },
     {
-      "name": "Boxes of app 1 with boxes: limit 3 - page 2 - b64",
+      "name": "Boxes of app 1001 with boxes: limit 3 - page 2 - b64",
       "request": {
-        "path": "/v2/applications/1/boxes",
+        "path": "/v2/applications/1001/boxes",
         "params": [
           {
             "name": "limit",
@@ -752,17 +752,17 @@
             "value": "b64:Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ=="
           }
         ],
-        "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=b64%3AUv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ%3D%3D",
+        "url": "http://localhost:8999/v2/applications/1001/boxes?limit=3\u0026next=b64%3AUv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ%3D%3D",
         "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"YSBncmVhdCBib3g=\"},{\"name\":\"YW5vdGhlciBncmVhdCBib3g=\"},{\"name\":\"Ym94ICM4\"}],\"next-token\":\"b64:Ym94ICM4\"}\n"
+        "body": "{\"application-id\":1001,\"boxes\":[{\"name\":\"YSBncmVhdCBib3g=\"},{\"name\":\"YW5vdGhlciBncmVhdCBib3g=\"},{\"name\":\"Ym94ICM4\"}],\"next-token\":\"b64:Ym94ICM4\"}\n"
       },
       "witness": {
         "goType": "generated.BoxesResponse",
         "boxes": {
-          "application-id": 1,
+          "application-id": 1001,
           "boxes": [
             {
               "name": "YSBncmVhdCBib3g="
@@ -780,9 +780,9 @@
       "witnessError": null
     },
     {
-      "name": "Boxes of app 1 with boxes: limit 3 - page 3 - b64",
+      "name": "Boxes of app 1001 with boxes: limit 3 - page 3 - b64",
       "request": {
-        "path": "/v2/applications/1/boxes",
+        "path": "/v2/applications/1001/boxes",
         "params": [
           {
             "name": "limit",
@@ -793,17 +793,17 @@
             "value": "b64:Ym94ICM4"
           }
         ],
-        "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=b64%3AYm94ICM4",
+        "url": "http://localhost:8999/v2/applications/1001/boxes?limit=3\u0026next=b64%3AYm94ICM4",
         "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"ZGlzYXBwb2ludGluZyBib3g=\"},{\"name\":\"ZG9uJ3QgYm94IG1lIGluIHRoaXMgd2F5\"},{\"name\":\"ZmFudGFidWxvdXM=\"}],\"next-token\":\"b64:ZmFudGFidWxvdXM=\"}\n"
+        "body": "{\"application-id\":1001,\"boxes\":[{\"name\":\"ZGlzYXBwb2ludGluZyBib3g=\"},{\"name\":\"ZG9uJ3QgYm94IG1lIGluIHRoaXMgd2F5\"},{\"name\":\"ZmFudGFidWxvdXM=\"}],\"next-token\":\"b64:ZmFudGFidWxvdXM=\"}\n"
       },
       "witness": {
         "goType": "generated.BoxesResponse",
         "boxes": {
-          "application-id": 1,
+          "application-id": 1001,
           "boxes": [
             {
               "name": "ZGlzYXBwb2ludGluZyBib3g="
@@ -821,9 +821,9 @@
       "witnessError": null
     },
     {
-      "name": "Boxes of app 1 with boxes: limit 3 - MISSING b64 prefix",
+      "name": "Boxes of app 1001 with boxes: limit 3 - MISSING b64 prefix",
       "request": {
-        "path": "/v2/applications/1/boxes",
+        "path": "/v2/applications/1001/boxes",
         "params": [
           {
             "name": "limit",
@@ -834,7 +834,7 @@
             "value": "Ym94ICM4"
           }
         ],
-        "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=Ym94ICM4",
+        "url": "http://localhost:8999/v2/applications/1001/boxes?limit=3\u0026next=Ym94ICM4",
         "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
@@ -845,9 +845,9 @@
       "witnessError": "400 error"
     },
     {
-      "name": "Boxes of app 1 with boxes: limit 3 - goal app arg encoding str",
+      "name": "Boxes of app 1001 with boxes: limit 3 - goal app arg encoding str",
       "request": {
-        "path": "/v2/applications/1/boxes",
+        "path": "/v2/applications/1001/boxes",
         "params": [
           {
             "name": "limit",
@@ -858,17 +858,17 @@
             "value": "str:box #8"
           }
         ],
-        "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=str%3Abox+%238",
+        "url": "http://localhost:8999/v2/applications/1001/boxes?limit=3\u0026next=str%3Abox+%238",
         "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"ZGlzYXBwb2ludGluZyBib3g=\"},{\"name\":\"ZG9uJ3QgYm94IG1lIGluIHRoaXMgd2F5\"},{\"name\":\"ZmFudGFidWxvdXM=\"}],\"next-token\":\"b64:ZmFudGFidWxvdXM=\"}\n"
+        "body": "{\"application-id\":1001,\"boxes\":[{\"name\":\"ZGlzYXBwb2ludGluZyBib3g=\"},{\"name\":\"ZG9uJ3QgYm94IG1lIGluIHRoaXMgd2F5\"},{\"name\":\"ZmFudGFidWxvdXM=\"}],\"next-token\":\"b64:ZmFudGFidWxvdXM=\"}\n"
       },
       "witness": {
         "goType": "generated.BoxesResponse",
         "boxes": {
-          "application-id": 1,
+          "application-id": 1001,
           "boxes": [
             {
               "name": "ZGlzYXBwb2ludGluZyBib3g="
@@ -886,9 +886,9 @@
       "witnessError": null
     },
     {
-      "name": "Boxes of app 1 with boxes: limit 3 - page 4 (empty) - b64",
+      "name": "Boxes of app 1001 with boxes: limit 3 - page 4 (empty) - b64",
       "request": {
-        "path": "/v2/applications/1/boxes",
+        "path": "/v2/applications/1001/boxes",
         "params": [
           {
             "name": "limit",
@@ -899,26 +899,26 @@
             "value": "b64:ZmFudGFidWxvdXM="
           }
         ],
-        "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=b64%3AZmFudGFidWxvdXM%3D",
+        "url": "http://localhost:8999/v2/applications/1001/boxes?limit=3\u0026next=b64%3AZmFudGFidWxvdXM%3D",
         "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"application-id\":1,\"boxes\":[]}\n"
+        "body": "{\"application-id\":1001,\"boxes\":[]}\n"
       },
       "witness": {
         "goType": "generated.BoxesResponse",
         "boxes": {
-          "application-id": 1,
+          "application-id": 1001,
           "boxes": []
         }
       },
       "witnessError": null
     },
     {
-      "name": "Boxes of app 1 with boxes: limit 3 - ERROR because when next param provided -even empty string- it must be goal app arg encoded",
+      "name": "Boxes of app 1001 with boxes: limit 3 - ERROR because when next param provided -even empty string- it must be goal app arg encoded",
       "request": {
-        "path": "/v2/applications/1/boxes",
+        "path": "/v2/applications/1001/boxes",
         "params": [
           {
             "name": "limit",
@@ -929,7 +929,7 @@
             "value": ""
           }
         ],
-        "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=",
+        "url": "http://localhost:8999/v2/applications/1001/boxes?limit=3\u0026next=",
         "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
@@ -1015,11 +1015,11 @@
       "witnessError": "400 error"
     },
     {
-      "name": "A box attempt for a existing app 3 - without the required box name param",
+      "name": "A box attempt for a existing app 1003 - without the required box name param",
       "request": {
-        "path": "/v2/applications/3/box",
+        "path": "/v2/applications/1003/box",
         "params": [],
-        "url": "http://localhost:8999/v2/applications/3/box",
+        "url": "http://localhost:8999/v2/applications/1003/box",
         "route": "/v2/applications/:application-id/box"
       },
       "response": {
@@ -1030,56 +1030,56 @@
       "witnessError": "400 error"
     },
     {
-      "name": "App 3 box (non-existing)",
+      "name": "App 1003 box (non-existing)",
       "request": {
-        "path": "/v2/applications/3/box",
+        "path": "/v2/applications/1003/box",
         "params": [
           {
             "name": "name",
             "value": "string:non-existing"
           }
         ],
-        "url": "http://localhost:8999/v2/applications/3/box?name=string%3Anon-existing",
+        "url": "http://localhost:8999/v2/applications/1003/box?name=string%3Anon-existing",
         "route": "/v2/applications/:application-id/box"
       },
       "response": {
         "statusCode": 404,
-        "body": "{\"message\":\"no application boxes found: round=9, appid=3, boxName=string:non-existing\"}\n"
+        "body": "{\"message\":\"no application boxes found: round=9, appid=1003, boxName=string:non-existing\"}\n"
       },
       "witness": null,
       "witnessError": "404 error"
     },
     {
-      "name": "App 1 box (non-existing)",
+      "name": "App 1001 box (non-existing)",
       "request": {
-        "path": "/v2/applications/1/box",
+        "path": "/v2/applications/1001/box",
         "params": [
           {
             "name": "name",
             "value": "string:non-existing"
           }
         ],
-        "url": "http://localhost:8999/v2/applications/1/box?name=string%3Anon-existing",
+        "url": "http://localhost:8999/v2/applications/1001/box?name=string%3Anon-existing",
         "route": "/v2/applications/:application-id/box"
       },
       "response": {
         "statusCode": 404,
-        "body": "{\"message\":\"no application boxes found: round=9, appid=1, boxName=string:non-existing\"}\n"
+        "body": "{\"message\":\"no application boxes found: round=9, appid=1001, boxName=string:non-existing\"}\n"
       },
       "witness": null,
       "witnessError": "404 error"
     },
     {
-      "name": "App 1 box (a great box)",
+      "name": "App 1001 box (a great box)",
       "request": {
-        "path": "/v2/applications/1/box",
+        "path": "/v2/applications/1001/box",
         "params": [
           {
             "name": "name",
             "value": "string:a great box"
           }
         ],
-        "url": "http://localhost:8999/v2/applications/1/box?name=string%3Aa+great+box",
+        "url": "http://localhost:8999/v2/applications/1001/box?name=string%3Aa+great+box",
         "route": "/v2/applications/:application-id/box"
       },
       "response": {
@@ -1087,7 +1087,7 @@
         "body": "{\"name\":\"YSBncmVhdCBib3g=\",\"value\":\"aXQncyBhIHdvbmRlcmZ1bCBib3gAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
-        "goType": "generated.BoxResponse",
+        "goType": "generated.Box",
         "box": {
           "name": "YSBncmVhdCBib3g=",
           "value": "aXQncyBhIHdvbmRlcmZ1bCBib3gAAAAAAAAAAAAAAAA="
@@ -1096,16 +1096,16 @@
       "witnessError": null
     },
     {
-      "name": "DELETED app 5 encoding (str:str) - no params",
+      "name": "DELETED app 1005 encoding (str:str) - no params",
       "request": {
-        "path": "/v2/applications/5/box",
+        "path": "/v2/applications/1005/box",
         "params": [
           {
             "name": "name",
             "value": "str:str"
           }
         ],
-        "url": "http://localhost:8999/v2/applications/5/box?name=str%3Astr",
+        "url": "http://localhost:8999/v2/applications/1005/box?name=str%3Astr",
         "route": "/v2/applications/:application-id/box"
       },
       "response": {
@@ -1113,7 +1113,7 @@
         "body": "{\"name\":\"c3Ry\",\"value\":\"c3RyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
-        "goType": "generated.BoxResponse",
+        "goType": "generated.Box",
         "box": {
           "name": "c3Ry",
           "value": "c3RyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
@@ -1122,16 +1122,16 @@
       "witnessError": null
     },
     {
-      "name": "DELETED app 5 encoding (integer:100) - no params",
+      "name": "DELETED app 1005 encoding (integer:100) - no params",
       "request": {
-        "path": "/v2/applications/5/box",
+        "path": "/v2/applications/1005/box",
         "params": [
           {
             "name": "name",
             "value": "integer:100"
           }
         ],
-        "url": "http://localhost:8999/v2/applications/5/box?name=integer%3A100",
+        "url": "http://localhost:8999/v2/applications/1005/box?name=integer%3A100",
         "route": "/v2/applications/:application-id/box"
       },
       "response": {
@@ -1139,7 +1139,7 @@
         "body": "{\"name\":\"AAAAAAAAAGQ=\",\"value\":\"AAAAAAAAAGQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
-        "goType": "generated.BoxResponse",
+        "goType": "generated.Box",
         "box": {
           "name": "AAAAAAAAAGQ=",
           "value": "AAAAAAAAAGQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
@@ -1148,16 +1148,16 @@
       "witnessError": null
     },
     {
-      "name": "DELETED app 5 encoding (base32:MJQXGZJTGI======) - no params",
+      "name": "DELETED app 1005 encoding (base32:MJQXGZJTGI======) - no params",
       "request": {
-        "path": "/v2/applications/5/box",
+        "path": "/v2/applications/1005/box",
         "params": [
           {
             "name": "name",
             "value": "base32:MJQXGZJTGI======"
           }
         ],
-        "url": "http://localhost:8999/v2/applications/5/box?name=base32%3AMJQXGZJTGI%3D%3D%3D%3D%3D%3D",
+        "url": "http://localhost:8999/v2/applications/1005/box?name=base32%3AMJQXGZJTGI%3D%3D%3D%3D%3D%3D",
         "route": "/v2/applications/:application-id/box"
       },
       "response": {
@@ -1165,7 +1165,7 @@
         "body": "{\"name\":\"YmFzZTMy\",\"value\":\"YmFzZTMyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
-        "goType": "generated.BoxResponse",
+        "goType": "generated.Box",
         "box": {
           "name": "YmFzZTMy",
           "value": "YmFzZTMyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
@@ -1174,16 +1174,16 @@
       "witnessError": null
     },
     {
-      "name": "DELETED app 5 encoding (b64:YjY0) - no params",
+      "name": "DELETED app 1005 encoding (b64:YjY0) - no params",
       "request": {
-        "path": "/v2/applications/5/box",
+        "path": "/v2/applications/1005/box",
         "params": [
           {
             "name": "name",
             "value": "b64:YjY0"
           }
         ],
-        "url": "http://localhost:8999/v2/applications/5/box?name=b64%3AYjY0",
+        "url": "http://localhost:8999/v2/applications/1005/box?name=b64%3AYjY0",
         "route": "/v2/applications/:application-id/box"
       },
       "response": {
@@ -1191,7 +1191,7 @@
         "body": "{\"name\":\"YjY0\",\"value\":\"YjY0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
-        "goType": "generated.BoxResponse",
+        "goType": "generated.Box",
         "box": {
           "name": "YjY0",
           "value": "YjY0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
@@ -1200,16 +1200,16 @@
       "witnessError": null
     },
     {
-      "name": "DELETED app 5 encoding (base64:YmFzZTY0) - no params",
+      "name": "DELETED app 1005 encoding (base64:YmFzZTY0) - no params",
       "request": {
-        "path": "/v2/applications/5/box",
+        "path": "/v2/applications/1005/box",
         "params": [
           {
             "name": "name",
             "value": "base64:YmFzZTY0"
           }
         ],
-        "url": "http://localhost:8999/v2/applications/5/box?name=base64%3AYmFzZTY0",
+        "url": "http://localhost:8999/v2/applications/1005/box?name=base64%3AYmFzZTY0",
         "route": "/v2/applications/:application-id/box"
       },
       "response": {
@@ -1217,7 +1217,7 @@
         "body": "{\"name\":\"YmFzZTY0\",\"value\":\"YmFzZTY0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
-        "goType": "generated.BoxResponse",
+        "goType": "generated.Box",
         "box": {
           "name": "YmFzZTY0",
           "value": "YmFzZTY0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
@@ -1226,16 +1226,16 @@
       "witnessError": null
     },
     {
-      "name": "DELETED app 5 encoding (string:string) - no params",
+      "name": "DELETED app 1005 encoding (string:string) - no params",
       "request": {
-        "path": "/v2/applications/5/box",
+        "path": "/v2/applications/1005/box",
         "params": [
           {
             "name": "name",
             "value": "string:string"
           }
         ],
-        "url": "http://localhost:8999/v2/applications/5/box?name=string%3Astring",
+        "url": "http://localhost:8999/v2/applications/1005/box?name=string%3Astring",
         "route": "/v2/applications/:application-id/box"
       },
       "response": {
@@ -1243,7 +1243,7 @@
         "body": "{\"name\":\"c3RyaW5n\",\"value\":\"c3RyaW5nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
-        "goType": "generated.BoxResponse",
+        "goType": "generated.Box",
         "box": {
           "name": "c3RyaW5n",
           "value": "c3RyaW5nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
@@ -1252,16 +1252,16 @@
       "witnessError": null
     },
     {
-      "name": "DELETED app 5 encoding (int:42) - no params",
+      "name": "DELETED app 1005 encoding (int:42) - no params",
       "request": {
-        "path": "/v2/applications/5/box",
+        "path": "/v2/applications/1005/box",
         "params": [
           {
             "name": "name",
             "value": "int:42"
           }
         ],
-        "url": "http://localhost:8999/v2/applications/5/box?name=int%3A42",
+        "url": "http://localhost:8999/v2/applications/1005/box?name=int%3A42",
         "route": "/v2/applications/:application-id/box"
       },
       "response": {
@@ -1269,7 +1269,7 @@
         "body": "{\"name\":\"AAAAAAAAACo=\",\"value\":\"AAAAAAAAACoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
-        "goType": "generated.BoxResponse",
+        "goType": "generated.Box",
         "box": {
           "name": "AAAAAAAAACo=",
           "value": "AAAAAAAAACoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
@@ -1278,16 +1278,16 @@
       "witnessError": null
     },
     {
-      "name": "DELETED app 5 encoding (abi:(uint64,string,bool[]):[399,\"pls pass\",[true,false]]) - no params",
+      "name": "DELETED app 1005 encoding (abi:(uint64,string,bool[]):[399,\"pls pass\",[true,false]]) - no params",
       "request": {
-        "path": "/v2/applications/5/box",
+        "path": "/v2/applications/1005/box",
         "params": [
           {
             "name": "name",
             "value": "abi:(uint64,string,bool[]):[399,\"pls pass\",[true,false]]"
           }
         ],
-        "url": "http://localhost:8999/v2/applications/5/box?name=abi%3A%28uint64%2Cstring%2Cbool%5B%5D%29%3A%5B399%2C%22pls+pass%22%2C%5Btrue%2Cfalse%5D%5D",
+        "url": "http://localhost:8999/v2/applications/1005/box?name=abi%3A%28uint64%2Cstring%2Cbool%5B%5D%29%3A%5B399%2C%22pls+pass%22%2C%5Btrue%2Cfalse%5D%5D",
         "route": "/v2/applications/:application-id/box"
       },
       "response": {
@@ -1295,7 +1295,7 @@
         "body": "{\"name\":\"AAAAAAAAAY8ADAAWAAhwbHMgcGFzcwACgA==\",\"value\":\"AAAAAAAAAY8ADAAWAAhwbHMgcGFzcwACgAAAAAAAAAA=\"}\n"
       },
       "witness": {
-        "goType": "generated.BoxResponse",
+        "goType": "generated.Box",
         "box": {
           "name": "AAAAAAAAAY8ADAAWAAhwbHMgcGFzcwACgA==",
           "value": "AAAAAAAAAY8ADAAWAAhwbHMgcGFzcwACgAAAAAAAAAA="
@@ -1304,16 +1304,16 @@
       "witnessError": null
     },
     {
-      "name": "DELETED app 5 encoding (addr:LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY) - no params",
+      "name": "DELETED app 1005 encoding (addr:LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY) - no params",
       "request": {
-        "path": "/v2/applications/5/box",
+        "path": "/v2/applications/1005/box",
         "params": [
           {
             "name": "name",
             "value": "addr:LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY"
           }
         ],
-        "url": "http://localhost:8999/v2/applications/5/box?name=addr%3ALMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY",
+        "url": "http://localhost:8999/v2/applications/1005/box?name=addr%3ALMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY",
         "route": "/v2/applications/:application-id/box"
       },
       "response": {
@@ -1321,7 +1321,7 @@
         "body": "{\"name\":\"WybsRnqz5Ux5MxW1SJI+w3ZiTT0p5wCDvSVV7yTag4M=\",\"value\":\"WybsRnqz5Ux5MxW1SJI+w3ZiTT0p5wCDvSVV7yTag4M=\"}\n"
       },
       "witness": {
-        "goType": "generated.BoxResponse",
+        "goType": "generated.Box",
         "box": {
           "name": "WybsRnqz5Ux5MxW1SJI+w3ZiTT0p5wCDvSVV7yTag4M=",
           "value": "WybsRnqz5Ux5MxW1SJI+w3ZiTT0p5wCDvSVV7yTag4M="
@@ -1330,16 +1330,16 @@
       "witnessError": null
     },
     {
-      "name": "DELETED app 5 encoding (address:2SYXFSCZAQCZ7YIFUCUZYOVR7G6Y3UBGSJIWT4EZ4CO3T6WVYTMHVSANOY) - no params",
+      "name": "DELETED app 1005 encoding (address:2SYXFSCZAQCZ7YIFUCUZYOVR7G6Y3UBGSJIWT4EZ4CO3T6WVYTMHVSANOY) - no params",
       "request": {
-        "path": "/v2/applications/5/box",
+        "path": "/v2/applications/1005/box",
         "params": [
           {
             "name": "name",
             "value": "address:2SYXFSCZAQCZ7YIFUCUZYOVR7G6Y3UBGSJIWT4EZ4CO3T6WVYTMHVSANOY"
           }
         ],
-        "url": "http://localhost:8999/v2/applications/5/box?name=address%3A2SYXFSCZAQCZ7YIFUCUZYOVR7G6Y3UBGSJIWT4EZ4CO3T6WVYTMHVSANOY",
+        "url": "http://localhost:8999/v2/applications/1005/box?name=address%3A2SYXFSCZAQCZ7YIFUCUZYOVR7G6Y3UBGSJIWT4EZ4CO3T6WVYTMHVSANOY",
         "route": "/v2/applications/:application-id/box"
       },
       "response": {
@@ -1347,7 +1347,7 @@
         "body": "{\"name\":\"1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg=\",\"value\":\"1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg=\"}\n"
       },
       "witness": {
-        "goType": "generated.BoxResponse",
+        "goType": "generated.Box",
         "box": {
           "name": "1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg=",
           "value": "1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg="
@@ -1356,16 +1356,16 @@
       "witnessError": null
     },
     {
-      "name": "DELETED app 5 encoding (b32:MIZTE===) - no params",
+      "name": "DELETED app 1005 encoding (b32:MIZTE===) - no params",
       "request": {
-        "path": "/v2/applications/5/box",
+        "path": "/v2/applications/1005/box",
         "params": [
           {
             "name": "name",
             "value": "b32:MIZTE==="
           }
         ],
-        "url": "http://localhost:8999/v2/applications/5/box?name=b32%3AMIZTE%3D%3D%3D",
+        "url": "http://localhost:8999/v2/applications/1005/box?name=b32%3AMIZTE%3D%3D%3D",
         "route": "/v2/applications/:application-id/box"
       },
       "response": {
@@ -1373,7 +1373,7 @@
         "body": "{\"name\":\"YjMy\",\"value\":\"YjMyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
-        "goType": "generated.BoxResponse",
+        "goType": "generated.Box",
         "box": {
           "name": "YjMy",
           "value": "YjMyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
@@ -1382,16 +1382,16 @@
       "witnessError": null
     },
     {
-      "name": "DELETED app 5 encoding (byte base32:MJ4XIZJAMJQXGZJTGI======) - no params",
+      "name": "DELETED app 1005 encoding (byte base32:MJ4XIZJAMJQXGZJTGI======) - no params",
       "request": {
-        "path": "/v2/applications/5/box",
+        "path": "/v2/applications/1005/box",
         "params": [
           {
             "name": "name",
             "value": "byte base32:MJ4XIZJAMJQXGZJTGI======"
           }
         ],
-        "url": "http://localhost:8999/v2/applications/5/box?name=byte+base32%3AMJ4XIZJAMJQXGZJTGI%3D%3D%3D%3D%3D%3D",
+        "url": "http://localhost:8999/v2/applications/1005/box?name=byte+base32%3AMJ4XIZJAMJQXGZJTGI%3D%3D%3D%3D%3D%3D",
         "route": "/v2/applications/:application-id/box"
       },
       "response": {
@@ -1399,7 +1399,7 @@
         "body": "{\"name\":\"Ynl0ZSBiYXNlMzI=\",\"value\":\"Ynl0ZSBiYXNlMzIAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
-        "goType": "generated.BoxResponse",
+        "goType": "generated.Box",
         "box": {
           "name": "Ynl0ZSBiYXNlMzI=",
           "value": "Ynl0ZSBiYXNlMzIAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
@@ -1408,16 +1408,16 @@
       "witnessError": null
     },
     {
-      "name": "DELETED app 5 encoding (byte base64:Ynl0ZSBiYXNlNjQ=) - no params",
+      "name": "DELETED app 1005 encoding (byte base64:Ynl0ZSBiYXNlNjQ=) - no params",
       "request": {
-        "path": "/v2/applications/5/box",
+        "path": "/v2/applications/1005/box",
         "params": [
           {
             "name": "name",
             "value": "byte base64:Ynl0ZSBiYXNlNjQ="
           }
         ],
-        "url": "http://localhost:8999/v2/applications/5/box?name=byte+base64%3AYnl0ZSBiYXNlNjQ%3D",
+        "url": "http://localhost:8999/v2/applications/1005/box?name=byte+base64%3AYnl0ZSBiYXNlNjQ%3D",
         "route": "/v2/applications/:application-id/box"
       },
       "response": {
@@ -1425,7 +1425,7 @@
         "body": "{\"name\":\"Ynl0ZSBiYXNlNjQ=\",\"value\":\"Ynl0ZSBiYXNlNjQAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
-        "goType": "generated.BoxResponse",
+        "goType": "generated.Box",
         "box": {
           "name": "Ynl0ZSBiYXNlNjQ=",
           "value": "Ynl0ZSBiYXNlNjQAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
@@ -1434,16 +1434,16 @@
       "witnessError": null
     },
     {
-      "name": "DELETED app 5 illegal encoding (just a plain string) - no params",
+      "name": "DELETED app 1005 illegal encoding (just a plain string) - no params",
       "request": {
-        "path": "/v2/applications/5/box",
+        "path": "/v2/applications/1005/box",
         "params": [
           {
             "name": "name",
             "value": "just a plain string"
           }
         ],
-        "url": "http://localhost:8999/v2/applications/5/box?name=just+a+plain+string",
+        "url": "http://localhost:8999/v2/applications/1005/box?name=just+a+plain+string",
         "route": "/v2/applications/:application-id/box"
       },
       "response": {
