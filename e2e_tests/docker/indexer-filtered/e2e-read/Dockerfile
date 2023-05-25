@@ -21,4 +21,4 @@ RUN pip3 install ./
 ENV INDEXER_DATA="${HOME}/indexer/"
 WORKDIR /opt/go/indexer
 # Run test script
-ENTRYPOINT ["/bin/bash", "-c", "sleep 5 && e2elive $EXTRA --connection-string \"$CONNECTION_STRING\" --indexer-bin /opt/go/indexer/cmd/algorand-indexer/algorand-indexer --indexer-port 9890 --read-only True --verbose"]
+ENTRYPOINT ["/bin/bash", "-c", "env && sleep 5 && e2elive $EXTRA --connection-string \"$CONNECTION_STRING\" --indexer-bin /opt/go/indexer/cmd/algorand-indexer/algorand-indexer --indexer-port 9890 --read-only True --verbose"]
