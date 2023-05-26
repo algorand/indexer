@@ -15,9 +15,10 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/idb/postgres/internal/writer"
-	"github.com/algorand/indexer/protocol"
-	"github.com/algorand/indexer/protocol/config"
 	"github.com/algorand/indexer/util/test"
+
+	"github.com/algorand/go-algorand-sdk/v2/protocol"
+	"github.com/algorand/go-algorand-sdk/v2/protocol/config"
 )
 
 type boxTestComparator func(t *testing.T, db *IndexerDb, appBoxes map[sdk.AppIndex]map[string]string,

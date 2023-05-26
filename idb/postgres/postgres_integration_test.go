@@ -26,11 +26,11 @@ import (
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
 	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
 	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
-	"github.com/algorand/indexer/protocol"
 	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/test"
 
 	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
+	"github.com/algorand/go-algorand-sdk/v2/protocol"
 	"github.com/algorand/go-codec/codec"
 )
 

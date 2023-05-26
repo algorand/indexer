@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/algorand/indexer/protocol"
-	"github.com/algorand/indexer/protocol/config"
 	"github.com/algorand/indexer/util"
 
 	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
+	"github.com/algorand/go-algorand-sdk/v2/protocol"
+	"github.com/algorand/go-algorand-sdk/v2/protocol/config"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
