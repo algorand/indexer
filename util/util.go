@@ -13,10 +13,10 @@ import (
 
 	"github.com/algorand/go-codec/codec"
 	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/protocol"
-	"github.com/algorand/indexer/protocol/config"
 
 	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
+	"github.com/algorand/go-algorand-sdk/v2/protocol"
+	"github.com/algorand/go-algorand-sdk/v2/protocol/config"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 

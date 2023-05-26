@@ -29,11 +29,11 @@ import (
 	"github.com/algorand/indexer/idb/postgres/internal/types"
 	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
 	"github.com/algorand/indexer/idb/postgres/internal/writer"
-	"github.com/algorand/indexer/protocol"
-	"github.com/algorand/indexer/protocol/config"
 	itypes "github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/util"
 
+	"github.com/algorand/go-algorand-sdk/v2/protocol"
+	"github.com/algorand/go-algorand-sdk/v2/protocol/config"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
