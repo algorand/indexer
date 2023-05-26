@@ -25,7 +25,7 @@ WORKDIR /opt/go/indexer
 RUN make
 ENV PATH="${HOME}/go/bin/:${PATH}"
 WORKDIR /opt/go
-RUN git clone https://github.com/algorand/conduit
+RUN git clone --depth 1 -b master https://github.com/algorand/conduit
 WORKDIR /opt/go/conduit
 RUN make
 WORKDIR /opt/go/indexer/e2e_tests
@@ -37,10 +37,14 @@ WORKDIR /opt/go/indexer
 # Retrieve the network data
 RUN get-test-data --s3-source-net ${CI_E2E_FILENAME} --algod-dir /opt/algod-dir
 
+RUN echo "Channel: $CHANNEL"
+RUN echo "AWS tarball: $CI_E2E_FILENAME"
+
 # Run test script
 CMD ["/bin/bash", "-c", \
-"goal network start -r /opt/algod-dir/net/ && \
-export ALGOD_ADDR=http://$(cat /opt/algod-dir/net/Node/algod.net) && \
-export ALGOD_TOKEN=$(cat /opt/algod-dir/net/Node/algod.token) && \
-cat ./e2e_tests/docker/indexer-filtered/e2e-write/conduit.yml | envsubst > /opt/conduit-dir/conduit.yml && \
-/opt/go/conduit/cmd/conduit/conduit -d /opt/conduit-dir"]
+    "env && \
+    goal network start -r /opt/algod-dir/net/ && \
+    export ALGOD_ADDR=http://$(cat /opt/algod-dir/net/Node/algod.net) && \
+    export ALGOD_TOKEN=$(cat /opt/algod-dir/net/Node/algod.token) && \
+    cat ./e2e_tests/docker/indexer-filtered/e2e-write/conduit.yml | envsubst > /opt/conduit-dir/conduit.yml && \
+    /opt/go/conduit/cmd/conduit/conduit -d /opt/conduit-dir"]

@@ -46,7 +46,7 @@ jobs:
       go_version:
         type: string
     environment:
-      CI_E2E_FILENAME: "fa6ad40d/rel-nightly"
+      CI_E2E_FILENAME: "f99e7b0c/rel-nightly"
     steps:
       - go/install:
           version: << parameters.go_version >>
@@ -54,8 +54,9 @@ jobs:
       - install_linter
       - run_tests
       # Change this to run_e2e_tests once we have stable algod binaries containing delta APIs
-      # - run_e2e_tests_nightly
+      - run_e2e_tests_nightly
       - codecov/upload
+
   test_nightly:
     machine:
       image: << pipeline.parameters.ubuntu_image >>
@@ -133,6 +134,7 @@ commands:
           command: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.47.3
 
   run_e2e_tests:
+    # no "-nightly" in final 2 steps
     steps:
       - run:
           name: Install go-algorand stable binaries
@@ -144,6 +146,7 @@ commands:
       - run: make e2e-filter-test
 
   run_e2e_tests_nightly:
+    # "-nightly" suffix in final 2 steps
     steps:
       - run:
           name: Install go-algorand nightly binaries

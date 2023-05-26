@@ -22,7 +22,7 @@ WORKDIR /opt/go/indexer
 RUN make
 ENV PATH="${HOME}/go/bin/:${PATH}"
 WORKDIR /opt/go
-RUN git clone https://github.com/algorand/conduit
+RUN git clone --depth 1 -b master https://github.com/algorand/conduit
 WORKDIR /opt/go/conduit
 RUN make
 WORKDIR /opt/go/indexer/e2e_tests
@@ -31,5 +31,8 @@ RUN mkdir -p /opt/tmp-conduit && cp /opt/go/indexer/e2e_tests/docker/indexer/con
 
 ENV INDEXER_DATA="${HOME}/indexer/"
 WORKDIR /opt/go/indexer
+
+RUN echo "Channel: $CHANNEL"
+
 # Run test script
-ENTRYPOINT ["/bin/bash", "-c", "sleep 5 && e2elive $EXTRA --connection-string \"$CONNECTION_STRING\" --s3-source-net \"$CI_E2E_FILENAME\" --indexer-bin /opt/go/indexer/cmd/algorand-indexer/algorand-indexer --indexer-port 9890 --conduit-bin /opt/go/conduit/cmd/conduit/conduit --conduit-dir /opt/tmp-conduit"]
+ENTRYPOINT ["/bin/bash", "-c", "env && sleep 5 && e2elive $EXTRA --connection-string \"$CONNECTION_STRING\" --s3-source-net \"$CI_E2E_FILENAME\" --indexer-bin /opt/go/indexer/cmd/algorand-indexer/algorand-indexer --indexer-port 9890 --conduit-bin /opt/go/conduit/cmd/conduit/conduit --conduit-dir /opt/tmp-conduit"]

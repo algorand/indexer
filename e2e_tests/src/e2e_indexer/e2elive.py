@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 import atexit
+import functools
 import glob
 import gzip
+import inspect
 import io
 import json
 import logging
@@ -15,7 +17,9 @@ import threading
 import time
 import urllib.request
 
+import e2e_common.util
 from e2e_common.util import (
+    nxrun,
     xrun,
     atexitrun,
     find_binary,
@@ -24,63 +28,25 @@ from e2e_common.util import (
     hassuffix,
     countblocks,
 )
+import e2e_indexer.validate_accounting
+from e2e_indexer.validate_accounting import logger as va_logger, validate_accounting
 
 logger = logging.getLogger(__name__)
 
 
 def main():
     start = time.time()
-    import argparse
 
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--keep-temps", default=False, action="store_true")
-    # keep alive is convenient in docker environments to prevent exiting after an error
-    ap.add_argument("--keep-alive", default=False, action="store_true")
-    ap.add_argument(
-        "--indexer-bin",
-        default=None,
-        help="path to algorand-indexer binary, otherwise search PATH",
-    )
-    ap.add_argument(
-        "--indexer-port",
-        default=None,
-        type=int,
-        help="port to run indexer on. defaults to random in [4000,30000]",
-    )
-    ap.add_argument(
-        "--conduit-bin",
-        default=None,
-        help="path to the conduit binary, otherwise search PATH"
-    )
-    ap.add_argument(
-        "--conduit-dir",
-        default=None,
-        help="Path to the directory in which to run conduit. Required when not read-only."
-    )
-    ap.add_argument(
-        "--connection-string",
-        help="Use this connection string instead of attempting to manage a local database.",
-    )
-    ap.add_argument(
-        "--source-net",
-        help="Path to test network directory containing Primary and other nodes. May be a tar file.",
-    )
-    ap.add_argument(
-        "--s3-source-net",
-        help="AWS S3 key suffix to test network tarball containing Primary and other nodes. Must be a tar bz2 file.",
-    )
-    ap.add_argument(
-        "--read-only",
-        default=False,
-        type=bool,
-        help="Run the indexer daemon in read-only mode.",
-    )
-    ap.add_argument("--verbose", default=False, action="store_true")
-    args = ap.parse_args()
+    args = get_args()
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
+        wrap_funcs(sys.modules[__name__])
+        wrap_funcs(e2e_common.util)
+        wrap_funcs(e2e_indexer.validate_accounting)
     else:
         logging.basicConfig(level=logging.INFO)
+
+    logger.debug(f"{args=}")
     indexer_bin = find_binary(args.indexer_bin)
     tempdir = tempfile.mkdtemp()
     if not args.keep_temps:
@@ -93,7 +59,16 @@ def main():
     if args.keep_alive:
         # register after keep_temps so that the temp files are still there.
         atexitrun(["sleep", "infinity"])
+
     psqlstring = ensure_test_db(args.connection_string, args.keep_temps)
+
+    conduitout = None
+    if not args.read_only:
+        lastblock, algoddir, conduitout = prep_and_run_conduit(
+            args, tempdir, psqlstring
+        )
+        time.sleep(5)
+
     aiport = args.indexer_port or random.randint(4000, 30000)
     cmd = [
         indexer_bin,
@@ -104,25 +79,7 @@ def main():
         "--server",
         ":{}".format(aiport),
     ]
-    conduitout = None
-    if not args.read_only:
-        conduit_bin = find_binary(args.conduit_bin, binary_name="conduit")
-        if not args.conduit_dir:
-            raise Exception("Must provide --conduit-dir when not readonly")
-        tempnet, lastblock = setup_algod(tempdir, args.source_net, args.s3_source_net)
-        algoddir = os.path.join(tempnet, "Node")
-        with open(os.path.join(algoddir, "algod.token"), "r") as token_file:
-            algod_token = token_file.read()
-        with open(os.path.join(algoddir, "algod.net"), "r") as net_file:
-            algod_net = net_file.read()
-        cfg = None
-        with open(os.path.join(args.conduit_dir, "conduit.yml"), "r") as conduit_cfg:
-            cfg = conduit_cfg.read()
-        cfg = cfg.format(ALGOD_ADDR=algod_net, ALGOD_TOKEN=algod_token, CONNECTION_STRING=psqlstring)
-        with open(os.path.join(args.conduit_dir, "conduit.yml"), "w") as conduit_cfg:
-            conduit_cfg.write(cfg)
-        conduitout = run_conduit(conduit_bin, args.conduit_dir, algod_token, algod_net)
-        time.sleep(5)
+
     logger.debug("%s", " ".join(map(repr, cmd)))
     indexerdp = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     indexerout = subslurp(indexerdp.stdout)
@@ -151,17 +108,7 @@ def main():
     try:
         logger.info("reached expected round={}".format(lastblock))
         if not args.read_only:
-            xrun(
-                [
-                    "validate-accounting",
-                    "--verbose",
-                    "--algod",
-                    algoddir,
-                    "--indexer",
-                    indexerurl,
-                ],
-                timeout=20,
-            )
+            nxrun(validate_accounting, verbose=True, algod=algoddir, indexer=indexerurl)
         xrun(
             ["go", "run", "cmd/e2equeries/main.go", "-pg", psqlstring, "-q"], timeout=15
         )
@@ -174,6 +121,56 @@ def main():
     sys.stdout.write("indexer e2etest OK ({:.1f}s)\n".format(dt))
 
     return 0
+
+
+def get_args():
+    import argparse
+
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--keep-temps", default=False, action="store_true")
+    # keep alive is convenient in docker environments to prevent exiting after an error
+    ap.add_argument("--keep-alive", default=False, action="store_true")
+    ap.add_argument(
+        "--indexer-bin",
+        default=None,
+        help="path to algorand-indexer binary, otherwise search PATH",
+    )
+    ap.add_argument(
+        "--indexer-port",
+        default=None,
+        type=int,
+        help="port to run indexer on. defaults to random in [4000,30000]",
+    )
+    ap.add_argument(
+        "--conduit-bin",
+        default=None,
+        help="path to the conduit binary, otherwise search PATH",
+    )
+    ap.add_argument(
+        "--conduit-dir",
+        default=None,
+        help="Path to the directory in which to run conduit. Required when not read-only.",
+    )
+    ap.add_argument(
+        "--connection-string",
+        help="Use this connection string instead of attempting to manage a local database.",
+    )
+    ap.add_argument(
+        "--source-net",
+        help="Path to test network directory containing Primary and other nodes. May be a tar file.",
+    )
+    ap.add_argument(
+        "--s3-source-net",
+        help="AWS S3 key suffix to test network tarball containing Primary and other nodes. Must be a tar bz2 file.",
+    )
+    ap.add_argument(
+        "--read-only",
+        default=False,
+        type=bool,
+        help="Run the indexer daemon in read-only mode.",
+    )
+    ap.add_argument("--verbose", default=False, action="store_true")
+    return ap.parse_args()
 
 
 def setup_algod(tempdir, sourcenet, s3_source_net):
@@ -202,8 +199,8 @@ def setup_algod(tempdir, sourcenet, s3_source_net):
         if "/" in tarname:
             cmhash_tarnme = tarname.split("/")
             cmhash = cmhash_tarnme[0]
-            tarname =cmhash_tarnme[1]
-            prefix+="/"+cmhash
+            tarname = cmhash_tarnme[1]
+            prefix += "/" + cmhash
             tarpath = os.path.join(tempdir, tarname)
         else:
             tarpath = os.path.join(tempdir, tarname)
@@ -224,16 +221,17 @@ def setup_algod(tempdir, sourcenet, s3_source_net):
         os.path.join(tempdir, "net", "Primary", "*", "*.block.sqlite")
     )
     lastblock = countblocks(blockfiles[0])
+    logger.info(f"lastblock in downloaded network is {lastblock}")
     # Reset the secondary node, and enable follow mode.
     # This is what conduit will connect to for data access.
-    for root, dirs, files in os.walk(os.path.join(tempnet, 'Node', 'tbd-v1')):
+    for root, dirs, files in os.walk(os.path.join(tempnet, "Node", "tbd-v1")):
         for f in files:
             if ".sqlite" in f:
                 os.remove(os.path.join(root, f))
     cf = {}
     with open(os.path.join(tempnet, "Node", "config.json"), "r") as config_file:
         cf = json.load(config_file)
-        cf['EnableFollowMode'] = True
+        cf["EnableFollowMode"] = True
     with open(os.path.join(tempnet, "Node", "config.json"), "w") as config_file:
         config_file.write(json.dumps(cf))
     try:
@@ -241,7 +239,10 @@ def setup_algod(tempdir, sourcenet, s3_source_net):
     except Exception:
         logger.error("failed to start private network, looking for node.log")
         found = False
-        log_files = ("node.log", "algod-err.log",)
+        log_files = (
+            "node.log",
+            "algod-err.log",
+        )
         for root, dirs, files in os.walk(tempnet):
             for f in files:
                 if f in log_files:
@@ -277,9 +278,37 @@ def tryhealthurl(healthurl, verbose=False, waitforround=200):
         return (False, "")
 
 
+def prep_and_run_conduit(args, tempdir, psqlstring):
+    conduit_bin = find_binary(args.conduit_bin, binary_name="conduit")
+    if not args.conduit_dir:
+        raise Exception("Must provide --conduit-dir when not readonly")
+    tempnet, lastblock = setup_algod(tempdir, args.source_net, args.s3_source_net)
+    algoddir = os.path.join(tempnet, "Node")
+    with open(os.path.join(algoddir, "algod.token"), "r") as token_file:
+        algod_token = token_file.read()
+    with open(os.path.join(algoddir, "algod.net"), "r") as net_file:
+        algod_net = net_file.read()
+    cfg = None
+    with open(os.path.join(args.conduit_dir, "conduit.yml"), "r") as conduit_cfg:
+        cfg = conduit_cfg.read()
+    cfg = cfg.format(
+        ALGOD_ADDR=algod_net, ALGOD_TOKEN=algod_token, CONNECTION_STRING=psqlstring
+    )
+    with open(os.path.join(args.conduit_dir, "conduit.yml"), "w") as conduit_cfg:
+        conduit_cfg.write(cfg)
+    conduitout = run_conduit(conduit_bin, args.conduit_dir, algod_token, algod_net)
+    return lastblock, algoddir, conduitout
+
+
 def run_conduit(conduit_binary, conduit_dir, algod_token, algod_net):
-    conduitcmd = [conduit_binary, "-d", conduit_dir,]
-    conduitproc = subprocess.Popen(conduitcmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    conduitcmd = [
+        conduit_binary,
+        "-d",
+        conduit_dir,
+    ]
+    conduitproc = subprocess.Popen(
+        conduitcmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+    )
     conduitout = subslurp(conduitproc.stdout)
     conduitout.start()
     atexit.register(conduitproc.kill)
@@ -314,6 +343,39 @@ class subslurp:
         self.t = threading.Thread(target=self.run)
         self.t.daemon = True
         self.t.start()
+
+
+def trace(func, lg):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        lg.debug(f"<<<<<Entering {func.__name__}>>>>>")
+        result = func(*args, **kwargs)
+        lg.debug(f"<<<<<Exiting {func.__name__}>>>>>")
+        return result
+
+    return wrapper
+
+
+def wrap_funcs(pymod):
+    is_va = pymod is e2e_indexer.validate_accounting
+    for name, obj in inspect.getmembers(pymod):
+        if inspect.isfunction(obj) and name not in (
+            "_dap",
+            "compare",
+            "deepeq",
+            "dictifyAppParams",
+            "main",
+            "maybedecode",
+            "remove_indexer_only_fields",
+            "trace",
+            "wrap_all_functions",
+        ):
+            print(f"wrapping {name}")
+            setattr(
+                pymod,
+                name,
+                trace(obj, va_logger if is_va else logger),
+            )
 
 
 if __name__ == "__main__":
