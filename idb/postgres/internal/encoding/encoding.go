@@ -4,16 +4,17 @@ import (
 	"encoding/base64"
 	"fmt"
 
+	"github.com/algorand/go-codec/codec"
+	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/idb/postgres/internal/types"
+	"github.com/algorand/indexer/util"
+
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
-	"github.com/algorand/go-codec/codec"
-
-	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/idb/postgres/internal/types"
-	"github.com/algorand/indexer/util"
 )
 
 var jsonCodecHandle *codec.JsonHandle
@@ -52,12 +53,65 @@ func decodeBase64(data string) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(data)
 }
 
+// MarshalText returns the address string as an array of bytes
+func (addr *AlgodEncodedAddress) MarshalText() ([]byte, error) {
+	var a sdk_types.Address
+	copy(a[:], addr[:])
+	return []byte(a.String()), nil
+}
+
+// UnmarshalText initializes the Address from an array of bytes.
+// The bytes may be in the base32 checksum format, or the raw bytes base64 encoded.
+// Copied from newer version of go-algorand-sdk.
+func (addr *AlgodEncodedAddress) UnmarshalText(text []byte) error {
+	address, err := sdk_types.DecodeAddress(string(text))
+	if err == nil {
+		copy(addr[:], address[:])
+		return nil
+	}
+	// ignore the DecodeAddress error because it isn't the native MarshalText format.
+
+	// Check if its b64 encoded
+	data, err := base64.StdEncoding.DecodeString(string(text))
+	if err == nil {
+		if len(data) != len(addr[:]) {
+			return fmt.Errorf("decoded address is the wrong length, should be %d bytes", len(addr[:]))
+		}
+		copy(addr[:], data[:])
+		return nil
+	}
+	return err
+}
+
+func convertExpiredAccounts(accounts []basics.Address) []AlgodEncodedAddress {
+	if len(accounts) == 0 {
+		return nil
+	}
+	res := make([]AlgodEncodedAddress, len(accounts))
+	for i, addr := range accounts {
+		res[i] = AlgodEncodedAddress(addr)
+	}
+	return res
+}
+
+func unconvertExpiredAccounts(accounts []AlgodEncodedAddress) []basics.Address {
+	if len(accounts) == 0 {
+		return nil
+	}
+	res := make([]basics.Address, len(accounts))
+	for i, addr := range accounts {
+		res[i] = basics.Address(addr)
+	}
+	return res
+}
+
 func convertBlockHeader(header bookkeeping.BlockHeader) blockHeader {
 	return blockHeader{
-		BlockHeader:         header,
-		BranchOverride:      crypto.Digest(header.Branch),
-		FeeSinkOverride:     crypto.Digest(header.FeeSink),
-		RewardsPoolOverride: crypto.Digest(header.RewardsPool),
+		BlockHeader:                          header,
+		BranchOverride:                       crypto.Digest(header.Branch),
+		FeeSinkOverride:                      crypto.Digest(header.FeeSink),
+		RewardsPoolOverride:                  crypto.Digest(header.RewardsPool),
+		ExpiredParticipationAccountsOverride: convertExpiredAccounts(header.ExpiredParticipationAccounts),
 	}
 }
 
@@ -66,6 +120,7 @@ func unconvertBlockHeader(header blockHeader) bookkeeping.BlockHeader {
 	res.Branch = bookkeeping.BlockHash(header.BranchOverride)
 	res.FeeSink = basics.Address(header.FeeSinkOverride)
 	res.RewardsPool = basics.Address(header.RewardsPoolOverride)
+	res.ExpiredParticipationAccounts = unconvertExpiredAccounts(header.ExpiredParticipationAccountsOverride)
 	return res
 }
 
