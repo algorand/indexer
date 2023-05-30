@@ -1,41 +1,27 @@
 package encoding
 
 import (
-	"github.com/algorand/indexer/types"
-
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
+// AlgodEncodedAddress is an address encoded in the format used by algod.
+type AlgodEncodedAddress sdk.Address
+
 type blockHeader struct {
 	sdk.BlockHeader
-	BranchOverride      sdk.Digest `codec:"prev"`
-	FeeSinkOverride     sdk.Digest `codec:"fees"`
-	RewardsPoolOverride sdk.Digest `codec:"rwd"`
+	ExpiredParticipationAccountsOverride []AlgodEncodedAddress `codec:"partupdrmv"`
 }
 
 type assetParams struct {
 	sdk.AssetParams
-	UnitNameBytes    []byte     `codec:"un64"`
-	AssetNameBytes   []byte     `codec:"an64"`
-	URLBytes         []byte     `codec:"au64"`
-	ManagerOverride  sdk.Digest `codec:"m"`
-	ReserveOverride  sdk.Digest `codec:"r"`
-	FreezeOverride   sdk.Digest `codec:"f"`
-	ClawbackOverride sdk.Digest `codec:"c"`
+	UnitNameBytes  []byte `codec:"un64"`
+	AssetNameBytes []byte `codec:"an64"`
+	URLBytes       []byte `codec:"au64"`
 }
 
 type transaction struct {
 	sdk.Transaction
-	SenderOverride           sdk.Digest   `codec:"snd"`
-	RekeyToOverride          sdk.Digest   `codec:"rekey"`
-	ReceiverOverride         sdk.Digest   `codec:"rcv"`
-	CloseRemainderToOverride sdk.Digest   `codec:"close"`
-	AssetParamsOverride      assetParams  `codec:"apar"`
-	AssetSenderOverride      sdk.Digest   `codec:"asnd"`
-	AssetReceiverOverride    sdk.Digest   `codec:"arcv"`
-	AssetCloseToOverride     sdk.Digest   `codec:"aclose"`
-	FreezeAccountOverride    sdk.Digest   `codec:"fadd"`
-	AccountsOverride         []sdk.Digest `codec:"apat"`
+	AssetParamsOverride assetParams `codec:"apar"`
 }
 
 type valueDelta struct {
@@ -74,16 +60,14 @@ type evalDelta struct {
 type signedTxnWithAD struct {
 	sdk.SignedTxnWithAD
 	TxnOverride       transaction `codec:"txn"`
-	AuthAddrOverride  sdk.Digest  `codec:"sgnr"`
 	EvalDeltaOverride evalDelta   `codec:"dt"`
 }
 
 type trimmedAccountData struct {
 	baseAccountData
-	AuthAddrOverride   sdk.Digest `codec:"spend"`
-	MicroAlgos         uint64     `codec:"algo"`
-	RewardsBase        uint64     `codec:"ebase"`
-	RewardedMicroAlgos uint64     `codec:"ern"`
+	MicroAlgos         uint64 `codec:"algo"`
+	RewardsBase        uint64 `codec:"ebase"`
+	RewardedMicroAlgos uint64 `codec:"ern"`
 }
 
 type tealValue struct {
@@ -103,12 +87,6 @@ type appParams struct {
 	GlobalStateOverride tealKeyValue `codec:"gs"`
 }
 
-type specialAddresses struct {
-	types.SpecialAddresses
-	FeeSinkOverride     sdk.Digest `codec:"FeeSink"`
-	RewardsPoolOverride sdk.Digest `codec:"RewardsPool"`
-}
-
 type baseOnlineAccountData struct {
 	_struct struct{} `codec:",omitempty,omitemptyarray"`
 
@@ -124,7 +102,7 @@ type baseAccountData struct {
 	_struct struct{} `codec:",omitempty,omitemptyarray"`
 
 	Status              sdk.Status      `codec:"onl"`
-	AuthAddr            sdk.Digest      `codec:"spend"`
+	AuthAddr            sdk.Address     `codec:"spend"`
 	TotalAppSchema      sdk.StateSchema `codec:"tsch"`
 	TotalExtraAppPages  uint32          `codec:"teap"`
 	TotalAssetParams    uint64          `codec:"tasp"`
