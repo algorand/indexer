@@ -1435,12 +1435,12 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	// Inner pay 2
 	require.Equal(t, "", txns[2].txid)
 	require.Equal(t, expectedExtra, txns[2].extra)
-	require.NotContains(t, txns[2].txn, "itx", "The inner transactions should be pruned.")
+	require.NotContains(t, txns[2].txn, `"itx"`, "The inner transactions should be pruned.")
 
 	// Inner xfer
 	require.Equal(t, "", txns[3].txid)
 	require.Equal(t, expectedExtra, txns[3].extra)
-	require.NotContains(t, txns[3].txn, "itx", "The inner transactions should be pruned.")
+	require.NotContains(t, txns[3].txn, `"itx"`, "The inner transactions should be pruned.")
 
 	// Verify correct App and Asset IDs
 	require.Equal(t, 1, txns[0].asset, "intra == 0 -> ApplicationID = 1")
