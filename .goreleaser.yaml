@@ -1,0 +1,91 @@
+before:
+  hooks:
+    # You may remove this if you don't use go modules.
+    - go mod tidy
+    # you may remove this if you don't need go generate
+    - go generate ./...
+
+# Build mac universal binary.
+universal_binaries:
+  - replace: true
+
+builds:
+  - main: cmd/algorand-indexer/main.go
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    # skip 386 architecture.
+    goarch:
+      - amd64
+      - arm64
+    ldflags: >
+      -s -w
+      -X github.com/algorand/indexer/version.Hash={{.FullCommit}}
+      -X github.com/algorand/indexer/version.ShortHash={{.ShortCommit}}
+      -X github.com/algorand/indexer/version.CompileTime={{.Timestamp}}
+      -X github.com/algorand/indexer/version.GitDecorateBase64=$(shell git log -n 1 --pretty="%D"|base64|tr -d ' \n')
+      -X github.com/algorand/indexer/version.ReleaseVersion={{.Version}}
+
+dockers:
+  - use: buildx
+    goos: linux
+    goarch: amd64
+    image_templates:
+    - "algorand/indexer:latest{{ if .IsSnapshot }}-snapshot{{ end }}-amd64"
+    - "algorand/indexer:{{ .Version }}-amd64"
+    build_flag_templates:
+    - --platform=linux/amd64
+    - --label=org.opencontainers.image.title={{ .ProjectName }}
+    - --label=org.opencontainers.image.version={{ .Version }}
+    - --label=org.opencontainers.image.created={{ .Date }}
+    - --label=org.opencontainers.image.revision={{ .FullCommit }}
+    - --label=org.opencontainers.image.licenses=MIT
+    extra_files:
+    - docker/docker-entrypoint.sh
+  - use: buildx
+    goos: linux
+    goarch: arm64
+    image_templates:
+    - "algorand/indexer:latest{{ if .IsSnapshot }}-snapshot{{ end }}-arm64"
+    - "algorand/indexer:{{ .Version }}-arm64"
+    build_flag_templates:
+    - --platform=linux/arm64
+    - --label=org.opencontainers.image.title={{ .ProjectName }}
+    - --label=org.opencontainers.image.version={{ .Version }}
+    - --label=org.opencontainers.image.created={{ .Date }}
+    - --label=org.opencontainers.image.revision={{ .FullCommit }}
+    - --label=org.opencontainers.image.licenses=MIT
+    extra_files:
+    - docker/docker-entrypoint.sh
+
+# automatically select amd64/arm64 when requesting "algorand/indexer"
+docker_manifests:
+  - name_template: "algorand/indexer:{{ .Version }}"
+    image_templates:
+    - "algorand/indexer:{{ .Version }}-amd64"
+    - "algorand/indexer:{{ .Version }}-arm64"
+  - name_template: "algorand/indexer:latest{{ if .IsSnapshot }}-snapshot{{ end }}"
+    image_templates:
+    - "algorand/indexer:latest{{ if .IsSnapshot }}-snapshot{{ end }}-amd64"
+    - "algorand/indexer:latest{{ if .IsSnapshot }}-snapshot{{ end }}-arm64"
+
+archives:
+  - replacements:
+      darwin: Darwin
+      linux: Linux
+      windows: Windows
+      amd64: x86_64
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^chore:'
+      - '^docs:'
+      - '^test:'
