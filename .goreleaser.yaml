@@ -11,7 +11,7 @@ universal_binaries:
 
 builds:
   - main: ./cmd/algorand-indexer
-    id: algorand-indexer
+    binary: algorand-indexer
     env:
       - CGO_ENABLED=0
     goos:
