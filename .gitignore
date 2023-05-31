@@ -5,6 +5,7 @@ api/.3tmp.json
 api/generate
 tmp/
 ./conduit-docs/
+dist
 
 # Binaries for programs and plugins
 *.exe
