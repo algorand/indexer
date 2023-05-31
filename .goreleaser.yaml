@@ -26,7 +26,6 @@ builds:
       -X github.com/algorand/indexer/version.Hash={{.FullCommit}}
       -X github.com/algorand/indexer/version.ShortHash={{.ShortCommit}}
       -X github.com/algorand/indexer/version.CompileTime={{.Timestamp}}
-      -X github.com/algorand/indexer/version.GitDecorateBase64=$(shell git log -n 1 --pretty="%D"|base64|tr -d ' \n')
       -X github.com/algorand/indexer/version.ReleaseVersion={{.Version}}
 
 dockers:
