@@ -10,7 +10,7 @@ universal_binaries:
   - replace: true
 
 builds:
-  - main: ./cmd/algorand-indexer
+  - main: ./cmd/algorand-indexer/main.go
     env:
       - CGO_ENABLED=0
     goos:
