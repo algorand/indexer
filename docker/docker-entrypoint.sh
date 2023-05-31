@@ -15,5 +15,5 @@ if [[ -f /etc/algorand/indexer.yml ]]; then
   cp /etc/algorand/indexer.yml /data/indexer.yml
 fi
 
-# always run the conduit command
+# always run the algorand-indexer command
 exec algorand-indexer "$@"
