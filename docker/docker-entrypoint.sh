@@ -10,7 +10,7 @@ if [ "$(id -u)" = '0' ]; then
   exec gosu algorand "$0" "$@"
 fi
 
-# copy config.yml override to data directory
+# copy indexer.yml override to data directory
 if [[ -f /etc/algorand/indexer.yml ]]; then
   cp /etc/algorand/indexer.yml /data/indexer.yml
 fi
