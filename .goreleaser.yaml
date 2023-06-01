@@ -72,8 +72,18 @@ docker_manifests:
     - "algorand/indexer:latest{{ if .IsSnapshot }}-snapshot{{ end }}-amd64"
     - "algorand/indexer:latest{{ if .IsSnapshot }}-snapshot{{ end }}-arm64"
 
-archives:
+# Deb packaging
+nfpms:
+  - vendor: Algorand
+    homepage: https://algorand.com
+    maintainer: Algorand <dev@algorand.com>
+    description: Indexer API for Algorand blockchain data
+    license: MIT
+    formats:
+      - deb
+    file_name_template: "{{ .ConventionalFileName }}"
 
+archives:
   - name_template: '{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
 checksum:
   name_template: 'checksums.txt'
