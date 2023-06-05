@@ -5,9 +5,10 @@ go 1.17
 replace github.com/algorand/go-algorand => ./third_party/go-algorand
 
 require (
-	github.com/algorand/go-algorand v0.0.0-20220211161928-53b157beb10f
+	github.com/algorand/avm-abi v0.2.0
+	github.com/algorand/go-algorand v0.0.0-20230522174405-a873070852be
 	github.com/algorand/go-algorand-sdk v1.9.1
-	github.com/algorand/go-codec/codec v1.1.8
+	github.com/algorand/go-codec/codec v1.1.9
 	github.com/algorand/go-deadlock v0.2.2
 	github.com/algorand/oapi-codegen v1.12.0-algorand.0
 	github.com/davecgh/go-spew v1.1.1
@@ -32,13 +33,12 @@ require (
 require (
 	github.com/DataDog/zstd v1.5.2 // indirect
 	github.com/Microsoft/go-winio v0.4.14 // indirect
-	github.com/algorand/avm-abi v0.1.1 // indirect
 	github.com/algorand/falcon v0.0.0-20220727072124-02a2a64c4414 // indirect
 	github.com/algorand/go-sumhash v0.1.0 // indirect
 	github.com/algorand/msgp v1.1.53 // indirect
-	github.com/algorand/websocket v1.4.5 // indirect
+	github.com/algorand/websocket v1.4.6 // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
-	github.com/aws/aws-sdk-go v1.30.19 // indirect
+	github.com/aws/aws-sdk-go v1.33.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/consensys/gnark-crypto v0.7.0 // indirect
@@ -102,10 +102,10 @@ require (
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.17.0 // indirect
 	golang.org/x/crypto v0.1.0 // indirect
-	golang.org/x/net v0.1.0 // indirect
+	golang.org/x/net v0.9.0 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
-	golang.org/x/sys v0.1.0 // indirect
-	golang.org/x/text v0.4.0 // indirect
+	golang.org/x/sys v0.7.0 // indirect
+	golang.org/x/text v0.9.0 // indirect
 	golang.org/x/time v0.0.0-20201208040808-7e3f01d25324 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/ini.v1 v1.66.2 // indirect

@@ -9,10 +9,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/algorand/avm-abi/apps"
 	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/rpcs"
@@ -97,7 +97,7 @@ func TestLedgerForEvaluatorAsset(t *testing.T) {
 	txn1 := test.MakeAssetConfigTxn(0, 4, 0, false, "", "", "", test.AccountA)
 	txn2 := test.MakeAssetConfigTxn(0, 6, 0, false, "", "", "", test.AccountA)
 	txn3 := test.MakeAssetConfigTxn(0, 8, 0, false, "", "", "", test.AccountB)
-	txn4 := test.MakeAssetDestroyTxn(1, test.AccountA)
+	txn4 := test.MakeAssetDestroyTxn(1001, test.AccountA)
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn0, &txn1, &txn2, &txn3, &txn4)
 	assert.Nil(t, err)
@@ -111,27 +111,27 @@ func TestLedgerForEvaluatorAsset(t *testing.T) {
 	ret, err :=
 		ld.LookupResources(map[basics.Address]map[ledger.Creatable]struct{}{
 			test.AccountA: {
-				{Index: 1, Type: basics.AssetCreatable}: {},
-				{Index: 2, Type: basics.AssetCreatable}: {},
-				{Index: 3, Type: basics.AssetCreatable}: {},
+				{Index: 1001, Type: basics.AssetCreatable}: {},
+				{Index: 1002, Type: basics.AssetCreatable}: {},
+				{Index: 1003, Type: basics.AssetCreatable}: {},
 			},
 			test.AccountB: {
-				{Index: 4, Type: basics.AssetCreatable}: {},
+				{Index: 1004, Type: basics.AssetCreatable}: {},
 			},
 		})
 	require.NoError(t, err)
 
 	expected := map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource{
 		test.AccountA: {
-			ledger.Creatable{Index: 1, Type: basics.AssetCreatable}: {},
-			ledger.Creatable{Index: 2, Type: basics.AssetCreatable}: {
+			ledger.Creatable{Index: 1001, Type: basics.AssetCreatable}: {},
+			ledger.Creatable{Index: 1002, Type: basics.AssetCreatable}: {
 				AssetHolding: &basics.AssetHolding{
 					Amount: txn1.Txn.AssetParams.Total,
 					Frozen: txn1.Txn.AssetFrozen,
 				},
 				AssetParams: &txn1.Txn.AssetParams,
 			},
-			ledger.Creatable{Index: 3, Type: basics.AssetCreatable}: {
+			ledger.Creatable{Index: 1003, Type: basics.AssetCreatable}: {
 				AssetHolding: &basics.AssetHolding{
 					Amount: txn2.Txn.AssetParams.Total,
 					Frozen: txn2.Txn.AssetFrozen,
@@ -140,7 +140,7 @@ func TestLedgerForEvaluatorAsset(t *testing.T) {
 			},
 		},
 		test.AccountB: {
-			ledger.Creatable{Index: 4, Type: basics.AssetCreatable}: {
+			ledger.Creatable{Index: 1004, Type: basics.AssetCreatable}: {
 				AssetHolding: &basics.AssetHolding{
 					Amount: txn3.Txn.AssetParams.Total,
 					Frozen: txn3.Txn.AssetFrozen,
@@ -162,7 +162,7 @@ func TestLedgerForEvaluatorApp(t *testing.T) {
 	txn1 := test.MakeAppCallTxnWithLogs(0, test.AccountA, []string{"testing"})
 	txn2 := test.MakeAppCallWithInnerTxn(test.AccountA, test.AccountA, test.AccountB, basics.Address{}, basics.Address{})
 	txn3 := test.MakeAppCallWithMultiLogs(test.AccountA)
-	txn4 := test.MakeAppDestroyTxn(1, test.AccountA)
+	txn4 := test.MakeAppDestroyTxn(1001, test.AccountA)
 	txn5 := test.MakeSimpleAppCallTxn(0, test.AccountB)
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn0, &txn1, &txn2, &txn3, &txn4, &txn5)
@@ -177,21 +177,21 @@ func TestLedgerForEvaluatorApp(t *testing.T) {
 	ret, err :=
 		ld.LookupResources(map[basics.Address]map[ledger.Creatable]struct{}{
 			test.AccountA: {
-				{Index: 1, Type: basics.AppCreatable}: {},
-				{Index: 2, Type: basics.AppCreatable}: {},
-				{Index: 3, Type: basics.AppCreatable}: {},
-				{Index: 4, Type: basics.AppCreatable}: {},
+				{Index: 1001, Type: basics.AppCreatable}: {},
+				{Index: 1002, Type: basics.AppCreatable}: {},
+				{Index: 1003, Type: basics.AppCreatable}: {},
+				{Index: 1004, Type: basics.AppCreatable}: {},
 			},
 			test.AccountB: {
-				{Index: 6, Type: basics.AppCreatable}: {},
+				{Index: 1006, Type: basics.AppCreatable}: {},
 			},
 		})
 	require.NoError(t, err)
 
 	expected := map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource{
 		test.AccountA: {
-			ledger.Creatable{Index: 1, Type: basics.AppCreatable}: {},
-			ledger.Creatable{Index: 2, Type: basics.AppCreatable}: {
+			ledger.Creatable{Index: 1001, Type: basics.AppCreatable}: {},
+			ledger.Creatable{Index: 1002, Type: basics.AppCreatable}: {
 				AppParams: &basics.AppParams{
 					ApprovalProgram:   txn1.Txn.ApprovalProgram,
 					ClearStateProgram: txn1.Txn.ClearStateProgram,
@@ -200,7 +200,7 @@ func TestLedgerForEvaluatorApp(t *testing.T) {
 					ExtraProgramPages: txn1.Txn.ExtraProgramPages,
 				},
 			},
-			ledger.Creatable{Index: 3, Type: basics.AppCreatable}: {
+			ledger.Creatable{Index: 1003, Type: basics.AppCreatable}: {
 				AppParams: &basics.AppParams{
 					ApprovalProgram:   txn2.Txn.ApprovalProgram,
 					ClearStateProgram: txn2.Txn.ClearStateProgram,
@@ -209,7 +209,7 @@ func TestLedgerForEvaluatorApp(t *testing.T) {
 					ExtraProgramPages: txn2.Txn.ExtraProgramPages,
 				},
 			},
-			ledger.Creatable{Index: 4, Type: basics.AppCreatable}: {
+			ledger.Creatable{Index: 1004, Type: basics.AppCreatable}: {
 				AppParams: &basics.AppParams{
 					ApprovalProgram:   txn3.Txn.ApprovalProgram,
 					ClearStateProgram: txn3.Txn.ClearStateProgram,
@@ -220,7 +220,7 @@ func TestLedgerForEvaluatorApp(t *testing.T) {
 			},
 		},
 		test.AccountB: {
-			ledger.Creatable{Index: 6, Type: basics.AppCreatable}: {
+			ledger.Creatable{Index: 1006, Type: basics.AppCreatable}: {
 				AppParams: &basics.AppParams{
 					ApprovalProgram:   txn5.Txn.ApprovalProgram,
 					ClearStateProgram: txn5.Txn.ClearStateProgram,
@@ -255,15 +255,15 @@ func TestLedgerForEvaluatorFetchAllResourceTypes(t *testing.T) {
 	ret, err :=
 		ld.LookupResources(map[basics.Address]map[ledger.Creatable]struct{}{
 			test.AccountA: {
-				{Index: 1, Type: basics.AppCreatable}:   {},
-				{Index: 2, Type: basics.AssetCreatable}: {},
+				{Index: 1001, Type: basics.AppCreatable}:   {},
+				{Index: 1002, Type: basics.AssetCreatable}: {},
 			},
 		})
 	require.NoError(t, err)
 
 	expected := map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource{
 		test.AccountA: {
-			ledger.Creatable{Index: 1, Type: basics.AppCreatable}: {
+			ledger.Creatable{Index: 1001, Type: basics.AppCreatable}: {
 				AppParams: &basics.AppParams{
 					ApprovalProgram:   txn0.Txn.ApprovalProgram,
 					ClearStateProgram: txn0.Txn.ClearStateProgram,
@@ -272,7 +272,7 @@ func TestLedgerForEvaluatorFetchAllResourceTypes(t *testing.T) {
 					ExtraProgramPages: txn0.Txn.ExtraProgramPages,
 				},
 			},
-			ledger.Creatable{Index: 2, Type: basics.AssetCreatable}: {
+			ledger.Creatable{Index: 1002, Type: basics.AssetCreatable}: {
 				AssetHolding: &basics.AssetHolding{
 					Amount: 2,
 					Frozen: false,
@@ -331,10 +331,10 @@ func TestLedgerForEvaluatorAssetCreatorBasic(t *testing.T) {
 	defer ld.Close()
 
 	ret, err := ld.GetAssetCreator(
-		map[basics.AssetIndex]struct{}{basics.AssetIndex(1): {}})
+		map[basics.AssetIndex]struct{}{basics.AssetIndex(1001): {}})
 	require.NoError(t, err)
 
-	foundAddress, ok := ret[basics.AssetIndex(1)]
+	foundAddress, ok := ret[basics.AssetIndex(1001)]
 	require.True(t, ok)
 
 	expected := ledger.FoundAddress{
@@ -351,7 +351,7 @@ func TestLedgerForEvaluatorAssetCreatorDeleted(t *testing.T) {
 	pr, _ := block_processor.MakeProcessorWithLedger(logger, l, nil)
 
 	txn0 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountA)
-	txn1 := test.MakeAssetDestroyTxn(1, test.AccountA)
+	txn1 := test.MakeAssetDestroyTxn(1001, test.AccountA)
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn0, &txn1)
 	assert.Nil(t, err)
@@ -363,10 +363,10 @@ func TestLedgerForEvaluatorAssetCreatorDeleted(t *testing.T) {
 	defer ld.Close()
 
 	ret, err := ld.GetAssetCreator(
-		map[basics.AssetIndex]struct{}{basics.AssetIndex(1): {}})
+		map[basics.AssetIndex]struct{}{basics.AssetIndex(1001): {}})
 	require.NoError(t, err)
 
-	foundAddress, ok := ret[basics.AssetIndex(1)]
+	foundAddress, ok := ret[basics.AssetIndex(1001)]
 	require.True(t, ok)
 
 	assert.False(t, foundAddress.Exists)
@@ -394,19 +394,19 @@ func TestLedgerForEvaluatorAssetCreatorMultiple(t *testing.T) {
 	defer ld.Close()
 
 	indices := map[basics.AssetIndex]struct{}{
-		1: {}, 2: {}, 3: {}, 4: {}, 5: {}, 6: {}, 7: {}, 8: {}}
+		1001: {}, 1002: {}, 1003: {}, 1004: {}, 1005: {}, 1006: {}, 1007: {}, 1008: {}}
 	ret, err := ld.GetAssetCreator(indices)
 	require.NoError(t, err)
 
 	creatorsMap := map[basics.AssetIndex]basics.Address{
-		1: test.AccountA,
-		2: test.AccountB,
-		3: test.AccountC,
-		4: test.AccountD,
+		1001: test.AccountA,
+		1002: test.AccountB,
+		1003: test.AccountC,
+		1004: test.AccountD,
 	}
 
 	for i := 1; i <= 4; i++ {
-		index := basics.AssetIndex(i)
+		index := basics.AssetIndex(1000 + i)
 
 		foundAddress, ok := ret[index]
 		require.True(t, ok)
@@ -418,7 +418,7 @@ func TestLedgerForEvaluatorAssetCreatorMultiple(t *testing.T) {
 		assert.Equal(t, expected, foundAddress)
 	}
 	for i := 5; i <= 8; i++ {
-		index := basics.AssetIndex(i)
+		index := basics.AssetIndex(1000 + i)
 
 		foundAddress, ok := ret[index]
 		require.True(t, ok)
@@ -446,10 +446,10 @@ func TestLedgerForEvaluatorAppCreatorBasic(t *testing.T) {
 	defer ld.Close()
 
 	ret, err := ld.GetAppCreator(
-		map[basics.AppIndex]struct{}{basics.AppIndex(1): {}})
+		map[basics.AppIndex]struct{}{basics.AppIndex(1001): {}})
 	require.NoError(t, err)
 
-	foundAddress, ok := ret[basics.AppIndex(1)]
+	foundAddress, ok := ret[basics.AppIndex(1001)]
 	require.True(t, ok)
 
 	expected := ledger.FoundAddress{
@@ -467,7 +467,7 @@ func TestLedgerForEvaluatorAppCreatorDeleted(t *testing.T) {
 	pr, _ := block_processor.MakeProcessorWithLedger(logger, l, nil)
 
 	txn0 := test.MakeSimpleAppCallTxn(0, test.AccountA)
-	txn1 := test.MakeAppDestroyTxn(1, test.AccountA)
+	txn1 := test.MakeAppDestroyTxn(1001, test.AccountA)
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn0, &txn1)
 	assert.Nil(t, err)
@@ -479,10 +479,10 @@ func TestLedgerForEvaluatorAppCreatorDeleted(t *testing.T) {
 	defer ld.Close()
 
 	ret, err := ld.GetAppCreator(
-		map[basics.AppIndex]struct{}{basics.AppIndex(1): {}})
+		map[basics.AppIndex]struct{}{basics.AppIndex(1001): {}})
 	require.NoError(t, err)
 
-	foundAddress, ok := ret[basics.AppIndex(1)]
+	foundAddress, ok := ret[basics.AppIndex(1001)]
 	require.True(t, ok)
 
 	assert.False(t, foundAddress.Exists)
@@ -510,20 +510,20 @@ func TestLedgerForEvaluatorAppCreatorMultiple(t *testing.T) {
 	defer ld.Close()
 
 	creatorsMap := map[basics.AppIndex]basics.Address{
-		1: test.AccountA,
-		2: test.AccountB,
-		3: test.AccountC,
-		4: test.AccountD,
+		1001: test.AccountA,
+		1002: test.AccountB,
+		1003: test.AccountC,
+		1004: test.AccountD,
 	}
 
 	indices := map[basics.AppIndex]struct{}{
-		1: {}, 2: {}, 3: {}, 4: {}, 5: {}, 6: {}, 7: {}, 8: {}}
+		1001: {}, 1002: {}, 1003: {}, 1004: {}, 1005: {}, 1006: {}, 1007: {}, 1008: {}}
 	ret, err := ld.GetAppCreator(indices)
 	require.NoError(t, err)
 
 	assert.Equal(t, len(indices), len(ret))
 	for i := 1; i <= 4; i++ {
-		index := basics.AppIndex(i)
+		index := basics.AppIndex(1000 + i)
 
 		foundAddress, ok := ret[index]
 		require.True(t, ok)
@@ -535,7 +535,7 @@ func TestLedgerForEvaluatorAppCreatorMultiple(t *testing.T) {
 		assert.Equal(t, expected, foundAddress)
 	}
 	for i := 5; i <= 8; i++ {
-		index := basics.AppIndex(i)
+		index := basics.AppIndex(1000 + i)
 
 		foundAddress, ok := ret[index]
 		require.True(t, ok)
@@ -557,9 +557,9 @@ func compareAppBoxesAgainstLedger(t *testing.T, ld indxLedger.LedgerForEvaluator
 	for appIdx, boxes := range appBoxes {
 		for key, expectedValue := range boxes {
 			msg := fmt.Sprintf("caseNum=%d, appIdx=%d, key=%#v", caseNum, appIdx, key)
-			expectedAppIdx, _, err := logic.SplitBoxKey(key)
+			expectedAppIdx, _, err := apps.SplitBoxKey(key)
 			require.NoError(t, err, msg)
-			require.Equal(t, appIdx, expectedAppIdx, msg)
+			require.Equal(t, uint64(appIdx), expectedAppIdx, msg)
 
 			boxDeleted := false
 			if deletedBoxes != nil {
@@ -593,7 +593,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 
 	// ---- ROUND 1: create and fund the box app  ---- //
 
-	appid := basics.AppIndex(1)
+	appid := basics.AppIndex(1001)
 	currentRound := basics.Round(1)
 
 	createTxn, err := test.MakeComplexCreateAppTxn(test.AccountA, test.BoxApprovalProgram, test.BoxClearProgram, 8)
@@ -636,7 +636,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 	newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 	boxTxns := make([]*transactions.SignedTxnWithAD, 0)
 	for _, boxName := range boxNames {
-		expectedAppBoxes[appid][logic.MakeBoxKey(appid, boxName)] = newBoxValue
+		expectedAppBoxes[appid][apps.MakeBoxKey(uint64(appid), boxName)] = newBoxValue
 
 		args := []string{"create", boxName}
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
@@ -678,7 +678,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(appid, boxName)
+		key := apps.MakeBoxKey(uint64(appid), boxName)
 		expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
@@ -709,7 +709,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(appid, boxName)
+		key := apps.MakeBoxKey(uint64(appid), boxName)
 		delete(expectedAppBoxes[appid], key)
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
@@ -744,7 +744,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(appid, boxName)
+		key := apps.MakeBoxKey(uint64(appid), boxName)
 		expectedAppBoxes[appid] = make(map[string]string)
 		expectedAppBoxes[appid][key] = newBoxValue
 	}
@@ -775,7 +775,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(appid, boxName)
+		key := apps.MakeBoxKey(uint64(appid), boxName)
 		expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)

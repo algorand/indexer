@@ -8,11 +8,15 @@ import (
 	"github.com/algorand/go-algorand/data/transactions"
 )
 
+// AlgodEncodedAddress is an address encoded in the format used by algod.
+type AlgodEncodedAddress basics.Address
+
 type blockHeader struct {
 	bookkeeping.BlockHeader
-	BranchOverride      crypto.Digest `codec:"prev"`
-	FeeSinkOverride     crypto.Digest `codec:"fees"`
-	RewardsPoolOverride crypto.Digest `codec:"rwd"`
+	BranchOverride                       crypto.Digest         `codec:"prev"`
+	FeeSinkOverride                      crypto.Digest         `codec:"fees"`
+	RewardsPoolOverride                  crypto.Digest         `codec:"rwd"`
+	ExpiredParticipationAccountsOverride []AlgodEncodedAddress `codec:"partupdrmv"`
 }
 
 type assetParams struct {

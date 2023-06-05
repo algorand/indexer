@@ -606,6 +606,7 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 		LocalStateDelta:          localStateDelta,
 		Logs:                     logs,
 		InnerTxns:                inners,
+		AuthAddr:                 addrPtr(stxn.AuthAddr),
 	}
 
 	if stxn.Txn.Type == protocol.AssetConfigTx {

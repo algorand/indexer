@@ -1,9 +1,13 @@
 package encoding
 
 import (
+	"fmt"
 	"math/rand"
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/crypto/merklesignature"
@@ -12,8 +16,6 @@ import (
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/protocol"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/types"
@@ -233,16 +235,26 @@ func TestBlockHeaderEncoding(t *testing.T) {
 			FeeSink:     newaddr(),
 			RewardsPool: newaddr(),
 		},
+		ParticipationUpdates: bookkeeping.ParticipationUpdates{
+			ExpiredParticipationAccounts: []basics.Address{newaddr()},
+		},
 	}
 
 	buf := EncodeBlockHeader(header)
 
-	expectedString := `{"fees":"AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","prev":"BQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","rnd":3,"rwd":"AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}`
+	template := `{"fees":"AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","partupdrmv":["%s"],"prev":"BQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","rnd":3,"rwd":"AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}`
+	expectedString := fmt.Sprintf(template, "AMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANVWEXNA")
 	assert.Equal(t, expectedString, string(buf))
 
 	headerNew, err := DecodeBlockHeader(buf)
 	require.NoError(t, err)
 	assert.Equal(t, header, headerNew)
+
+	// Lenient decode from the corrupted data
+	badString := fmt.Sprintf(template, "AwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+	headerNewFromBad, err := DecodeBlockHeader([]byte(badString))
+	require.NoError(t, err)
+	assert.Equal(t, header, headerNewFromBad)
 }
 
 // Test that the encoding of byteArray in JSON is as expected and that decoding results in

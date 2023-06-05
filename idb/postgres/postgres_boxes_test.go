@@ -10,11 +10,11 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/stretchr/testify/require"
 
+	"github.com/algorand/avm-abi/apps"
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
@@ -49,9 +49,9 @@ func compareAppBoxesAgainstDB(t *testing.T, db *IndexerDb,
 		// compare expected against db contents one box at a time
 		for key, expectedValue := range boxes {
 			msg := fmt.Sprintf("caseNum=%d, appIdx=%d, key=%#v", caseNum, appIdx, key)
-			expectedAppIdx, boxName, err := logic.SplitBoxKey(key)
+			expectedAppIdx, boxName, err := apps.SplitBoxKey(key)
 			require.NoError(t, err, msg)
-			require.Equal(t, appIdx, expectedAppIdx, msg)
+			require.Equal(t, uint64(appIdx), expectedAppIdx, msg)
 
 			row := db.db.QueryRow(context.Background(), appBoxSQL, appIdx, []byte(boxName))
 			numQueries++
@@ -68,7 +68,7 @@ func compareAppBoxesAgainstDB(t *testing.T, db *IndexerDb,
 			err = row.Scan(&app, &name, &value)
 			if !boxDeleted {
 				require.NoError(t, err, msg)
-				require.Equal(t, expectedAppIdx, app, msg)
+				require.Equal(t, expectedAppIdx, uint64(app), msg)
 				require.Equal(t, boxName, string(name), msg)
 				require.Equal(t, expectedValue, string(value), msg)
 
@@ -111,7 +111,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 
 	defer l.Close()
 
-	appid := basics.AppIndex(1)
+	appid := basics.AppIndex(1001)
 
 	// ---- ROUND 1: create and fund the box app  ---- //
 	currentRound := basics.Round(1)
@@ -163,7 +163,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 	boxTxns := make([]*transactions.SignedTxnWithAD, 0)
 	for _, boxName := range boxNames {
-		expectedAppBoxes[appid][logic.MakeBoxKey(appid, boxName)] = newBoxValue
+		expectedAppBoxes[appid][apps.MakeBoxKey(uint64(appid), boxName)] = newBoxValue
 
 		args := []string{"create", boxName}
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
@@ -205,7 +205,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(appid, boxName)
+		key := apps.MakeBoxKey(uint64(appid), boxName)
 		expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
@@ -237,7 +237,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(appid, boxName)
+		key := apps.MakeBoxKey(uint64(appid), boxName)
 		delete(expectedAppBoxes[appid], key)
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
@@ -273,7 +273,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(appid, boxName)
+		key := apps.MakeBoxKey(uint64(appid), boxName)
 		expectedAppBoxes[appid][key] = newBoxValue
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
@@ -304,7 +304,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(appid, boxName)
+		key := apps.MakeBoxKey(uint64(appid), boxName)
 		expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
@@ -334,7 +334,7 @@ func generateRandomBoxes(t *testing.T, appIdx basics.AppIndex, maxBoxes int) map
 		nameBytes := make([]byte, nameLen)
 		_, err := rand.Read(nameBytes)
 		require.NoError(t, err)
-		key := logic.MakeBoxKey(appIdx, string(nameBytes))
+		key := apps.MakeBoxKey(uint64(appIdx), string(nameBytes))
 
 		require.Positive(t, len(key))
 
@@ -361,9 +361,9 @@ func createRandomBoxesWithDelta(t *testing.T, numApps, maxBoxes int) (map[basics
 		appBoxes[appIndex] = boxes
 
 		for key, value := range boxes {
-			embeddedAppIdx, _, err := logic.SplitBoxKey(key)
+			embeddedAppIdx, _, err := apps.SplitBoxKey(key)
 			require.NoError(t, err)
-			require.Equal(t, appIndex, embeddedAppIdx)
+			require.Equal(t, uint64(appIndex), embeddedAppIdx)
 
 			val := string([]byte(value)[:])
 			delta.KvMods[key] = ledgercore.KvValueDelta{Data: []byte(val)}

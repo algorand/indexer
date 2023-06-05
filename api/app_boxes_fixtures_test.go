@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/algorand/avm-abi/apps"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/indexer/processor"
@@ -17,7 +17,7 @@ import (
 )
 
 func goalEncode(t *testing.T, s string) string {
-	b1, err := logic.NewAppCallBytes(s)
+	b1, err := apps.NewAppCallBytes(s)
 	require.NoError(t, err, s)
 	b2, err := b1.Raw()
 	require.NoError(t, err)
@@ -25,10 +25,11 @@ func goalEncode(t *testing.T, s string) string {
 }
 
 var goalEncodingExamples map[string]string = map[string]string{
-	"str":         "str",
-	"string":      "string",
-	"int":         "42",
-	"integer":     "100",
+	"str":     "str",
+	"string":  "string",
+	"int":     "42",
+	"integer": "100",
+	// the following two addresses are now considered "impossible". However, they are still valid as box names.
 	"addr":        basics.AppIndex(3).Address().String(),
 	"address":     basics.AppIndex(5).Address().String(),
 	"b32":         base32.StdEncoding.EncodeToString([]byte("b32")),
@@ -43,9 +44,9 @@ var goalEncodingExamples map[string]string = map[string]string{
 func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 	deleted := "DELETED"
 
-	firstAppid := basics.AppIndex(1)
-	secondAppid := basics.AppIndex(3)
-	thirdAppid := basics.AppIndex(5)
+	firstAppid := basics.AppIndex(1001)
+	secondAppid := basics.AppIndex(1003)
+	thirdAppid := basics.AppIndex(1005)
 
 	// ---- ROUND 1: create and fund the box app and another app which won't have boxes ---- //
 	currentRound := basics.Round(1)
@@ -95,7 +96,7 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 	newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 	boxTxns := make([]*transactions.SignedTxnWithAD, 0)
 	for _, boxName := range boxNames {
-		expectedAppBoxes[firstAppid][logic.MakeBoxKey(firstAppid, boxName)] = newBoxValue
+		expectedAppBoxes[firstAppid][apps.MakeBoxKey(uint64(firstAppid), boxName)] = newBoxValue
 		args := []string{"create", boxName}
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(firstAppid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
@@ -131,7 +132,7 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(firstAppid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(firstAppid, boxName)
+		key := apps.MakeBoxKey(uint64(firstAppid), boxName)
 		expectedAppBoxes[firstAppid][key] = valPrefix + newBoxValue[len(valPrefix):]
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
@@ -159,7 +160,7 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(firstAppid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(firstAppid, boxName)
+		key := apps.MakeBoxKey(uint64(firstAppid), boxName)
 		expectedAppBoxes[firstAppid][key] = deleted
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
@@ -188,7 +189,7 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(firstAppid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(firstAppid, boxName)
+		key := apps.MakeBoxKey(uint64(firstAppid), boxName)
 		expectedAppBoxes[firstAppid][key] = newBoxValue
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
@@ -217,7 +218,7 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(firstAppid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(firstAppid, boxName)
+		key := apps.MakeBoxKey(uint64(firstAppid), boxName)
 		expectedAppBoxes[firstAppid][key] = valPrefix + newBoxValue[len(valPrefix):]
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
@@ -242,7 +243,7 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 	expectedAppBoxes[thirdAppid] = map[string]string{}
 	for _, boxName := range encodingExamples {
 		args := []string{"create", boxName}
-		expectedAppBoxes[thirdAppid][logic.MakeBoxKey(thirdAppid, boxName)] = newBoxValue
+		expectedAppBoxes[thirdAppid][apps.MakeBoxKey(uint64(thirdAppid), boxName)] = newBoxValue
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(thirdAppid), test.AccountC, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 	}
@@ -267,7 +268,7 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(thirdAppid), test.AccountC, args, []string{valPrefix})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(thirdAppid, valPrefix)
+		key := apps.MakeBoxKey(uint64(thirdAppid), valPrefix)
 		expectedAppBoxes[thirdAppid][key] = valPrefix + newBoxValue[len(valPrefix):]
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
@@ -343,23 +344,23 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
-			Name: "Lookup app 3 (funded with no boxes)",
+			Name: "Lookup app 1003 (funded with no boxes)",
 			Request: requestInfo{
-				Path:   "/v2/applications/3",
+				Path:   "/v2/applications/1003",
 				Params: []param{},
 			},
 		},
 		{
-			Name: "Lookup app 1 (funded with boxes)",
+			Name: "Lookup app 1001 (funded with boxes)",
 			Request: requestInfo{
-				Path:   "/v2/applications/1",
+				Path:   "/v2/applications/1001",
 				Params: []param{},
 			},
 		},
 		{
-			Name: "Lookup DELETED app 5 (funded with encoding test named boxes)",
+			Name: "Lookup DELETED app 1005 (funded with encoding test named boxes)",
 			Request: requestInfo{
-				Path:   "/v2/applications/5",
+				Path:   "/v2/applications/1005",
 				Params: []param{},
 			},
 		},
@@ -367,21 +368,21 @@ var boxSeedFixture = fixture{
 		{
 			Name: "Creator account - not an app account - no params",
 			Request: requestInfo{
-				Path:   "/v2/accounts/LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY",
+				Path:   "/v2/accounts/FPKJ7KD37AEIB3MJ6WXEXJIZH4DACLBNCR5PNUQREUWMC2YLIWFH2NHX24",
 				Params: []param{},
 			},
 		},
 		{
-			Name: "App 3 (as account) totals no boxes - no params",
+			Name: "App 1003 (as account) totals no boxes - no params",
 			Request: requestInfo{
-				Path:   "/v2/accounts/" + basics.AppIndex(3).Address().String(),
+				Path:   "/v2/accounts/" + basics.AppIndex(1003).Address().String(),
 				Params: []param{},
 			},
 		},
 		{
-			Name: "App 1 (as account) totals with boxes - no params",
+			Name: "App 1001 (as account) totals with boxes - no params",
 			Request: requestInfo{
-				Path:   "/v2/accounts/" + basics.AppIndex(1).Address().String(),
+				Path:   "/v2/accounts/" + basics.AppIndex(1001).Address().String(),
 				Params: []param{},
 			},
 		},
@@ -408,39 +409,39 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
-			Name: "Boxes of app 3 with no boxes: no params",
+			Name: "Boxes of app 1003 with no boxes: no params",
 			Request: requestInfo{
-				Path:   "/v2/applications/3/boxes",
+				Path:   "/v2/applications/1003/boxes",
 				Params: []param{},
 			},
 		},
 		{
-			Name: "Boxes of DELETED app 5 with goal encoded boxes: no params",
+			Name: "Boxes of DELETED app 1005 with goal encoded boxes: no params",
 			Request: requestInfo{
-				Path:   "/v2/applications/5/boxes",
+				Path:   "/v2/applications/1005/boxes",
 				Params: []param{},
 			},
 		},
 		{
-			Name: "Boxes of app 1 with boxes: no params",
+			Name: "Boxes of app 1001 with boxes: no params",
 			Request: requestInfo{
-				Path:   "/v2/applications/1/boxes",
+				Path:   "/v2/applications/1001/boxes",
 				Params: []param{},
 			},
 		},
 		{
-			Name: "Boxes of app 1 with boxes: limit 3 - page 1",
+			Name: "Boxes of app 1001 with boxes: limit 3 - page 1",
 			Request: requestInfo{
-				Path: "/v2/applications/1/boxes",
+				Path: "/v2/applications/1001/boxes",
 				Params: []param{
 					{"limit", "3"},
 				},
 			},
 		},
 		{
-			Name: "Boxes of app 1 with boxes: limit 3 - page 2 - b64",
+			Name: "Boxes of app 1001 with boxes: limit 3 - page 2 - b64",
 			Request: requestInfo{
-				Path: "/v2/applications/1/boxes",
+				Path: "/v2/applications/1001/boxes",
 				Params: []param{
 					{"limit", "3"},
 					{"next", "b64:Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ=="},
@@ -448,9 +449,9 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
-			Name: "Boxes of app 1 with boxes: limit 3 - page 3 - b64",
+			Name: "Boxes of app 1001 with boxes: limit 3 - page 3 - b64",
 			Request: requestInfo{
-				Path: "/v2/applications/1/boxes",
+				Path: "/v2/applications/1001/boxes",
 				Params: []param{
 					{"limit", "3"},
 					{"next", "b64:Ym94ICM4"},
@@ -458,9 +459,9 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
-			Name: "Boxes of app 1 with boxes: limit 3 - MISSING b64 prefix",
+			Name: "Boxes of app 1001 with boxes: limit 3 - MISSING b64 prefix",
 			Request: requestInfo{
-				Path: "/v2/applications/1/boxes",
+				Path: "/v2/applications/1001/boxes",
 				Params: []param{
 					{"limit", "3"},
 					{"next", "Ym94ICM4"},
@@ -468,9 +469,9 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
-			Name: "Boxes of app 1 with boxes: limit 3 - goal app arg encoding str",
+			Name: "Boxes of app 1001 with boxes: limit 3 - goal app arg encoding str",
 			Request: requestInfo{
-				Path: "/v2/applications/1/boxes",
+				Path: "/v2/applications/1001/boxes",
 				Params: []param{
 					{"limit", "3"},
 					{"next", "str:box #8"},
@@ -478,9 +479,9 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
-			Name: "Boxes of app 1 with boxes: limit 3 - page 4 (empty) - b64",
+			Name: "Boxes of app 1001 with boxes: limit 3 - page 4 (empty) - b64",
 			Request: requestInfo{
-				Path: "/v2/applications/1/boxes",
+				Path: "/v2/applications/1001/boxes",
 				Params: []param{
 					{"limit", "3"},
 					{"next", "b64:ZmFudGFidWxvdXM="},
@@ -488,9 +489,9 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
-			Name: "Boxes of app 1 with boxes: limit 3 - ERROR because when next param provided -even empty string- it must be goal app arg encoded",
+			Name: "Boxes of app 1001 with boxes: limit 3 - ERROR because when next param provided -even empty string- it must be goal app arg encoded",
 			Request: requestInfo{
-				Path: "/v2/applications/1/boxes",
+				Path: "/v2/applications/1001/boxes",
 				Params: []param{
 					{"limit", "3"},
 					{"next", ""},
@@ -534,160 +535,160 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
-			Name: "A box attempt for a existing app 3 - without the required box name param",
+			Name: "A box attempt for a existing app 1003 - without the required box name param",
 			Request: requestInfo{
-				Path:   "/v2/applications/3/box",
+				Path:   "/v2/applications/1003/box",
 				Params: []param{},
 			},
 		},
 		{
-			Name: "App 3 box (non-existing)",
+			Name: "App 1003 box (non-existing)",
 			Request: requestInfo{
-				Path: "/v2/applications/3/box",
+				Path: "/v2/applications/1003/box",
 				Params: []param{
 					{"name", "string:non-existing"},
 				},
 			},
 		},
 		{
-			Name: "App 1 box (non-existing)",
+			Name: "App 1001 box (non-existing)",
 			Request: requestInfo{
-				Path: "/v2/applications/1/box",
+				Path: "/v2/applications/1001/box",
 				Params: []param{
 					{"name", "string:non-existing"},
 				},
 			},
 		},
 		{
-			Name: "App 1 box (a great box)",
+			Name: "App 1001 box (a great box)",
 			Request: requestInfo{
-				Path: "/v2/applications/1/box",
+				Path: "/v2/applications/1001/box",
 				Params: []param{
 					{"name", "string:a great box"},
 				},
 			},
 		},
 		{
-			Name: "DELETED app 5 encoding (str:str) - no params",
+			Name: "DELETED app 1005 encoding (str:str) - no params",
 			Request: requestInfo{
-				Path: "/v2/applications/5/box",
+				Path: "/v2/applications/1005/box",
 				Params: []param{
 					{"name", "str:str"},
 				},
 			},
 		},
 		{
-			Name: "DELETED app 5 encoding (integer:100) - no params",
+			Name: "DELETED app 1005 encoding (integer:100) - no params",
 			Request: requestInfo{
-				Path: "/v2/applications/5/box",
+				Path: "/v2/applications/1005/box",
 				Params: []param{
 					{"name", "integer:100"},
 				},
 			},
 		},
 		{
-			Name: "DELETED app 5 encoding (base32:MJQXGZJTGI======) - no params",
+			Name: "DELETED app 1005 encoding (base32:MJQXGZJTGI======) - no params",
 			Request: requestInfo{
-				Path: "/v2/applications/5/box",
+				Path: "/v2/applications/1005/box",
 				Params: []param{
 					{"name", "base32:MJQXGZJTGI======"},
 				},
 			},
 		},
 		{
-			Name: "DELETED app 5 encoding (b64:YjY0) - no params",
+			Name: "DELETED app 1005 encoding (b64:YjY0) - no params",
 			Request: requestInfo{
-				Path: "/v2/applications/5/box",
+				Path: "/v2/applications/1005/box",
 				Params: []param{
 					{"name", "b64:YjY0"},
 				},
 			},
 		},
 		{
-			Name: "DELETED app 5 encoding (base64:YmFzZTY0) - no params",
+			Name: "DELETED app 1005 encoding (base64:YmFzZTY0) - no params",
 			Request: requestInfo{
-				Path: "/v2/applications/5/box",
+				Path: "/v2/applications/1005/box",
 				Params: []param{
 					{"name", "base64:YmFzZTY0"},
 				},
 			},
 		},
 		{
-			Name: "DELETED app 5 encoding (string:string) - no params",
+			Name: "DELETED app 1005 encoding (string:string) - no params",
 			Request: requestInfo{
-				Path: "/v2/applications/5/box",
+				Path: "/v2/applications/1005/box",
 				Params: []param{
 					{"name", "string:string"},
 				},
 			},
 		},
 		{
-			Name: "DELETED app 5 encoding (int:42) - no params",
+			Name: "DELETED app 1005 encoding (int:42) - no params",
 			Request: requestInfo{
-				Path: "/v2/applications/5/box",
+				Path: "/v2/applications/1005/box",
 				Params: []param{
 					{"name", "int:42"},
 				},
 			},
 		},
 		{
-			Name: "DELETED app 5 encoding (abi:(uint64,string,bool[]):[399,\"pls pass\",[true,false]]) - no params",
+			Name: "DELETED app 1005 encoding (abi:(uint64,string,bool[]):[399,\"pls pass\",[true,false]]) - no params",
 			Request: requestInfo{
-				Path: "/v2/applications/5/box",
+				Path: "/v2/applications/1005/box",
 				Params: []param{
 					{"name", "abi:(uint64,string,bool[]):[399,\"pls pass\",[true,false]]"},
 				},
 			},
 		},
 		{
-			Name: "DELETED app 5 encoding (addr:LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY) - no params",
+			Name: "DELETED app 1005 encoding (addr:LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY) - no params",
 			Request: requestInfo{
-				Path: "/v2/applications/5/box",
+				Path: "/v2/applications/1005/box",
 				Params: []param{
 					{"name", "addr:LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY"},
 				},
 			},
 		},
 		{
-			Name: "DELETED app 5 encoding (address:2SYXFSCZAQCZ7YIFUCUZYOVR7G6Y3UBGSJIWT4EZ4CO3T6WVYTMHVSANOY) - no params",
+			Name: "DELETED app 1005 encoding (address:2SYXFSCZAQCZ7YIFUCUZYOVR7G6Y3UBGSJIWT4EZ4CO3T6WVYTMHVSANOY) - no params",
 			Request: requestInfo{
-				Path: "/v2/applications/5/box",
+				Path: "/v2/applications/1005/box",
 				Params: []param{
 					{"name", "address:2SYXFSCZAQCZ7YIFUCUZYOVR7G6Y3UBGSJIWT4EZ4CO3T6WVYTMHVSANOY"},
 				},
 			},
 		},
 		{
-			Name: "DELETED app 5 encoding (b32:MIZTE===) - no params",
+			Name: "DELETED app 1005 encoding (b32:MIZTE===) - no params",
 			Request: requestInfo{
-				Path: "/v2/applications/5/box",
+				Path: "/v2/applications/1005/box",
 				Params: []param{
 					{"name", "b32:MIZTE==="},
 				},
 			},
 		},
 		{
-			Name: "DELETED app 5 encoding (byte base32:MJ4XIZJAMJQXGZJTGI======) - no params",
+			Name: "DELETED app 1005 encoding (byte base32:MJ4XIZJAMJQXGZJTGI======) - no params",
 			Request: requestInfo{
-				Path: "/v2/applications/5/box",
+				Path: "/v2/applications/1005/box",
 				Params: []param{
 					{"name", "byte base32:MJ4XIZJAMJQXGZJTGI======"},
 				},
 			},
 		},
 		{
-			Name: "DELETED app 5 encoding (byte base64:Ynl0ZSBiYXNlNjQ=) - no params",
+			Name: "DELETED app 1005 encoding (byte base64:Ynl0ZSBiYXNlNjQ=) - no params",
 			Request: requestInfo{
-				Path: "/v2/applications/5/box",
+				Path: "/v2/applications/1005/box",
 				Params: []param{
 					{"name", "byte base64:Ynl0ZSBiYXNlNjQ="},
 				},
 			},
 		},
 		{
-			Name: "DELETED app 5 illegal encoding (just a plain string) - no params",
+			Name: "DELETED app 1005 illegal encoding (just a plain string) - no params",
 			Request: requestInfo{
-				Path: "/v2/applications/5/box",
+				Path: "/v2/applications/1005/box",
 				Params: []param{
 					{"name", "just a plain string"},
 				},
