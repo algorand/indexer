@@ -82,6 +82,12 @@ nfpms:
     formats:
       - deb
     file_name_template: "{{ .ConventionalFileName }}"
+    contents:
+      - src: misc/systemd/
+        dst: /lib/systemd/system/
+      - src: misc/debian/52algorand-indexer-upgrades
+        dst: /etc/apt/apt.conf.d/
+        packager: deb
 
 archives:
   - name_template: '{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
