@@ -2305,13 +2305,31 @@ func TestAssetDelete(t *testing.T) {
 		})
 	}
 
+	// Look up apars to make sure they're not there
+	resp, data := makeRequest(t, listenAddr, fmt.Sprintf("/v2/blocks/%d", vb.Block.Round), false)
+	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code for blocks endpoint, body: %s", string(data)))
+	var blk generated.BlockResponse
+	err = json.Decode(data, &blk)
+	require.NoError(t, err)
+	assert.NotNil(t, blk.Transactions)
+	blkTxns := *blk.Transactions
+	assert.Equal(t, 3, len(blkTxns))
+	// Create Txn -- non-nil apars
+	assert.NotNil(t, blkTxns[0].AssetConfigTransaction)
+	blkAssetCfgCreate := *blkTxns[0].AssetConfigTransaction
+	assert.NotNil(t, blkAssetCfgCreate.Params)
+	// Delete Txn -- nil apars
+	assert.NotNil(t, blkTxns[2].AssetConfigTransaction)
+	blkAssetCfgDelete := *blkTxns[2].AssetConfigTransaction
+	assert.Nil(t, blkAssetCfgDelete.Params)
+
 	//////////
 	// And // look up the accounts opted in to the asset
 	//////////
 
 	// deleted asset excluded
 	path := fmt.Sprintf("/v2/accounts/%s", test.AccountA)
-	resp, data := makeRequest(t, listenAddr, path, false)
+	resp, data = makeRequest(t, listenAddr, path, false)
 	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
 	var account generated.AccountResponse
 	err = json.Decode(data, &account)
