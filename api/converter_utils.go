@@ -328,26 +328,29 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 		}
 		keyreg = &k
 	case sdk.AssetConfigTx:
-		assetParams := generated.AssetParams{
-			Clawback:      addrPtr(stxn.Txn.AssetParams.Clawback),
-			Creator:       stxn.Txn.Sender.String(),
-			Decimals:      uint64(stxn.Txn.AssetParams.Decimals),
-			DefaultFrozen: boolPtr(stxn.Txn.AssetParams.DefaultFrozen),
-			Freeze:        addrPtr(stxn.Txn.AssetParams.Freeze),
-			Manager:       addrPtr(stxn.Txn.AssetParams.Manager),
-			MetadataHash:  byteSliceOmitZeroPtr(stxn.Txn.AssetParams.MetadataHash[:]),
-			Name:          strPtr(util.PrintableUTF8OrEmpty(stxn.Txn.AssetParams.AssetName)),
-			NameB64:       byteSlicePtr([]byte(stxn.Txn.AssetParams.AssetName)),
-			Reserve:       addrPtr(stxn.Txn.AssetParams.Reserve),
-			Total:         stxn.Txn.AssetParams.Total,
-			UnitName:      strPtr(util.PrintableUTF8OrEmpty(stxn.Txn.AssetParams.UnitName)),
-			UnitNameB64:   byteSlicePtr([]byte(stxn.Txn.AssetParams.UnitName)),
-			Url:           strPtr(util.PrintableUTF8OrEmpty(stxn.Txn.AssetParams.URL)),
-			UrlB64:        byteSlicePtr([]byte(stxn.Txn.AssetParams.URL)),
+		var assetParams *generated.AssetParams = nil
+		if !stxn.Txn.AssetParams.IsZero() {
+			assetParams = &generated.AssetParams{
+				Clawback:      addrPtr(stxn.Txn.AssetParams.Clawback),
+				Creator:       stxn.Txn.Sender.String(),
+				Decimals:      uint64(stxn.Txn.AssetParams.Decimals),
+				DefaultFrozen: boolPtr(stxn.Txn.AssetParams.DefaultFrozen),
+				Freeze:        addrPtr(stxn.Txn.AssetParams.Freeze),
+				Manager:       addrPtr(stxn.Txn.AssetParams.Manager),
+				MetadataHash:  byteSliceOmitZeroPtr(stxn.Txn.AssetParams.MetadataHash[:]),
+				Name:          strPtr(util.PrintableUTF8OrEmpty(stxn.Txn.AssetParams.AssetName)),
+				NameB64:       byteSlicePtr([]byte(stxn.Txn.AssetParams.AssetName)),
+				Reserve:       addrPtr(stxn.Txn.AssetParams.Reserve),
+				Total:         stxn.Txn.AssetParams.Total,
+				UnitName:      strPtr(util.PrintableUTF8OrEmpty(stxn.Txn.AssetParams.UnitName)),
+				UnitNameB64:   byteSlicePtr([]byte(stxn.Txn.AssetParams.UnitName)),
+				Url:           strPtr(util.PrintableUTF8OrEmpty(stxn.Txn.AssetParams.URL)),
+				UrlB64:        byteSlicePtr([]byte(stxn.Txn.AssetParams.URL)),
+			}
 		}
 		config := generated.TransactionAssetConfig{
 			AssetId: uint64Ptr(uint64(stxn.Txn.ConfigAsset)),
-			Params:  &assetParams,
+			Params:  assetParams,
 		}
 		assetConfig = &config
 	case sdk.AssetTransferTx:
