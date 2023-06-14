@@ -314,6 +314,58 @@ func TestMultipleWriters(t *testing.T) {
 	assert.Equal(t, amt, balance)
 }
 
+// TestTransactionsTimestamps tests that the transactions endpoint responds to times properly.
+func TestTransactionsTimestamps(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+
+	round := uint64(1)
+	///////////
+	// Given // A block with 8 transactions at ts 1671036853.
+	///////////
+	usEastTz, err := time.LoadLocation("America/New_York")
+	require.NoError(t, err)
+	usWestTz, err := time.LoadLocation("America/Los_Angeles")
+	require.NoError(t, err)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BlockWithTransactions.vb")
+	require.NoError(t, err)
+	err = db.AddBlock(&vb)
+	require.NoError(t, err)
+
+	//////////
+	// When // We call Transactions with timestamp filters
+	//////////
+	blkTime := vb.Block.BlockHeader.TimeStamp
+	fullRowsCh, _ := db.Transactions(
+		context.Background(),
+		idb.TransactionFilter{
+			Round:      &round,
+			BeforeTime: time.Unix(blkTime+1, 0).In(usEastTz),
+			AfterTime:  time.Unix(blkTime-1, 0)})
+	var txnRows0 []idb.TxnRow
+	for row := range fullRowsCh {
+		require.NoError(t, row.Error)
+		txnRows0 = append(txnRows0, row)
+	}
+
+	emptyRowsCh, _ := db.Transactions(
+		context.Background(),
+		idb.TransactionFilter{
+			Round:     &round,
+			AfterTime: time.Unix(blkTime, 0).In(usWestTz)})
+	txnRows1 := make([]idb.TxnRow, 0)
+	for row := range emptyRowsCh {
+		require.NoError(t, row.Error)
+		txnRows1 = append(txnRows1, row)
+	}
+
+	//////////
+	// Then // They should have the correct number of transactions
+	//////////
+	assert.Len(t, txnRows0, len(vb.Block.Payset))
+	assert.Len(t, txnRows1, 0)
+}
+
 // TestBlockWithTransactions tests that the block with transactions endpoint works.
 func TestBlockWithTransactions(t *testing.T) {
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis())

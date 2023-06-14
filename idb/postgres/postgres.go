@@ -564,13 +564,15 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 		partNumber++
 	}
 	if !tf.BeforeTime.IsZero() {
+		convertedTime := tf.BeforeTime.In(time.UTC)
 		whereParts = append(whereParts, fmt.Sprintf("h.realtime < $%d", partNumber))
-		whereArgs = append(whereArgs, tf.BeforeTime)
+		whereArgs = append(whereArgs, convertedTime)
 		partNumber++
 	}
 	if !tf.AfterTime.IsZero() {
+		convertedTime := tf.AfterTime.In(time.UTC)
 		whereParts = append(whereParts, fmt.Sprintf("h.realtime > $%d", partNumber))
-		whereArgs = append(whereArgs, tf.AfterTime)
+		whereArgs = append(whereArgs, convertedTime)
 		partNumber++
 	}
 	if tf.AssetID != 0 || tf.ApplicationID != 0 {
