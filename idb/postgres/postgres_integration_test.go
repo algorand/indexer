@@ -321,7 +321,7 @@ func TestTransactionsTimestamps(t *testing.T) {
 
 	round := uint64(1)
 	///////////
-	// Given // A block at with 8 transactions at ts 1671036853.
+	// Given // A block with 8 transactions at ts 1671036853.
 	///////////
 	usEastTz, err := time.LoadLocation("America/New_York")
 	require.NoError(t, err)
