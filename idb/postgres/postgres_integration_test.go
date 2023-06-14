@@ -1401,8 +1401,8 @@ func TestAddBlockCreateDeleteAssetSameRound(t *testing.T) {
 	}
 }
 
-//Test that AddBlock makes a record of an app that is created and deleted in
-//the same round.
+// Test that AddBlock makes a record of an app that is created and deleted in
+// the same round.
 func TestAddBlockCreateDeleteAppSameRound(t *testing.T) {
 
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
@@ -1829,8 +1829,8 @@ func TestKeytypeDoNotResetReceiver(t *testing.T) {
 	assertKeytype(t, db, test.AccountB, &keytype)
 }
 
-//Test that if information in `txn` and `txn_participation` tables is ahead of
-//the current round, AddBlock() still runs successfully.
+// Test that if information in `txn` and `txn_participation` tables is ahead of
+// the current round, AddBlock() still runs successfully.
 func TestAddBlockTxnTxnParticipationAhead(t *testing.T) {
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()

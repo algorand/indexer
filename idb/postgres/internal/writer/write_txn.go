@@ -17,10 +17,11 @@ import (
 // Get the ID of the creatable referenced in the given transaction
 // (0 if not an asset or app transaction).
 // Note: ConsensusParams.MaxInnerTransactions could be overridden to force
-//       generating ApplyData.{ApplicationID/ConfigAsset}. This function does
-//       other things too, so it is not clear we should use it. The only
-//       real benefit is that it would slightly simplify this function by
-//       allowing us to leave out the intra / block parameters.
+//
+//	generating ApplyData.{ApplicationID/ConfigAsset}. This function does
+//	other things too, so it is not clear we should use it. The only
+//	real benefit is that it would slightly simplify this function by
+//	allowing us to leave out the intra / block parameters.
 func transactionAssetID(stxnad *types.SignedTxnWithAD, intra uint, block *types.Block) (uint64, error) {
 	assetid := uint64(0)
 	switch stxnad.Txn.Type {
