@@ -42,7 +42,6 @@ jobs:
   test:
     machine:
       image: << pipeline.parameters.ubuntu_image >>
-    resource_class: large
     parameters:
       go_version:
         type: string
@@ -61,7 +60,6 @@ jobs:
   test_nightly:
     machine:
       image: << pipeline.parameters.ubuntu_image >>
-    resource_class: large
     parameters:
       go_version:
         type: string
