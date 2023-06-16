@@ -6,7 +6,7 @@ RUN echo "Go image: $GO_IMAGE"
 # Misc dependencies
 ENV HOME /opt
 ENV DEBIAN_FRONTEND noninteractive
-RUN apt-get update && apt-get install -y apt-utils curl git git-core bsdmainutils python3 python3-pip make bash libtool libboost-math-dev libffi-dev
+RUN apt-get update && apt-get install -y apt-utils curl git git-core bsdmainutils python3 python3-pip python3-venv make bash libtool libboost-math-dev libffi-dev
 
 # Setup files for test
 RUN mkdir -p /opt/go/indexer
@@ -19,7 +19,12 @@ RUN make install
 WORKDIR /opt/go/indexer
 RUN make
 ENV PATH="${HOME}/go/bin/:${PATH}"
-RUN pip3 install -r misc/requirements.txt
+
+ENV VIRTUAL_ENV=/opt/venv
+RUN python3 -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+RUN python3 -m pip install -r misc/requirements.txt
 
 ENV INDEXER_DATA="${HOME}/indexer/"
 # Run test script
