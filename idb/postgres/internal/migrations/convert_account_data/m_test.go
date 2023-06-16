@@ -12,10 +12,10 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 
-	"github.com/algorand/indexer/idb/postgres/internal/encoding"
-	cad "github.com/algorand/indexer/idb/postgres/internal/migrations/convert_account_data"
-	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
-	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
+	"github.com/algorand/indexer/v3/idb/postgres/internal/encoding"
+	cad "github.com/algorand/indexer/v3/idb/postgres/internal/migrations/convert_account_data"
+	pgtest "github.com/algorand/indexer/v3/idb/postgres/internal/testing"
+	pgutil "github.com/algorand/indexer/v3/idb/postgres/internal/util"
 )
 
 func makeAddress(i int) sdk.Address {

@@ -15,11 +15,11 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/algorand/indexer/api"
-	"github.com/algorand/indexer/api/generated/v2"
-	"github.com/algorand/indexer/config"
-	"github.com/algorand/indexer/idb"
-	iutil "github.com/algorand/indexer/util"
+	"github.com/algorand/indexer/v3/api"
+	"github.com/algorand/indexer/v3/api/generated/v2"
+	"github.com/algorand/indexer/v3/config"
+	"github.com/algorand/indexer/v3/idb"
+	iutil "github.com/algorand/indexer/v3/util"
 )
 
 type daemonConfig struct {

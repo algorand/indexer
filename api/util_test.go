@@ -11,7 +11,7 @@ import (
 
 	"github.com/algorand/go-algorand-sdk/v2/types"
 
-	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/v3/idb"
 )
 
 func TestCallWithTimeoutTimesOut(t *testing.T) {

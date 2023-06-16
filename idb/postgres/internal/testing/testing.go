@@ -12,7 +12,7 @@ import (
 	"github.com/orlangure/gnomock/preset/postgres"
 	"github.com/stretchr/testify/require"
 
-	"github.com/algorand/indexer/idb/postgres/internal/schema"
+	"github.com/algorand/indexer/v3/idb/postgres/internal/schema"
 )
 
 var testpg string

@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/algorand/indexer/idb/postgres"
+	"github.com/algorand/indexer/v3/idb/postgres"
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/avm-abi/apps"
 	"github.com/algorand/go-algorand-sdk/v2/crypto"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/indexer/util/test"
+	"github.com/algorand/indexer/v3/util/test"
 )
 
 func goalEncode(t *testing.T, s string) string {

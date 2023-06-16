@@ -3,8 +3,8 @@ package api
 import (
 	"fmt"
 
-	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/util"
+	"github.com/algorand/indexer/v3/idb"
+	"github.com/algorand/indexer/v3/util"
 )
 
 // constant error messages.

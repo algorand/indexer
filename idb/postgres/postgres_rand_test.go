@@ -13,10 +13,10 @@ import (
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 
-	models "github.com/algorand/indexer/api/generated/v2"
-	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/idb/postgres/internal/writer"
-	"github.com/algorand/indexer/util/test"
+	models "github.com/algorand/indexer/v3/api/generated/v2"
+	"github.com/algorand/indexer/v3/idb"
+	"github.com/algorand/indexer/v3/idb/postgres/internal/writer"
+	"github.com/algorand/indexer/v3/util/test"
 )
 
 func generateAddress(t *testing.T) sdk.Address {

@@ -9,9 +9,9 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/types"
-	"github.com/algorand/indexer/util"
+	"github.com/algorand/indexer/v3/idb"
+	"github.com/algorand/indexer/v3/types"
+	"github.com/algorand/indexer/v3/util"
 
 	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/algorand/indexer/api/generated/v2"
+	"github.com/algorand/indexer/v3/api/generated/v2"
 )
 
 // StructProcessor implements the process function by serializing API responses into structs and comparing the typed

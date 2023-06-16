@@ -13,8 +13,8 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/algorand/indexer/config"
-	"github.com/algorand/indexer/util"
+	"github.com/algorand/indexer/v3/config"
+	"github.com/algorand/indexer/v3/util"
 )
 
 // TestParameterConfigErrorWhenBothFileTypesArePresent test that if both file types are there then it is an error
