@@ -373,8 +373,9 @@ func MakeAppCallTxnWithLogs(appid uint64, sender basics.Address, logs []string) 
 // application create
 // |- payment
 // |- application call
-//    |- asset transfer
-//    |- application call
+//
+//	|- asset transfer
+//	|- application call
 func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSender, assetReceiver basics.Address) transactions.SignedTxnWithAD {
 	createApp := MakeCreateAppTxn(appSender)
 
@@ -448,11 +449,12 @@ func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSen
 // MakeAppCallWithMultiLogs creates an app call that creates multiple logs
 // at the same level.
 // application create
-//   |- application call
-//     |- application call
-//   |- application call
-//   |- application call
-//   |- application call
+//
+//	|- application call
+//	  |- application call
+//	|- application call
+//	|- application call
+//	|- application call
 func MakeAppCallWithMultiLogs(appSender basics.Address) transactions.SignedTxnWithAD {
 	createApp := MakeCreateAppTxn(appSender)
 
@@ -511,8 +513,9 @@ func MakeAppCallWithMultiLogs(appSender basics.Address) transactions.SignedTxnWi
 
 // MakeAppCallWithInnerAppCall creates an app call with 3 levels of app txns:
 // application create
-//   |- application call
-//     |- application create
+//
+//	|- application call
+//	  |- application create
 func MakeAppCallWithInnerAppCall(appSender basics.Address) transactions.SignedTxnWithAD {
 	createApp := MakeCreateAppTxn(appSender)
 
