@@ -328,7 +328,7 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 		}
 		keyreg = &k
 	case sdk.AssetConfigTx:
-		var assetParams *generated.AssetParams = nil
+		var assetParams *generated.AssetParams
 		if !stxn.Txn.AssetParams.IsZero() {
 			assetParams = &generated.AssetParams{
 				Clawback:      addrPtr(stxn.Txn.AssetParams.Clawback),
