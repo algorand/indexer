@@ -14,9 +14,9 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 
-	"github.com/algorand/indexer/api/generated/v2"
-	"github.com/algorand/indexer/idb/postgres"
-	"github.com/algorand/indexer/util/test"
+	"github.com/algorand/indexer/v3/api/generated/v2"
+	"github.com/algorand/indexer/v3/idb/postgres"
+	"github.com/algorand/indexer/v3/util/test"
 )
 
 /* See the README.md in this directory for more details about Fixtures Tests */

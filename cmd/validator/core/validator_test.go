@@ -9,7 +9,7 @@ import (
 
 	"github.com/algorand/go-algorand-sdk/v2/types"
 
-	"github.com/algorand/indexer/api"
+	"github.com/algorand/indexer/v3/api"
 )
 
 type mockProcessor struct {

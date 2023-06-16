@@ -5,10 +5,10 @@ package mocks
 import (
 	context "context"
 
-	idb "github.com/algorand/indexer/idb"
+	idb "github.com/algorand/indexer/v3/idb"
 	mock "github.com/stretchr/testify/mock"
 
-	types "github.com/algorand/indexer/types"
+	types "github.com/algorand/indexer/v3/types"
 
 	v2types "github.com/algorand/go-algorand-sdk/v2/types"
 )

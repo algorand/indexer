@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"time"
 
-	models "github.com/algorand/indexer/api/generated/v2"
-	"github.com/algorand/indexer/types"
+	models "github.com/algorand/indexer/v3/api/generated/v2"
+	"github.com/algorand/indexer/v3/types"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )

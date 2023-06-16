@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v4"
 
-	"github.com/algorand/indexer/idb/postgres/internal/encoding"
+	"github.com/algorand/indexer/v3/idb/postgres/internal/encoding"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )

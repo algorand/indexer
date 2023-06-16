@@ -11,13 +11,13 @@ import (
 	"github.com/spf13/cobra/doc"
 	"github.com/spf13/viper"
 
-	v "github.com/algorand/indexer/cmd/validator/core"
-	"github.com/algorand/indexer/config"
-	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/idb/dummy"
-	_ "github.com/algorand/indexer/idb/postgres"
-	"github.com/algorand/indexer/util/metrics"
-	"github.com/algorand/indexer/version"
+	v "github.com/algorand/indexer/v3/cmd/validator/core"
+	"github.com/algorand/indexer/v3/config"
+	"github.com/algorand/indexer/v3/idb"
+	"github.com/algorand/indexer/v3/idb/dummy"
+	_ "github.com/algorand/indexer/v3/idb/postgres"
+	"github.com/algorand/indexer/v3/util/metrics"
+	"github.com/algorand/indexer/v3/version"
 )
 
 const autoLoadIndexerConfigFileName = config.FileName

@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/idb/mocks"
+	"github.com/algorand/indexer/v3/idb"
+	"github.com/algorand/indexer/v3/idb/mocks"
 )
 
 var errSuccess = errors.New("unexpected success")

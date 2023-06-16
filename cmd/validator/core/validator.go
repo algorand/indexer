@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/algorand/indexer/api"
+	"github.com/algorand/indexer/v3/api"
 
 	sdk_types "github.com/algorand/go-algorand-sdk/v2/types"
 )

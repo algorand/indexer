@@ -11,12 +11,12 @@ import (
 
 	"github.com/jackc/pgx/v4"
 
-	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/idb/migration"
-	"github.com/algorand/indexer/idb/postgres/internal/encoding"
-	cad "github.com/algorand/indexer/idb/postgres/internal/migrations/convert_account_data"
-	"github.com/algorand/indexer/idb/postgres/internal/schema"
-	"github.com/algorand/indexer/idb/postgres/internal/types"
+	"github.com/algorand/indexer/v3/idb"
+	"github.com/algorand/indexer/v3/idb/migration"
+	"github.com/algorand/indexer/v3/idb/postgres/internal/encoding"
+	cad "github.com/algorand/indexer/v3/idb/postgres/internal/migrations/convert_account_data"
+	"github.com/algorand/indexer/v3/idb/postgres/internal/schema"
+	"github.com/algorand/indexer/v3/idb/postgres/internal/types"
 )
 
 func init() {

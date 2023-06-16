@@ -6,12 +6,12 @@ import (
 
 	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	itypes "github.com/algorand/indexer/types"
+	itypes "github.com/algorand/indexer/v3/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/idb/postgres/internal/types"
+	"github.com/algorand/indexer/v3/idb"
+	"github.com/algorand/indexer/v3/idb/postgres/internal/types"
 )
 
 func TestEncodeSignedTxnWithAD(t *testing.T) {
