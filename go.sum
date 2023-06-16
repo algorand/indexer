@@ -72,9 +72,12 @@ github.com/algorand/avm-abi v0.2.0 h1:bkjsG+BOEcxUcnGSALLosmltE0JZdg+ZisXKx0UDX2
 github.com/algorand/avm-abi v0.2.0/go.mod h1:+CgwM46dithy850bpTeHh9MC99zpn2Snirb3QTl2O/g=
 github.com/algorand/go-algorand-sdk/v2 v2.0.0-20230526160341-74a095c3f9e3 h1:HVso8HOozyMMd9EQC0icfLDM7Z+5UCrX5wl1oCXjzng=
 github.com/algorand/go-algorand-sdk/v2 v2.0.0-20230526160341-74a095c3f9e3/go.mod h1:Nt3EHpP8AznLs0/EFfhr0/xsVf5ucnvjNeRygGgbUzM=
+github.com/algorand/go-algorand-sdk/v2 v2.2.0 h1:zWwK+k/WArtZJUSkDXTDj4a0GUik2iOhFlPjLFDET6s=
+github.com/algorand/go-algorand-sdk/v2 v2.2.0/go.mod h1:+3+4EZmMUcQk6bgmtC5Ic5kKZE/g6SmfiW098tYLkPE=
 github.com/algorand/go-codec v1.1.8/go.mod h1:XhzVs6VVyWMLu6cApb9/192gBjGRVGm5cX5j203Heg4=
 github.com/algorand/go-codec/codec v1.1.8 h1:lsFuhcOH2LiEhpBH3BVUUkdevVmwCRyvb7FCAAPeY6U=
 github.com/algorand/go-codec/codec v1.1.8/go.mod h1:tQ3zAJ6ijTps6V+wp8KsGDnPC2uhHVC7ANyrtkIY0bA=
+github.com/algorand/go-codec/codec v1.1.10/go.mod h1:YkEx5nmr/zuCeaDYOIhlDg92Lxju8tj2d2NrYqP7g7k=
 github.com/algorand/oapi-codegen v1.12.0-algorand.0 h1:W9PvED+wAJc+9EeXPONnA+0zE9UhynEqoDs4OgAxKhk=
 github.com/algorand/oapi-codegen v1.12.0-algorand.0/go.mod h1:tIWJ9K/qrLDVDt5A1p82UmxZIEGxv2X+uoujdhEAL48=
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
