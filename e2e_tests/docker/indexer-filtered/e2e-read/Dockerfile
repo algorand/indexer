@@ -16,7 +16,12 @@ RUN rm -f /opt/go/indexer/cmd/algorand-indexer/algorand-indexer
 RUN make
 ENV PATH="${HOME}/go/bin/:${PATH}"
 WORKDIR ./e2e_tests
-RUN pip3 install ./
+
+ENV VIRTUAL_ENV=/opt/venv
+RUN python3 -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+RUN python3 -m pip install ./
 
 ENV INDEXER_DATA="${HOME}/indexer/"
 WORKDIR /opt/go/indexer

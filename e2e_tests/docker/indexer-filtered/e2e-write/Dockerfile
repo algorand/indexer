@@ -29,7 +29,12 @@ RUN git clone --depth 1 -b master https://github.com/algorand/conduit
 WORKDIR /opt/go/conduit
 RUN make
 WORKDIR /opt/go/indexer/e2e_tests
-RUN pip3 install ./
+
+ENV VIRTUAL_ENV=/opt/venv
+RUN python3 -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+RUN python3 -m pip install ./
 
 ENV INDEXER_DATA="${HOME}/indexer/"
 WORKDIR /opt/go/indexer
