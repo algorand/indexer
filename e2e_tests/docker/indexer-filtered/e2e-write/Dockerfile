@@ -8,7 +8,7 @@ RUN echo "Go image: $GO_IMAGE"
 # Misc dependencies
 ENV HOME /opt
 ENV DEBIAN_FRONTEND noninteractive
-RUN apt-get update && apt-get install -y apt-utils curl git git-core bsdmainutils python3 python3-pip make bash libtool libboost-math-dev libffi-dev wget gettext-base
+RUN apt-get update && apt-get install -y apt-utils curl git git-core bsdmainutils python3 python3-pip python3-venv make bash libtool libboost-math-dev libffi-dev wget gettext-base
 
 # Setup files for test
 RUN mkdir -p /opt/go/indexer
@@ -29,7 +29,12 @@ RUN git clone --depth 1 -b master https://github.com/algorand/conduit
 WORKDIR /opt/go/conduit
 RUN make
 WORKDIR /opt/go/indexer/e2e_tests
-RUN pip3 install ./
+
+ENV VIRTUAL_ENV=/opt/venv
+RUN python3 -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+RUN python3 -m pip install ./
 
 ENV INDEXER_DATA="${HOME}/indexer/"
 WORKDIR /opt/go/indexer

@@ -1,14 +1,14 @@
 version: 2.1
 
 orbs:
-  go: circleci/go@1.7.0
+  go: circleci/go@1.7.3
   slack: circleci/slack@4.7.1
   codecov: codecov/codecov@3.2.4
 
 parameters:
   ubuntu_image:
     type: string
-    default: "ubuntu-2004:202107-02"
+    default: "ubuntu-2204:2022.04.2"
 
 workflows:
   version: 2
@@ -18,7 +18,7 @@ workflows:
           name: test_with_go_<< matrix.go_version >>
           matrix: &go-version-matrix
             parameters:
-              go_version: ["1.17.9"]
+              go_version: ["1.20.5"]
 
   circleci_build_and_test_nightly:
     triggers:
@@ -33,7 +33,7 @@ workflows:
           context: lamprey-secrets
           matrix: &go-version-matrix
             parameters:
-              go_version: ["1.17.9"]
+              go_version: ["1.20.5"]
       - indexer_vs_algod_nightly:
           name: nightly_test_indexer_vs_algod
           context: lamprey-secrets
@@ -120,7 +120,7 @@ commands:
           name: Install python and other python dependencies
           command: |
             sudo apt update
-            sudo apt -y install python3 python3-pip python3-setuptools python3-wheel libboost-math-dev libffi-dev
+            sudo NEEDRESTART_MODE=a apt -y install python3 python3-pip python3-setuptools python3-wheel libboost-math-dev libffi-dev
             pip3 install -r misc/requirements.txt
             pip3 install e2e_tests/
 
@@ -131,7 +131,7 @@ commands:
     steps:
       - run:
           name: Install golangci-lint
-          command: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.47.3
+          command: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.53.2
 
   run_e2e_tests:
     # no "-nightly" in final 2 steps

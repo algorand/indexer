@@ -15,19 +15,11 @@ func algodPaths(datadir string) (netpath, tokenpath string) {
 	return
 }
 
-func algodStat(netpath, tokenpath string) (lastmod time.Time, err error) {
+func algodStat(netpath string) (lastmod time.Time, err error) {
 	nstat, err := os.Stat(netpath)
 	if err != nil {
 		err = fmt.Errorf("%s: %v", netpath, err)
 		return
-	}
-	tstat, err := os.Stat(tokenpath)
-	if err != nil {
-		err = fmt.Errorf("%s: %v", tokenpath, err)
-		return
-	}
-	if nstat.ModTime().Before(tstat.ModTime()) {
-		lastmod = tstat.ModTime()
 	}
 	lastmod = nstat.ModTime()
 	return
@@ -55,7 +47,7 @@ func AlgodArgsForDataDir(datadir string) (netAddr string, token string, lastmod 
 	token = strings.TrimSpace(string(tokenBytes))
 
 	if err == nil {
-		lastmod, err = algodStat(netpath, tokenpath)
+		lastmod, err = algodStat(netpath)
 	}
 
 	return

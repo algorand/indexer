@@ -11,7 +11,7 @@ from subprocess import check_output
 list_of_directories=["idb/postgres/internal/schema"]
 
 for dir in list_of_directories:
-    os.system("/usr/local/go/bin/go generate {}".format(dir))
+    os.system("go generate {}".format(dir))
 
 out = check_output(["git status --porcelain | wc -l"], shell=True).strip().decode('UTF-8')
 
