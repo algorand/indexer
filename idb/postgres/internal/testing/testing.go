@@ -48,7 +48,7 @@ func SetupPostgres(t *testing.T) (*pgxpool.Pool, string, func()) {
 	}
 
 	p := postgres.Preset(
-		postgres.WithVersion("12.5"),
+		postgres.WithVersion("13-alpine"),
 		postgres.WithUser("gnomock", "gnomick"),
 		postgres.WithDatabase("mydb"),
 	)
