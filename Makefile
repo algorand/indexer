@@ -12,9 +12,9 @@ endif
 export GOPATH := $(shell go env GOPATH)
 GOPATH1 := $(firstword $(subst :, ,$(GOPATH)))
 
-GOLDFLAGS += -X github.com/algorand/indexer/version.Hash=$(shell git log -n 1 --pretty="%H")
-GOLDFLAGS += -X github.com/algorand/indexer/version.CompileTime=$(shell date -u +%Y-%m-%dT%H:%M:%S%z)
-GOLDFLAGS += -X github.com/algorand/indexer/version.ReleaseVersion=$(shell cat .version)
+GOLDFLAGS += -X github.com/algorand/indexer/v3/version.Hash=$(shell git log -n 1 --pretty="%H")
+GOLDFLAGS += -X github.com/algorand/indexer/v3/version.CompileTime=$(shell date -u +%Y-%m-%dT%H:%M:%S%z)
+GOLDFLAGS += -X github.com/algorand/indexer/v3/version.ReleaseVersion=$(shell cat .version)
 
 COVERPKG := $(shell go list ./...  | grep -v '/cmd/' | egrep -v '(testing|test|mocks)$$' |  paste -s -d, - )
 
