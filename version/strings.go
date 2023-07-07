@@ -14,6 +14,7 @@ var (
 	// CompileTime YYYY-mm-ddTHH:MM:SS+ZZZZ
 	CompileTime string
 
+	// ReleaseVersion is set using -ldflags during build.
 	ReleaseVersion string
 )
 
