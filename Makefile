@@ -39,17 +39,6 @@ idb/mocks/IndexerDb.go:	idb/idb.go
 check:
 	go build ./...
 
-package:
-	rm -rf $(PKG_DIR)
-	mkdir -p $(PKG_DIR)
-	misc/release.py --host-only --outdir $(PKG_DIR)
-
-# used in travis test builds; doesn't verify that tag and .version match
-fakepackage:
-	rm -rf $(PKG_DIR)
-	mkdir -p $(PKG_DIR)
-	misc/release.py --host-only --outdir $(PKG_DIR) --fake-release
-
 test: idb/mocks/IndexerDb.go cmd/algorand-indexer/algorand-indexer
 	go test -coverpkg=$(COVERPKG) ./... -coverprofile=coverage.txt -covermode=atomic ${TEST_FLAG}
 
