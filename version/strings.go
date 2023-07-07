@@ -14,7 +14,6 @@ var (
 	// CompileTime YYYY-mm-ddTHH:MM:SS+ZZZZ
 	CompileTime string
 
-	// ReleaseVersion What was in /.version when this was compiled.
 	ReleaseVersion string
 )
 
