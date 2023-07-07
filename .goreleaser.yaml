@@ -24,10 +24,10 @@ builds:
       - arm64
     ldflags: >
       -s -w
-      -X github.com/algorand/indexer/version.Hash={{.FullCommit}}
-      -X github.com/algorand/indexer/version.ShortHash={{.ShortCommit}}
-      -X github.com/algorand/indexer/version.CompileTime={{.Timestamp}}
-      -X github.com/algorand/indexer/version.ReleaseVersion={{.Version}}
+      -X github.com/algorand/indexer/v3/version.Hash={{.FullCommit}}
+      -X github.com/algorand/indexer/v3/version.ShortHash={{.ShortCommit}}
+      -X github.com/algorand/indexer/v3/version.CompileTime={{.Timestamp}}
+      -X github.com/algorand/indexer/v3/version.ReleaseVersion={{.Version}}
 
 dockers:
   - use: buildx
