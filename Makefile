@@ -1,8 +1,6 @@
 SRCPATH		:= $(shell pwd)
-VERSION		:= $(shell $(SRCPATH)/mule/scripts/compute_build_number.sh)
 OS_TYPE		?= $(shell $(SRCPATH)/mule/scripts/ostype.sh)
 ARCH		?= $(shell $(SRCPATH)/mule/scripts/archtype.sh)
-PKG_DIR		= $(SRCPATH)/tmp/node_pkgs/$(OS_TYPE)/$(ARCH)/$(VERSION)
 ifeq ($(OS_TYPE), darwin)
 ifeq ($(ARCH), arm64)
 export CPATH=/opt/homebrew/include
@@ -12,9 +10,9 @@ endif
 export GOPATH := $(shell go env GOPATH)
 GOPATH1 := $(firstword $(subst :, ,$(GOPATH)))
 
-GOLDFLAGS += -X github.com/algorand/indexer/version.Hash=$(shell git log -n 1 --pretty="%H")
-GOLDFLAGS += -X github.com/algorand/indexer/version.CompileTime=$(shell date -u +%Y-%m-%dT%H:%M:%S%z)
-GOLDFLAGS += -X github.com/algorand/indexer/version.ReleaseVersion=$(shell cat .version)
+GOLDFLAGS += -X github.com/algorand/indexer/v3/version.Hash=$(shell git log -n 1 --pretty="%H")
+GOLDFLAGS += -X github.com/algorand/indexer/v3/version.CompileTime=$(shell date -u +%Y-%m-%dT%H:%M:%S%z)
+GOLDFLAGS += -X "github.com/algorand/indexer/v3/version.ReleaseVersion=Dev Build"
 
 COVERPKG := $(shell go list ./...  | grep -v '/cmd/' | egrep -v '(testing|test|mocks)$$' |  paste -s -d, - )
 
@@ -38,17 +36,6 @@ idb/mocks/IndexerDb.go:	idb/idb.go
 # check that all packages (except tests) compile
 check:
 	go build ./...
-
-package:
-	rm -rf $(PKG_DIR)
-	mkdir -p $(PKG_DIR)
-	misc/release.py --host-only --outdir $(PKG_DIR)
-
-# used in travis test builds; doesn't verify that tag and .version match
-fakepackage:
-	rm -rf $(PKG_DIR)
-	mkdir -p $(PKG_DIR)
-	misc/release.py --host-only --outdir $(PKG_DIR) --fake-release
 
 test: idb/mocks/IndexerDb.go cmd/algorand-indexer/algorand-indexer
 	go test -coverpkg=$(COVERPKG) ./... -coverprofile=coverage.txt -covermode=atomic ${TEST_FLAG}
