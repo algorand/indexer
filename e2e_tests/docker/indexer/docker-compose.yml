@@ -13,7 +13,6 @@ services:
       # Add --keep-alive to this variable to pause the container on an error
       EXTRA: "${EXTRA}"
 
-
   e2e-db:
     image: "postgres:13-alpine"
     ports:
