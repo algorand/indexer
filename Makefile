@@ -49,7 +49,7 @@ fmt:
 
 # note: when running e2e tests manually be sure to set the e2e filename:
 # 	'export CI_E2E_FILENAME=rel-nightly'
-#   'export CHANNEL=nightly'
+#	'export CHANNEL=nightly'
 # To keep the container running at exit set 'export EXTRA="--keep-alive"',
 # once the container is paused use 'docker exec <id> bash' to inspect temp
 # files in `/tmp/*/'
