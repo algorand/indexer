@@ -47,6 +47,7 @@ jobs:
         type: string
     environment:
       CI_E2E_FILENAME: "f99e7b0c/rel-nightly"
+      CHANNEL: nightly
     steps:
       - go/install:
           version: << parameters.go_version >>
@@ -65,6 +66,7 @@ jobs:
         type: string
     environment:
       CI_E2E_FILENAME: "rel-nightly"
+      CHANNEL: nightly
     steps:
       - go/install:
           version: << parameters.go_version >>
