@@ -54,8 +54,7 @@ jobs:
       - install_dependencies
       - install_linter
       - run_tests
-      # Change this to run_e2e_tests once we have stable algod binaries containing delta APIs
-      - run_e2e_tests_nightly
+      - run_e2e_tests
       - codecov/upload
 
   test_nightly:
