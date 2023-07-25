@@ -75,7 +75,7 @@ jobs:
       - install_dependencies
       - install_linter
       - run_tests
-      - run_e2e_tests
+      - run_e2e_tests_nightly
       - codecov/upload
       - slack/notify: &slack-fail-event
           channel: C056CK9PYRY # #lamprey-builds
