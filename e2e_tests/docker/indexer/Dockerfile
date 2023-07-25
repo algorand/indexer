@@ -1,6 +1,6 @@
 ARG GO_IMAGE=golang:1.20.5
 FROM $GO_IMAGE
-ARG CHANNEL=nightly
+ARG CHANNEL=stable
 
 RUN echo "Go image: $GO_IMAGE"
 
