@@ -75,7 +75,7 @@ jobs:
       - install_dependencies
       - install_linter
       - run_tests
-      - run_e2e_tests_nightly
+      - run_e2e_tests
       - codecov/upload
       - slack/notify: &slack-fail-event
           channel: C056CK9PYRY # #lamprey-builds
@@ -138,7 +138,6 @@ commands:
           command: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.53.2
 
   run_e2e_tests:
-    # no "-nightly" in final 2 steps
     steps:
       - run:
           name: Install go-algorand stable binaries
@@ -148,18 +147,6 @@ commands:
             export GOPATH=/usr/local/go/
       - run: make e2e
       - run: make e2e-filter-test
-
-  run_e2e_tests_nightly:
-    # "-nightly" suffix in final 2 steps
-    steps:
-      - run:
-          name: Install go-algorand nightly binaries
-          command: |
-            wget https://raw.githubusercontent.com/algorand/go-algorand/rel/stable/cmd/updater/update.sh && chmod 744 update.sh
-            ./update.sh -i -c nightly -n -d ./ -p /usr/local/go/bin
-            export GOPATH=/usr/local/go/
-      - run: make e2e-nightly
-      - run: make e2e-filter-test-nightly
 
   run_tests:
     steps:

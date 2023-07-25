@@ -1,5 +1,6 @@
-ARG GO_IMAGE=golang:1.14.7
+ARG GO_IMAGE=golang:1.20.5
 FROM $GO_IMAGE
+ARG CHANNEL=nightly
 
 RUN echo "Go image: $GO_IMAGE"
 
