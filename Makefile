@@ -47,8 +47,6 @@ lint:
 fmt:
 	go fmt ./...
 
-# note: when running e2e tests manually be sure to set the e2e filename:
-# 	'export CI_E2E_FILENAME=rel-nightly'
 # To keep the container running at exit set 'export EXTRA="--keep-alive"',
 # once the container is paused use 'docker exec <id> bash' to inspect temp
 # files in `/tmp/*/'
@@ -57,12 +55,6 @@ e2e: cmd/algorand-indexer/algorand-indexer
 
 e2e-filter-test: cmd/algorand-indexer/algorand-indexer
 	cd e2e_tests/docker/indexer-filtered/ && docker-compose build --build-arg GO_IMAGE=${GO_IMAGE} && docker-compose up --exit-code-from e2e-read
-
-e2e-filter-test-nightly: cmd/algorand-indexer/algorand-indexer
-	cd e2e_tests/docker/indexer-filtered/ && docker-compose build --build-arg GO_IMAGE=${GO_IMAGE} --build-arg CHANNEL=nightly && docker-compose up --exit-code-from e2e-read
-
-e2e-nightly: cmd/algorand-indexer/algorand-indexer
-	cd e2e_tests/docker/indexer/ && docker-compose build --build-arg GO_IMAGE=${GO_IMAGE} --build-arg CHANNEL=nightly && docker-compose up --exit-code-from e2e
 
 deploy:
 	mule/deploy.sh

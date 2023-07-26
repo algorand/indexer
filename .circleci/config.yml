@@ -46,15 +46,18 @@ jobs:
       go_version:
         type: string
     environment:
+      # A stable environment for PRs.
+      # Set CHANNEL to nightly and update CI_E2E_FILENAME when adding a new feature.
+      # Change back to stable once the new feature is released.
       CI_E2E_FILENAME: "f99e7b0c/rel-nightly"
+      CHANNEL: nightly
     steps:
       - go/install:
           version: << parameters.go_version >>
       - install_dependencies
       - install_linter
       - run_tests
-      # Change this to run_e2e_tests once we have stable algod binaries containing delta APIs
-      - run_e2e_tests_nightly
+      - run_e2e_tests
       - codecov/upload
 
   test_nightly:
@@ -65,6 +68,7 @@ jobs:
         type: string
     environment:
       CI_E2E_FILENAME: "rel-nightly"
+      CHANNEL: nightly
     steps:
       - go/install:
           version: << parameters.go_version >>
@@ -134,7 +138,6 @@ commands:
           command: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.53.2
 
   run_e2e_tests:
-    # no "-nightly" in final 2 steps
     steps:
       - run:
           name: Install go-algorand stable binaries
@@ -154,8 +157,8 @@ commands:
             wget https://raw.githubusercontent.com/algorand/go-algorand/rel/stable/cmd/updater/update.sh && chmod 744 update.sh
             ./update.sh -i -c nightly -n -d ./ -p /usr/local/go/bin
             export GOPATH=/usr/local/go/
-      - run: make e2e-nightly
-      - run: make e2e-filter-test-nightly
+      - run: make e2e
+      - run: make e2e-filter-test
 
   run_tests:
     steps:
