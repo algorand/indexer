@@ -282,3 +282,9 @@ When searching by an account, results are returned most recent first. The intent
 For all other transaction queries, results are returned oldest first. This is because it is the physical order they would normally be written in, so it is going to be faster.
 
 <!-- USAGE_END_MARKER_LINE -->
+
+# Migrating from Indexer v2
+
+If you were previously using Indexer 2.x you will need to reconfigure your deployment to include [Conduit](https://github.com/algorand/conduit). The data loading component has moved from Indexer 2.x to Conduit.
+
+[Additional details found here.](https://github.com/algorand/conduit#migrating-from-indexer-2x)
