@@ -13,7 +13,7 @@
 
 # Algorand Indexer
 
-The Indexer is an API that provides search capabilities to Algorand on-chain data. Data is written by [Conduit](https://github.com/algorand/conduit/blob/master/docs/tutorials/IndexerWriter.md) to populate a PostgreSQL compaatible database.
+The Indexer is an API that provides search capabilities for Algorand on-chain data. Data is written by [Conduit](https://github.com/algorand/conduit/blob/master/docs/tutorials/IndexerWriter.md) to populate a PostgreSQL compatible database.
 
 ## Building from source ##
 
@@ -32,13 +32,13 @@ All recommendations here should be be used as a starting point. Further benchmar
 ## System
 
 For a simple deployment the following configuration works well:
-* Network: Indexer, Algod and PostgreSQL should all be on the same network.
+* Network: Indexer, Conduit, Algod and PostgreSQL should all be on the same network.
 * Indexer: 2 CPU and 8 GB of ram.
 * Conduit: 2 CPU and 8 GB of ram.
 * Database: When hosted on AWS a `db.r5.xlarge` instance works well.
 * Storage: 20 GiB
 
-A database with replication can be used to scale read volume. Configure single Conduit writer with multiple Indexer readers.
+A database with replication can be used to scale read volume. Configure a single Conduit writer with multiple Indexer readers.
 
 # Quickstart
 
