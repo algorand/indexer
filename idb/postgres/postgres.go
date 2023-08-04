@@ -228,7 +228,12 @@ func loadTransactionParticipation(db *IndexerDb, block *sdk.Block) error {
 
 // AddBlock is part of idb.IndexerDb.
 func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
-	start := time.Now()
+	protoVersion := protocol.ConsensusVersion(vb.Block.CurrentProtocol)
+	_, ok := config.Consensus[protoVersion]
+	if !ok {
+		return fmt.Errorf("unknown protocol (%s) detected, this usually means you need to upgrade", protoVersion)
+	}
+
 	block := vb.Block
 	round := block.BlockHeader.Round
 	db.log.Printf("adding block %d", round)
@@ -327,7 +332,6 @@ func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 	if err != nil {
 		return fmt.Errorf("AddBlock() err: %w", err)
 	}
-	db.log.Infof("Block written after %s (%d txns)", time.Since(start), len(block.Payset))
 
 	fmt.Printf("AddBlock(commit): %s\n", time.Since(commitStart))
 	fmt.Printf("------------------\n")
