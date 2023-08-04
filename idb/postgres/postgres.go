@@ -37,7 +37,8 @@ import (
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
-var serializable = pgx.TxOptions{IsoLevel: pgx.Serializable} // be a real ACID database
+var serializable = pgx.TxOptions{IsoLevel: pgx.Serializable}   // be a real ACID database
+var uncommitted = pgx.TxOptions{IsoLevel: pgx.ReadUncommitted} // be a real ACID database
 var readonlyRepeatableRead = pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly}
 
 // OpenPostgres is available for creating test instances of postgres.IndexerDb
@@ -173,14 +174,61 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 	return db.runAvailableMigrations(opts)
 }
 
+// loadTransactionBatch called by loadTransactions.
+func loadTransactionBatch(db *IndexerDb, block *sdk.Block, batchnum, start, size int) error {
+	f := func(tx pgx.Tx) error {
+		batchStart := time.Now()
+		var txns []sdk.SignedTxnInBlock
+		end := start + size
+		if end > len(block.Payset) {
+			txns = block.Payset[start:]
+		} else {
+			txns = block.Payset[start:end]
+		}
+		err := writer.AddTransactions(block, uint64(start), txns, tx)
+		fmt.Printf("AddTransactions batch(%d): %s\n", batchnum, time.Since(batchStart))
+		return err
+	}
+	return db.txWithRetry(uncommitted, f)
+}
+
+// loadTransactions writes txn data to the DB.
+func loadTransactions(db *IndexerDb, batchSize int, block *sdk.Block) []error {
+	var errArr []error
+	var txnsWg sync.WaitGroup
+	batchnum := 0
+	for i := 0; i < len(block.Payset); i += batchSize {
+		start := i
+		num := batchnum
+		txnsWg.Add(1)
+		go func() {
+			defer txnsWg.Done()
+			errArr = append(errArr, loadTransactionBatch(db, block, num, start, batchSize))
+		}()
+		batchnum++
+	}
+	txnsWg.Wait()
+
+	return nil
+}
+
+func loadTransactionParticipation(db *IndexerDb, block *sdk.Block) error {
+	st := time.Now()
+	f := func(tx pgx.Tx) error {
+		err := writer.AddTransactionParticipation(uint64(block.Round), block.Payset, tx)
+		fmt.Printf("AddTransactionParticipation: %s\n", time.Since(st))
+		//tx.Rollback(context.Background())
+		st = time.Now()
+		return err
+	}
+	err := db.txWithRetry(uncommitted, f)
+	fmt.Printf("AddTransactionParticipation(commit): %s\n", time.Since(st))
+	return err
+}
+
 // AddBlock is part of idb.IndexerDb.
 func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
-	protoVersion := protocol.ConsensusVersion(vb.Block.CurrentProtocol)
-	_, ok := config.Consensus[protoVersion]
-	if !ok {
-		return fmt.Errorf("unknown protocol (%s) detected, this usually means you need to upgrade", protoVersion)
-	}
-
+	start := time.Now()
 	block := vb.Block
 	round := block.BlockHeader.Round
 	db.log.Printf("adding block %d", round)
@@ -188,6 +236,7 @@ func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 	db.accountingLock.Lock()
 	defer db.accountingLock.Unlock()
 
+	commitStart := time.Now()
 	f := func(tx pgx.Tx) error {
 		// Check and increment next round counter.
 		importstate, err := db.getImportState(context.Background(), tx)
@@ -222,24 +271,31 @@ func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 		var wg sync.WaitGroup
 		defer wg.Wait()
 
-		var err0 error
+		var err0 []error
+		fmt.Printf("------------------\n")
+		fmt.Printf("Round: %d\n", vb.Block.Round)
+		size := 2000
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			f := func(tx pgx.Tx) error {
-				err := writer.AddTransactions(&block, block.Payset, tx)
-				if err != nil {
-					return err
-				}
-				return writer.AddTransactionParticipation(&block, tx)
-			}
-			err0 = db.txWithRetry(serializable, f)
+			st := time.Now()
+			err0 = loadTransactions(db, size, &block)
+			fmt.Printf("AddTransactions(total): %s\n", time.Since(st))
 		}()
 
+		var err1 error
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err1 = loadTransactionParticipation(db, &block)
+		}()
+
+		blockStart := time.Now()
 		err = w.AddBlock(&block, vb.Delta)
 		if err != nil {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
+		fmt.Printf("AddBlock: %s\n", time.Since(blockStart))
 
 		// Wait for goroutines to finish and check for errors. If there is an error, we
 		// return our own error so that the main transaction does not commit. Hence,
@@ -250,17 +306,33 @@ func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 			var pgerr *pgconn.PgError
 			return errors.As(err, &pgerr) && (pgerr.Code == pgerrcode.UniqueViolation)
 		}
-		if (err0 != nil) && !isUniqueViolationFunc(err0) {
-			return fmt.Errorf("AddBlock() err0: %w", err0)
+		for _, errItem := range err0 {
+			if (errItem != nil) && !isUniqueViolationFunc(errItem) {
+				return fmt.Errorf("AddBlock() errItem: %w", errItem)
+			} else if errItem != nil {
+				db.log.Warnf("AddBlock() ignoring violation error, this usually means the data has already been written: %s", err)
+			}
 		}
 
+		if (err1 != nil) && !isUniqueViolationFunc(err1) {
+			return fmt.Errorf("AddBlock() err1: %w", err1)
+		} else if err1 != nil {
+			db.log.Warnf("AddBlock() ignoring violation error, this usually means the data has already been written: %s", err)
+		}
+
+		commitStart = time.Now()
 		return nil
 	}
 	err := db.txWithRetry(serializable, f)
 	if err != nil {
 		return fmt.Errorf("AddBlock() err: %w", err)
 	}
+	db.log.Infof("Block written after %s (%d txns)", time.Since(start), len(block.Payset))
 
+	fmt.Printf("AddBlock(commit): %s\n", time.Since(commitStart))
+	fmt.Printf("------------------\n")
+
+	os.Exit(1)
 	return nil
 }
 
