@@ -411,7 +411,7 @@ type IndexerDbOptions struct {
 	// Maximum connection number for connection pool
 	// This means the total number of active queries that can be running
 	// concurrently can never be more than this
-	MaxConn uint32
+	MaxConns int32
 
 	IndexerDatadir string
 	AlgodDataDir   string

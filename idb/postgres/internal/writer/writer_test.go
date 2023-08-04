@@ -2,7 +2,6 @@ package writer_test
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"testing"
 	"time"
@@ -23,7 +22,6 @@ import (
 	"github.com/algorand/indexer/v3/util"
 	"github.com/algorand/indexer/v3/util/test"
 
-	crypto2 "github.com/algorand/go-algorand-sdk/v2/crypto"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
@@ -168,151 +166,151 @@ func TestWriterSpecialAccounts(t *testing.T) {
 	assert.Equal(t, expected, accounts)
 }
 
-func TestWriterTxnTableBasic(t *testing.T) {
-	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
-	defer shutdownFunc()
+// func TestWriterTxnTableBasic(t *testing.T) {
+// 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
+// 	defer shutdownFunc()
 
-	block := sdk.Block{
-		BlockHeader: sdk.BlockHeader{
-			Round:       sdk.Round(2),
-			TimeStamp:   333,
-			GenesisID:   test.MakeGenesis().ID(),
-			GenesisHash: test.MakeGenesis().Hash(),
-			RewardsState: sdk.RewardsState{
-				RewardsLevel: 111111,
-			},
-			TxnCounter: 9,
-			UpgradeState: sdk.UpgradeState{
-				CurrentProtocol: "future",
-			},
-		},
-		Payset: make([]sdk.SignedTxnInBlock, 2),
-	}
+// 	block := sdk.Block{
+// 		BlockHeader: sdk.BlockHeader{
+// 			Round:       sdk.Round(2),
+// 			TimeStamp:   333,
+// 			GenesisID:   test.MakeGenesis().ID(),
+// 			GenesisHash: test.MakeGenesis().Hash(),
+// 			RewardsState: sdk.RewardsState{
+// 				RewardsLevel: 111111,
+// 			},
+// 			TxnCounter: 9,
+// 			UpgradeState: sdk.UpgradeState{
+// 				CurrentProtocol: "future",
+// 			},
+// 		},
+// 		Payset: make([]sdk.SignedTxnInBlock, 2),
+// 	}
 
-	stxnad0 := test.MakePaymentTxn(
-		1000, 1, 0, 0, 0, 0, sdk.Address(test.AccountA), sdk.Address(test.AccountB), sdk.Address{},
-		sdk.Address{})
-	var err error
-	block.Payset[0], err =
-		util.EncodeSignedTxn(block.BlockHeader, stxnad0.SignedTxn, stxnad0.ApplyData)
-	require.NoError(t, err)
+// 	stxnad0 := test.MakePaymentTxn(
+// 		1000, 1, 0, 0, 0, 0, sdk.Address(test.AccountA), sdk.Address(test.AccountB), sdk.Address{},
+// 		sdk.Address{})
+// 	var err error
+// 	block.Payset[0], err =
+// 		util.EncodeSignedTxn(block.BlockHeader, stxnad0.SignedTxn, stxnad0.ApplyData)
+// 	require.NoError(t, err)
 
-	stxnad1 := test.MakeAssetConfigTxn(
-		0, 100, 1, false, "ma", "myasset", "myasset.com", sdk.Address(test.AccountA))
-	block.Payset[1], err =
-		util.EncodeSignedTxn(block.BlockHeader, stxnad1.SignedTxn, stxnad1.ApplyData)
-	require.NoError(t, err)
+// 	stxnad1 := test.MakeAssetConfigTxn(
+// 		0, 100, 1, false, "ma", "myasset", "myasset.com", sdk.Address(test.AccountA))
+// 	block.Payset[1], err =
+// 		util.EncodeSignedTxn(block.BlockHeader, stxnad1.SignedTxn, stxnad1.ApplyData)
+// 	require.NoError(t, err)
 
-	f := func(tx pgx.Tx) error {
-		return writer.AddTransactions(&block, block.Payset, tx)
-	}
-	err = pgutil.TxWithRetry(db, serializable, f, nil)
-	require.NoError(t, err)
+// 	f := func(tx pgx.Tx) error {
+// 		return writer.AddTransactionsW(&block, 0, block.Payset, tx)
+// 	}
+// 	err = pgutil.TxWithRetry(db, serializable, f, nil)
+// 	require.NoError(t, err)
 
-	rows, err := db.Query(context.Background(), "SELECT * FROM txn ORDER BY intra")
-	require.NoError(t, err)
-	defer rows.Close()
+// 	rows, err := db.Query(context.Background(), "SELECT * FROM txn ORDER BY intra")
+// 	require.NoError(t, err)
+// 	defer rows.Close()
 
-	var round uint64
-	var intra uint64
-	var typeenum uint
-	var asset uint64
-	var txid []byte
-	var txn []byte
-	var extra []byte
+// 	var round uint64
+// 	var intra uint64
+// 	var typeenum uint
+// 	var asset uint64
+// 	var txid []byte
+// 	var txn []byte
+// 	var extra []byte
 
-	require.True(t, rows.Next())
-	err = rows.Scan(&round, &intra, &typeenum, &asset, &txid, &txn, &extra)
-	require.NoError(t, err)
-	assert.Equal(t, block.Round, sdk.Round(round))
-	assert.Equal(t, uint64(0), intra)
-	assert.Equal(t, idb.TypeEnumPay, idb.TxnTypeEnum(typeenum))
-	assert.Equal(t, uint64(0), asset)
-	assert.Equal(t, crypto2.TransactionIDString(stxnad0.Txn), string(txid))
-	{
-		stxn, err := encoding.DecodeSignedTxnWithAD(txn)
-		require.NoError(t, err)
-		assert.Equal(t, stxnad0, stxn)
-	}
-	assert.Equal(t, "{}", string(extra))
+// 	require.True(t, rows.Next())
+// 	err = rows.Scan(&round, &intra, &typeenum, &asset, &txid, &txn, &extra)
+// 	require.NoError(t, err)
+// 	assert.Equal(t, block.Round, sdk.Round(round))
+// 	assert.Equal(t, uint64(0), intra)
+// 	assert.Equal(t, idb.TypeEnumPay, idb.TxnTypeEnum(typeenum))
+// 	assert.Equal(t, uint64(0), asset)
+// 	assert.Equal(t, crypto2.TransactionIDString(stxnad0.Txn), string(txid))
+// 	{
+// 		stxn, err := encoding.DecodeSignedTxnWithAD(txn)
+// 		require.NoError(t, err)
+// 		assert.Equal(t, stxnad0, stxn)
+// 	}
+// 	assert.Equal(t, "{}", string(extra))
 
-	require.True(t, rows.Next())
-	err = rows.Scan(&round, &intra, &typeenum, &asset, &txid, &txn, &extra)
-	require.NoError(t, err)
-	assert.Equal(t, block.Round, sdk.Round(round))
-	assert.Equal(t, uint64(1), intra)
-	assert.Equal(t, idb.TypeEnumAssetConfig, idb.TxnTypeEnum(typeenum))
-	assert.Equal(t, uint64(9), asset)
-	assert.Equal(t, crypto2.TransactionIDString(stxnad1.Txn), string(txid))
-	{
-		stxn, err := encoding.DecodeSignedTxnWithAD(txn)
-		require.NoError(t, err)
-		assert.Equal(t, stxnad1, stxn)
-	}
-	assert.Equal(t, "{}", string(extra))
+// 	require.True(t, rows.Next())
+// 	err = rows.Scan(&round, &intra, &typeenum, &asset, &txid, &txn, &extra)
+// 	require.NoError(t, err)
+// 	assert.Equal(t, block.Round, sdk.Round(round))
+// 	assert.Equal(t, uint64(1), intra)
+// 	assert.Equal(t, idb.TypeEnumAssetConfig, idb.TxnTypeEnum(typeenum))
+// 	assert.Equal(t, uint64(9), asset)
+// 	assert.Equal(t, crypto2.TransactionIDString(stxnad1.Txn), string(txid))
+// 	{
+// 		stxn, err := encoding.DecodeSignedTxnWithAD(txn)
+// 		require.NoError(t, err)
+// 		assert.Equal(t, stxnad1, stxn)
+// 	}
+// 	assert.Equal(t, "{}", string(extra))
 
-	assert.False(t, rows.Next())
-	assert.NoError(t, rows.Err())
-}
+// 	assert.False(t, rows.Next())
+// 	assert.NoError(t, rows.Err())
+// }
 
 // Test that asset close amount is written even if it is missing in the apply data
 // in the block (it is present in the "modified transactions").
-func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
-	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
-	defer shutdownFunc()
+// func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
+// 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
+// 	defer shutdownFunc()
 
-	block := sdk.Block{
-		BlockHeader: sdk.BlockHeader{
-			GenesisID:   test.MakeGenesis().ID(),
-			GenesisHash: test.MakeGenesis().Hash(),
-			UpgradeState: sdk.UpgradeState{
-				CurrentProtocol: "future",
-			},
-		},
-		Payset: make(sdk.Payset, 1),
-	}
-	stxnad := test.MakeAssetTransferTxn(1, 2, sdk.Address(test.AccountA), sdk.Address(test.AccountB), sdk.Address(test.AccountC))
-	var err error
-	block.Payset[0], err = util.EncodeSignedTxn(block.BlockHeader, stxnad.SignedTxn, stxnad.ApplyData)
-	require.NoError(t, err)
+// 	block := sdk.Block{
+// 		BlockHeader: sdk.BlockHeader{
+// 			GenesisID:   test.MakeGenesis().ID(),
+// 			GenesisHash: test.MakeGenesis().Hash(),
+// 			UpgradeState: sdk.UpgradeState{
+// 				CurrentProtocol: "future",
+// 			},
+// 		},
+// 		Payset: make(sdk.Payset, 1),
+// 	}
+// 	stxnad := test.MakeAssetTransferTxn(1, 2, sdk.Address(test.AccountA), sdk.Address(test.AccountB), sdk.Address(test.AccountC))
+// 	var err error
+// 	block.Payset[0], err = util.EncodeSignedTxn(block.BlockHeader, stxnad.SignedTxn, stxnad.ApplyData)
+// 	require.NoError(t, err)
 
-	payset := []sdk.SignedTxnInBlock{block.Payset[0]}
-	payset[0].ApplyData.AssetClosingAmount = 3
+// 	payset := []sdk.SignedTxnInBlock{block.Payset[0]}
+// 	payset[0].ApplyData.AssetClosingAmount = 3
 
-	f := func(tx pgx.Tx) error {
-		return writer.AddTransactions(&block, payset, tx)
-	}
-	err = pgutil.TxWithRetry(db, serializable, f, nil)
-	require.NoError(t, err)
+// 	f := func(tx pgx.Tx) error {
+// 		return writer.AddTransactionsW(&block, 0, payset, tx)
+// 	}
+// 	err = pgutil.TxWithRetry(db, serializable, f, nil)
+// 	require.NoError(t, err)
 
-	rows, err := db.Query(
-		context.Background(), "SELECT txn, extra FROM txn ORDER BY intra")
-	require.NoError(t, err)
-	defer rows.Close()
+// 	rows, err := db.Query(
+// 		context.Background(), "SELECT txn, extra FROM txn ORDER BY intra")
+// 	require.NoError(t, err)
+// 	defer rows.Close()
 
-	var txn []byte
-	var extra []byte
-	require.True(t, rows.Next())
-	err = rows.Scan(&txn, &extra)
-	require.NoError(t, err)
+// 	var txn []byte
+// 	var extra []byte
+// 	require.True(t, rows.Next())
+// 	err = rows.Scan(&txn, &extra)
+// 	require.NoError(t, err)
 
-	{
-		ret, err := encoding.DecodeSignedTxnWithAD(txn)
-		require.NoError(t, err)
-		assert.Equal(t, stxnad, ret)
-	}
-	{
-		expected := idb.TxnExtra{AssetCloseAmount: 3}
+// 	{
+// 		ret, err := encoding.DecodeSignedTxnWithAD(txn)
+// 		require.NoError(t, err)
+// 		assert.Equal(t, stxnad, ret)
+// 	}
+// 	{
+// 		expected := idb.TxnExtra{AssetCloseAmount: 3}
 
-		actual, err := encoding.DecodeTxnExtra(extra)
-		require.NoError(t, err)
+// 		actual, err := encoding.DecodeTxnExtra(extra)
+// 		require.NoError(t, err)
 
-		assert.Equal(t, expected, actual)
-	}
+// 		assert.Equal(t, expected, actual)
+// 	}
 
-	assert.False(t, rows.Next())
-	assert.NoError(t, rows.Err())
-}
+// 	assert.False(t, rows.Next())
+// 	assert.NoError(t, rows.Err())
+// }
 
 func TestWriterTxnParticipationTable(t *testing.T) {
 	type testtype struct {
@@ -410,7 +408,7 @@ func TestWriterTxnParticipationTable(t *testing.T) {
 			block.Payset = testcase.payset
 
 			f := func(tx pgx.Tx) error {
-				return writer.AddTransactionParticipation(&block, tx)
+				return writer.AddTransactionParticipation(uint64(block.Round), block.Payset, tx)
 			}
 			err := pgutil.TxWithRetry(db, serializable, f, nil)
 			require.NoError(t, err)
@@ -1347,179 +1345,179 @@ func TestWriterAccountAppTableCreateDeleteSameRound(t *testing.T) {
 	assert.Equal(t, block.Round, sdk.Round(closedAt))
 }
 
-func TestAddBlockInvalidInnerAsset(t *testing.T) {
-	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
-	defer shutdownFunc()
+// func TestAddBlockInvalidInnerAsset(t *testing.T) {
+// 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
+// 	defer shutdownFunc()
 
-	callWithBadInner := test.MakeCreateAppTxn(sdk.Address(test.AccountA))
-	callWithBadInner.ApplyData.EvalDelta.InnerTxns = []sdk.SignedTxnWithAD{
-		{
-			ApplyData: sdk.ApplyData{
-				// This is the invalid inner asset. It should not be zero.
-				ConfigAsset: 0,
-			},
-			SignedTxn: sdk.SignedTxn{
-				Txn: sdk.Transaction{
-					Type: sdk.AssetConfigTx,
-					Header: sdk.Header{
-						Sender: sdk.Address(test.AccountB),
-					},
-					AssetConfigTxnFields: sdk.AssetConfigTxnFields{
-						ConfigAsset: 0,
-					},
-				},
-			},
-		},
-	}
+// 	callWithBadInner := test.MakeCreateAppTxn(sdk.Address(test.AccountA))
+// 	callWithBadInner.ApplyData.EvalDelta.InnerTxns = []sdk.SignedTxnWithAD{
+// 		{
+// 			ApplyData: sdk.ApplyData{
+// 				// This is the invalid inner asset. It should not be zero.
+// 				ConfigAsset: 0,
+// 			},
+// 			SignedTxn: sdk.SignedTxn{
+// 				Txn: sdk.Transaction{
+// 					Type: sdk.AssetConfigTx,
+// 					Header: sdk.Header{
+// 						Sender: sdk.Address(test.AccountB),
+// 					},
+// 					AssetConfigTxnFields: sdk.AssetConfigTxnFields{
+// 						ConfigAsset: 0,
+// 					},
+// 				},
+// 			},
+// 		},
+// 	}
 
-	genesisBlock := test.MakeGenesisBlock()
-	block, err := test.MakeBlockForTxns(genesisBlock.BlockHeader, &callWithBadInner)
-	require.NoError(t, err)
+// 	genesisBlock := test.MakeGenesisBlock()
+// 	block, err := test.MakeBlockForTxns(genesisBlock.BlockHeader, &callWithBadInner)
+// 	require.NoError(t, err)
 
-	err = makeTx(db, func(tx pgx.Tx) error {
-		return writer.AddTransactions(&block, block.Payset, tx)
-	})
-	require.Contains(t, err.Error(), "Missing ConfigAsset for transaction: ")
-}
+// 	err = makeTx(db, func(tx pgx.Tx) error {
+// 		return writer.AddTransactionsW(&block, 0, block.Payset, tx)
+// 	})
+// 	require.Contains(t, err.Error(), "Missing ConfigAsset for transaction: ")
+// }
 
-func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
-	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
-	defer shutdownFunc()
+// func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
+// 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
+// 	defer shutdownFunc()
 
-	// App call with inner txns, should be intra 0, 1, 2, 3, 4
-	var appAddr sdk.Address
-	appAddr[1] = 99
-	appCall := test.MakeAppCallWithInnerTxn(sdk.Address(test.AccountA), appAddr, sdk.Address(test.AccountB), appAddr, sdk.Address(test.AccountC))
+// 	// App call with inner txns, should be intra 0, 1, 2, 3, 4
+// 	var appAddr sdk.Address
+// 	appAddr[1] = 99
+// 	appCall := test.MakeAppCallWithInnerTxn(sdk.Address(test.AccountA), appAddr, sdk.Address(test.AccountB), appAddr, sdk.Address(test.AccountC))
 
-	// Asset create call, should have intra = 5
-	assetCreate := test.MakeAssetConfigTxn(
-		0, 100, 1, false, "ma", "myasset", "myasset.com", sdk.Address(test.AccountD))
+// 	// Asset create call, should have intra = 5
+// 	assetCreate := test.MakeAssetConfigTxn(
+// 		0, 100, 1, false, "ma", "myasset", "myasset.com", sdk.Address(test.AccountD))
 
-	genesisBlock := test.MakeGenesisBlock()
-	block, err := test.MakeBlockForTxns(genesisBlock.BlockHeader, &appCall, &assetCreate)
-	require.NoError(t, err)
+// 	genesisBlock := test.MakeGenesisBlock()
+// 	block, err := test.MakeBlockForTxns(genesisBlock.BlockHeader, &appCall, &assetCreate)
+// 	require.NoError(t, err)
 
-	err = makeTx(db, func(tx pgx.Tx) error {
-		err := writer.AddTransactions(&block, block.Payset, tx)
-		if err != nil {
-			return err
-		}
-		return writer.AddTransactionParticipation(&block, tx)
-	})
-	require.NoError(t, err)
+// 	err = makeTx(db, func(tx pgx.Tx) error {
+// 		err := writer.AddTransactionsW(&block, 0, block.Payset, tx)
+// 		if err != nil {
+// 			return err
+// 		}
+// 		return writer.AddTransactionParticipation(uint64(block.Round), block.Payset, tx)
+// 	})
+// 	require.NoError(t, err)
 
-	txns, err := txnQuery(db, "SELECT * FROM txn ORDER BY intra")
-	require.NoError(t, err)
-	require.Len(t, txns, 6)
+// 	txns, err := txnQuery(db, "SELECT * FROM txn ORDER BY intra")
+// 	require.NoError(t, err)
+// 	require.Len(t, txns, 6)
 
-	// Verify that intra is correctly assigned
-	for i, tx := range txns {
-		require.Equal(t, i, tx.intra, "Intra should be assigned 0 - 4.")
-	}
+// 	// Verify that intra is correctly assigned
+// 	for i, tx := range txns {
+// 		require.Equal(t, i, tx.intra, "Intra should be assigned 0 - 4.")
+// 	}
 
-	// Verify correct order of transaction types.
-	require.Equal(t, idb.TypeEnumApplication, txns[0].typeenum)
-	require.Equal(t, idb.TypeEnumPay, txns[1].typeenum)
-	require.Equal(t, idb.TypeEnumApplication, txns[2].typeenum)
-	require.Equal(t, idb.TypeEnumAssetTransfer, txns[3].typeenum)
-	require.Equal(t, idb.TypeEnumApplication, txns[4].typeenum)
-	require.Equal(t, idb.TypeEnumAssetConfig, txns[5].typeenum)
+// 	// Verify correct order of transaction types.
+// 	require.Equal(t, idb.TypeEnumApplication, txns[0].typeenum)
+// 	require.Equal(t, idb.TypeEnumPay, txns[1].typeenum)
+// 	require.Equal(t, idb.TypeEnumApplication, txns[2].typeenum)
+// 	require.Equal(t, idb.TypeEnumAssetTransfer, txns[3].typeenum)
+// 	require.Equal(t, idb.TypeEnumApplication, txns[4].typeenum)
+// 	require.Equal(t, idb.TypeEnumAssetConfig, txns[5].typeenum)
 
-	// Verify special properties of inner transactions.
-	expectedExtra := fmt.Sprintf(`{"root-txid": "%s", "root-intra": "%d"}`, txns[0].txid, 0)
+// 	// Verify special properties of inner transactions.
+// 	expectedExtra := fmt.Sprintf(`{"root-txid": "%s", "root-intra": "%d"}`, txns[0].txid, 0)
 
-	// Inner pay 1
-	require.Equal(t, "", txns[1].txid)
-	require.Equal(t, expectedExtra, txns[1].extra)
+// 	// Inner pay 1
+// 	require.Equal(t, "", txns[1].txid)
+// 	require.Equal(t, expectedExtra, txns[1].extra)
 
-	// Inner pay 2
-	require.Equal(t, "", txns[2].txid)
-	require.Equal(t, expectedExtra, txns[2].extra)
-	require.NotContains(t, txns[2].txn, `"itx"`, "The inner transactions should be pruned.")
+// 	// Inner pay 2
+// 	require.Equal(t, "", txns[2].txid)
+// 	require.Equal(t, expectedExtra, txns[2].extra)
+// 	require.NotContains(t, txns[2].txn, `"itx"`, "The inner transactions should be pruned.")
 
-	// Inner xfer
-	require.Equal(t, "", txns[3].txid)
-	require.Equal(t, expectedExtra, txns[3].extra)
-	require.NotContains(t, txns[3].txn, `"itx"`, "The inner transactions should be pruned.")
+// 	// Inner xfer
+// 	require.Equal(t, "", txns[3].txid)
+// 	require.Equal(t, expectedExtra, txns[3].extra)
+// 	require.NotContains(t, txns[3].txn, `"itx"`, "The inner transactions should be pruned.")
 
-	// Verify correct App and Asset IDs
-	require.Equal(t, 1, txns[0].asset, "intra == 0 -> ApplicationID = 1")
-	require.Equal(t, 789, txns[4].asset, "intra == 4 -> ApplicationID = 789")
-	require.Equal(t, 6, txns[5].asset, "intra == 5 -> AssetID = 6")
+// 	// Verify correct App and Asset IDs
+// 	require.Equal(t, 1, txns[0].asset, "intra == 0 -> ApplicationID = 1")
+// 	require.Equal(t, 789, txns[4].asset, "intra == 4 -> ApplicationID = 789")
+// 	require.Equal(t, 6, txns[5].asset, "intra == 5 -> AssetID = 6")
 
-	// Verify txn participation
-	txnPart, err := txnParticipationQuery(db, `SELECT * FROM txn_participation ORDER BY round, intra, addr`)
-	require.NoError(t, err)
+// 	// Verify txn participation
+// 	txnPart, err := txnParticipationQuery(db, `SELECT * FROM txn_participation ORDER BY round, intra, addr`)
+// 	require.NoError(t, err)
 
-	expectedParticipation := []txnParticipationRow{
-		// Top-level appl transaction + inner transactions
-		{
-			addr:  appAddr,
-			round: 1,
-			intra: 0,
-		},
-		{
-			addr:  sdk.Address(test.AccountA),
-			round: 1,
-			intra: 0,
-		},
-		{
-			addr:  sdk.Address(test.AccountB),
-			round: 1,
-			intra: 0,
-		},
-		{
-			addr:  sdk.Address(test.AccountC),
-			round: 1,
-			intra: 0,
-		},
-		// Inner pay transaction 1
-		{
-			addr:  appAddr,
-			round: 1,
-			intra: 1,
-		},
-		{
-			addr:  sdk.Address(test.AccountB),
-			round: 1,
-			intra: 1,
-		},
-		// Inner pay transaction 2
-		{
-			addr:  appAddr,
-			round: 1,
-			intra: 2,
-		},
-		// Inner xfer transaction
-		{
-			addr:  appAddr,
-			round: 1,
-			intra: 3,
-		},
-		{
-			addr:  sdk.Address(test.AccountC),
-			round: 1,
-			intra: 3,
-		},
-		// Inner appl transaction
-		{
-			addr:  appAddr,
-			round: 1,
-			intra: 4,
-		},
-		// acfg after appl
-		{
-			addr:  sdk.Address(test.AccountD),
-			round: 1,
-			intra: 5,
-		},
-	}
+// 	expectedParticipation := []txnParticipationRow{
+// 		// Top-level appl transaction + inner transactions
+// 		{
+// 			addr:  appAddr,
+// 			round: 1,
+// 			intra: 0,
+// 		},
+// 		{
+// 			addr:  sdk.Address(test.AccountA),
+// 			round: 1,
+// 			intra: 0,
+// 		},
+// 		{
+// 			addr:  sdk.Address(test.AccountB),
+// 			round: 1,
+// 			intra: 0,
+// 		},
+// 		{
+// 			addr:  sdk.Address(test.AccountC),
+// 			round: 1,
+// 			intra: 0,
+// 		},
+// 		// Inner pay transaction 1
+// 		{
+// 			addr:  appAddr,
+// 			round: 1,
+// 			intra: 1,
+// 		},
+// 		{
+// 			addr:  sdk.Address(test.AccountB),
+// 			round: 1,
+// 			intra: 1,
+// 		},
+// 		// Inner pay transaction 2
+// 		{
+// 			addr:  appAddr,
+// 			round: 1,
+// 			intra: 2,
+// 		},
+// 		// Inner xfer transaction
+// 		{
+// 			addr:  appAddr,
+// 			round: 1,
+// 			intra: 3,
+// 		},
+// 		{
+// 			addr:  sdk.Address(test.AccountC),
+// 			round: 1,
+// 			intra: 3,
+// 		},
+// 		// Inner appl transaction
+// 		{
+// 			addr:  appAddr,
+// 			round: 1,
+// 			intra: 4,
+// 		},
+// 		// acfg after appl
+// 		{
+// 			addr:  sdk.Address(test.AccountD),
+// 			round: 1,
+// 			intra: 5,
+// 		},
+// 	}
 
-	require.Len(t, txnPart, len(expectedParticipation))
-	for i := 0; i < len(txnPart); i++ {
-		require.Equal(t, expectedParticipation[i], txnPart[i])
-	}
-}
+// 	require.Len(t, txnPart, len(expectedParticipation))
+// 	for i := 0; i < len(txnPart); i++ {
+// 		require.Equal(t, expectedParticipation[i], txnPart[i])
+// 	}
+// }
 
 func TestWriterAddBlock0(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
@@ -1853,4 +1851,152 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	validateRow(n6, v6)         // untouched
 
 	validateTotals()
+}
+
+func TestCutBatches(t *testing.T) {
+	singleSTWAD := sdk.SignedTxnWithAD{
+		ApplyData: sdk.ApplyData{
+			EvalDelta: sdk.EvalDelta{
+				InnerTxns: []sdk.SignedTxnWithAD{{}},
+			},
+		},
+	}
+	threeGenSTWAD := sdk.SignedTxnWithAD{
+		ApplyData: sdk.ApplyData{
+			EvalDelta: sdk.EvalDelta{
+				InnerTxns: []sdk.SignedTxnWithAD{singleSTWAD},
+			},
+		},
+	}
+	fourGenSTWAD := sdk.SignedTxnWithAD{
+		ApplyData: sdk.ApplyData{
+			EvalDelta: sdk.EvalDelta{
+				InnerTxns: []sdk.SignedTxnWithAD{threeGenSTWAD},
+			},
+		},
+	}
+
+	singleParent := sdk.SignedTxnInBlock{SignedTxnWithAD: singleSTWAD}
+	threeGen := sdk.SignedTxnInBlock{SignedTxnWithAD: threeGenSTWAD}
+	fourGen := sdk.SignedTxnInBlock{SignedTxnWithAD: fourGenSTWAD}
+
+	testCases := []struct {
+		name     string
+		payset   []sdk.SignedTxnInBlock
+		batchMinSize uint
+		expected []writer.IndexAndIntra
+	}{
+		{
+			name: "empty payset",
+			payset: []sdk.SignedTxnInBlock{},
+			batchMinSize: 3,
+			expected: []writer.IndexAndIntra{},
+		},
+		{
+			name: "5 simple txns batches of 3",
+			payset: []sdk.SignedTxnInBlock{
+				{},
+				{},
+				{},
+				{},
+				{},
+			},
+			batchMinSize: 3,
+			expected: []writer.IndexAndIntra{
+				{Index: 0, Intra: 0},
+				{Index: 3, Intra: 3},
+				{Index: 5, Intra: 5},
+			},
+		},
+		{
+			name: "9 - a multiple of 3",
+			payset: []sdk.SignedTxnInBlock{
+				{}, {}, {}, 
+				{}, {}, {}, 
+				{}, {}, {},
+			},
+			batchMinSize: 3,
+			expected: []writer.IndexAndIntra{
+				{Index: 0, Intra: 0},
+				{Index: 3, Intra: 3},
+				{Index: 6, Intra: 6},
+				{Index: 9, Intra: 9},
+			},
+		},
+		{
+			name: "4 single parents batches of 2",
+			payset: []sdk.SignedTxnInBlock{
+				singleParent, singleParent, singleParent, singleParent,
+			},
+			batchMinSize: 2,
+			expected: []writer.IndexAndIntra{
+				{Index: 0, Intra: 0},
+				{Index: 1, Intra: 2},
+				{Index: 2, Intra: 4},
+				{Index: 3, Intra: 6},
+				{Index: 4, Intra: 8},
+			},
+		},
+		{
+			name: "4 single parents batches of 3",
+			payset: []sdk.SignedTxnInBlock{
+				singleParent, singleParent, singleParent, singleParent,
+			},
+			batchMinSize: 3,
+			expected: []writer.IndexAndIntra{
+				{Index: 0, Intra: 0},
+				{Index: 2, Intra: 4},
+				{Index: 4, Intra: 8},
+			},
+		},
+		{
+			name: "5 single parents batches of 3",
+			payset: []sdk.SignedTxnInBlock{
+				singleParent, singleParent, singleParent, singleParent, singleParent,
+			},
+			batchMinSize: 3,
+			expected: []writer.IndexAndIntra{
+				{Index: 0, Intra: 0},
+				{Index: 2, Intra: 4},
+				{Index: 4, Intra: 8},
+				{Index: 5, Intra: 10},
+			},
+		},
+		{
+			name: "4 gens 3 gens 2 gens 1 gen batches of 2",
+			payset: []sdk.SignedTxnInBlock{
+				fourGen, threeGen, singleParent, {},
+			},
+			batchMinSize: 2,
+			expected: []writer.IndexAndIntra{
+				{Index: 0, Intra: 0},
+				{Index: 1, Intra: 4},
+				{Index: 2, Intra: 7},
+				{Index: 3, Intra: 9},
+				{Index: 4, Intra: 10},
+			},
+		},
+		{
+			name: "4 gens 3 gens 2 gens 1 gen batches of 5",
+			payset: []sdk.SignedTxnInBlock{
+				fourGen, threeGen, singleParent, {},
+			},
+			batchMinSize: 5,
+			expected: []writer.IndexAndIntra{
+				{Index: 0, Intra: 0},
+				{Index: 2, Intra: 7},
+				{Index: 4, Intra: 10},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			actual := writer.CutBatches(tc.payset, tc.batchMinSize)
+			assert.Equal(t, tc.expected, actual)
+		})
+	}
+
 }

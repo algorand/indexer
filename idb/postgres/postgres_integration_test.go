@@ -108,7 +108,7 @@ func TestMaxConnection(t *testing.T) {
 	defer shutdownFunc()
 
 	// Open Postgres with a maximum of 2 connections locally
-	pdb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{MaxConn: 2}, nil)
+	pdb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{MaxConns: 2}, nil)
 	assert.NoError(t, err)
 	defer pdb.Close()
 
@@ -1610,7 +1610,7 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 	pdb, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
-	db := setupIdbWithConnectionString(t, connStr, test.MakeGenesis())
+	db := setupIdbWithConnectionString(t, connStr, test.MakeGenesis(), nil, nil, nil)
 	defer db.Close()
 
 	// appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
@@ -1980,7 +1980,7 @@ func TestGenesisHashCheckAtDBSetup(t *testing.T) {
 	defer shutdownFunc()
 
 	genesis := test.MakeGenesis()
-	db := setupIdbWithConnectionString(t, connStr, genesis)
+	db := setupIdbWithConnectionString(t, connStr, genesis, nil, nil, nil)
 	defer db.Close()
 	genesisHash := genesis.Hash()
 	network, err := db.getMetastate(context.Background(), nil, schema.NetworkMetaStateKey)

@@ -23,7 +23,6 @@ import (
 
 	models "github.com/algorand/indexer/v3/api/generated/v2"
 	"github.com/algorand/indexer/v3/idb"
-	"github.com/algorand/indexer/v3/idb/migration"
 	"github.com/algorand/indexer/v3/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/v3/idb/postgres/internal/schema"
 	"github.com/algorand/indexer/v3/idb/postgres/internal/types"
@@ -37,21 +36,22 @@ import (
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
-var serializable = pgx.TxOptions{IsoLevel: pgx.Serializable} // be a real ACID database
-var readonlyRepeatableRead = pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly}
-
 // OpenPostgres is available for creating test instances of postgres.IndexerDb
 // Returns an error object and a channel that gets closed when blocking migrations
 // finish running successfully.
 func OpenPostgres(connection string, opts idb.IndexerDbOptions, log *log.Logger) (*IndexerDb, chan struct{}, error) {
 
+	return openPostgres(connection, opts, nil, log)
+}
+
+func openPostgres(connection string, opts idb.IndexerDbOptions, tuning *TuningParams, log *log.Logger) (*IndexerDb, chan struct{}, error) {
 	postgresConfig, err := pgxpool.ParseConfig(connection)
 	if err != nil {
 		return nil, nil, fmt.Errorf("couldn't parse config: %v", err)
 	}
 
-	if opts.MaxConn != 0 {
-		postgresConfig.MaxConns = int32(opts.MaxConn)
+	if opts.MaxConns != 0 {
+		postgresConfig.MaxConns = opts.MaxConns
 	}
 
 	db, err := pgxpool.ConnectConfig(context.Background(), postgresConfig)
@@ -64,15 +64,22 @@ func OpenPostgres(connection string, opts idb.IndexerDbOptions, log *log.Logger)
 		opts.ReadOnly = true
 	}
 
-	return openPostgres(db, opts, log)
+	if tuning == nil {
+		tuning = &TuningParams{
+			PgxOpts: serializable,
+			BatchSize: 100_000,
+		}
+	}
+
+	return openPostgresWithTuning(db, opts, *tuning, log)
 }
 
-// Allow tests to inject a DB
-func openPostgres(db *pgxpool.Pool, opts idb.IndexerDbOptions, logger *log.Logger) (*IndexerDb, chan struct{}, error) {
+func openPostgresWithTuning(db *pgxpool.Pool, opts idb.IndexerDbOptions, tuning TuningParams, logger *log.Logger) (*IndexerDb, chan struct{}, error) {
 	idb := &IndexerDb{
 		readonly: opts.ReadOnly,
 		log:      logger,
 		db:       db,
+		TuningParams: tuning,
 	}
 
 	if idb.log == nil {
@@ -105,15 +112,6 @@ func openPostgres(db *pgxpool.Pool, opts idb.IndexerDbOptions, logger *log.Logge
 	return idb, ch, nil
 }
 
-// IndexerDb is an idb.IndexerDB implementation
-type IndexerDb struct {
-	readonly bool
-	log      *log.Logger
-
-	db             *pgxpool.Pool
-	migration      *migration.Migration
-	accountingLock sync.Mutex
-}
 
 // Close is part of idb.IndexerDb.
 func (db *IndexerDb) Close() {
@@ -173,6 +171,108 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 	return db.runAvailableMigrations(opts)
 }
 
+// loadTransactionBatchW called by loadTransactions.
+// func loadTransactionBatchW(db *IndexerDb, block *sdk.Block, batchnum, start, size int) error {
+// 	f := func(tx pgx.Tx) error {
+// 		batchStart := time.Now()
+// 		var txns []sdk.SignedTxnInBlock
+// 		end := start + size
+// 		if end > len(block.Payset) {
+// 			txns = block.Payset[start:]
+// 		} else {
+// 			txns = block.Payset[start:end]
+// 		}
+// 		err := writer.AddTransactionsW(block, uint64(start), txns, tx)
+// 		fmt.Printf("AddTransactions batch(%d): %s\n", batchnum, time.Since(batchStart))
+// 		return err
+// 	}
+// 	return db.txWithRetry(experimentalCommitLevel, f)
+// }
+
+// loadTransactionsW writes txn data to the DB.
+// func loadTransactionsW(db *IndexerDb, batchSize int, block *sdk.Block) []error {
+// 	var errArr []error
+// 	var txnsWg sync.WaitGroup
+// 	batchnum := 0
+// 	for i := 0; i < len(block.Payset); i += batchSize {
+// 		start := i
+// 		num := batchnum
+// 		txnsWg.Add(1)
+// 		go func() {
+// 			defer txnsWg.Done()
+// 			errArr = append(errArr, loadTransactionBatchW(db, block, num, start, batchSize))
+// 		}()
+// 		batchnum++
+// 	}
+// 	txnsWg.Wait()
+
+// 	return nil
+// }
+
+// loadTransactionBatch called by loadTransactions.
+func loadTransactionBatch(db *IndexerDb, block *sdk.Block, batchnum int, left, right writer.IndexAndIntra) error {
+	f := func(tx pgx.Tx) error {
+		batchStart := time.Now()
+		var txns []sdk.SignedTxnInBlock
+
+		if right.Index > len(block.Payset) {
+			txns = block.Payset[left.Index:]
+		} else {
+			txns = block.Payset[left.Index:right.Index]
+		}
+		err := writer.AddTransactions(tx, block, txns, left)
+		db.log.Debugf("AddTransactions batch(%d:%d): %d", block.Round, batchnum, time.Since(batchStart).Milliseconds())
+		return err
+	}
+	// return db.txWithRetry(experimentalCommitLevel, f)
+	return db.txWithRetry(db.PgxOpts, f)
+}
+
+// loadTransactions writes txn data to the DB.
+func loadTransactions(db *IndexerDb, batchSize uint, block *sdk.Block) []error {
+	var errArr []error
+	var txnsWg sync.WaitGroup
+
+	if len(block.Payset) == 0 {
+		return nil
+	}
+
+	batches := writer.CutBatches(block.Payset, batchSize)
+	if len(batches) < 2 {
+		return []error{
+			fmt.Errorf("loadTransactions: this should never happen! batch cuts of lengvth %d but len(block.Payset) = %d", len(batches), len(block.Payset)),
+		}
+	}
+
+	left := batches[0]
+	for batchnum, right := range batches[1:] {
+		txnsWg.Add(1)
+		go func(batchnum int, left, right writer.IndexAndIntra) {
+			defer txnsWg.Done()
+			errArr = append(errArr, loadTransactionBatch(db, block, batchnum, left, right))
+		}(batchnum, left, right)
+		left = right
+	}
+	txnsWg.Wait()
+
+	return nil
+}
+
+func loadTransactionParticipation(db *IndexerDb, block *sdk.Block) error {
+	st := time.Now()
+	f := func(tx pgx.Tx) error {
+		err := writer.AddTransactionParticipation(uint64(block.Round), block.Payset, tx)
+		db.log.Infof("Round %d AddTransactionParticipation: %d", block.Round, time.Since(st).Milliseconds())
+		//tx.Rollback(context.Background())
+		st = time.Now()
+		return err
+	}
+	// err := db.txWithRetry(experimentalCommitLevel, f)
+	err := db.txWithRetry(db.PgxOpts, f)
+	db.log.Infof("Round %d AddTransactionParticipation(commit): %d", block.Round, time.Since(st).Milliseconds())
+	return err
+}
+
 // AddBlock is part of idb.IndexerDb.
 func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 	protoVersion := protocol.ConsensusVersion(vb.Block.CurrentProtocol)
@@ -188,6 +288,7 @@ func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 	db.accountingLock.Lock()
 	defer db.accountingLock.Unlock()
 
+	commitStart := time.Now()
 	f := func(tx pgx.Tx) error {
 		// Check and increment next round counter.
 		importstate, err := db.getImportState(context.Background(), tx)
@@ -222,24 +323,51 @@ func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 		var wg sync.WaitGroup
 		defer wg.Wait()
 
-		var err0 error
+		// var err0 error
+		var errs0 []error
+		// fmt.Printf("------------------\n")
+		// fmt.Printf("Round: %d\n", vb.Block.Round)
+		// size := 2000
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			f := func(tx pgx.Tx) error {
-				err := writer.AddTransactions(&block, block.Payset, tx)
-				if err != nil {
-					return err
-				}
-				return writer.AddTransactionParticipation(&block, tx)
-			}
-			err0 = db.txWithRetry(serializable, f)
+			// if useExperimentalTxnInsertion && !useExperimentalWithIntraBugfix {
+			// 	// st := time.Now()
+			// 	// errs0 = loadTransactionsW(db, size, &block)
+			// 	// db.log.Infof("Round %d AddTransactions(total): %d", vb.Block.Round, time.Since(st).Microseconds())
+			// } else 
+			// if useExperimentalWithIntraBugfix {
+				st := time.Now()
+				errs0 = loadTransactions(db, uint(db.BatchSize), &block)
+				db.log.Infof("Round %d AddTransactions(total): %d", vb.Block.Round, time.Since(st).Milliseconds())
+			// } else {
+			// 	f := func(tx pgx.Tx) error {
+			// 		err := writer.AddTransactionsOLD(&block, block.Payset, tx)
+			// 		if err != nil {
+			// 			return err
+			// 		}
+			// 		return writer.AddTransactionParticipationOLD(&block, tx)
+			// 	}
+			// 	err0 = db.txWithRetry(serializable, f)
+			// }
 		}()
 
+		var err1 error
+		// if useExperimentalTxnInsertion || useExperimentalWithIntraBugfix {
+		// if useExperimentalWithIntraBugfix {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				err1 = loadTransactionParticipation(db, &block)
+			}()
+		// }
+
+		blockStart := time.Now()
 		err = w.AddBlock(&block, vb.Delta)
 		if err != nil {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
+		db.log.Infof("Round %d AddBlock: %d", round, time.Since(blockStart).Milliseconds())
 
 		// Wait for goroutines to finish and check for errors. If there is an error, we
 		// return our own error so that the main transaction does not commit. Hence,
@@ -250,10 +378,29 @@ func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 			var pgerr *pgconn.PgError
 			return errors.As(err, &pgerr) && (pgerr.Code == pgerrcode.UniqueViolation)
 		}
-		if (err0 != nil) && !isUniqueViolationFunc(err0) {
-			return fmt.Errorf("AddBlock() err0: %w", err0)
+
+		// if useExperimentalTxnInsertion || useExperimentalWithIntraBugfix {
+		// if useExperimentalWithIntraBugfix {
+			for _, errItem := range errs0 {
+				if (errItem != nil) && !isUniqueViolationFunc(errItem) {
+					return fmt.Errorf("AddBlock() errItem: %w", errItem)
+				} else if errItem != nil {
+					db.log.Warnf("AddBlock() ignoring violation error, this usually means the data has already been written: %s", err)
+				}
+			}
+		// } else {
+		// 	if (err0 != nil) && !isUniqueViolationFunc(err0) {
+		// 		return fmt.Errorf("AddBlock() err0: %w", err0)
+		// 	}
+		// }
+
+		if (err1 != nil) && !isUniqueViolationFunc(err1) {
+			return fmt.Errorf("AddBlock() err1: %w", err1)
+		} else if err1 != nil {
+			db.log.Warnf("AddBlock() ignoring violation error, this usually means the data has already been written: %s", err)
 		}
 
+		commitStart = time.Now()
 		return nil
 	}
 	err := db.txWithRetry(serializable, f)
@@ -261,6 +408,7 @@ func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 		return fmt.Errorf("AddBlock() err: %w", err)
 	}
 
+	db.log.Infof("Round %d AddBlock(commit): %d", round, time.Since(commitStart).Milliseconds())
 	return nil
 }
 

@@ -30,7 +30,7 @@ type daemonConfig struct {
 	tokenString               string
 	writeTimeout              time.Duration
 	readTimeout               time.Duration
-	maxConn                   uint32
+	maxConns                  int32
 	maxAPIResourcesPerAccount uint32
 	maxTransactionsLimit      uint32
 	defaultTransactionsLimit  uint32
@@ -74,7 +74,7 @@ func DaemonCmd() *cobra.Command {
 	cfg.flags.StringVarP(&cfg.metricsMode, "metrics-mode", "", "OFF", "configure the /metrics endpoint to [ON, OFF, VERBOSE]")
 	cfg.flags.DurationVarP(&cfg.writeTimeout, "write-timeout", "", 30*time.Second, "set the maximum duration to wait before timing out writes to a http response, breaking connection")
 	cfg.flags.DurationVarP(&cfg.readTimeout, "read-timeout", "", 5*time.Second, "set the maximum duration for reading the entire request")
-	cfg.flags.Uint32VarP(&cfg.maxConn, "max-conn", "", 0, "set the maximum connections allowed in the connection pool, if the maximum is reached subsequent connections will wait until a connection becomes available, or timeout according to the read-timeout setting")
+	cfg.flags.Int32VarP(&cfg.maxConns, "max-conn", "", 0, "set the maximum connections allowed in the connection pool, if the maximum is reached subsequent connections will wait until a connection becomes available, or timeout according to the read-timeout setting")
 
 	cfg.flags.StringVar(&cfg.suppliedAPIConfigFile, "api-config-file", "", "supply an API config file to enable/disable parameters")
 	cfg.flags.BoolVar(&cfg.enableAllParameters, "enable-all-parameters", false, "override default configuration and enable all parameters. Can't be used with --api-config-file")
@@ -279,7 +279,7 @@ func runDaemon(daemonConfig *daemonConfig) error {
 	opts := idb.IndexerDbOptions{}
 	opts.ReadOnly = true
 
-	opts.MaxConn = daemonConfig.maxConn
+	opts.MaxConns = daemonConfig.maxConns
 	opts.IndexerDatadir = daemonConfig.indexerDataDir
 
 	db, _, err := indexerDbFromFlags(opts)
