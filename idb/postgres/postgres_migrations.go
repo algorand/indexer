@@ -11,12 +11,12 @@ import (
 
 	"github.com/jackc/pgx/v4"
 
-	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/idb/migration"
-	"github.com/algorand/indexer/idb/postgres/internal/encoding"
-	cad "github.com/algorand/indexer/idb/postgres/internal/migrations/convert_account_data"
-	"github.com/algorand/indexer/idb/postgres/internal/schema"
-	"github.com/algorand/indexer/idb/postgres/internal/types"
+	"github.com/algorand/indexer/v3/idb"
+	"github.com/algorand/indexer/v3/idb/migration"
+	"github.com/algorand/indexer/v3/idb/postgres/internal/encoding"
+	cad "github.com/algorand/indexer/v3/idb/postgres/internal/migrations/convert_account_data"
+	"github.com/algorand/indexer/v3/idb/postgres/internal/schema"
+	"github.com/algorand/indexer/v3/idb/postgres/internal/types"
 )
 
 func init() {
@@ -174,6 +174,7 @@ func (db *IndexerDb) setMigrationState(tx pgx.Tx, state *types.MigrationState) e
 }
 
 // sqlMigration executes a sql statements as the entire migration.
+//
 //lint:ignore U1000 this function might be used in a future migration
 func sqlMigration(db *IndexerDb, state *types.MigrationState, sqlLines []string) error {
 	db.accountingLock.Lock()
@@ -210,6 +211,7 @@ func sqlMigration(db *IndexerDb, state *types.MigrationState, sqlLines []string)
 const unsupportedMigrationErrorMsg = "unsupported migration: please downgrade to %s to run this migration"
 
 // disabled creates a simple migration handler for unsupported migrations.
+//
 //lint:ignore U1000 this function might be used in the future
 func disabled(version string) func(db *IndexerDb, migrationState *types.MigrationState) error {
 	return func(_ *IndexerDb, _ *types.MigrationState) error {

@@ -13,7 +13,7 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 
-	"github.com/algorand/indexer/api/generated/v2"
+	"github.com/algorand/indexer/v3/api/generated/v2"
 )
 
 func TestToDisabledMapConfigFromFile(t *testing.T) {

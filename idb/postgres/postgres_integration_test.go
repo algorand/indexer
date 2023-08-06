@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/algorand/indexer/types"
+	"github.com/algorand/indexer/v3/types"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/stretchr/testify/assert"
@@ -20,17 +20,17 @@ import (
 	crypto2 "github.com/algorand/go-algorand-sdk/v2/crypto"
 	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/indexer/api/generated/v2"
-	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/idb/postgres/internal/encoding"
-	"github.com/algorand/indexer/idb/postgres/internal/schema"
-	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
-	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
-	"github.com/algorand/indexer/protocol"
-	"github.com/algorand/indexer/util"
-	"github.com/algorand/indexer/util/test"
+	"github.com/algorand/indexer/v3/api/generated/v2"
+	"github.com/algorand/indexer/v3/idb"
+	"github.com/algorand/indexer/v3/idb/postgres/internal/encoding"
+	"github.com/algorand/indexer/v3/idb/postgres/internal/schema"
+	pgtest "github.com/algorand/indexer/v3/idb/postgres/internal/testing"
+	pgutil "github.com/algorand/indexer/v3/idb/postgres/internal/util"
+	"github.com/algorand/indexer/v3/util"
+	"github.com/algorand/indexer/v3/util/test"
 
 	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
+	"github.com/algorand/go-algorand-sdk/v2/protocol"
 	"github.com/algorand/go-codec/codec"
 )
 
@@ -312,6 +312,58 @@ func TestMultipleWriters(t *testing.T) {
 	err = row.Scan(&balance)
 	assert.NoError(t, err, "checking balance")
 	assert.Equal(t, amt, balance)
+}
+
+// TestTransactionsTimestamps tests that the transactions endpoint responds to times properly.
+func TestTransactionsTimestamps(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+
+	round := uint64(1)
+	///////////
+	// Given // A block with 8 transactions at ts 1671036853.
+	///////////
+	usEastTz, err := time.LoadLocation("America/New_York")
+	require.NoError(t, err)
+	usWestTz, err := time.LoadLocation("America/Los_Angeles")
+	require.NoError(t, err)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/BlockWithTransactions.vb")
+	require.NoError(t, err)
+	err = db.AddBlock(&vb)
+	require.NoError(t, err)
+
+	//////////
+	// When // We call Transactions with timestamp filters
+	//////////
+	blkTime := vb.Block.BlockHeader.TimeStamp
+	fullRowsCh, _ := db.Transactions(
+		context.Background(),
+		idb.TransactionFilter{
+			Round:      &round,
+			BeforeTime: time.Unix(blkTime+1, 0).In(usEastTz),
+			AfterTime:  time.Unix(blkTime-1, 0)})
+	var txnRows0 []idb.TxnRow
+	for row := range fullRowsCh {
+		require.NoError(t, row.Error)
+		txnRows0 = append(txnRows0, row)
+	}
+
+	emptyRowsCh, _ := db.Transactions(
+		context.Background(),
+		idb.TransactionFilter{
+			Round:     &round,
+			AfterTime: time.Unix(blkTime, 0).In(usWestTz)})
+	txnRows1 := make([]idb.TxnRow, 0)
+	for row := range emptyRowsCh {
+		require.NoError(t, row.Error)
+		txnRows1 = append(txnRows1, row)
+	}
+
+	//////////
+	// Then // They should have the correct number of transactions
+	//////////
+	assert.Len(t, txnRows0, len(vb.Block.Payset))
+	assert.Len(t, txnRows1, 0)
 }
 
 // TestBlockWithTransactions tests that the block with transactions endpoint works.
@@ -1401,8 +1453,8 @@ func TestAddBlockCreateDeleteAssetSameRound(t *testing.T) {
 	}
 }
 
-//Test that AddBlock makes a record of an app that is created and deleted in
-//the same round.
+// Test that AddBlock makes a record of an app that is created and deleted in
+// the same round.
 func TestAddBlockCreateDeleteAppSameRound(t *testing.T) {
 
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
@@ -1829,8 +1881,8 @@ func TestKeytypeDoNotResetReceiver(t *testing.T) {
 	assertKeytype(t, db, test.AccountB, &keytype)
 }
 
-//Test that if information in `txn` and `txn_participation` tables is ahead of
-//the current round, AddBlock() still runs successfully.
+// Test that if information in `txn` and `txn_participation` tables is ahead of
+// the current round, AddBlock() still runs successfully.
 func TestAddBlockTxnTxnParticipationAhead(t *testing.T) {
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()

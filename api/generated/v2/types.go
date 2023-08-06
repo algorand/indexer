@@ -1021,7 +1021,6 @@ type TransactionApplication struct {
 
 // TransactionAssetConfig Fields for asset allocation, re-configuration, and destruction.
 //
-//
 // A zero value for asset-id indicates asset creation.
 // A zero value for the params indicates asset destruction.
 //
@@ -1066,7 +1065,7 @@ type TransactionAssetTransfer struct {
 	// AssetId \[xaid\] ID of the asset being transferred.
 	AssetId uint64 `json:"asset-id"`
 
-	// CloseAmount Number of assets transfered to the close-to account as part of the transaction.
+	// CloseAmount Number of assets transferred to the close-to account as part of the transaction.
 	CloseAmount *uint64 `json:"close-amount,omitempty"`
 
 	// CloseTo \[aclose\] Indicates that the asset should be removed from the account's Assets map, and specifies where the remaining asset holdings should be transferred.  It's always valid to transfer remaining asset holdings to the creator account.

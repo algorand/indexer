@@ -6,10 +6,10 @@ import (
 
 	"github.com/algorand/go-codec/codec"
 
-	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/idb/postgres/internal/types"
-	itypes "github.com/algorand/indexer/types"
-	"github.com/algorand/indexer/util"
+	"github.com/algorand/indexer/v3/idb"
+	"github.com/algorand/indexer/v3/idb/postgres/internal/types"
+	itypes "github.com/algorand/indexer/v3/types"
+	"github.com/algorand/indexer/v3/util"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
@@ -50,20 +50,57 @@ func decodeBase64(data string) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(data)
 }
 
+// MarshalText returns the address string as an array of bytes
+func (addr *AlgodEncodedAddress) MarshalText() ([]byte, error) {
+	var a sdk.Address
+	copy(a[:], addr[:])
+	return []byte(a.String()), nil
+}
+
+// UnmarshalText initializes the Address from an array of bytes.
+// The bytes may be in the base32 checksum format, or the raw bytes base64 encoded.
+func (addr *AlgodEncodedAddress) UnmarshalText(text []byte) error {
+	var a sdk.Address
+	err := a.UnmarshalText(text)
+	if err != nil {
+		return err
+	}
+	copy(addr[:], a[:])
+	return nil
+}
+
+func convertExpiredAccounts(accounts []sdk.Address) []AlgodEncodedAddress {
+	if len(accounts) == 0 {
+		return nil
+	}
+	res := make([]AlgodEncodedAddress, len(accounts))
+	for i, addr := range accounts {
+		res[i] = AlgodEncodedAddress(addr)
+	}
+	return res
+}
+
+func unconvertExpiredAccounts(accounts []AlgodEncodedAddress) []sdk.Address {
+	if len(accounts) == 0 {
+		return nil
+	}
+	res := make([]sdk.Address, len(accounts))
+	for i, addr := range accounts {
+		res[i] = sdk.Address(addr)
+	}
+	return res
+}
+
 func convertBlockHeader(header sdk.BlockHeader) blockHeader {
 	return blockHeader{
-		BlockHeader:         header,
-		BranchOverride:      sdk.Digest(header.Branch),
-		FeeSinkOverride:     sdk.Digest(header.FeeSink),
-		RewardsPoolOverride: sdk.Digest(header.RewardsPool),
+		BlockHeader:                          header,
+		ExpiredParticipationAccountsOverride: convertExpiredAccounts(header.ExpiredParticipationAccounts),
 	}
 }
 
 func unconvertBlockHeader(header blockHeader) sdk.BlockHeader {
 	res := header.BlockHeader
-	res.Branch = sdk.BlockHash(header.BranchOverride)
-	res.FeeSink = sdk.Address(header.FeeSinkOverride)
-	res.RewardsPool = sdk.Address(header.RewardsPoolOverride)
+	res.ExpiredParticipationAccounts = unconvertExpiredAccounts(header.ExpiredParticipationAccountsOverride)
 	return res
 }
 
@@ -85,14 +122,10 @@ func DecodeBlockHeader(data []byte) (sdk.BlockHeader, error) {
 
 func convertAssetParams(params sdk.AssetParams) assetParams {
 	ret := assetParams{
-		AssetParams:      params,
-		ManagerOverride:  sdk.Digest(params.Manager),
-		ReserveOverride:  sdk.Digest(params.Reserve),
-		FreezeOverride:   sdk.Digest(params.Freeze),
-		ClawbackOverride: sdk.Digest(params.Clawback),
-		AssetNameBytes:   []byte(params.AssetName),
-		UnitNameBytes:    []byte(params.UnitName),
-		URLBytes:         []byte(params.URL),
+		AssetParams:    params,
+		AssetNameBytes: []byte(params.AssetName),
+		UnitNameBytes:  []byte(params.UnitName),
+		URLBytes:       []byte(params.URL),
 	}
 
 	ret.AssetName = util.PrintableUTF8OrEmpty(params.AssetName)
@@ -125,10 +158,6 @@ func unconvertAssetParams(params assetParams) sdk.AssetParams {
 	if len(res.URL) == 0 {
 		res.URL = string(params.URLBytes)
 	}
-	res.Manager = sdk.Address(params.ManagerOverride)
-	res.Reserve = sdk.Address(params.ReserveOverride)
-	res.Freeze = sdk.Address(params.FreezeOverride)
-	res.Clawback = sdk.Address(params.ClawbackOverride)
 	return res
 }
 
@@ -148,58 +177,16 @@ func DecodeAssetParams(data []byte) (sdk.AssetParams, error) {
 	return unconvertAssetParams(params), nil
 }
 
-func convertAccounts(accounts []sdk.Address) []sdk.Digest {
-	if accounts == nil {
-		return nil
-	}
-
-	res := make([]sdk.Digest, 0, len(accounts))
-	for _, address := range accounts {
-		res = append(res, sdk.Digest(address))
-	}
-	return res
-}
-
-func unconvertAccounts(accounts []sdk.Digest) []sdk.Address {
-	if accounts == nil {
-		return nil
-	}
-
-	res := make([]sdk.Address, 0, len(accounts))
-	for _, address := range accounts {
-		res = append(res, sdk.Address(address))
-	}
-	return res
-}
-
 func convertTransaction(txn sdk.Transaction) transaction {
 	return transaction{
-		Transaction:              txn,
-		SenderOverride:           sdk.Digest(txn.Sender),
-		RekeyToOverride:          sdk.Digest(txn.RekeyTo),
-		ReceiverOverride:         sdk.Digest(txn.Receiver),
-		AssetParamsOverride:      convertAssetParams(txn.AssetParams),
-		CloseRemainderToOverride: sdk.Digest(txn.CloseRemainderTo),
-		AssetSenderOverride:      sdk.Digest(txn.AssetSender),
-		AssetReceiverOverride:    sdk.Digest(txn.AssetReceiver),
-		AssetCloseToOverride:     sdk.Digest(txn.AssetCloseTo),
-		FreezeAccountOverride:    sdk.Digest(txn.FreezeAccount),
-		AccountsOverride:         convertAccounts(txn.Accounts),
+		Transaction:         txn,
+		AssetParamsOverride: convertAssetParams(txn.AssetParams),
 	}
 }
 
 func unconvertTransaction(txn transaction) sdk.Transaction {
 	res := txn.Transaction
-	res.Sender = sdk.Address(txn.SenderOverride)
-	res.RekeyTo = sdk.Address(txn.RekeyToOverride)
-	res.Receiver = sdk.Address(txn.ReceiverOverride)
-	res.CloseRemainderTo = sdk.Address(txn.CloseRemainderToOverride)
 	res.AssetParams = unconvertAssetParams(txn.AssetParamsOverride)
-	res.AssetSender = sdk.Address(txn.AssetSenderOverride)
-	res.AssetReceiver = sdk.Address(txn.AssetReceiverOverride)
-	res.AssetCloseTo = sdk.Address(txn.AssetCloseToOverride)
-	res.FreezeAccount = sdk.Address(txn.FreezeAccountOverride)
-	res.Accounts = unconvertAccounts(txn.AccountsOverride)
 	return res
 }
 
@@ -333,9 +320,9 @@ func unconvertEvalDelta(delta evalDelta) sdk.EvalDelta {
 
 func convertSignedTxnWithAD(stxn sdk.SignedTxnWithAD) signedTxnWithAD {
 	return signedTxnWithAD{
-		SignedTxnWithAD:   stxn,
-		TxnOverride:       convertTransaction(stxn.Txn),
-		AuthAddrOverride:  sdk.Digest(stxn.AuthAddr),
+		SignedTxnWithAD: stxn,
+		TxnOverride:     convertTransaction(stxn.Txn),
+		//AuthAddrOverride:  sdk.Digest(stxn.AuthAddr),
 		EvalDeltaOverride: convertEvalDelta(stxn.EvalDelta),
 	}
 }
@@ -343,7 +330,7 @@ func convertSignedTxnWithAD(stxn sdk.SignedTxnWithAD) signedTxnWithAD {
 func unconvertSignedTxnWithAD(stxn signedTxnWithAD) sdk.SignedTxnWithAD {
 	res := stxn.SignedTxnWithAD
 	res.Txn = unconvertTransaction(stxn.TxnOverride)
-	res.AuthAddr = sdk.Address(stxn.AuthAddrOverride)
+	res.AuthAddr = stxn.AuthAddr
 	res.EvalDelta = unconvertEvalDelta(stxn.EvalDeltaOverride)
 	return res
 }
@@ -371,7 +358,7 @@ func unconvertTrimmedAccountData(ad trimmedAccountData) sdk.AccountData {
 			MicroAlgos:          sdk.MicroAlgos(ad.MicroAlgos),
 			RewardsBase:         ad.RewardsBase,
 			RewardedMicroAlgos:  sdk.MicroAlgos(ad.RewardedMicroAlgos),
-			AuthAddr:            sdk.Address(ad.AuthAddr),
+			AuthAddr:            ad.AuthAddr,
 			TotalAppSchema:      ad.TotalAppSchema,
 			TotalExtraAppPages:  ad.TotalExtraAppPages,
 			TotalAppParams:      ad.TotalAppParams,
@@ -568,35 +555,20 @@ func DecodeAppLocalStateArray(data []byte) ([]sdk.AppLocalState, error) {
 
 	return unconvertAppLocalStateArray(array), nil
 }
-func convertSpecialAddresses(special itypes.SpecialAddresses) specialAddresses {
-	return specialAddresses{
-		SpecialAddresses:    special,
-		FeeSinkOverride:     sdk.Digest(special.FeeSink),
-		RewardsPoolOverride: sdk.Digest(special.RewardsPool),
-	}
-}
-
-func unconvertSpecialAddresses(special specialAddresses) itypes.SpecialAddresses {
-	res := special.SpecialAddresses
-	res.FeeSink = sdk.Address(special.FeeSinkOverride)
-	res.RewardsPool = sdk.Address(special.RewardsPoolOverride)
-	return res
-}
 
 // EncodeSpecialAddresses encodes special addresses (sink and rewards pool) into json.
 func EncodeSpecialAddresses(special itypes.SpecialAddresses) []byte {
-	return encodeJSON(convertSpecialAddresses(special))
+	return encodeJSON(special)
 }
 
 // DecodeSpecialAddresses decodes special addresses (sink and rewards pool) from json.
 func DecodeSpecialAddresses(data []byte) (itypes.SpecialAddresses, error) {
-	var special specialAddresses
+	var special itypes.SpecialAddresses
 	err := DecodeJSON(data, &special)
 	if err != nil {
 		return itypes.SpecialAddresses{}, err
 	}
-
-	return unconvertSpecialAddresses(special), nil
+	return special, nil
 }
 
 // EncodeTxnExtra encodes transaction extra info into json.
@@ -675,7 +647,7 @@ func TrimLcAccountData(ad sdk.AccountData) sdk.AccountData {
 func convertTrimmedLcAccountData(ad sdk.AccountData) baseAccountData {
 	return baseAccountData{
 		Status:              ad.Status,
-		AuthAddr:            sdk.Digest(ad.AuthAddr),
+		AuthAddr:            ad.AuthAddr,
 		TotalAppSchema:      ad.TotalAppSchema,
 		TotalExtraAppPages:  ad.TotalExtraAppPages,
 		TotalAssetParams:    ad.TotalAssetParams,
@@ -699,7 +671,7 @@ func unconvertTrimmedLcAccountData(ba baseAccountData) sdk.AccountData {
 	return sdk.AccountData{
 		AccountBaseData: sdk.AccountBaseData{
 			Status:              ba.Status,
-			AuthAddr:            sdk.Address(ba.AuthAddr),
+			AuthAddr:            ba.AuthAddr,
 			TotalAppSchema:      ba.TotalAppSchema,
 			TotalExtraAppPages:  ba.TotalExtraAppPages,
 			TotalAppParams:      ba.TotalAppParams,

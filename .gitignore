@@ -5,6 +5,7 @@ api/.3tmp.json
 api/generate
 tmp/
 ./conduit-docs/
+dist
 
 # Binaries for programs and plugins
 *.exe
@@ -32,7 +33,7 @@ _*.json
 __pycache__
 e2e_tests/dist
 e2e_tests/build
-e2e_tests/*egg-info*
+e2e_tests/**/*egg-info*
 .venv
 
 # jetbrains IDE

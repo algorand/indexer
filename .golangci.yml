@@ -63,3 +63,7 @@ issues:
     - Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*print(f|ln)?|os\.(Un)?Setenv). is not checked
     # "EXC0005 staticcheck: Developers tend to write in C-style with an explicit 'break' in a 'switch', so it's ok to ignore"
     - ineffective break statement. Did you mean to break out of the outer loop
+
+    # revive: ignore some rules
+    - "^unused-parameter: parameter"
+    - "^package-comments: should have a package comment"

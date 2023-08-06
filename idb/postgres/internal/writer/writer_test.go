@@ -13,15 +13,15 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/avm-abi/apps"
-	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/idb/postgres/internal/encoding"
-	"github.com/algorand/indexer/idb/postgres/internal/schema"
-	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
-	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
-	"github.com/algorand/indexer/idb/postgres/internal/writer"
-	"github.com/algorand/indexer/types"
-	"github.com/algorand/indexer/util"
-	"github.com/algorand/indexer/util/test"
+	"github.com/algorand/indexer/v3/idb"
+	"github.com/algorand/indexer/v3/idb/postgres/internal/encoding"
+	"github.com/algorand/indexer/v3/idb/postgres/internal/schema"
+	pgtest "github.com/algorand/indexer/v3/idb/postgres/internal/testing"
+	pgutil "github.com/algorand/indexer/v3/idb/postgres/internal/util"
+	"github.com/algorand/indexer/v3/idb/postgres/internal/writer"
+	"github.com/algorand/indexer/v3/types"
+	"github.com/algorand/indexer/v3/util"
+	"github.com/algorand/indexer/v3/util/test"
 
 	crypto2 "github.com/algorand/go-algorand-sdk/v2/crypto"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
@@ -1435,12 +1435,12 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	// Inner pay 2
 	require.Equal(t, "", txns[2].txid)
 	require.Equal(t, expectedExtra, txns[2].extra)
-	require.NotContains(t, txns[2].txn, "itx", "The inner transactions should be pruned.")
+	require.NotContains(t, txns[2].txn, `"itx"`, "The inner transactions should be pruned.")
 
 	// Inner xfer
 	require.Equal(t, "", txns[3].txid)
 	require.Equal(t, expectedExtra, txns[3].extra)
-	require.NotContains(t, txns[3].txn, "itx", "The inner transactions should be pruned.")
+	require.NotContains(t, txns[3].txn, `"itx"`, "The inner transactions should be pruned.")
 
 	// Verify correct App and Asset IDs
 	require.Equal(t, 1, txns[0].asset, "intra == 0 -> ApplicationID = 1")

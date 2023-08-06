@@ -12,10 +12,10 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/algorand/indexer/api/generated/common"
-	"github.com/algorand/indexer/api/generated/v2"
-	"github.com/algorand/indexer/api/middlewares"
-	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/v3/api/generated/common"
+	"github.com/algorand/indexer/v3/api/generated/v2"
+	"github.com/algorand/indexer/v3/api/middlewares"
+	"github.com/algorand/indexer/v3/idb"
 )
 
 // ExtraOptions are options which change the behavior or the HTTP server.

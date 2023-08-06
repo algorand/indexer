@@ -12,7 +12,7 @@ import (
 	"github.com/orlangure/gnomock/preset/postgres"
 	"github.com/stretchr/testify/require"
 
-	"github.com/algorand/indexer/idb/postgres/internal/schema"
+	"github.com/algorand/indexer/v3/idb/postgres/internal/schema"
 )
 
 var testpg string
@@ -48,7 +48,7 @@ func SetupPostgres(t *testing.T) (*pgxpool.Pool, string, func()) {
 	}
 
 	p := postgres.Preset(
-		postgres.WithVersion("12.5"),
+		postgres.WithVersion("13-alpine"),
 		postgres.WithUser("gnomock", "gnomick"),
 		postgres.WithDatabase("mydb"),
 	)

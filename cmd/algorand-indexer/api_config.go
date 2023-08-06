@@ -6,9 +6,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/algorand/indexer/api"
-	"github.com/algorand/indexer/api/generated/v2"
-	"github.com/algorand/indexer/config"
+	"github.com/algorand/indexer/v3/api"
+	"github.com/algorand/indexer/v3/api/generated/v2"
+	"github.com/algorand/indexer/v3/config"
 )
 
 var (

@@ -5,9 +5,11 @@ services:
     build:
       context: ../../../.
       dockerfile: ./e2e_tests/docker/indexer/Dockerfile
+      args:
+        CHANNEL: "${CHANNEL:-stable}"
     environment:
       CONNECTION_STRING: "host=e2e-db port=5432 user=algorand password=algorand dbname=indexer_db sslmode=disable"
-      CI_E2E_FILENAME: "${CI_E2E_FILENAME}"
+      CI_E2E_FILENAME: "${CI_E2E_FILENAME:-rel-nightly}"
       # Add --keep-alive to this variable to pause the container on an error
       EXTRA: "${EXTRA}"
 

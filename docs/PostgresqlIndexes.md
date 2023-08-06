@@ -1,4 +1,4 @@
-# PostgeSQL Custom Indexes
+# PostgreSQL Custom Indexes
 
 Indexer ships with a minimal index set in order to process blocks, and return transactions for accounts. More advanced queries and filters require customization of the indexes.
 

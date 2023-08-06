@@ -21,19 +21,19 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 	log "github.com/sirupsen/logrus"
 
-	models "github.com/algorand/indexer/api/generated/v2"
-	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/idb/migration"
-	"github.com/algorand/indexer/idb/postgres/internal/encoding"
-	"github.com/algorand/indexer/idb/postgres/internal/schema"
-	"github.com/algorand/indexer/idb/postgres/internal/types"
-	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
-	"github.com/algorand/indexer/idb/postgres/internal/writer"
-	"github.com/algorand/indexer/protocol"
-	"github.com/algorand/indexer/protocol/config"
-	itypes "github.com/algorand/indexer/types"
-	"github.com/algorand/indexer/util"
+	models "github.com/algorand/indexer/v3/api/generated/v2"
+	"github.com/algorand/indexer/v3/idb"
+	"github.com/algorand/indexer/v3/idb/migration"
+	"github.com/algorand/indexer/v3/idb/postgres/internal/encoding"
+	"github.com/algorand/indexer/v3/idb/postgres/internal/schema"
+	"github.com/algorand/indexer/v3/idb/postgres/internal/types"
+	pgutil "github.com/algorand/indexer/v3/idb/postgres/internal/util"
+	"github.com/algorand/indexer/v3/idb/postgres/internal/writer"
+	itypes "github.com/algorand/indexer/v3/types"
+	"github.com/algorand/indexer/v3/util"
 
+	"github.com/algorand/go-algorand-sdk/v2/protocol"
+	"github.com/algorand/go-algorand-sdk/v2/protocol/config"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
@@ -645,13 +645,15 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 		partNumber++
 	}
 	if !tf.BeforeTime.IsZero() {
+		convertedTime := tf.BeforeTime.In(time.UTC)
 		whereParts = append(whereParts, fmt.Sprintf("h.realtime < $%d", partNumber))
-		whereArgs = append(whereArgs, tf.BeforeTime)
+		whereArgs = append(whereArgs, convertedTime)
 		partNumber++
 	}
 	if !tf.AfterTime.IsZero() {
+		convertedTime := tf.AfterTime.In(time.UTC)
 		whereParts = append(whereParts, fmt.Sprintf("h.realtime > $%d", partNumber))
-		whereArgs = append(whereArgs, tf.AfterTime)
+		whereArgs = append(whereArgs, convertedTime)
 		partNumber++
 	}
 	if tf.AssetID != 0 || tf.ApplicationID != 0 {

@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
-	"github.com/algorand/indexer/idb/postgres/internal/util"
+	pgtest "github.com/algorand/indexer/v3/idb/postgres/internal/testing"
+	"github.com/algorand/indexer/v3/idb/postgres/internal/util"
 )
 
 func TestTxWithRetry(t *testing.T) {

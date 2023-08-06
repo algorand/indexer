@@ -9,12 +9,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/algorand/indexer/accounting"
-	models "github.com/algorand/indexer/api/generated/v2"
-	"github.com/algorand/indexer/idb"
-	_ "github.com/algorand/indexer/idb/postgres"
-	"github.com/algorand/indexer/util"
-	testutil "github.com/algorand/indexer/util/test"
+	"github.com/algorand/indexer/v3/accounting"
+	models "github.com/algorand/indexer/v3/api/generated/v2"
+	"github.com/algorand/indexer/v3/idb"
+	_ "github.com/algorand/indexer/v3/idb/postgres"
+	"github.com/algorand/indexer/v3/util"
+	testutil "github.com/algorand/indexer/v3/util/test"
 
 	ajson "github.com/algorand/go-algorand-sdk/v2/encoding/json"
 	sdk_types "github.com/algorand/go-algorand-sdk/v2/types"

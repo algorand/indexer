@@ -17,12 +17,12 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/avm-abi/apps"
-	"github.com/algorand/indexer/accounting"
-	"github.com/algorand/indexer/api/generated/common"
-	"github.com/algorand/indexer/api/generated/v2"
-	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/util"
-	"github.com/algorand/indexer/version"
+	"github.com/algorand/indexer/v3/accounting"
+	"github.com/algorand/indexer/v3/api/generated/common"
+	"github.com/algorand/indexer/v3/api/generated/v2"
+	"github.com/algorand/indexer/v3/idb"
+	"github.com/algorand/indexer/v3/util"
+	"github.com/algorand/indexer/v3/version"
 
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )

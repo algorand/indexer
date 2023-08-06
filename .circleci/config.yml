@@ -1,14 +1,14 @@
 version: 2.1
 
 orbs:
-  go: circleci/go@1.7.0
+  go: circleci/go@1.7.3
   slack: circleci/slack@4.7.1
   codecov: codecov/codecov@3.2.4
 
 parameters:
   ubuntu_image:
     type: string
-    default: "ubuntu-2004:202107-02"
+    default: "ubuntu-2204:2022.04.2"
 
 workflows:
   version: 2
@@ -18,7 +18,7 @@ workflows:
           name: test_with_go_<< matrix.go_version >>
           matrix: &go-version-matrix
             parameters:
-              go_version: ["1.17.9"]
+              go_version: ["1.20.5"]
 
   circleci_build_and_test_nightly:
     triggers:
@@ -33,7 +33,7 @@ workflows:
           context: lamprey-secrets
           matrix: &go-version-matrix
             parameters:
-              go_version: ["1.17.9"]
+              go_version: ["1.20.5"]
       - indexer_vs_algod_nightly:
           name: nightly_test_indexer_vs_algod
           context: lamprey-secrets
@@ -46,16 +46,20 @@ jobs:
       go_version:
         type: string
     environment:
-      CI_E2E_FILENAME: "fa6ad40d/rel-nightly"
+      # A stable environment for PRs.
+      # Set CHANNEL to nightly and update CI_E2E_FILENAME when adding a new feature.
+      # Change back to stable once the new feature is released.
+      CI_E2E_FILENAME: "f99e7b0c/rel-nightly"
+      CHANNEL: nightly
     steps:
       - go/install:
           version: << parameters.go_version >>
       - install_dependencies
       - install_linter
       - run_tests
-      # Change this to run_e2e_tests once we have stable algod binaries containing delta APIs
-      # - run_e2e_tests_nightly
+      - run_e2e_tests
       - codecov/upload
+
   test_nightly:
     machine:
       image: << pipeline.parameters.ubuntu_image >>
@@ -64,6 +68,7 @@ jobs:
         type: string
     environment:
       CI_E2E_FILENAME: "rel-nightly"
+      CHANNEL: nightly
     steps:
       - go/install:
           version: << parameters.go_version >>
@@ -119,7 +124,7 @@ commands:
           name: Install python and other python dependencies
           command: |
             sudo apt update
-            sudo apt -y install python3 python3-pip python3-setuptools python3-wheel libboost-math-dev libffi-dev
+            sudo NEEDRESTART_MODE=a apt -y install python3 python3-pip python3-setuptools python3-wheel libboost-math-dev libffi-dev
             pip3 install -r misc/requirements.txt
             pip3 install e2e_tests/
 
@@ -130,7 +135,7 @@ commands:
     steps:
       - run:
           name: Install golangci-lint
-          command: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.47.3
+          command: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.53.2
 
   run_e2e_tests:
     steps:
@@ -144,6 +149,7 @@ commands:
       - run: make e2e-filter-test
 
   run_e2e_tests_nightly:
+    # "-nightly" suffix in final 2 steps
     steps:
       - run:
           name: Install go-algorand nightly binaries
@@ -151,8 +157,8 @@ commands:
             wget https://raw.githubusercontent.com/algorand/go-algorand/rel/stable/cmd/updater/update.sh && chmod 744 update.sh
             ./update.sh -i -c nightly -n -d ./ -p /usr/local/go/bin
             export GOPATH=/usr/local/go/
-      - run: make e2e-nightly
-      - run: make e2e-filter-test-nightly
+      - run: make e2e
+      - run: make e2e-filter-test
 
   run_tests:
     steps:
@@ -160,7 +166,7 @@ commands:
       - run: make lint
       - run: make check
       # Start a docker container and set TEST_PG to optimize running tests.
-      - run: docker run -d --name some-postgres -p 5555:5432 -e POSTGRES_PASSWORD=pgpass -e POSTGRES_USER=pguser -e POSTGRES_DB=mydb postgres
+      - run: docker run -d --name some-postgres -p 5555:5432 -e POSTGRES_PASSWORD=pgpass -e POSTGRES_USER=pguser -e POSTGRES_DB=mydb postgres:13.11-bullseye
       - run: echo 'export TEST_PG="host=localhost user=pguser password=pgpass dbname=mydb port=5555 sslmode=disable"' >> $BASH_ENV
       - run: echo 'export TEST_FLAG="-p 1"' >> $BASH_ENV
       - run:
