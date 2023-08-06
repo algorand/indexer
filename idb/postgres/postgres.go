@@ -38,6 +38,10 @@ import (
 )
 
 var serializable = pgx.TxOptions{IsoLevel: pgx.Serializable}   // be a real ACID database
+
+// in actuality, for postgres the following is no weaker than ReadCommitted:
+// https://www.postgresql.org/docs/current/transaction-iso.html
+// TODO: change this to pgs.ReadCommitted
 var uncommitted = pgx.TxOptions{IsoLevel: pgx.ReadUncommitted} // be a real ACID database
 var readonlyRepeatableRead = pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly}
 
@@ -253,6 +257,7 @@ func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 				"AddBlock() adding block round %d but next round to account is %d",
 				round, importstate.NextRoundToAccount)
 		}
+		// Z: why are we updating NextRound here before we actually export the data?
 		importstate.NextRoundToAccount++
 		err = db.setImportState(tx, &importstate)
 		if err != nil {
