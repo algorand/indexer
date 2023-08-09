@@ -209,7 +209,7 @@ func callProcessorBox(processor Processor, appid string, boxname string, config 
 			return
 		}
 
-		if result.Equal || (i >= config.Retries) {
+		if result.Equal || result.SameRound || (i >= config.Retries) {
 			// Return when results are equal, or when finished retrying.
 			result.Retries = i
 			if result.Details != nil {

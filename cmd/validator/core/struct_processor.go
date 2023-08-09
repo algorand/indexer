@@ -64,8 +64,9 @@ func (gp StructProcessor) ProcessBox(algodData, indexerData []byte) (Result, err
 
 	if !bytes.Equal(algodValue, indexerValue) {
 		return Result{
-			Equal:   false,
-			Retries: 0,
+			Equal:     false,
+			SameRound: indexerResponse.Round == algodResponse.Round,
+			Retries:   0,
 			Details: &ErrorDetails{
 				Resource: "box",
 				Algod:    mustEncode(algodResponse),
