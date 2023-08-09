@@ -206,9 +206,9 @@ func resultsPrinter(config Params, printCurl, printSkipped bool, results <-chan 
 			ErrorLog.Printf("===================================================================")
 			ErrorLog.Printf("%s", time.Now().Format("2006-01-02 3:4:5 PM"))
 			ErrorLog.Printf("Resource: %s", r.Details.Resource)
+			ErrorLog.Printf("Rounds Match: %t", r.SameRound)
 			if r.Details.Resource == "address" {
 				ErrorLog.Printf("Account: %s", r.Details.Address)
-				ErrorLog.Printf("Rounds Match: %t", r.SameRound)
 			}
 			if r.Details.Resource == "box" {
 				ErrorLog.Printf("Appid: %s", r.Details.Appid)
