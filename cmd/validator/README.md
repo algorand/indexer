@@ -16,13 +16,13 @@ This can be used along with the [generate_accounts.sh](../../misc/generate_accou
 
 For example here is how you would run the program with accounts generated from `generate_accounts.sh` and errors redirected to a file:
 ```
-~$ ./generate_accounts.sh --pg_user postgres --pg_pass postgres --pg_url localhost --pg_db mainnet_database --pg_port 5432 | ./validator --algod-url http://localhost:4160 --algod-token token_here --indexer-url http://localhost:8980 --threads 4 --retries 5 2> errors.txt
+~$ ./generate_accounts.sh --pg_user postgres --pg_pass postgres --pg_url localhost --pg_db mainnet_database --pg_port 5432 | ./validator --algod-url http://localhost:4160 --algod-token token_here --indexer-url http://localhost:8980 --indexer-token token_here --threads 4 --retries 5 2> errors.txt
 ```
 
 and here is how you would run the program to compare boxes:
 
 ```
-~$ ./generate_boxes.sh --pg_user postgres --pg_pass postgres --pg_url localhost --pg_db mainnet_database --pg_port 5432 | ./validator --algod-url http://localhost:4160 --algod-token token_here --indexer-url http://localhost:8980 --threads 4 --retries 5 2> errors.txt
+~$ ./generate_boxes.sh --pg_user postgres --pg_pass postgres --pg_url localhost --pg_db mainnet_database --pg_port 5432 | ./validator --algod-url http://localhost:4160 --algod-token token_here --indexer-url http://localhost:8980 --indexer-token token_here --threads 4 --retries 5 2> errors.txt
 ```
 
 ## generate_accounts.sh
