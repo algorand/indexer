@@ -37,13 +37,17 @@ import (
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
-var serializable = pgx.TxOptions{IsoLevel: pgx.Serializable}   // be a real ACID database
+const useExperimentalTxnInsertion = true
+
+var serializable = pgx.TxOptions{IsoLevel: pgx.Serializable} // be a real ACID database
 
 // in actuality, for postgres the following is no weaker than ReadCommitted:
 // https://www.postgresql.org/docs/current/transaction-iso.html
 // TODO: change this to pgs.ReadCommitted
-var uncommitted = pgx.TxOptions{IsoLevel: pgx.ReadUncommitted} // be a real ACID database
+var uncommitted = pgx.TxOptions{IsoLevel: pgx.ReadUncommitted}
 var readonlyRepeatableRead = pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly}
+
+var experimentalCommitLevel = serializable // uncommitted
 
 // OpenPostgres is available for creating test instances of postgres.IndexerDb
 // Returns an error object and a channel that gets closed when blocking migrations
@@ -193,7 +197,7 @@ func loadTransactionBatch(db *IndexerDb, block *sdk.Block, batchnum, start, size
 		fmt.Printf("AddTransactions batch(%d): %s\n", batchnum, time.Since(batchStart))
 		return err
 	}
-	return db.txWithRetry(uncommitted, f)
+	return db.txWithRetry(experimentalCommitLevel, f)
 }
 
 // loadTransactions writes txn data to the DB.
@@ -225,7 +229,7 @@ func loadTransactionParticipation(db *IndexerDb, block *sdk.Block) error {
 		st = time.Now()
 		return err
 	}
-	err := db.txWithRetry(uncommitted, f)
+	err := db.txWithRetry(experimentalCommitLevel, f)
 	fmt.Printf("AddTransactionParticipation(commit): %s\n", time.Since(st))
 	return err
 }
@@ -257,7 +261,6 @@ func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 				"AddBlock() adding block round %d but next round to account is %d",
 				round, importstate.NextRoundToAccount)
 		}
-		// Z: why are we updating NextRound here before we actually export the data?
 		importstate.NextRoundToAccount++
 		err = db.setImportState(tx, &importstate)
 		if err != nil {
@@ -281,24 +284,38 @@ func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 		var wg sync.WaitGroup
 		defer wg.Wait()
 
-		var err0 []error
+		var err0 error
+		var errs0 []error
 		fmt.Printf("------------------\n")
 		fmt.Printf("Round: %d\n", vb.Block.Round)
 		size := 2000
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			st := time.Now()
-			err0 = loadTransactions(db, size, &block)
-			fmt.Printf("AddTransactions(total): %s\n", time.Since(st))
+			if useExperimentalTxnInsertion {
+				st := time.Now()
+				errs0 = loadTransactions(db, size, &block)
+				fmt.Printf("AddTransactions(total): %s\n", time.Since(st))
+			} else {
+				f := func(tx pgx.Tx) error {
+					err := writer.AddTransactionsOLD(&block, block.Payset, tx)
+					if err != nil {
+						return err
+					}
+					return writer.AddTransactionParticipationOLD(&block, tx)
+				}
+				err0 = db.txWithRetry(serializable, f)
+			}
 		}()
 
 		var err1 error
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			err1 = loadTransactionParticipation(db, &block)
-		}()
+		if useExperimentalTxnInsertion {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				err1 = loadTransactionParticipation(db, &block)
+			}()
+		}
 
 		blockStart := time.Now()
 		err = w.AddBlock(&block, vb.Delta)
@@ -316,11 +333,18 @@ func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 			var pgerr *pgconn.PgError
 			return errors.As(err, &pgerr) && (pgerr.Code == pgerrcode.UniqueViolation)
 		}
-		for _, errItem := range err0 {
-			if (errItem != nil) && !isUniqueViolationFunc(errItem) {
-				return fmt.Errorf("AddBlock() errItem: %w", errItem)
-			} else if errItem != nil {
-				db.log.Warnf("AddBlock() ignoring violation error, this usually means the data has already been written: %s", err)
+
+		if useExperimentalTxnInsertion {
+			for _, errItem := range errs0 {
+				if (errItem != nil) && !isUniqueViolationFunc(errItem) {
+					return fmt.Errorf("AddBlock() errItem: %w", errItem)
+				} else if errItem != nil {
+					db.log.Warnf("AddBlock() ignoring violation error, this usually means the data has already been written: %s", err)
+				}
+			}
+		} else {
+			if (err0 != nil) && !isUniqueViolationFunc(err0) {
+				return fmt.Errorf("AddBlock() err0: %w", err0)
 			}
 		}
 
@@ -341,7 +365,7 @@ func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 	fmt.Printf("AddBlock(commit): %s\n", time.Since(commitStart))
 	fmt.Printf("------------------\n")
 
-	os.Exit(1)
+	// os.Exit(1)
 	return nil
 }
 

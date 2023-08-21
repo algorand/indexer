@@ -136,3 +136,30 @@ func AddTransactionParticipation(round uint64, payset []types.SignedTxnInBlock, 
 
 	return nil
 }
+
+// AddTransactionParticipationOLD writes account participation info to the
+// `txn_participation` table.
+func AddTransactionParticipationOLD(block *types.Block, tx pgx.Tx) error {
+	var rows [][]interface{}
+	next := uint64(0)
+
+	for _, stxnib := range block.Payset {
+		participants := getTransactionParticipants(&stxnib.SignedTxnWithAD, true)
+
+		for j := range participants {
+			rows = append(rows, []interface{}{participants[j][:], uint64(block.Round), next})
+		}
+
+		next, rows = addInnerTransactionParticipation(&stxnib.SignedTxnWithAD, uint64(block.Round), next+1, rows)
+	}
+
+	_, err := tx.CopyFrom(
+		context.Background(),
+		pgx.Identifier{"txn_participation"},
+		[]string{"addr", "round", "intra"},
+		pgx.CopyFromRows(rows))
+	if err != nil {
+		return fmt.Errorf("addTransactionParticipationOLD() copy from err: %w", err)
+	}
+	return nil
+}
