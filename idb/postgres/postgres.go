@@ -37,7 +37,8 @@ import (
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
-const useExperimentalTxnInsertion = true
+const useExperimentalTxnInsertion = false
+const useExperimentalWithIntraBugfix = true
 
 var serializable = pgx.TxOptions{IsoLevel: pgx.Serializable} // be a real ACID database
 
@@ -47,7 +48,7 @@ var serializable = pgx.TxOptions{IsoLevel: pgx.Serializable} // be a real ACID d
 var uncommitted = pgx.TxOptions{IsoLevel: pgx.ReadUncommitted}
 var readonlyRepeatableRead = pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly}
 
-var experimentalCommitLevel = serializable // uncommitted
+var experimentalCommitLevel = uncommitted // serializable // uncommitted
 
 // OpenPostgres is available for creating test instances of postgres.IndexerDb
 // Returns an error object and a channel that gets closed when blocking migrations
@@ -182,8 +183,8 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 	return db.runAvailableMigrations(opts)
 }
 
-// loadTransactionBatch called by loadTransactions.
-func loadTransactionBatch(db *IndexerDb, block *sdk.Block, batchnum, start, size int) error {
+// loadTransactionBatchW called by loadTransactions.
+func loadTransactionBatchW(db *IndexerDb, block *sdk.Block, batchnum, start, size int) error {
 	f := func(tx pgx.Tx) error {
 		batchStart := time.Now()
 		var txns []sdk.SignedTxnInBlock
@@ -193,15 +194,15 @@ func loadTransactionBatch(db *IndexerDb, block *sdk.Block, batchnum, start, size
 		} else {
 			txns = block.Payset[start:end]
 		}
-		err := writer.AddTransactions(block, uint64(start), txns, tx)
+		err := writer.AddTransactionsW(block, uint64(start), txns, tx)
 		fmt.Printf("AddTransactions batch(%d): %s\n", batchnum, time.Since(batchStart))
 		return err
 	}
 	return db.txWithRetry(experimentalCommitLevel, f)
 }
 
-// loadTransactions writes txn data to the DB.
-func loadTransactions(db *IndexerDb, batchSize int, block *sdk.Block) []error {
+// loadTransactionsW writes txn data to the DB.
+func loadTransactionsW(db *IndexerDb, batchSize int, block *sdk.Block) []error {
 	var errArr []error
 	var txnsWg sync.WaitGroup
 	batchnum := 0
@@ -211,12 +212,50 @@ func loadTransactions(db *IndexerDb, batchSize int, block *sdk.Block) []error {
 		txnsWg.Add(1)
 		go func() {
 			defer txnsWg.Done()
-			errArr = append(errArr, loadTransactionBatch(db, block, num, start, batchSize))
+			errArr = append(errArr, loadTransactionBatchW(db, block, num, start, batchSize))
 		}()
 		batchnum++
 	}
 	txnsWg.Wait()
 
+	return nil
+}
+
+// loadTransactionBatchW called by loadTransactions.
+func loadTransactionBatch(db *IndexerDb, block *sdk.Block, batchnum int, left, right writer.IndexAndIntra) error {
+	f := func(tx pgx.Tx) error {
+		batchStart := time.Now()
+		var txns []sdk.SignedTxnInBlock
+
+		if right.Index > len(block.Payset) {
+			txns = block.Payset[left.Index:]
+		} else {
+			txns = block.Payset[left.Index:right.Index]
+		}
+		err := writer.AddTransactions(tx, block, txns, left)
+		fmt.Printf("AddTransactions batch(%d): %s\n", batchnum, time.Since(batchStart))
+		return err
+	}
+	return db.txWithRetry(experimentalCommitLevel, f)
+}
+
+// loadTransactions writes txn data to the DB.
+func loadTransactions(db *IndexerDb, batchSize uint, block *sdk.Block) []error {
+	var errArr []error
+	var txnsWg sync.WaitGroup
+
+	batches := writer.CutBatches(block.Payset, batchSize)
+	left := batches[0]
+	for batchnum, right := range batches[1:] {
+		txnsWg.Add(1)
+		go func(batchnum int, left, right writer.IndexAndIntra) {
+			defer txnsWg.Done()
+			errArr = append(errArr, loadTransactionBatch(db, block, batchnum, left, right))
+		}(batchnum, left, right)
+		left = right
+	}
+	txnsWg.Wait()
+	
 	return nil
 }
 
@@ -292,9 +331,13 @@ func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if useExperimentalTxnInsertion {
+			if useExperimentalTxnInsertion && !useExperimentalWithIntraBugfix {
 				st := time.Now()
-				errs0 = loadTransactions(db, size, &block)
+				errs0 = loadTransactionsW(db, size, &block)
+				fmt.Printf("AddTransactions(total): %s\n", time.Since(st))
+			} else if useExperimentalWithIntraBugfix {
+				st := time.Now()
+				errs0 = loadTransactions(db, uint(size), &block)
 				fmt.Printf("AddTransactions(total): %s\n", time.Since(st))
 			} else {
 				f := func(tx pgx.Tx) error {
@@ -309,7 +352,7 @@ func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 		}()
 
 		var err1 error
-		if useExperimentalTxnInsertion {
+		if useExperimentalTxnInsertion || useExperimentalWithIntraBugfix{
 			wg.Add(1)
 			go func() {
 				defer wg.Done()

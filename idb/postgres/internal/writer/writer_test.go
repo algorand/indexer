@@ -204,7 +204,7 @@ func TestWriterTxnTableBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	f := func(tx pgx.Tx) error {
-		return writer.AddTransactions(&block, 0, block.Payset, tx)
+		return writer.AddTransactionsW(&block, 0, block.Payset, tx)
 	}
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -280,7 +280,7 @@ func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
 	payset[0].ApplyData.AssetClosingAmount = 3
 
 	f := func(tx pgx.Tx) error {
-		return writer.AddTransactions(&block, 0, payset, tx)
+		return writer.AddTransactionsW(&block, 0, payset, tx)
 	}
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -1377,7 +1377,7 @@ func TestAddBlockInvalidInnerAsset(t *testing.T) {
 	require.NoError(t, err)
 
 	err = makeTx(db, func(tx pgx.Tx) error {
-		return writer.AddTransactions(&block, 0, block.Payset, tx)
+		return writer.AddTransactionsW(&block, 0, block.Payset, tx)
 	})
 	require.Contains(t, err.Error(), "Missing ConfigAsset for transaction: ")
 }
@@ -1400,7 +1400,7 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	require.NoError(t, err)
 
 	err = makeTx(db, func(tx pgx.Tx) error {
-		err := writer.AddTransactions(&block, 0, block.Payset, tx)
+		err := writer.AddTransactionsW(&block, 0, block.Payset, tx)
 		if err != nil {
 			return err
 		}
