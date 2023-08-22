@@ -37,8 +37,8 @@ import (
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
-const useExperimentalTxnInsertion = false
-const useExperimentalWithIntraBugfix = true
+const useExperimentalTxnInsertion = true
+const useExperimentalWithIntraBugfix = false
 
 var serializable = pgx.TxOptions{IsoLevel: pgx.Serializable} // be a real ACID database
 
