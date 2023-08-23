@@ -37,8 +37,8 @@ import (
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
-const useExperimentalTxnInsertion = true
-const useExperimentalWithIntraBugfix = false
+const useExperimentalTxnInsertion = false
+const useExperimentalWithIntraBugfix = true
 
 var serializable = pgx.TxOptions{IsoLevel: pgx.Serializable} // be a real ACID database
 
@@ -255,7 +255,7 @@ func loadTransactions(db *IndexerDb, batchSize uint, block *sdk.Block) []error {
 		left = right
 	}
 	txnsWg.Wait()
-	
+
 	return nil
 }
 
@@ -352,7 +352,7 @@ func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 		}()
 
 		var err1 error
-		if useExperimentalTxnInsertion || useExperimentalWithIntraBugfix{
+		if useExperimentalTxnInsertion || useExperimentalWithIntraBugfix {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()

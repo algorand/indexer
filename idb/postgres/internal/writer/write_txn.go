@@ -62,8 +62,6 @@ func transactionAssetID(stxnad *types.SignedTxnWithAD, intra uint, block *types.
 	return assetid, nil
 }
 
-
-
 // Traverses the inner transaction tree and writes database rows
 // to `outCh`. It performs a preorder traversal to correctly compute
 // the intra round offset for the next transaction is returned.
@@ -354,24 +352,33 @@ type IndexAndIntra struct {
 	Intra uint
 }
 
-func innerTxnTreeSize(stxnad *types.SignedTxnWithAD) uint {
-	size := uint(0)
+// innerTxnTreeSize computes the number of transactions in the inner transaction tree.
+// Since the root is the original transaction, we start at 1 even if there are no
+// inner transactions.
+func innerTxnTreeSize(stxnad *types.SignedTxnWithAD) (size uint) {
+	size++
 	for _, itxn := range stxnad.ApplyData.EvalDelta.InnerTxns {
 		size += innerTxnTreeSize(&itxn)
 	}
-	return size + 1
+	return
 }
 
-// cutBatches takes the payset returns a list of batches.
-// TODO: should we respect transaction group boundaries? 
-func CutBatches(payset []types.SignedTxnInBlock, batchMinSize uint) []IndexAndIntra  {
+// CutBatches takes the payset returns a list of batches.
+// TODO: should we respect transaction group boundaries?
+func CutBatches(payset []types.SignedTxnInBlock, batchMinSize uint) []IndexAndIntra {
+	cuts := make([]IndexAndIntra, 0)
+	if len(payset) == 0 {
+		return cuts
+	}
+
 	index, intra := 0, uint(0)
-	cuts := []IndexAndIntra{{index, intra}}
+	cuts = append(cuts, IndexAndIntra{index, intra})
 	var dangling bool
-	for leftIntra := intra; index < len(payset); index++{
+	for leftIntra := intra; index < len(payset); {
 		dangling = true
-		intra += 1 + innerTxnTreeSize(&payset[index].SignedTxnWithAD)
-		if intra - leftIntra >= batchMinSize {
+		intra += innerTxnTreeSize(&payset[index].SignedTxnWithAD)
+		index++
+		if intra >= leftIntra + batchMinSize {
 			cuts = append(cuts, IndexAndIntra{index, intra})
 			leftIntra = intra
 			dangling = false

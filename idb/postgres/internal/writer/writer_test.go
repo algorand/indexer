@@ -1854,3 +1854,151 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 
 	validateTotals()
 }
+
+func TestCutBatches(t *testing.T) {
+	singleSTWAD := sdk.SignedTxnWithAD{
+		ApplyData: sdk.ApplyData{
+			EvalDelta: sdk.EvalDelta{
+				InnerTxns: []sdk.SignedTxnWithAD{{}},
+			},
+		},
+	}
+	threeGenSTWAD := sdk.SignedTxnWithAD{
+		ApplyData: sdk.ApplyData{
+			EvalDelta: sdk.EvalDelta{
+				InnerTxns: []sdk.SignedTxnWithAD{singleSTWAD},
+			},
+		},
+	}
+	fourGenSTWAD := sdk.SignedTxnWithAD{
+		ApplyData: sdk.ApplyData{
+			EvalDelta: sdk.EvalDelta{
+				InnerTxns: []sdk.SignedTxnWithAD{threeGenSTWAD},
+			},
+		},
+	}
+
+	singleParent := sdk.SignedTxnInBlock{SignedTxnWithAD: singleSTWAD}
+	threeGen := sdk.SignedTxnInBlock{SignedTxnWithAD: threeGenSTWAD}
+	fourGen := sdk.SignedTxnInBlock{SignedTxnWithAD: fourGenSTWAD}
+
+	testCases := []struct {
+		name     string
+		payset   []sdk.SignedTxnInBlock
+		batchMinSize uint
+		expected []writer.IndexAndIntra
+	}{
+		{
+			name: "empty payset",
+			payset: []sdk.SignedTxnInBlock{},
+			batchMinSize: 3,
+			expected: []writer.IndexAndIntra{},
+		},
+		{
+			name: "5 simple txns batches of 3",
+			payset: []sdk.SignedTxnInBlock{
+				{},
+				{},
+				{},
+				{},
+				{},
+			},
+			batchMinSize: 3,
+			expected: []writer.IndexAndIntra{
+				{Index: 0, Intra: 0},
+				{Index: 3, Intra: 3},
+				{Index: 5, Intra: 5},
+			},
+		},
+		{
+			name: "9 - a multiple of 3",
+			payset: []sdk.SignedTxnInBlock{
+				{}, {}, {}, 
+				{}, {}, {}, 
+				{}, {}, {},
+			},
+			batchMinSize: 3,
+			expected: []writer.IndexAndIntra{
+				{Index: 0, Intra: 0},
+				{Index: 3, Intra: 3},
+				{Index: 6, Intra: 6},
+				{Index: 9, Intra: 9},
+			},
+		},
+		{
+			name: "4 single parents batches of 2",
+			payset: []sdk.SignedTxnInBlock{
+				singleParent, singleParent, singleParent, singleParent,
+			},
+			batchMinSize: 2,
+			expected: []writer.IndexAndIntra{
+				{Index: 0, Intra: 0},
+				{Index: 1, Intra: 2},
+				{Index: 2, Intra: 4},
+				{Index: 3, Intra: 6},
+				{Index: 4, Intra: 8},
+			},
+		},
+		{
+			name: "4 single parents batches of 3",
+			payset: []sdk.SignedTxnInBlock{
+				singleParent, singleParent, singleParent, singleParent,
+			},
+			batchMinSize: 3,
+			expected: []writer.IndexAndIntra{
+				{Index: 0, Intra: 0},
+				{Index: 2, Intra: 4},
+				{Index: 4, Intra: 8},
+			},
+		},
+		{
+			name: "5 single parents batches of 3",
+			payset: []sdk.SignedTxnInBlock{
+				singleParent, singleParent, singleParent, singleParent, singleParent,
+			},
+			batchMinSize: 3,
+			expected: []writer.IndexAndIntra{
+				{Index: 0, Intra: 0},
+				{Index: 2, Intra: 4},
+				{Index: 4, Intra: 8},
+				{Index: 5, Intra: 10},
+			},
+		},
+		{
+			name: "4 gens 3 gens 2 gens 1 gen batches of 2",
+			payset: []sdk.SignedTxnInBlock{
+				fourGen, threeGen, singleParent, {},
+			},
+			batchMinSize: 2,
+			expected: []writer.IndexAndIntra{
+				{Index: 0, Intra: 0},
+				{Index: 1, Intra: 4},
+				{Index: 2, Intra: 7},
+				{Index: 3, Intra: 9},
+				{Index: 4, Intra: 10},
+			},
+		},
+		{
+			name: "4 gens 3 gens 2 gens 1 gen batches of 5",
+			payset: []sdk.SignedTxnInBlock{
+				fourGen, threeGen, singleParent, {},
+			},
+			batchMinSize: 5,
+			expected: []writer.IndexAndIntra{
+				{Index: 0, Intra: 0},
+				{Index: 2, Intra: 7},
+				{Index: 4, Intra: 10},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			actual := writer.CutBatches(tc.payset, tc.batchMinSize)
+			assert.Equal(t, tc.expected, actual)
+		})
+	}
+
+}
