@@ -244,7 +244,17 @@ func loadTransactions(db *IndexerDb, batchSize uint, block *sdk.Block) []error {
 	var errArr []error
 	var txnsWg sync.WaitGroup
 
+	if len(block.Payset) == 0 {
+		return nil
+	}
+
 	batches := writer.CutBatches(block.Payset, batchSize)
+	if len(batches) < 2 {
+		return []error{
+			fmt.Errorf("loadTransactions: this should never happen! batch cuts of lengvth %d but len(block.Payset) = %d", len(batches), len(block.Payset)),
+		}
+	}
+
 	left := batches[0]
 	for batchnum, right := range batches[1:] {
 		txnsWg.Add(1)
