@@ -233,7 +233,7 @@ func loadTransactionBatch(db *IndexerDb, block *sdk.Block, batchnum int, left, r
 			txns = block.Payset[left.Index:right.Index]
 		}
 		err := writer.AddTransactions(tx, block, txns, left)
-		fmt.Printf("AddTransactions batch(%d): %s\n", batchnum, time.Since(batchStart))
+		db.log.Debugf("AddTransactions batch(%d:%d): %s", block.Round, batchnum, time.Since(batchStart))
 		return err
 	}
 	return db.txWithRetry(experimentalCommitLevel, f)
@@ -335,8 +335,8 @@ func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 
 		var err0 error
 		var errs0 []error
-		fmt.Printf("------------------\n")
-		fmt.Printf("Round: %d\n", vb.Block.Round)
+		// fmt.Printf("------------------\n")
+		// fmt.Printf("Round: %d\n", vb.Block.Round)
 		size := 2000
 		wg.Add(1)
 		go func() {
@@ -344,11 +344,11 @@ func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 			if useExperimentalTxnInsertion && !useExperimentalWithIntraBugfix {
 				st := time.Now()
 				errs0 = loadTransactionsW(db, size, &block)
-				fmt.Printf("AddTransactions(total): %s\n", time.Since(st))
+				db.log.Infof("Round %d AddTransactions(total): %s", vb.Block.Round, time.Since(st))
 			} else if useExperimentalWithIntraBugfix {
 				st := time.Now()
 				errs0 = loadTransactions(db, uint(size), &block)
-				fmt.Printf("AddTransactions(total): %s\n", time.Since(st))
+				db.log.Infof("Round %d AddTransactions(total): %s", vb.Block.Round, time.Since(st))
 			} else {
 				f := func(tx pgx.Tx) error {
 					err := writer.AddTransactionsOLD(&block, block.Payset, tx)
@@ -375,7 +375,7 @@ func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 		if err != nil {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
-		fmt.Printf("AddBlock: %s\n", time.Since(blockStart))
+		db.log.Infof("AddBlock: %s\n", time.Since(blockStart))
 
 		// Wait for goroutines to finish and check for errors. If there is an error, we
 		// return our own error so that the main transaction does not commit. Hence,
@@ -415,10 +415,7 @@ func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 		return fmt.Errorf("AddBlock() err: %w", err)
 	}
 
-	fmt.Printf("AddBlock(commit): %s\n", time.Since(commitStart))
-	fmt.Printf("------------------\n")
-
-	// os.Exit(1)
+	db.log.Infof("round %d AddBlock(commit): %s", round, time.Since(commitStart))
 	return nil
 }
 
