@@ -273,13 +273,13 @@ func loadTransactionParticipation(db *IndexerDb, block *sdk.Block) error {
 	st := time.Now()
 	f := func(tx pgx.Tx) error {
 		err := writer.AddTransactionParticipation(uint64(block.Round), block.Payset, tx)
-		fmt.Printf("AddTransactionParticipation: %s\n", time.Since(st))
+		db.log.Infof("round %d AddTransactionParticipation: %s\n", block.Round, time.Since(st))
 		//tx.Rollback(context.Background())
 		st = time.Now()
 		return err
 	}
 	err := db.txWithRetry(experimentalCommitLevel, f)
-	fmt.Printf("AddTransactionParticipation(commit): %s\n", time.Since(st))
+	db.log.Infof("round %d AddTransactionParticipation(commit): %s\n", block.Round, time.Since(st))
 	return err
 }
 
