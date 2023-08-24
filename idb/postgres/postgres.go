@@ -233,7 +233,7 @@ func loadTransactionBatch(db *IndexerDb, block *sdk.Block, batchnum int, left, r
 			txns = block.Payset[left.Index:right.Index]
 		}
 		err := writer.AddTransactions(tx, block, txns, left)
-		db.log.Debugf("AddTransactions batch(%d:%d): %s", block.Round, batchnum, time.Since(batchStart))
+		db.log.Debugf("AddTransactions batch(%d:%d): %d", block.Round, batchnum, time.Since(batchStart).Milliseconds())
 		return err
 	}
 	return db.txWithRetry(experimentalCommitLevel, f)
@@ -273,13 +273,13 @@ func loadTransactionParticipation(db *IndexerDb, block *sdk.Block) error {
 	st := time.Now()
 	f := func(tx pgx.Tx) error {
 		err := writer.AddTransactionParticipation(uint64(block.Round), block.Payset, tx)
-		db.log.Infof("round %d AddTransactionParticipation: %s\n", block.Round, time.Since(st))
+		db.log.Infof("round %d AddTransactionParticipation: %d\n", block.Round, time.Since(st).Milliseconds())
 		//tx.Rollback(context.Background())
 		st = time.Now()
 		return err
 	}
 	err := db.txWithRetry(experimentalCommitLevel, f)
-	db.log.Infof("round %d AddTransactionParticipation(commit): %s\n", block.Round, time.Since(st))
+	db.log.Infof("round %d AddTransactionParticipation(commit): %d\n", block.Round, time.Since(st).Milliseconds())
 	return err
 }
 
@@ -375,7 +375,7 @@ func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 		if err != nil {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
-		db.log.Infof("AddBlock: %s\n", time.Since(blockStart))
+		db.log.Infof("AddBlock: %d\n", time.Since(blockStart).Milliseconds())
 
 		// Wait for goroutines to finish and check for errors. If there is an error, we
 		// return our own error so that the main transaction does not commit. Hence,
@@ -415,7 +415,7 @@ func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 		return fmt.Errorf("AddBlock() err: %w", err)
 	}
 
-	db.log.Infof("round %d AddBlock(commit): %s", round, time.Since(commitStart))
+	db.log.Infof("round %d AddBlock(commit): %d", round, time.Since(commitStart).Milliseconds())
 	return nil
 }
 
