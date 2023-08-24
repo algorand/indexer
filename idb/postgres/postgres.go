@@ -273,13 +273,13 @@ func loadTransactionParticipation(db *IndexerDb, block *sdk.Block) error {
 	st := time.Now()
 	f := func(tx pgx.Tx) error {
 		err := writer.AddTransactionParticipation(uint64(block.Round), block.Payset, tx)
-		db.log.Infof("round %d AddTransactionParticipation: %d\n", block.Round, time.Since(st).Milliseconds())
+		db.log.Infof("round %d AddTransactionParticipation: %d", block.Round, time.Since(st).Milliseconds())
 		//tx.Rollback(context.Background())
 		st = time.Now()
 		return err
 	}
 	err := db.txWithRetry(experimentalCommitLevel, f)
-	db.log.Infof("round %d AddTransactionParticipation(commit): %d\n", block.Round, time.Since(st).Milliseconds())
+	db.log.Infof("round %d AddTransactionParticipation(commit): %d", block.Round, time.Since(st).Milliseconds())
 	return err
 }
 
@@ -344,11 +344,11 @@ func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 			if useExperimentalTxnInsertion && !useExperimentalWithIntraBugfix {
 				st := time.Now()
 				errs0 = loadTransactionsW(db, size, &block)
-				db.log.Infof("Round %d AddTransactions(total): %s", vb.Block.Round, time.Since(st))
+				db.log.Infof("Round %d AddTransactions(total): %d", vb.Block.Round, time.Since(st).Microseconds())
 			} else if useExperimentalWithIntraBugfix {
 				st := time.Now()
 				errs0 = loadTransactions(db, uint(size), &block)
-				db.log.Infof("Round %d AddTransactions(total): %s", vb.Block.Round, time.Since(st))
+				db.log.Infof("Round %d AddTransactions(total): %d", vb.Block.Round, time.Since(st).Milliseconds())
 			} else {
 				f := func(tx pgx.Tx) error {
 					err := writer.AddTransactionsOLD(&block, block.Payset, tx)
