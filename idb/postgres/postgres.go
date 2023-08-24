@@ -273,13 +273,13 @@ func loadTransactionParticipation(db *IndexerDb, block *sdk.Block) error {
 	st := time.Now()
 	f := func(tx pgx.Tx) error {
 		err := writer.AddTransactionParticipation(uint64(block.Round), block.Payset, tx)
-		db.log.Infof("round %d AddTransactionParticipation: %d", block.Round, time.Since(st).Milliseconds())
+		db.log.Infof("Round %d AddTransactionParticipation: %d", block.Round, time.Since(st).Milliseconds())
 		//tx.Rollback(context.Background())
 		st = time.Now()
 		return err
 	}
 	err := db.txWithRetry(experimentalCommitLevel, f)
-	db.log.Infof("round %d AddTransactionParticipation(commit): %d", block.Round, time.Since(st).Milliseconds())
+	db.log.Infof("Round %d AddTransactionParticipation(commit): %d", block.Round, time.Since(st).Milliseconds())
 	return err
 }
 
@@ -375,7 +375,7 @@ func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 		if err != nil {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
-		db.log.Infof("AddBlock: %d\n", time.Since(blockStart).Milliseconds())
+		db.log.Infof("Round %d AddBlock: %d", round, time.Since(blockStart).Milliseconds())
 
 		// Wait for goroutines to finish and check for errors. If there is an error, we
 		// return our own error so that the main transaction does not commit. Hence,
@@ -415,7 +415,7 @@ func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 		return fmt.Errorf("AddBlock() err: %w", err)
 	}
 
-	db.log.Infof("round %d AddBlock(commit): %d", round, time.Since(commitStart).Milliseconds())
+	db.log.Infof("Round %d AddBlock(commit): %d", round, time.Since(commitStart).Milliseconds())
 	return nil
 }
 
