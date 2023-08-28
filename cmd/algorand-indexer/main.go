@@ -82,7 +82,7 @@ var (
 func indexerDbFromFlags(opts idb.IndexerDbOptions) (idb.IndexerDb, chan struct{}, error) {
 	if postgresAddr != "" {
 		db, ch, err := idb.IndexerDbByName("postgres", postgresAddr, opts, logger)
-		maybeFail(err, "could not init db, %v", err)
+		maybeFail(err, "unable to open database, if tables are not initialized ensure Conduit is running")
 		return db, ch, nil
 	}
 	if dummyIndexerDb {
