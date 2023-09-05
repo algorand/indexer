@@ -15,14 +15,16 @@ import (
 // const useExperimentalWithIntraBugfix = true
 
 var serializable = pgx.TxOptions{IsoLevel: pgx.Serializable} // be a real ACID database
+var readonlyRepeatableRead = pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly}
 
 // in actuality, for postgres the following is no weaker than ReadCommitted:
 // https://www.postgresql.org/docs/current/transaction-iso.html
 // TODO: change this to pgs.ReadCommitted
-var uncommitted = pgx.TxOptions{IsoLevel: pgx.ReadUncommitted}
-var readonlyRepeatableRead = pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly}
+// var uncommitted = pgx.TxOptions{IsoLevel: pgx.ReadUncommitted}
 
-var experimentalCommitLevel = uncommitted // serializable // uncommitted
+
+
+// var experimentalCommitLevel = uncommitted // serializable // uncommitted
 
 // IndexerDb is an idb.IndexerDB implementation
 type IndexerDb struct {
@@ -36,9 +38,20 @@ type IndexerDb struct {
 	TuningParams
 }
 
+// TuningParams are database interaction settings that can be
+// fine tuned to improve performance based on a specific hardware deployment
+// and workload characteristics.
 type TuningParams struct {
 	PgxOpts   pgx.TxOptions
 	BatchSize uint32
+}
+
+// defaultTuningParams returns a TuningParams object with default values.
+func defaultTuningParams() TuningParams{
+	return TuningParams{
+		PgxOpts:   serializable,
+		BatchSize: 2500,
+	}
 }
 
 func shortName(isoLevel pgx.TxIsoLevel) string {

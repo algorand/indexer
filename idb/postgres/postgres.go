@@ -40,7 +40,6 @@ import (
 // Returns an error object and a channel that gets closed when blocking migrations
 // finish running successfully.
 func OpenPostgres(connection string, opts idb.IndexerDbOptions, log *log.Logger) (*IndexerDb, chan struct{}, error) {
-
 	return openPostgres(connection, opts, nil, log)
 }
 
@@ -65,10 +64,8 @@ func openPostgres(connection string, opts idb.IndexerDbOptions, tuning *TuningPa
 	}
 
 	if tuning == nil {
-		tuning = &TuningParams{
-			PgxOpts: serializable,
-			BatchSize: 100_000,
-		}
+		tp := defaultTuningParams()
+		tuning = &tp
 	}
 
 	return openPostgresWithTuning(db, opts, *tuning, log)
