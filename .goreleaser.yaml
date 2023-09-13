@@ -109,6 +109,9 @@ changelog:
       - '^docs:'
       - '^test:'
 
+signs:
+  - artifacts: checksum
+
 release:
   draft: true
   header: |
