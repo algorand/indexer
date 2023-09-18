@@ -1,6 +1,0 @@
-/sampleEndpoint:
-  required:
-    - p1 : enabled
-    - p2 : disabled
-  optional:
-    - p3 : enabled

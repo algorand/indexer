@@ -1,8 +1,0 @@
-Package: algorand-indexer
-Homepage: https://www.algorand.com/
-Maintainer: Algorand developers <dev@algorand.com>
-Version: @VER@
-Architecture: @ARCH@
-Recommends: unattended-upgrades
-Description: Algorand Indexer
- This package provides a tool/daemon which maintains an indexed database of transactions and accounts from an Algorand network.
