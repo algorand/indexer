@@ -10,11 +10,11 @@ No. The "follower" node used by Conduit is not a general purpose node and cannot
 
 ## What are the resource requirements for Conduit and Indexer 3.x compared to Indexer 2.x?
 
-The compute requirements are similar. With Conduit and a "follower" node performing a task previously handled by Indexer 2.x and an "archival" node.
-
 The storage requirements are much less. The Conduit follower node runs with non-archival storage requirements compared to the archival storage requirements needed by Indexer 2.x. For mainnet at round 32 million, this can save between 1.2TB and 1.6TB of storage.
 
-The postgres requirements are the same, unless the new transaction pruning and filtering features in Conduit are used. For some applications, this can save another 1.5 TB or more of storage.
+The compute requirements are similar. With Conduit and a "follower" node performing a task previously handled by Indexer 2.x and an "archival" node.
+
+The postgres requirements are the same for those reading the full history (existing indexer behavior). Using the new transaction pruning and filtering features in Conduit in some applications can save another 1.5 TB or more of storage.
 
 ## Are debian and rpm packages supported for Conduit and Indexer 3.x?
 
