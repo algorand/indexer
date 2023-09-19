@@ -289,4 +289,4 @@ If you were previously using Indexer 2.x you will need to reconfigure your deplo
 
 See the [Indexer 2.x to 3.x Migration FAQ](docs/MigrationFAQ.md) for common questions.
 
-[Additional about configuring Conduit can be found here.](https://github.com/algorand/conduit#migrating-from-indexer-2x)
+[Additional info around configuring Conduit can be found here.](https://github.com/algorand/conduit#migrating-from-indexer-2x)
