@@ -25,6 +25,6 @@ No, these are not currently supported.
 With an optimal deployment, the process can take less than a week, but it is common for the process to take 3+ weeks. The process is typically disk and network bound.
 
 For optimal performance ensure:
-	* A fast network connection.
-	* Low latency between Conduit, the follower node and postgres.
-	* Fast disk, locally attached NVMe is ideal for Conduit and algod.
+* A fast network connection.
+* Low latency between Conduit, the follower node and postgres.
+* Fast disk, locally attached NVMe is ideal for Conduit and algod.
