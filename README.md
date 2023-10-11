@@ -33,10 +33,10 @@ All recommendations here should be be used as a starting point. Further benchmar
 
 For a simple deployment the following configuration works well:
 * Network: Indexer, Conduit, Algod and PostgreSQL should all be on the same network.
-* Indexer: 2 CPU and 8 GB of ram.
-* Conduit: 2 CPU and 8 GB of ram.
+* Indexer: 4 CPU and 8 GB of ram.
+* Conduit: 4 CPU and 8 GB of ram.
 * Database: When hosted on AWS a `db.r5.xlarge` instance works well.
-* Storage: 20 GiB
+* Storage: 20 GiB, 3000 IOPS minimum.
 
 A database with replication can be used to scale read volume. Configure a single Conduit writer with multiple Indexer readers.
 
