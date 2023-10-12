@@ -23,7 +23,7 @@ Run `make` to build Indexer, the binary is located at `cmd/algorand-indexer/algo
 
 # Requirements
 
-All recommendations here should be be used as a starting point. Further benchmarking should be done to verify performance is acceptible for any application using Indexer.
+All recommendations here should be used as a starting point. Further benchmarking should be done to verify performance is acceptible for any application using Indexer.
 
 ## Versions
 
