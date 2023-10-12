@@ -36,7 +36,7 @@ For a simple deployment the following configuration works well:
 * Indexer: 4 CPU and 8 GB of ram.
 * Conduit: 4 CPU and 8 GB of ram.
 * Database: When hosted on AWS a `db.r5.xlarge` instance works well.
-* Storage: 20 GiB, 3000 IOPS minimum.
+* Storage: 40 GiB, 3000 IOPS minimum.
 
 A database with replication can be used to scale read volume. Configure a single Conduit writer with multiple Indexer readers.
 
