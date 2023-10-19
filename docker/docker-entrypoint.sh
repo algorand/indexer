@@ -12,7 +12,7 @@ fi
 
 # copy indexer.yml override to data directory
 if [[ -f /etc/algorand/indexer.yml ]]; then
-  cp /etc/algorand/indexer.yml /data/indexer.yml
+  cp /etc/algorand/indexer.yml $INDEXER_DATA/indexer.yml
 fi
 
 # always run the algorand-indexer command
