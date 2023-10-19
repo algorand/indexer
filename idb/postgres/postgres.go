@@ -510,6 +510,16 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 		whereParts = append(whereParts, fmt.Sprintf("p.addr = $%d", partNumber))
 		whereArgs = append(whereArgs, tf.Address)
 		partNumber++
+		if tf.MinRound != 0 {
+			whereParts = append(whereParts, fmt.Sprintf("p.round >= $%d", partNumber))
+			whereArgs = append(whereArgs, tf.MinRound)
+			partNumber++
+		}
+		if tf.MaxRound != 0 {
+			whereParts = append(whereParts, fmt.Sprintf("p.round <= $%d", partNumber))
+			whereArgs = append(whereArgs, tf.MaxRound)
+			partNumber++
+		}
 		if tf.AddressRole != 0 {
 			addrBase64 := encoding.Base64(tf.Address)
 			roleparts := make([]string, 0, 8)
