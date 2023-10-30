@@ -118,7 +118,7 @@ release:
     ![GitHub Logo](https://raw.githubusercontent.com/algorand/go-algorand/master/release/release-banner.jpg)
     ## Important
 
-    Indexer 3.1.0 uses Conduit for data loading. This is a change from the 2.x version, which managed data loading internally. See our [Using Conduit to Populate an Indexer Database](https://github.com/algorand/conduit/blob/master/docs/tutorials/IndexerWriter.md) tutorial for more information on how to use Conduit.
+    Indexer {{ .Tag }} uses Conduit for data loading. This is a change from the 2.x version, which managed data loading internally. See our [Using Conduit to Populate an Indexer Database](https://github.com/algorand/conduit/blob/master/docs/tutorials/IndexerWriter.md) tutorial for more information on how to use Conduit.
   footer: |
     **Full Changelog**: https://github.com/algorand/indexer/compare/{{ .PreviousTag }}...{{ .Tag }}
 
