@@ -518,20 +518,16 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 	}
 	if len(stxn.ApplyData.EvalDelta.LocalDeltas) > 0 {
 		keys := make([]tuple, 0)
+
 		for k := range stxn.ApplyData.EvalDelta.LocalDeltas {
-			if k == 0 {
-				keys = append(keys, tuple{
-					key:     0,
-					address: stxn.Txn.Sender,
-				})
-			} else {
-				addr := sdk.Address{}
-				copy(addr[:], stxn.Txn.Accounts[k-1][:])
-				keys = append(keys, tuple{
-					key:     k,
-					address: addr,
-				})
+			addr, err := edIndexToAddress(k, stxn.Txn, stxn.ApplyData.EvalDelta.SharedAccts)
+			if err != nil {
+				return generated.Transaction{}, err
 			}
+			keys = append(keys, tuple{
+				key:     k,
+				address: addr,
+			})
 		}
 		sort.Slice(keys, func(i, j int) bool { return keys[i].key < keys[j].key })
 		d := make([]generated.AccountStateDelta, 0)
@@ -627,6 +623,20 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 	}
 
 	return txn, nil
+}
+
+func edIndexToAddress(index uint64, txn sdk.Transaction, shared []sdk.Address) (sdk.Address, error) {
+	// index into [Sender, txn.Accounts[0], txn.Accounts[1], ..., shared[0], shared[1], ...]
+	switch {
+	case index == 0:
+		return txn.Sender, nil
+	case int(index-1) < len(txn.Accounts):
+		return txn.Accounts[index-1], nil
+	case int(index-1)-len(txn.Accounts) < len(shared):
+		return shared[int(index-1)-len(txn.Accounts)], nil
+	default:
+		return sdk.Address{}, fmt.Errorf("invalid Account Index %d in LocalDelta", index)
+	}
 }
 
 func (si *ServerImplementation) assetParamsToAssetQuery(params generated.SearchForAssetsParams) (idb.AssetsQuery, error) {
