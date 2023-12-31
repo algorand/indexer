@@ -520,7 +520,7 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 		keys := make([]tuple, 0)
 
 		for k := range stxn.ApplyData.EvalDelta.LocalDeltas {
-			addr, err := edIndexToAddress(k, stxn.Txn, stxn.ApplyData.EvalDelta.SharedAccounts)
+			addr, err := edIndexToAddress(k, stxn.Txn, stxn.ApplyData.EvalDelta.SharedAccts)
 			if err != nil {
 				return generated.Transaction{}, err
 			}
