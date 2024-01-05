@@ -615,6 +615,17 @@ func TestFetchTransactions(t *testing.T) {
 			},
 		},
 		{
+			name: "Conditionally index into shared addresses when sharing resources across a group",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/resource_sharing_1.txn"),
+				loadResourceFileOrPanic("test_resources/resource_sharing_2.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/resource_sharing_1.response"),
+				loadTransactionFromFile("test_resources/resource_sharing_2.response"),
+			},
+		},
+		{
 			name: "State Proof Txn",
 			txnBytes: [][]byte{
 				loadResourceFileOrPanic("test_resources/state_proof.txn"),
