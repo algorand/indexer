@@ -1,6 +1,4 @@
 SRCPATH		:= $(shell pwd)
-OS_TYPE		?= $(shell $(SRCPATH)/mule/scripts/ostype.sh)
-ARCH		?= $(shell $(SRCPATH)/mule/scripts/archtype.sh)
 ifeq ($(OS_TYPE), darwin)
 ifeq ($(ARCH), arm64)
 export CPATH=/opt/homebrew/include
@@ -56,19 +54,10 @@ e2e: cmd/algorand-indexer/algorand-indexer
 e2e-filter-test: cmd/algorand-indexer/algorand-indexer
 	cd e2e_tests/docker/indexer-filtered/ && docker-compose build --build-arg GO_IMAGE=${GO_IMAGE} && docker-compose up --exit-code-from e2e-read
 
-deploy:
-	mule/deploy.sh
-
-sign:
-	mule/sign.sh
-
-test-package:
-	mule/e2e.sh
-
 test-generate:
 	test/test_generate.py
 
 indexer-v-algod:
 	pytest -sv misc/parity
 
-.PHONY: all test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go indexer-v-algod
+.PHONY: all test e2e integration fmt lint package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go indexer-v-algod

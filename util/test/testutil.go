@@ -1,14 +1,17 @@
 package test
 
 import (
+	"compress/gzip"
 	"context"
 	"crypto/sha512"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"runtime"
 
+	"github.com/algorand/go-codec/codec"
 	"github.com/algorand/indexer/v3/idb"
 	"github.com/algorand/indexer/v3/types"
 	"github.com/algorand/indexer/v3/util"
@@ -131,6 +134,52 @@ func ReadValidatedBlockFromFile(filename string) (types.ValidatedBlock, error) {
 	return vb, nil
 
 }
+
+// CountingReader wraps an io.Reader to count the number of bytes read.
+type CountingReader struct {
+	r io.Reader
+	n uint64
+}
+
+func (cr *CountingReader) Read(p []byte) (int, error) {
+	n, err := cr.r.Read(p)
+	cr.n += uint64(n)
+	return n, err
+}
+
+// ReadConduitBlockFromFile reads a (validated) conduit block from a file
+// and returns the block casted as a ValidatedBlock along with the number of bytes read (after decompression).
+func ReadConduitBlockFromFile(filename string) (types.ValidatedBlock, uint64, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return types.ValidatedBlock{}, 0, fmt.Errorf("ReadConduitBlockFromFile err: %w", err)
+	}
+	defer file.Close()
+
+	isGzip := filename[len(filename)-3:] == ".gz"
+	var reader io.Reader
+	if isGzip {
+		gz, err := gzip.NewReader(file)
+		if err != nil {
+			return types.ValidatedBlock{}, 0, fmt.Errorf("ReadConduitBlockFromFile err: failed to make gzip reader: %w", err)
+		}
+		defer gz.Close()
+		reader = gz
+	} else {
+		reader = file
+	}
+
+	cr := &CountingReader{r: reader}
+	var cb types.BlockData
+	if err := codec.NewDecoder(cr, msgpack.LenientCodecHandle).Decode(&cb); err != nil {
+		return types.ValidatedBlock{}, 0, fmt.Errorf("ReadConduitBlockFromFile err: %w", err)
+	}
+	return types.ValidatedBlock{
+		Block: sdk.Block{BlockHeader: cb.BlockHeader, Payset: cb.Payset},
+		Delta: *cb.Delta,
+	}, cr.n, nil
+}
+
 
 // AppAddress generates Address for the given appID
 func AppAddress(app sdk.AppIndex) sdk.Address {

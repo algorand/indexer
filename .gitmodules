@@ -1,4 +1,0 @@
-[submodule "go-algorand"]
-	path = third_party/go-algorand
-	url = https://github.com/algorand/go-algorand
-	branch = rel/nightly

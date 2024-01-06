@@ -17,6 +17,13 @@ import (
 
 var testpg string
 
+var knownPgImages = map[string]struct{}{
+	"13-alpine": {},
+	"14":        {},
+	"15":        {},
+	"16beta3":   {},
+}
+
 func init() {
 	flag.StringVar(&testpg, "test-pg", "", "postgres connection string; resets the database")
 	if testpg == "" {
@@ -28,7 +35,7 @@ func init() {
 
 // SetupPostgres starts a gnomock postgres DB then returns the database object,
 // the connection string and a shutdown function.
-func SetupPostgres(t *testing.T) (*pgxpool.Pool, string, func()) {
+func SetupPostgres(t testing.TB) (*pgxpool.Pool, string, func()) {
 	if testpg != "" {
 		// use non-docker Postgresql
 		connStr := testpg
@@ -47,8 +54,16 @@ func SetupPostgres(t *testing.T) (*pgxpool.Pool, string, func()) {
 		return db, connStr, shutdownFunc
 	}
 
+	return SetupGnomockPgWithVersion(t, "13-alpine")
+}
+
+func SetupGnomockPgWithVersion(t testing.TB, pgImage string) (*pgxpool.Pool, string, func()) {
+	if _, ok := knownPgImages[pgImage]; !ok {
+		t.Fatalf("SetupGnomockPgWithVersion(): unrecognized postgres Docker image for gnomock preset: %s", pgImage)
+	}
+
 	p := postgres.Preset(
-		postgres.WithVersion("13-alpine"),
+		postgres.WithVersion(pgImage),
 		postgres.WithUser("gnomock", "gnomick"),
 		postgres.WithDatabase("mydb"),
 	)
@@ -60,6 +75,16 @@ func SetupPostgres(t *testing.T) (*pgxpool.Pool, string, func()) {
 		container.Host, container.DefaultPort(),
 		"gnomock", "gnomick", "mydb",
 	)
+
+	// config, err := pgxpool.ParseConfig(connStr)
+	// require.NoError(t, err, "Error parsing connection string: %s", connStr)
+
+	// if maxConns != nil {
+	// 	config.MaxConns = *maxConns
+	// }
+	
+	// db, err := pgxpool.ConnectConfig(context.Background(), config)
+	// require.NoError(t, err, "Error creating connection pool via config: %#v", config)
 
 	db, err := pgxpool.Connect(context.Background(), connStr)
 	require.NoError(t, err, "Error opening postgres connection")
