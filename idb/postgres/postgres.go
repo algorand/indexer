@@ -649,6 +649,12 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 		partNumber++
 	}
 	if len(tf.NotePrefix) > 0 {
+		if len(tf.NotePrefix) >= 3 {
+			// use the note computed index for first 3 characters of the note
+			whereParts = append(whereParts, fmt.Sprintf("t.note3 = $%d", partNumber))
+			whereArgs = append(whereArgs, tf.NotePrefix[:3])
+			partNumber++
+		}
 		whereParts = append(whereParts, fmt.Sprintf("substring(decode(t.txn -> 'txn' ->> 'note', 'base64') from 1 for %d) = $%d", len(tf.NotePrefix), partNumber))
 		whereArgs = append(whereArgs, tf.NotePrefix)
 		partNumber++
@@ -1797,13 +1803,25 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions, countOnly b
 			whereArgs = append(whereArgs, *opts.AssetLT)
 			partNumber++
 		}
+		if len(opts.GreaterThanAddress) > 0 {
+			aq += fmt.Sprintf(" AND addr > $%d", partNumber)
+			whereArgs = append(whereArgs, opts.GreaterThanAddress)
+			partNumber++
+		}
 		aq = "qasf AS (" + aq + ")"
 		withClauses = append(withClauses, aq)
 	}
 	if opts.HasAppID != 0 {
-		withClauses = append(withClauses, fmt.Sprintf("qapf AS (SELECT addr FROM account_app WHERE app = $%d)", partNumber))
+		aq := fmt.Sprintf("SELECT addr FROM account_app WHERE app = $%d", partNumber)
 		whereArgs = append(whereArgs, opts.HasAppID)
 		partNumber++
+		if len(opts.GreaterThanAddress) > 0 {
+			aq += fmt.Sprintf(" AND addr > $%d", partNumber)
+			whereArgs = append(whereArgs, opts.GreaterThanAddress)
+			partNumber++
+		}
+		aq = "qapf AS (" + aq + ")"
+		withClauses = append(withClauses, aq)
 	}
 	// filters against main account table
 	if len(opts.GreaterThanAddress) > 0 {
@@ -1876,7 +1894,7 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions, countOnly b
 		if countOnly {
 			selectCols = `count(*) as asset_count`
 		} else {
-			selectCols = `json_agg(ap.index) as paid, json_agg(ap.params) as pp, json_agg(ap.created_at) as asset_created_at, json_agg(ap.closed_at) as asset_closed_at, json_agg(ap.deleted) as asset_deleted`
+			selectCols = `json_agg(ap.id) as paid, json_agg(ap.params) as pp, json_agg(ap.created_at) as asset_created_at, json_agg(ap.closed_at) as asset_closed_at, json_agg(ap.deleted) as asset_deleted`
 		}
 		query += `, qap AS (SELECT ya.addr, ` + selectCols + ` FROM asset ap JOIN qaccounts ya ON ap.creator_addr = ya.addr` + where + ` GROUP BY 1)`
 	}
@@ -1888,7 +1906,7 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions, countOnly b
 		if countOnly {
 			selectCols = `count(*) as app_count`
 		} else {
-			selectCols = `json_agg(app.index) as papps, json_agg(app.params) as ppa, json_agg(app.created_at) as app_created_at, json_agg(app.closed_at) as app_closed_at, json_agg(app.deleted) as app_deleted`
+			selectCols = `json_agg(app.id) as papps, json_agg(app.params) as ppa, json_agg(app.created_at) as app_created_at, json_agg(app.closed_at) as app_closed_at, json_agg(app.deleted) as app_deleted`
 		}
 		query += `, qapp AS (SELECT app.creator as addr, ` + selectCols + ` FROM app JOIN qaccounts ON qaccounts.addr = app.creator` + where + ` GROUP BY 1)`
 	}
@@ -1956,18 +1974,27 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions, countOnly b
 
 // Assets is part of idb.IndexerDB
 func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan idb.AssetRow, uint64) {
-	query := `SELECT index, creator_addr, params, created_at, closed_at, deleted FROM asset a`
+	//use inverted index hint when searching fror UN or AN but not both.
+	idxhint := ""
+	if filter.Unit != "" && filter.Name == "" {
+		idxhint = "@ndly_asset_params_un"
+	}
+	if filter.Name != "" && filter.Unit == "" {
+		idxhint = "@ndly_asset_params_an"
+	}
+
+	query := fmt.Sprintf(`SELECT id as index, creator_addr, params, created_at, closed_at, deleted FROM asset%s a`, idxhint)
 	const maxWhereParts = 14
 	whereParts := make([]string, 0, maxWhereParts)
 	whereArgs := make([]interface{}, 0, maxWhereParts)
 	partNumber := 1
 	if filter.AssetID != 0 {
-		whereParts = append(whereParts, fmt.Sprintf("a.index = $%d", partNumber))
+		whereParts = append(whereParts, fmt.Sprintf("a.id = $%d", partNumber))
 		whereArgs = append(whereArgs, filter.AssetID)
 		partNumber++
 	}
 	if filter.AssetIDGreaterThan != 0 {
-		whereParts = append(whereParts, fmt.Sprintf("a.index > $%d", partNumber))
+		whereParts = append(whereParts, fmt.Sprintf("a.id > $%d", partNumber))
 		whereArgs = append(whereArgs, filter.AssetIDGreaterThan)
 		partNumber++
 	}
@@ -1999,7 +2026,7 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 		whereStr := strings.Join(whereParts, " AND ")
 		query += " WHERE " + whereStr
 	}
-	query += " ORDER BY index ASC"
+	query += " ORDER BY id ASC"
 	if filter.Limit != 0 {
 		query += fmt.Sprintf(" LIMIT %d", filter.Limit)
 	}
@@ -2211,14 +2238,14 @@ func (db *IndexerDb) yieldAssetBalanceThread(rows pgx.Rows, out chan<- idb.Asset
 func (db *IndexerDb) Applications(ctx context.Context, filter idb.ApplicationQuery) (<-chan idb.ApplicationRow, uint64) {
 	out := make(chan idb.ApplicationRow, 1)
 
-	query := `SELECT index, creator, params, created_at, closed_at, deleted FROM app `
+	query := `SELECT id as index, creator, params, created_at, closed_at, deleted FROM app `
 
 	const maxWhereParts = 4
 	whereParts := make([]string, 0, maxWhereParts)
 	whereArgs := make([]interface{}, 0, maxWhereParts)
 	partNumber := 1
 	if filter.ApplicationID != 0 {
-		whereParts = append(whereParts, fmt.Sprintf("index = $%d", partNumber))
+		whereParts = append(whereParts, fmt.Sprintf("id = $%d", partNumber))
 		whereArgs = append(whereArgs, filter.ApplicationID)
 		partNumber++
 	}
@@ -2228,7 +2255,7 @@ func (db *IndexerDb) Applications(ctx context.Context, filter idb.ApplicationQue
 		partNumber++
 	}
 	if filter.ApplicationIDGreaterThan != 0 {
-		whereParts = append(whereParts, fmt.Sprintf("index > $%d", partNumber))
+		whereParts = append(whereParts, fmt.Sprintf("id > $%d", partNumber))
 		whereArgs = append(whereArgs, filter.ApplicationIDGreaterThan)
 		partNumber++
 	}
@@ -2360,7 +2387,7 @@ func (db *IndexerDb) ApplicationBoxes(ctx context.Context, queryOpts idb.Applica
 	if !queryOpts.OmitValues {
 		columns += `, ab.value`
 	}
-	query := fmt.Sprintf(`WITH apps AS (SELECT index AS app FROM app WHERE index = $1)
+	query := fmt.Sprintf(`WITH apps AS (SELECT id AS app FROM app WHERE id = $1)
 SELECT %s
 FROM apps a
 LEFT OUTER JOIN app_box ab ON ab.app = a.app`, columns)
