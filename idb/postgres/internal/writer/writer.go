@@ -124,11 +124,17 @@ func MakeWriter(tx pgx.Tx) (Writer, error) {
 		tx: tx,
 	}
 
+	names := make([]string, 0, len(statements))
 	for name, query := range statements {
 		_, err := tx.Prepare(context.Background(), name, query)
 		if err != nil {
+			for _, name := range names {
+				// this is an escape path, ignore error
+				_ = tx.Conn().Deallocate(context.Background(), name)
+			}
 			return Writer{}, fmt.Errorf("MakeWriter() prepare statement for name '%s' err: %w", name, err)
 		}
+		names = append(names, name)
 	}
 
 	return w, nil
