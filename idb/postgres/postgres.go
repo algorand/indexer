@@ -996,6 +996,17 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			db.log.Warnf("long query %fs: %s", dt.Seconds(), req.query)
 		}
 	}()
+	var proto config.ConsensusParams
+	{
+		var ok bool
+		// temporarily cast req.blockheader.CurrentProtocol(string) to protocol.ConsensusVersion
+		proto, ok = config.Consensus[protocol.ConsensusVersion(req.blockheader.CurrentProtocol)]
+		if !ok {
+			err := fmt.Errorf("get protocol err (%s)", req.blockheader.CurrentProtocol)
+			req.out <- idb.AccountRow{Error: err}
+			return
+		}
+	}
 	for req.rows.Next() {
 		var addr []byte
 		var microalgos uint64
@@ -1134,20 +1145,14 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 
 			account.TotalBoxes = accountData.TotalBoxes
 			account.TotalBoxBytes = accountData.TotalBoxBytes
+
+			account.MinBalance = itypes.AccountMinBalance(accountData, &proto)
 		}
 
 		if account.Status == "NotParticipating" {
 			account.PendingRewards = 0
 		} else {
 			// TODO: pending rewards calculation doesn't belong in database layer (this is just the most covenient place which has all the data)
-			// TODO: replace config.Consensus. config.Consensus map[protocol.ConsensusVersion]ConsensusParams
-			// temporarily cast req.blockheader.CurrentProtocol(string) to protocol.ConsensusVersion
-			proto, ok := config.Consensus[protocol.ConsensusVersion(req.blockheader.CurrentProtocol)]
-			if !ok {
-				err = fmt.Errorf("get protocol err (%s)", req.blockheader.CurrentProtocol)
-				req.out <- idb.AccountRow{Error: err}
-				break
-			}
 			rewardsUnits := uint64(0)
 			if proto.RewardUnit != 0 {
 				rewardsUnits = microalgos / proto.RewardUnit
