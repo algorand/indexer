@@ -1028,6 +1028,7 @@
         "amount-without-pending-rewards",
         "rewards",
         "status",
+        "min-balance",
         "total-apps-opted-in",
         "total-assets-opted-in",
         "total-box-bytes",
@@ -1042,6 +1043,10 @@
         },
         "amount": {
           "description": "total number of MicroAlgos in the account",
+          "type": "integer"
+        },
+        "min-balance": {
+          "description": "MicroAlgo balance required by the account.\n\nThe requirement grows based on asset and application usage.",
           "type": "integer"
         },
         "amount-without-pending-rewards": {
