@@ -15,7 +15,7 @@ jobs:
       - name: Install specific golang
         uses: actions/setup-go@v4.0.1
         with:
-          go-version: '1.20.5'
+          go-version: '1.20.14'
       - name: reviewdog-golangci-lint
         uses: reviewdog/action-golangci-lint@v2.3.1
         with:
@@ -38,7 +38,7 @@ jobs:
       - name: Install specific golang
         uses: actions/setup-go@v4.0.1
         with:
-          go-version: '1.20.5'
+          go-version: '1.20.14'
       - name: Add bin to PATH
         run: |
           echo "$GITHUB_WORKSPACE/bin" >> $GITHUB_PATH
