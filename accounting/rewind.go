@@ -178,6 +178,9 @@ func AccountAtRound(ctx context.Context, account models.Account, round uint64, d
 	acct.PendingRewards = 0
 	acct.Amount = acct.AmountWithoutPendingRewards
 
+	// MinBalance is not supported.
+	acct.MinBalance = 0
+
 	// TODO: Clear out the closed-at field as well. Like Rewards we cannot know this value for all accounts.
 	//acct.ClosedAt = 0
 

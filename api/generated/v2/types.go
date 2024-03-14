@@ -206,6 +206,11 @@ type Account struct {
 	// Deleted Whether or not this account is currently closed.
 	Deleted *bool `json:"deleted,omitempty"`
 
+	// MinBalance MicroAlgo balance required by the account.
+	//
+	// The requirement grows based on asset and application usage.
+	MinBalance uint64 `json:"min-balance"`
+
 	// Participation AccountParticipation describes the parameters used by this account in consensus protocol.
 	Participation *AccountParticipation `json:"participation,omitempty"`
 
