@@ -94,13 +94,17 @@ func unconvertExpiredAccounts(accounts []AlgodEncodedAddress) []sdk.Address {
 func convertBlockHeader(header sdk.BlockHeader) blockHeader {
 	return blockHeader{
 		BlockHeader:                          header,
+		ProposerOverride:                     AlgodEncodedAddress(header.Proposer),
 		ExpiredParticipationAccountsOverride: convertExpiredAccounts(header.ExpiredParticipationAccounts),
+		AbsentParticipationAccountsOverride:  convertExpiredAccounts(header.AbsentParticipationAccounts),
 	}
 }
 
 func unconvertBlockHeader(header blockHeader) sdk.BlockHeader {
 	res := header.BlockHeader
+	res.Proposer = sdk.Address(header.ProposerOverride)
 	res.ExpiredParticipationAccounts = unconvertExpiredAccounts(header.ExpiredParticipationAccountsOverride)
+	res.AbsentParticipationAccounts = unconvertExpiredAccounts(header.AbsentParticipationAccountsOverride)
 	return res
 }
 
@@ -359,6 +363,7 @@ func unconvertTrimmedAccountData(ad trimmedAccountData) sdk.AccountData {
 			RewardsBase:         ad.RewardsBase,
 			RewardedMicroAlgos:  sdk.MicroAlgos(ad.RewardedMicroAlgos),
 			AuthAddr:            ad.AuthAddr,
+			IncentiveEligible:   ad.IncentiveEligible,
 			TotalAppSchema:      ad.TotalAppSchema,
 			TotalExtraAppPages:  ad.TotalExtraAppPages,
 			TotalAppParams:      ad.TotalAppParams,
@@ -367,6 +372,8 @@ func unconvertTrimmedAccountData(ad trimmedAccountData) sdk.AccountData {
 			TotalAssets:         ad.TotalAssets,
 			TotalBoxes:          ad.TotalBoxes,
 			TotalBoxBytes:       ad.TotalBoxBytes,
+			LastProposed:        ad.LastProposed,
+			LastHeartbeat:       ad.LastHeartbeat,
 		},
 		VotingData: sdk.VotingData{
 			VoteID:          ad.VoteID,
@@ -648,6 +655,7 @@ func convertTrimmedLcAccountData(ad sdk.AccountData) baseAccountData {
 	return baseAccountData{
 		Status:              ad.Status,
 		AuthAddr:            ad.AuthAddr,
+		IncentiveEligible:   ad.IncentiveEligible,
 		TotalAppSchema:      ad.TotalAppSchema,
 		TotalExtraAppPages:  ad.TotalExtraAppPages,
 		TotalAssetParams:    ad.TotalAssetParams,
@@ -656,14 +664,15 @@ func convertTrimmedLcAccountData(ad sdk.AccountData) baseAccountData {
 		TotalAppLocalStates: ad.TotalAppLocalStates,
 		TotalBoxes:          ad.TotalBoxes,
 		TotalBoxBytes:       ad.TotalBoxBytes,
-		baseOnlineAccountData: baseOnlineAccountData{
-			VoteID:          ad.VoteID,
-			SelectionID:     ad.SelectionID,
-			StateProofID:    ad.StateProofID,
-			VoteFirstValid:  ad.VoteFirstValid,
-			VoteLastValid:   ad.VoteLastValid,
-			VoteKeyDilution: ad.VoteKeyDilution,
-		},
+		LastProposed:        ad.LastProposed,
+		LastHeartbeat:       ad.LastHeartbeat,
+
+		VoteID:          ad.VoteID,
+		SelectionID:     ad.SelectionID,
+		StateProofID:    ad.StateProofID,
+		VoteFirstValid:  ad.VoteFirstValid,
+		VoteLastValid:   ad.VoteLastValid,
+		VoteKeyDilution: ad.VoteKeyDilution,
 	}
 }
 
@@ -672,6 +681,7 @@ func unconvertTrimmedLcAccountData(ba baseAccountData) sdk.AccountData {
 		AccountBaseData: sdk.AccountBaseData{
 			Status:              ba.Status,
 			AuthAddr:            ba.AuthAddr,
+			IncentiveEligible:   ba.IncentiveEligible,
 			TotalAppSchema:      ba.TotalAppSchema,
 			TotalExtraAppPages:  ba.TotalExtraAppPages,
 			TotalAppParams:      ba.TotalAppParams,
@@ -680,6 +690,8 @@ func unconvertTrimmedLcAccountData(ba baseAccountData) sdk.AccountData {
 			TotalAssets:         ba.TotalAssets,
 			TotalBoxes:          ba.TotalBoxes,
 			TotalBoxBytes:       ba.TotalBoxBytes,
+			LastProposed:        ba.LastProposed,
+			LastHeartbeat:       ba.LastHeartbeat,
 		},
 		VotingData: sdk.VotingData{
 			VoteID:          ba.VoteID,
