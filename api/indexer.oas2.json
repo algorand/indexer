@@ -1849,6 +1849,13 @@
           "items": {
             "type": "string"
           }
+        },
+        "absent-participation-accounts": {
+          "description": "\\[partupabs\\] a list of online accounts that need to be suspended.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
