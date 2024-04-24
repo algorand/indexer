@@ -1601,6 +1601,13 @@
       "ParticipationUpdates": {
         "description": "Participation account data that needs to be checked/acted on by the network.",
         "properties": {
+          "absent-participation-accounts": {
+            "description": "\\[partupabs\\] a list of online accounts that need to be suspended.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "expired-participation-accounts": {
             "description": "\\[partupdrmv\\] a list of online accounts that needs to be converted to offline since their participation key expired.",
             "items": {
@@ -5199,5 +5206,6 @@
     {
       "name": "search"
     }
-  ]
+  ],
+  "x-original-swagger-version": "2.0"
 }

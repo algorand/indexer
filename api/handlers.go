@@ -1308,16 +1308,22 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64, op
 			UpgradePropose: strPtr(string(blockHeader.UpgradePropose)),
 		}
 
-		var partUpdates *generated.ParticipationUpdates
+		var partUpdates *generated.ParticipationUpdates = &generated.ParticipationUpdates{}
 		if len(blockHeader.ExpiredParticipationAccounts) > 0 {
 			addrs := make([]string, len(blockHeader.ExpiredParticipationAccounts))
 			for i := 0; i < len(addrs); i++ {
 				addrs[i] = blockHeader.ExpiredParticipationAccounts[i].String()
 			}
-			partUpdates = &generated.ParticipationUpdates{
-				ExpiredParticipationAccounts: strArrayPtr(addrs),
+			partUpdates.ExpiredParticipationAccounts = strArrayPtr(addrs)
+		}
+		if len(blockHeader.AbsentParticipationAccounts) > 0 {
+			addrs := make([]string, len(blockHeader.AbsentParticipationAccounts))
+			for i := 0; i < len(addrs); i++ {
+				addrs[i] = blockHeader.AbsentParticipationAccounts[i].String()
 			}
-		} else {
+			partUpdates.AbsentParticipationAccounts = strArrayPtr(addrs)
+		}
+		if *partUpdates == (generated.ParticipationUpdates{}) {
 			partUpdates = nil
 		}
 
