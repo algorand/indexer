@@ -1111,21 +1111,14 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			if !accountData.AuthAddr.IsZero() {
 				var spendingkey sdk.Address
 				copy(spendingkey[:], accountData.AuthAddr[:])
-				account.AuthAddr = stringPtr(spendingkey.String())
+				account.AuthAddr = omitEmpty(spendingkey.String())
 			}
 
-			{
-				totalSchema := models.ApplicationStateSchema{
-					NumByteSlice: accountData.TotalAppSchema.NumByteSlice,
-					NumUint:      accountData.TotalAppSchema.NumUint,
-				}
-				if totalSchema != (models.ApplicationStateSchema{}) {
-					account.AppsTotalSchema = &totalSchema
-				}
-			}
-			if accountData.TotalExtraAppPages != 0 {
-				account.AppsTotalExtraPages = uint64Ptr(uint64(accountData.TotalExtraAppPages))
-			}
+			account.AppsTotalSchema = omitEmpty(models.ApplicationStateSchema{
+				NumByteSlice: accountData.TotalAppSchema.NumByteSlice,
+				NumUint:      accountData.TotalAppSchema.NumUint,
+			})
+			account.AppsTotalExtraPages = omitEmpty(uint64(accountData.TotalExtraAppPages))
 
 			account.TotalAppsOptedIn = accountData.TotalAppLocalStates
 			account.TotalCreatedApps = accountData.TotalAppParams
@@ -1135,9 +1128,9 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			account.TotalBoxes = accountData.TotalBoxes
 			account.TotalBoxBytes = accountData.TotalBoxBytes
 
-			account.IncentiveEligible = boolPtr(accountData.IncentiveEligible)
-			account.LastHeartbeat = uint64Ptr(uint64(accountData.LastHeartbeat))
-			account.LastProposed = uint64Ptr(uint64(accountData.LastProposed))
+			account.IncentiveEligible = omitEmpty(accountData.IncentiveEligible)
+			account.LastHeartbeat = omitEmpty(uint64(accountData.LastHeartbeat))
+			account.LastProposed = omitEmpty(uint64(accountData.LastProposed))
 		}
 
 		if account.Status == "NotParticipating" {
@@ -1309,11 +1302,11 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 						Total:         ap.Total,
 						Decimals:      uint64(ap.Decimals),
 						DefaultFrozen: boolPtr(ap.DefaultFrozen),
-						UnitName:      stringPtr(util.PrintableUTF8OrEmpty(ap.UnitName)),
+						UnitName:      omitEmpty(util.PrintableUTF8OrEmpty(ap.UnitName)),
 						UnitNameB64:   byteSlicePtr([]byte(ap.UnitName)),
-						Name:          stringPtr(util.PrintableUTF8OrEmpty(ap.AssetName)),
+						Name:          omitEmpty(util.PrintableUTF8OrEmpty(ap.AssetName)),
 						NameB64:       byteSlicePtr([]byte(ap.AssetName)),
-						Url:           stringPtr(util.PrintableUTF8OrEmpty(ap.URL)),
+						Url:           omitEmpty(util.PrintableUTF8OrEmpty(ap.URL)),
 						UrlB64:        byteSlicePtr([]byte(ap.URL)),
 						MetadataHash:  byteSliceOmitZeroPtr(ap.MetadataHash[:]),
 						Manager:       addrStr(ap.Manager),
@@ -1497,6 +1490,15 @@ func uintOrDefault(x *uint64) uint64 {
 	return 0
 }
 
+// omitEmpty defines a handy impl for all comparable types to convert from default value to nil ptr
+func omitEmpty[T comparable](val T) *T {
+	var defaultVal T
+	if val == defaultVal {
+		return nil
+	}
+	return &val
+}
+
 func uint64Ptr(x uint64) *uint64 {
 	out := new(uint64)
 	*out = x
@@ -1505,15 +1507,6 @@ func uint64Ptr(x uint64) *uint64 {
 
 func boolPtr(x bool) *bool {
 	out := new(bool)
-	*out = x
-	return out
-}
-
-func stringPtr(x string) *string {
-	if len(x) == 0 {
-		return nil
-	}
-	out := new(string)
 	*out = x
 	return out
 }
