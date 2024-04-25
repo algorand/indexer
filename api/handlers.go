@@ -1348,10 +1348,14 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64, op
 		}
 
 		ret = generated.Block{
+			Bonus:                  uint64PtrOrNil(uint64(blockHeader.Bonus)),
+			FeesCollected:          uint64PtrOrNil(uint64(blockHeader.FeesCollected)),
 			GenesisHash:            blockHeader.GenesisHash[:],
 			GenesisId:              blockHeader.GenesisID,
 			ParticipationUpdates:   partUpdates,
 			PreviousBlockHash:      blockHeader.Branch[:],
+			Proposer:               addrPtr(blockHeader.Proposer),
+			ProposerPayout:         uint64PtrOrNil(uint64(blockHeader.ProposerPayout)),
 			Rewards:                &rewards,
 			Round:                  uint64(blockHeader.Round),
 			Seed:                   blockHeader.Seed[:],

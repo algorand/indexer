@@ -1134,6 +1134,10 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 
 			account.TotalBoxes = accountData.TotalBoxes
 			account.TotalBoxBytes = accountData.TotalBoxBytes
+
+			account.IncentiveEligible = boolPtr(accountData.IncentiveEligible)
+			account.LastHeartbeat = uint64Ptr(uint64(accountData.LastHeartbeat))
+			account.LastProposed = uint64Ptr(uint64(accountData.LastProposed))
 		}
 
 		if account.Status == "NotParticipating" {
