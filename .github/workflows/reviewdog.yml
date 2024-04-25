@@ -20,7 +20,7 @@ jobs:
         uses: reviewdog/action-golangci-lint@v2.3.1
         with:
           golangci_lint_version: "v1.53.2"
-          golangci_lint_flags: "-c .golangci.yml --allow-parallel-runners"
+          golangci_lint_flags: "-c .golangci.yml"
           reporter: "github-pr-review"
           tool_name: "Lint Errors"
           level: "error"
