@@ -22,7 +22,7 @@ jobs:
           golangci_lint_version: "v1.53.2"
           golangci_lint_flags: "-c .golangci.yml --allow-parallel-runners"
           reporter: "github-pr-review"
-          tool_name: "Lint Errors"
+          tool_name: "LintErrors"
           level: "error"
           fail_on_error: true
   # Non-Blocking Warnings Section
