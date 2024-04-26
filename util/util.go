@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -233,7 +232,7 @@ func ReadGenesis(in io.Reader) (sdk.Genesis, error) {
 	if in == nil {
 		return sdk.Genesis{}, fmt.Errorf("ReadGenesis() err: reader is nil")
 	}
-	gbytes, err := ioutil.ReadAll(in)
+	gbytes, err := io.ReadAll(in)
 	if err != nil {
 		return sdk.Genesis{}, fmt.Errorf("ReadGenesis() err: %w", err)
 	}
