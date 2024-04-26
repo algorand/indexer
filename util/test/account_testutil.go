@@ -1,9 +1,9 @@
 package test
 
 import (
-	"crypto/rand"
 	"crypto/sha512"
 	"fmt"
+	"math/rand"
 
 	"github.com/algorand/indexer/v3/util"
 
