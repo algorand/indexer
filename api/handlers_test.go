@@ -1250,6 +1250,12 @@ func TestFetchBlock(t *testing.T) {
 			blockOptions: idb.GetBlockOptions{Transactions: true},
 			expected:     loadBlockFromFile("test_resources/stpf_block_high_index_response.json"),
 		},
+		{
+			name:         "Proposer and Incentives Block",
+			blockBytes:   loadResourceFileOrPanic("test_resources/proposer_incentives_block.block"),
+			blockOptions: idb.GetBlockOptions{Transactions: true},
+			expected:     loadBlockFromFile("test_resources/proposer_incentives_block_response.json"),
+		},
 	}
 
 	for _, tc := range testcases {
