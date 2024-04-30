@@ -694,7 +694,7 @@
             "type": "string"
           },
           "amount": {
-            "description": "\\[algo\\] total number of MicroAlgos in the account",
+            "description": "total number of MicroAlgos in the account",
             "type": "integer"
           },
           "amount-without-pending-rewards": {
@@ -702,28 +702,28 @@
             "type": "integer"
           },
           "apps-local-state": {
-            "description": "\\[appl\\] applications local data stored in this account.\n\nNote the raw object uses `map[int] -> AppLocalState` for this type.",
+            "description": "application local data stored in this account.\n\nNote the raw object uses `map[int] -> AppLocalState` for this type.",
             "items": {
               "$ref": "#/components/schemas/ApplicationLocalState"
             },
             "type": "array"
           },
           "apps-total-extra-pages": {
-            "description": "\\[teap\\] the sum of all extra application program pages for this account.",
+            "description": "the sum of all extra application program pages for this account.",
             "type": "integer"
           },
           "apps-total-schema": {
             "$ref": "#/components/schemas/ApplicationStateSchema"
           },
           "assets": {
-            "description": "\\[asset\\] assets held by this account.\n\nNote the raw object uses `map[int] -> AssetHolding` for this type.",
+            "description": "assets held by this account.\n\nNote the raw object uses `map[int] -> AssetHolding` for this type.",
             "items": {
               "$ref": "#/components/schemas/AssetHolding"
             },
             "type": "array"
           },
           "auth-addr": {
-            "description": "\\[spend\\] the address against which signing should be checked. If empty, the address of the current account is used. This field can be updated in any transaction by setting the RekeyTo field.",
+            "description": "The address against which signing should be checked. If empty, the address of the current account is used. This field can be updated in any transaction by setting the RekeyTo field.",
             "type": "string",
             "x-algorand-format": "Address"
           },
@@ -733,14 +733,14 @@
             "x-algorand-format": "uint64"
           },
           "created-apps": {
-            "description": "\\[appp\\] parameters of applications created by this account including app global data.\n\nNote: the raw account uses `map[int] -> AppParams` for this type.",
+            "description": "parameters of applications created by this account including app global data.\n\nNote: the raw account uses `map[int] -> AppParams` for this type.",
             "items": {
               "$ref": "#/components/schemas/Application"
             },
             "type": "array"
           },
           "created-assets": {
-            "description": "\\[apar\\] parameters of assets created by this account.\n\nNote: the raw account uses `map[int] -> Asset` for this type.",
+            "description": "parameters of assets created by this account.\n\nNote: the raw account uses `map[int] -> Asset` for this type.",
             "items": {
               "$ref": "#/components/schemas/Asset"
             },
@@ -755,6 +755,18 @@
             "description": "Whether or not this account is currently closed.",
             "type": "boolean"
           },
+          "incentive-eligible": {
+            "description": "can the account receive block incentives if its balance is in range at proposal time.",
+            "type": "boolean"
+          },
+          "last-heartbeat": {
+            "description": "The round in which this account last went online, or explicitly renewed their online status.",
+            "type": "integer"
+          },
+          "last-proposed": {
+            "description": "The round in which this account last proposed the block.",
+            "type": "integer"
+          },
           "participation": {
             "$ref": "#/components/schemas/AccountParticipation"
           },
@@ -763,11 +775,11 @@
             "type": "integer"
           },
           "reward-base": {
-            "description": "\\[ebase\\] used as part of the rewards computation. Only applicable to accounts which are participating.",
+            "description": "used as part of the rewards computation. Only applicable to accounts which are participating.",
             "type": "integer"
           },
           "rewards": {
-            "description": "\\[ern\\] total rewards of MicroAlgos the account has received, including pending rewards.",
+            "description": "total rewards of MicroAlgos the account has received, including pending rewards.",
             "type": "integer"
           },
           "round": {
@@ -775,7 +787,7 @@
             "type": "integer"
           },
           "sig-type": {
-            "description": "Indicates what type of signature is used by this account, must be one of:\n* sig\n* msig\n* lsig\n* or null if unknown",
+            "description": "the type of signature used by this account, must be one of:\n* sig\n* msig\n* lsig\n* or null if unknown",
             "enum": [
               "sig",
               "msig",
@@ -784,7 +796,7 @@
             "type": "string"
           },
           "status": {
-            "description": "\\[onl\\] delegation status of the account's MicroAlgos\n* Offline - indicates that the associated account is delegated.\n*  Online  - indicates that the associated account used as part of the delegation pool.\n*   NotParticipating - indicates that the associated account is neither a delegator nor a delegate.",
+            "description": "voting status of the account's MicroAlgos\n* Offline - indicates that the associated account is delegated.\n*  Online  - indicates that the associated account used as part of the delegation pool.\n*   NotParticipating - indicates that the associated account is neither a delegator nor a delegate.",
             "type": "string"
           },
           "total-apps-opted-in": {
@@ -833,31 +845,31 @@
         "description": "AccountParticipation describes the parameters used by this account in consensus protocol.",
         "properties": {
           "selection-participation-key": {
-            "description": "\\[sel\\] Selection public key (if any) currently registered for this round.",
+            "description": "Selection public key (if any) currently registered for this round.",
             "format": "byte",
             "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
             "type": "string"
           },
           "state-proof-key": {
-            "description": "\\[stprf\\] Root of the state proof key (if any)",
+            "description": "Root of the state proof key (if any)",
             "format": "byte",
             "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
             "type": "string"
           },
           "vote-first-valid": {
-            "description": "\\[voteFst\\] First round for which this participation is valid.",
+            "description": "First round for which this participation is valid.",
             "type": "integer"
           },
           "vote-key-dilution": {
-            "description": "\\[voteKD\\] Number of subkeys in each batch of participation keys.",
+            "description": "Number of subkeys in each batch of participation keys.",
             "type": "integer"
           },
           "vote-last-valid": {
-            "description": "\\[voteLst\\] Last round for which this participation is valid.",
+            "description": "Last round for which this participation is valid.",
             "type": "integer"
           },
           "vote-participation-key": {
-            "description": "\\[vote\\] root participation public key (if any) currently registered for this round.",
+            "description": "root participation public key (if any) currently registered for this round.",
             "format": "byte",
             "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
             "type": "string"
@@ -906,7 +918,7 @@
             "x-algorand-format": "uint64"
           },
           "id": {
-            "description": "\\[appidx\\] application index.",
+            "description": "application index.",
             "type": "integer"
           },
           "params": {
@@ -957,7 +969,7 @@
         "description": "Stores the global information associated with an application.",
         "properties": {
           "logs": {
-            "description": "\\[lg\\] Logs for the application being executed by the transaction.",
+            "description": "Logs for the application being executed by the transaction.",
             "items": {
               "format": "byte",
               "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
@@ -980,14 +992,14 @@
         "description": "Stores the global information associated with an application.",
         "properties": {
           "approval-program": {
-            "description": "\\[approv\\] approval program.",
+            "description": "approval program.",
             "format": "byte",
             "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
             "type": "string",
             "x-algorand-format": "TEALProgram"
           },
           "clear-state-program": {
-            "description": "\\[clearp\\] approval program.",
+            "description": "clear state program.",
             "format": "byte",
             "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
             "type": "string",
@@ -999,7 +1011,7 @@
             "x-algorand-format": "Address"
           },
           "extra-program-pages": {
-            "description": "\\[epp\\] the amount of extra program pages available to this app.",
+            "description": "the number of extra program pages available to this app.",
             "type": "integer"
           },
           "global-state": {
@@ -1022,11 +1034,11 @@
         "description": "Specifies maximums on the number of each type that may be stored.",
         "properties": {
           "num-byte-slice": {
-            "description": "\\[nbs\\] num of byte slices.",
+            "description": "number of byte slices.",
             "type": "integer"
           },
           "num-uint": {
-            "description": "\\[nui\\] num of uints.",
+            "description": "number of uints.",
             "type": "integer"
           }
         },
@@ -1071,7 +1083,7 @@
         "description": "Describes an asset held by an account.\n\nDefinition:\ndata/basics/userBalance.go : AssetHolding",
         "properties": {
           "amount": {
-            "description": "\\[a\\] number of units held.",
+            "description": "number of units held.",
             "type": "integer",
             "x-algorand-format": "uint64"
           },
@@ -1084,7 +1096,7 @@
             "type": "boolean"
           },
           "is-frozen": {
-            "description": "\\[f\\] whether or not the holding is frozen.",
+            "description": "whether or not the holding is frozen.",
             "type": "boolean"
           },
           "opted-in-at-round": {
@@ -1109,7 +1121,7 @@
         "description": "AssetParams specifies the parameters for an asset.\n\n\\[apar\\] when part of an AssetConfig transaction.\n\nDefinition:\ndata/transactions/asset.go : AssetParams",
         "properties": {
           "clawback": {
-            "description": "\\[c\\] Address of account used to clawback holdings of this asset.  If empty, clawback is not permitted.",
+            "description": "Address of account used to clawback holdings of this asset.  If empty, clawback is not permitted.",
             "type": "string"
           },
           "creator": {
@@ -1117,31 +1129,31 @@
             "type": "string"
           },
           "decimals": {
-            "description": "\\[dc\\] The number of digits to use after the decimal point when displaying this asset. If 0, the asset is not divisible. If 1, the base unit of the asset is in tenths. If 2, the base unit of the asset is in hundredths, and so on. This value must be between 0 and 19 (inclusive).",
+            "description": "The number of digits to use after the decimal point when displaying this asset. If 0, the asset is not divisible. If 1, the base unit of the asset is in tenths. If 2, the base unit of the asset is in hundredths, and so on. This value must be between 0 and 19 (inclusive).",
             "maximum": 19,
             "minimum": 0,
             "type": "integer"
           },
           "default-frozen": {
-            "description": "\\[df\\] Whether holdings of this asset are frozen by default.",
+            "description": "Whether holdings of this asset are frozen by default.",
             "type": "boolean"
           },
           "freeze": {
-            "description": "\\[f\\] Address of account used to freeze holdings of this asset.  If empty, freezing is not permitted.",
+            "description": "Address of account used to freeze holdings of this asset.  If empty, freezing is not permitted.",
             "type": "string"
           },
           "manager": {
-            "description": "\\[m\\] Address of account used to manage the keys of this asset and to destroy it.",
+            "description": "Address of account used to manage the keys of this asset and to destroy it.",
             "type": "string"
           },
           "metadata-hash": {
-            "description": "\\[am\\] A commitment to some unspecified asset metadata. The format of this metadata is up to the application.",
+            "description": "A commitment to some unspecified asset metadata. The format of this metadata is up to the application.",
             "format": "byte",
             "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
             "type": "string"
           },
           "name": {
-            "description": "\\[an\\] Name of this asset, as supplied by the creator. Included only when the asset name is composed of printable utf-8 characters.",
+            "description": "Name of this asset, as supplied by the creator. Included only when the asset name is composed of printable utf-8 characters.",
             "type": "string"
           },
           "name-b64": {
@@ -1151,16 +1163,16 @@
             "type": "string"
           },
           "reserve": {
-            "description": "\\[r\\] Address of account holding reserve (non-minted) units of this asset.",
+            "description": "Address of account holding reserve (non-minted) units of this asset.",
             "type": "string"
           },
           "total": {
-            "description": "\\[t\\] The total number of units of this asset.",
+            "description": "The total number of units of this asset.",
             "type": "integer",
             "x-algorand-format": "uint64"
           },
           "unit-name": {
-            "description": "\\[un\\] Name of a unit of this asset, as supplied by the creator. Included only when the name of a unit of this asset is composed of printable utf-8 characters.",
+            "description": "Name of a unit of this asset, as supplied by the creator. Included only when the name of a unit of this asset is composed of printable utf-8 characters.",
             "type": "string"
           },
           "unit-name-b64": {
@@ -1170,7 +1182,7 @@
             "type": "string"
           },
           "url": {
-            "description": "\\[au\\] URL where more information about the asset can be retrieved. Included only when the URL is composed of printable utf-8 characters.",
+            "description": "URL where more information about the asset can be retrieved. Included only when the URL is composed of printable utf-8 characters.",
             "type": "string"
           },
           "url-b64": {
@@ -1190,6 +1202,14 @@
       "Block": {
         "description": "Block information.\n\nDefinition:\ndata/bookkeeping/block.go : Block",
         "properties": {
+          "bonus": {
+            "description": "the potential bonus payout for this block.",
+            "type": "integer"
+          },
+          "fees-collected": {
+            "description": "the sum of all fees paid by transactions in this block.",
+            "type": "integer"
+          },
           "genesis-hash": {
             "description": "\\[gh\\] hash to which this block belongs.",
             "format": "byte",
@@ -1208,6 +1228,15 @@
             "format": "byte",
             "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
             "type": "string"
+          },
+          "proposer": {
+            "description": "the proposer of this block.",
+            "type": "string",
+            "x-algorand-format": "Address"
+          },
+          "proposer-payout": {
+            "description": "the actual amount transferred to the proposer from the fee sink.",
+            "type": "integer"
           },
           "rewards": {
             "$ref": "#/components/schemas/BlockRewards"
@@ -1601,6 +1630,13 @@
       "ParticipationUpdates": {
         "description": "Participation account data that needs to be checked/acted on by the network.",
         "properties": {
+          "absent-participation-accounts": {
+            "description": "\\[partupabs\\] a list of online accounts that need to be suspended.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "expired-participation-accounts": {
             "description": "\\[partupdrmv\\] a list of online accounts that needs to be converted to offline since their participation key expired.",
             "items": {
@@ -1812,15 +1848,15 @@
         "description": "Represents a TEAL value.",
         "properties": {
           "bytes": {
-            "description": "\\[tb\\] bytes value.",
+            "description": "bytes value.",
             "type": "string"
           },
           "type": {
-            "description": "\\[tt\\] value type. Value `1` refers to **bytes**, value `2` refers to **uint**",
+            "description": "type of the value. Value `1` refers to **bytes**, value `2` refers to **uint**",
             "type": "integer"
           },
           "uint": {
-            "description": "\\[ui\\] uint value.",
+            "description": "uint value.",
             "type": "integer",
             "x-algorand-format": "uint64"
           }
@@ -5199,5 +5235,6 @@
     {
       "name": "search"
     }
-  ]
+  ],
+  "x-original-swagger-version": "2.0"
 }

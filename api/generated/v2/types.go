@@ -162,40 +162,40 @@ type Account struct {
 	// Address the account public key
 	Address string `json:"address"`
 
-	// Amount \[algo\] total number of MicroAlgos in the account
+	// Amount total number of MicroAlgos in the account
 	Amount uint64 `json:"amount"`
 
 	// AmountWithoutPendingRewards specifies the amount of MicroAlgos in the account, without the pending rewards.
 	AmountWithoutPendingRewards uint64 `json:"amount-without-pending-rewards"`
 
-	// AppsLocalState \[appl\] applications local data stored in this account.
+	// AppsLocalState application local data stored in this account.
 	//
 	// Note the raw object uses `map[int] -> AppLocalState` for this type.
 	AppsLocalState *[]ApplicationLocalState `json:"apps-local-state,omitempty"`
 
-	// AppsTotalExtraPages \[teap\] the sum of all extra application program pages for this account.
+	// AppsTotalExtraPages the sum of all extra application program pages for this account.
 	AppsTotalExtraPages *uint64 `json:"apps-total-extra-pages,omitempty"`
 
 	// AppsTotalSchema Specifies maximums on the number of each type that may be stored.
 	AppsTotalSchema *ApplicationStateSchema `json:"apps-total-schema,omitempty"`
 
-	// Assets \[asset\] assets held by this account.
+	// Assets assets held by this account.
 	//
 	// Note the raw object uses `map[int] -> AssetHolding` for this type.
 	Assets *[]AssetHolding `json:"assets,omitempty"`
 
-	// AuthAddr \[spend\] the address against which signing should be checked. If empty, the address of the current account is used. This field can be updated in any transaction by setting the RekeyTo field.
+	// AuthAddr The address against which signing should be checked. If empty, the address of the current account is used. This field can be updated in any transaction by setting the RekeyTo field.
 	AuthAddr *string `json:"auth-addr,omitempty"`
 
 	// ClosedAtRound Round during which this account was most recently closed.
 	ClosedAtRound *uint64 `json:"closed-at-round,omitempty"`
 
-	// CreatedApps \[appp\] parameters of applications created by this account including app global data.
+	// CreatedApps parameters of applications created by this account including app global data.
 	//
 	// Note: the raw account uses `map[int] -> AppParams` for this type.
 	CreatedApps *[]Application `json:"created-apps,omitempty"`
 
-	// CreatedAssets \[apar\] parameters of assets created by this account.
+	// CreatedAssets parameters of assets created by this account.
 	//
 	// Note: the raw account uses `map[int] -> Asset` for this type.
 	CreatedAssets *[]Asset `json:"created-assets,omitempty"`
@@ -206,29 +206,38 @@ type Account struct {
 	// Deleted Whether or not this account is currently closed.
 	Deleted *bool `json:"deleted,omitempty"`
 
+	// IncentiveEligible can the account receive block incentives if its balance is in range at proposal time.
+	IncentiveEligible *bool `json:"incentive-eligible,omitempty"`
+
+	// LastHeartbeat The round in which this account last went online, or explicitly renewed their online status.
+	LastHeartbeat *uint64 `json:"last-heartbeat,omitempty"`
+
+	// LastProposed The round in which this account last proposed the block.
+	LastProposed *uint64 `json:"last-proposed,omitempty"`
+
 	// Participation AccountParticipation describes the parameters used by this account in consensus protocol.
 	Participation *AccountParticipation `json:"participation,omitempty"`
 
 	// PendingRewards amount of MicroAlgos of pending rewards in this account.
 	PendingRewards uint64 `json:"pending-rewards"`
 
-	// RewardBase \[ebase\] used as part of the rewards computation. Only applicable to accounts which are participating.
+	// RewardBase used as part of the rewards computation. Only applicable to accounts which are participating.
 	RewardBase *uint64 `json:"reward-base,omitempty"`
 
-	// Rewards \[ern\] total rewards of MicroAlgos the account has received, including pending rewards.
+	// Rewards total rewards of MicroAlgos the account has received, including pending rewards.
 	Rewards uint64 `json:"rewards"`
 
 	// Round The round for which this information is relevant.
 	Round uint64 `json:"round"`
 
-	// SigType Indicates what type of signature is used by this account, must be one of:
+	// SigType the type of signature used by this account, must be one of:
 	// * sig
 	// * msig
 	// * lsig
 	// * or null if unknown
 	SigType *AccountSigType `json:"sig-type,omitempty"`
 
-	// Status \[onl\] delegation status of the account's MicroAlgos
+	// Status voting status of the account's MicroAlgos
 	// * Offline - indicates that the associated account is delegated.
 	// *  Online  - indicates that the associated account used as part of the delegation pool.
 	// *   NotParticipating - indicates that the associated account is neither a delegator nor a delegate.
@@ -253,7 +262,7 @@ type Account struct {
 	TotalCreatedAssets uint64 `json:"total-created-assets"`
 }
 
-// AccountSigType Indicates what type of signature is used by this account, must be one of:
+// AccountSigType the type of signature used by this account, must be one of:
 // * sig
 // * msig
 // * lsig
@@ -262,22 +271,22 @@ type AccountSigType string
 
 // AccountParticipation AccountParticipation describes the parameters used by this account in consensus protocol.
 type AccountParticipation struct {
-	// SelectionParticipationKey \[sel\] Selection public key (if any) currently registered for this round.
+	// SelectionParticipationKey Selection public key (if any) currently registered for this round.
 	SelectionParticipationKey []byte `json:"selection-participation-key"`
 
-	// StateProofKey \[stprf\] Root of the state proof key (if any)
+	// StateProofKey Root of the state proof key (if any)
 	StateProofKey *[]byte `json:"state-proof-key,omitempty"`
 
-	// VoteFirstValid \[voteFst\] First round for which this participation is valid.
+	// VoteFirstValid First round for which this participation is valid.
 	VoteFirstValid uint64 `json:"vote-first-valid"`
 
-	// VoteKeyDilution \[voteKD\] Number of subkeys in each batch of participation keys.
+	// VoteKeyDilution Number of subkeys in each batch of participation keys.
 	VoteKeyDilution uint64 `json:"vote-key-dilution"`
 
-	// VoteLastValid \[voteLst\] Last round for which this participation is valid.
+	// VoteLastValid Last round for which this participation is valid.
 	VoteLastValid uint64 `json:"vote-last-valid"`
 
-	// VoteParticipationKey \[vote\] root participation public key (if any) currently registered for this round.
+	// VoteParticipationKey root participation public key (if any) currently registered for this round.
 	VoteParticipationKey []byte `json:"vote-participation-key"`
 }
 
@@ -300,7 +309,7 @@ type Application struct {
 	// DeletedAtRound Round when this application was deleted.
 	DeletedAtRound *uint64 `json:"deleted-at-round,omitempty"`
 
-	// Id \[appidx\] application index.
+	// Id application index.
 	Id uint64 `json:"id"`
 
 	// Params Stores the global information associated with an application.
@@ -330,7 +339,7 @@ type ApplicationLocalState struct {
 
 // ApplicationLogData Stores the global information associated with an application.
 type ApplicationLogData struct {
-	// Logs \[lg\] Logs for the application being executed by the transaction.
+	// Logs Logs for the application being executed by the transaction.
 	Logs [][]byte `json:"logs"`
 
 	// Txid Transaction ID
@@ -339,16 +348,16 @@ type ApplicationLogData struct {
 
 // ApplicationParams Stores the global information associated with an application.
 type ApplicationParams struct {
-	// ApprovalProgram \[approv\] approval program.
+	// ApprovalProgram approval program.
 	ApprovalProgram []byte `json:"approval-program"`
 
-	// ClearStateProgram \[clearp\] approval program.
+	// ClearStateProgram clear state program.
 	ClearStateProgram []byte `json:"clear-state-program"`
 
 	// Creator The address that created this application. This is the address where the parameters and global state for this application can be found.
 	Creator *string `json:"creator,omitempty"`
 
-	// ExtraProgramPages \[epp\] the amount of extra program pages available to this app.
+	// ExtraProgramPages the number of extra program pages available to this app.
 	ExtraProgramPages *uint64 `json:"extra-program-pages,omitempty"`
 
 	// GlobalState Represents a key-value store for use in an application.
@@ -363,10 +372,10 @@ type ApplicationParams struct {
 
 // ApplicationStateSchema Specifies maximums on the number of each type that may be stored.
 type ApplicationStateSchema struct {
-	// NumByteSlice \[nbs\] num of byte slices.
+	// NumByteSlice number of byte slices.
 	NumByteSlice uint64 `json:"num-byte-slice"`
 
-	// NumUint \[nui\] num of uints.
+	// NumUint number of uints.
 	NumUint uint64 `json:"num-uint"`
 }
 
@@ -398,7 +407,7 @@ type Asset struct {
 // Definition:
 // data/basics/userBalance.go : AssetHolding
 type AssetHolding struct {
-	// Amount \[a\] number of units held.
+	// Amount number of units held.
 	Amount uint64 `json:"amount"`
 
 	// AssetId Asset ID of the holding.
@@ -407,7 +416,7 @@ type AssetHolding struct {
 	// Deleted Whether or not the asset holding is currently deleted from its account.
 	Deleted *bool `json:"deleted,omitempty"`
 
-	// IsFrozen \[f\] whether or not the holding is frozen.
+	// IsFrozen whether or not the holding is frozen.
 	IsFrozen bool `json:"is-frozen"`
 
 	// OptedInAtRound Round during which the account opted into this asset holding.
@@ -424,46 +433,46 @@ type AssetHolding struct {
 // Definition:
 // data/transactions/asset.go : AssetParams
 type AssetParams struct {
-	// Clawback \[c\] Address of account used to clawback holdings of this asset.  If empty, clawback is not permitted.
+	// Clawback Address of account used to clawback holdings of this asset.  If empty, clawback is not permitted.
 	Clawback *string `json:"clawback,omitempty"`
 
 	// Creator The address that created this asset. This is the address where the parameters for this asset can be found, and also the address where unwanted asset units can be sent in the worst case.
 	Creator string `json:"creator"`
 
-	// Decimals \[dc\] The number of digits to use after the decimal point when displaying this asset. If 0, the asset is not divisible. If 1, the base unit of the asset is in tenths. If 2, the base unit of the asset is in hundredths, and so on. This value must be between 0 and 19 (inclusive).
+	// Decimals The number of digits to use after the decimal point when displaying this asset. If 0, the asset is not divisible. If 1, the base unit of the asset is in tenths. If 2, the base unit of the asset is in hundredths, and so on. This value must be between 0 and 19 (inclusive).
 	Decimals uint64 `json:"decimals"`
 
-	// DefaultFrozen \[df\] Whether holdings of this asset are frozen by default.
+	// DefaultFrozen Whether holdings of this asset are frozen by default.
 	DefaultFrozen *bool `json:"default-frozen,omitempty"`
 
-	// Freeze \[f\] Address of account used to freeze holdings of this asset.  If empty, freezing is not permitted.
+	// Freeze Address of account used to freeze holdings of this asset.  If empty, freezing is not permitted.
 	Freeze *string `json:"freeze,omitempty"`
 
-	// Manager \[m\] Address of account used to manage the keys of this asset and to destroy it.
+	// Manager Address of account used to manage the keys of this asset and to destroy it.
 	Manager *string `json:"manager,omitempty"`
 
-	// MetadataHash \[am\] A commitment to some unspecified asset metadata. The format of this metadata is up to the application.
+	// MetadataHash A commitment to some unspecified asset metadata. The format of this metadata is up to the application.
 	MetadataHash *[]byte `json:"metadata-hash,omitempty"`
 
-	// Name \[an\] Name of this asset, as supplied by the creator. Included only when the asset name is composed of printable utf-8 characters.
+	// Name Name of this asset, as supplied by the creator. Included only when the asset name is composed of printable utf-8 characters.
 	Name *string `json:"name,omitempty"`
 
 	// NameB64 Base64 encoded name of this asset, as supplied by the creator.
 	NameB64 *[]byte `json:"name-b64,omitempty"`
 
-	// Reserve \[r\] Address of account holding reserve (non-minted) units of this asset.
+	// Reserve Address of account holding reserve (non-minted) units of this asset.
 	Reserve *string `json:"reserve,omitempty"`
 
-	// Total \[t\] The total number of units of this asset.
+	// Total The total number of units of this asset.
 	Total uint64 `json:"total"`
 
-	// UnitName \[un\] Name of a unit of this asset, as supplied by the creator. Included only when the name of a unit of this asset is composed of printable utf-8 characters.
+	// UnitName Name of a unit of this asset, as supplied by the creator. Included only when the name of a unit of this asset is composed of printable utf-8 characters.
 	UnitName *string `json:"unit-name,omitempty"`
 
 	// UnitNameB64 Base64 encoded name of a unit of this asset, as supplied by the creator.
 	UnitNameB64 *[]byte `json:"unit-name-b64,omitempty"`
 
-	// Url \[au\] URL where more information about the asset can be retrieved. Included only when the URL is composed of printable utf-8 characters.
+	// Url URL where more information about the asset can be retrieved. Included only when the URL is composed of printable utf-8 characters.
 	Url *string `json:"url,omitempty"`
 
 	// UrlB64 Base64 encoded URL where more information about the asset can be retrieved.
@@ -475,6 +484,12 @@ type AssetParams struct {
 // Definition:
 // data/bookkeeping/block.go : Block
 type Block struct {
+	// Bonus the potential bonus payout for this block.
+	Bonus *uint64 `json:"bonus,omitempty"`
+
+	// FeesCollected the sum of all fees paid by transactions in this block.
+	FeesCollected *uint64 `json:"fees-collected,omitempty"`
+
 	// GenesisHash \[gh\] hash to which this block belongs.
 	GenesisHash []byte `json:"genesis-hash"`
 
@@ -486,6 +501,12 @@ type Block struct {
 
 	// PreviousBlockHash \[prev\] Previous block hash.
 	PreviousBlockHash []byte `json:"previous-block-hash"`
+
+	// Proposer the proposer of this block.
+	Proposer *string `json:"proposer,omitempty"`
+
+	// ProposerPayout the actual amount transferred to the proposer from the fee sink.
+	ProposerPayout *uint64 `json:"proposer-payout,omitempty"`
 
 	// Rewards Fields relating to rewards,
 	Rewards *BlockRewards `json:"rewards,omitempty"`
@@ -695,6 +716,9 @@ type OnCompletion string
 
 // ParticipationUpdates Participation account data that needs to be checked/acted on by the network.
 type ParticipationUpdates struct {
+	// AbsentParticipationAccounts \[partupabs\] a list of online accounts that need to be suspended.
+	AbsentParticipationAccounts *[]string `json:"absent-participation-accounts,omitempty"`
+
 	// ExpiredParticipationAccounts \[partupdrmv\] a list of online accounts that needs to be converted to offline since their participation key expired.
 	ExpiredParticipationAccounts *[]string `json:"expired-participation-accounts,omitempty"`
 }
@@ -806,13 +830,13 @@ type TealKeyValueStore = []TealKeyValue
 
 // TealValue Represents a TEAL value.
 type TealValue struct {
-	// Bytes \[tb\] bytes value.
+	// Bytes bytes value.
 	Bytes string `json:"bytes"`
 
-	// Type \[tt\] value type. Value `1` refers to **bytes**, value `2` refers to **uint**
+	// Type type of the value. Value `1` refers to **bytes**, value `2` refers to **uint**
 	Type uint64 `json:"type"`
 
-	// Uint \[ui\] uint value.
+	// Uint uint value.
 	Uint uint64 `json:"uint"`
 }
 

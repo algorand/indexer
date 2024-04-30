@@ -1041,7 +1041,7 @@
           "type": "string"
         },
         "amount": {
-          "description": "\\[algo\\] total number of MicroAlgos in the account",
+          "description": "total number of MicroAlgos in the account",
           "type": "integer"
         },
         "amount-without-pending-rewards": {
@@ -1049,36 +1049,36 @@
           "type": "integer"
         },
         "apps-local-state": {
-          "description": "\\[appl\\] applications local data stored in this account.\n\nNote the raw object uses `map[int] -\u003e AppLocalState` for this type.",
+          "description": "application local data stored in this account.\n\nNote the raw object uses `map[int] -\u003e AppLocalState` for this type.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/ApplicationLocalState"
           }
         },
         "apps-total-schema": {
-          "description": "\\[tsch\\] stores the sum of all of the local schemas and global schemas in this account.\n\nNote: the raw account uses `StateSchema` for this type.",
+          "description": "the sum of all of the local schemas and global schemas in this account.\n\nNote: the raw account uses `StateSchema` for this type.",
           "$ref": "#/definitions/ApplicationStateSchema"
         },
         "apps-total-extra-pages": {
-          "description": "\\[teap\\] the sum of all extra application program pages for this account.",
+          "description": "the sum of all extra application program pages for this account.",
           "type": "integer"
         },
         "assets": {
-          "description": "\\[asset\\] assets held by this account.\n\nNote the raw object uses `map[int] -\u003e AssetHolding` for this type.",
+          "description": "assets held by this account.\n\nNote the raw object uses `map[int] -\u003e AssetHolding` for this type.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/AssetHolding"
           }
         },
         "created-apps": {
-          "description": "\\[appp\\] parameters of applications created by this account including app global data.\n\nNote: the raw account uses `map[int] -\u003e AppParams` for this type.",
+          "description": "parameters of applications created by this account including app global data.\n\nNote: the raw account uses `map[int] -\u003e AppParams` for this type.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/Application"
           }
         },
         "created-assets": {
-          "description": "\\[apar\\] parameters of assets created by this account.\n\nNote: the raw account uses `map[int] -\u003e Asset` for this type.",
+          "description": "parameters of assets created by this account.\n\nNote: the raw account uses `map[int] -\u003e Asset` for this type.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/Asset"
@@ -1087,16 +1087,20 @@
         "participation": {
           "$ref": "#/definitions/AccountParticipation"
         },
+        "incentive-eligible": {
+          "description": "can the account receive block incentives if its balance is in range at proposal time.",
+          "type": "boolean"
+        },
         "pending-rewards": {
           "description": "amount of MicroAlgos of pending rewards in this account.",
           "type": "integer"
         },
         "reward-base": {
-          "description": "\\[ebase\\] used as part of the rewards computation. Only applicable to accounts which are participating.",
+          "description": "used as part of the rewards computation. Only applicable to accounts which are participating.",
           "type": "integer"
         },
         "rewards": {
-          "description": "\\[ern\\] total rewards of MicroAlgos the account has received, including pending rewards.",
+          "description": "total rewards of MicroAlgos the account has received, including pending rewards.",
           "type": "integer"
         },
         "round": {
@@ -1104,11 +1108,11 @@
           "type": "integer"
         },
         "status": {
-          "description": "\\[onl\\] delegation status of the account's MicroAlgos\n* Offline - indicates that the associated account is delegated.\n*  Online  - indicates that the associated account used as part of the delegation pool.\n*   NotParticipating - indicates that the associated account is neither a delegator nor a delegate.",
+          "description": "voting status of the account's MicroAlgos\n* Offline - indicates that the associated account is delegated.\n*  Online  - indicates that the associated account used as part of the delegation pool.\n*   NotParticipating - indicates that the associated account is neither a delegator nor a delegate.",
           "type": "string"
         },
         "sig-type": {
-          "description": "Indicates what type of signature is used by this account, must be one of:\n* sig\n* msig\n* lsig\n* or null if unknown",
+          "description": "the type of signature used by this account, must be one of:\n* sig\n* msig\n* lsig\n* or null if unknown",
           "type": "string",
           "enum": [
             "sig",
@@ -1141,9 +1145,17 @@
           "type": "integer"
         },
         "auth-addr": {
-          "description": "\\[spend\\] the address against which signing should be checked. If empty, the address of the current account is used. This field can be updated in any transaction by setting the RekeyTo field.",
+          "description": "The address against which signing should be checked. If empty, the address of the current account is used. This field can be updated in any transaction by setting the RekeyTo field.",
           "type": "string",
           "x-algorand-format": "Address"
+        },
+        "last-proposed": {
+          "description": "The round in which this account last proposed the block.",
+          "type": "integer"
+        },
+        "last-heartbeat": {
+          "description": "The round in which this account last went online, or explicitly renewed their online status.",
+          "type": "integer"
         },
         "deleted": {
           "description": "Whether or not this account is currently closed.",
@@ -1173,29 +1185,29 @@
       ],
       "properties": {
         "selection-participation-key": {
-          "description": "\\[sel\\] Selection public key (if any) currently registered for this round.",
+          "description": "Selection public key (if any) currently registered for this round.",
           "type": "string",
           "format": "byte"
         },
         "vote-first-valid": {
-          "description": "\\[voteFst\\] First round for which this participation is valid.",
+          "description": "First round for which this participation is valid.",
           "type": "integer"
         },
         "vote-key-dilution": {
-          "description": "\\[voteKD\\] Number of subkeys in each batch of participation keys.",
+          "description": "Number of subkeys in each batch of participation keys.",
           "type": "integer"
         },
         "vote-last-valid": {
-          "description": "\\[voteLst\\] Last round for which this participation is valid.",
+          "description": "Last round for which this participation is valid.",
           "type": "integer"
         },
         "vote-participation-key": {
-          "description": "\\[vote\\] root participation public key (if any) currently registered for this round.",
+          "description": "root participation public key (if any) currently registered for this round.",
           "type": "string",
           "format": "byte"
         },
         "state-proof-key": {
-          "description": "\\[stprf\\] Root of the state proof key (if any)",
+          "description": "Root of the state proof key (if any)",
           "type": "string",
           "format": "byte"
         }
@@ -1210,11 +1222,11 @@
       ],
       "properties": {
         "num-uint": {
-          "description": "\\[nui\\] num of uints.",
+          "description": "number of uints.",
           "type": "integer"
         },
         "num-byte-slice": {
-          "description": "\\[nbs\\] num of byte slices.",
+          "description": "number of byte slices.",
           "type": "integer"
         }
       }
@@ -1246,11 +1258,11 @@
           "x-algorand-format": "uint64"
         },
         "schema": {
-          "description": "\\[hsch\\] schema.",
+          "description": "schema.",
           "$ref": "#/definitions/ApplicationStateSchema"
         },
         "key-value": {
-          "description": "\\[tkv\\] storage.",
+          "description": "storage.",
           "$ref": "#/definitions/TealKeyValueStore"
         }
       }
@@ -1288,15 +1300,15 @@
       ],
       "properties": {
         "type": {
-          "description": "\\[tt\\] value type. Value `1` refers to **bytes**, value `2` refers to **uint**",
+          "description": "type of the value. Value `1` refers to **bytes**, value `2` refers to **uint**",
           "type": "integer"
         },
         "bytes": {
-          "description": "\\[tb\\] bytes value.",
+          "description": "bytes value.",
           "type": "string"
         },
         "uint": {
-          "description": "\\[ui\\] uint value.",
+          "description": "uint value.",
           "type": "integer",
           "x-algorand-format": "uint64"
         }
@@ -1311,7 +1323,7 @@
       ],
       "properties": {
         "id": {
-          "description": "\\[appidx\\] application index.",
+          "description": "application index.",
           "type": "integer"
         },
         "deleted": {
@@ -1329,7 +1341,7 @@
           "x-algorand-format": "uint64"
         },
         "params": {
-          "description": "\\[appparams\\] application parameters.",
+          "description": "application parameters.",
           "$ref": "#/definitions/ApplicationParams"
         }
       }
@@ -1348,31 +1360,31 @@
           "x-algorand-format": "Address"
         },
         "approval-program": {
-          "description": "\\[approv\\] approval program.",
+          "description": "approval program.",
           "type": "string",
           "format": "byte",
           "x-algorand-format": "TEALProgram"
         },
         "clear-state-program": {
-          "description": "\\[clearp\\] approval program.",
+          "description": "clear state program.",
           "type": "string",
           "format": "byte",
           "x-algorand-format": "TEALProgram"
         },
         "local-state-schema": {
-          "description": "[\\lsch\\] local schema",
+          "description": "local schema",
           "$ref": "#/definitions/ApplicationStateSchema"
         },
         "global-state-schema": {
-          "description": "[\\gsch\\] global schema",
+          "description": "global schema",
           "$ref": "#/definitions/ApplicationStateSchema"
         },
         "global-state": {
-          "description": "[\\gs\\] global schema",
+          "description": "global state",
           "$ref": "#/definitions/TealKeyValueStore"
         },
         "extra-program-pages": {
-          "description": "\\[epp\\] the amount of extra program pages available to this app.",
+          "description": "the number of extra program pages available to this app.",
           "type": "integer"
         }
       }
@@ -1390,7 +1402,7 @@
           "type": "string"
         },
         "logs": {
-          "description": "\\[lg\\] Logs for the application being executed by the transaction.",
+          "description": "Logs for the application being executed by the transaction.",
           "type": "array",
           "items": {
             "type": "string",
@@ -1440,7 +1452,7 @@
       ],
       "properties": {
         "amount": {
-          "description": "\\[a\\] number of units held.",
+          "description": "number of units held.",
           "type": "integer",
           "x-algorand-format": "uint64"
         },
@@ -1449,7 +1461,7 @@
           "type": "integer"
         },
         "is-frozen": {
-          "description": "\\[f\\] whether or not the holding is frozen.",
+          "description": "whether or not the holding is frozen.",
           "type": "boolean"
         },
         "deleted": {
@@ -1478,7 +1490,7 @@
       ],
       "properties": {
         "clawback": {
-          "description": "\\[c\\] Address of account used to clawback holdings of this asset.  If empty, clawback is not permitted.",
+          "description": "Address of account used to clawback holdings of this asset.  If empty, clawback is not permitted.",
           "type": "string"
         },
         "creator": {
@@ -1486,30 +1498,30 @@
           "type": "string"
         },
         "decimals": {
-          "description": "\\[dc\\] The number of digits to use after the decimal point when displaying this asset. If 0, the asset is not divisible. If 1, the base unit of the asset is in tenths. If 2, the base unit of the asset is in hundredths, and so on. This value must be between 0 and 19 (inclusive).",
+          "description": "The number of digits to use after the decimal point when displaying this asset. If 0, the asset is not divisible. If 1, the base unit of the asset is in tenths. If 2, the base unit of the asset is in hundredths, and so on. This value must be between 0 and 19 (inclusive).",
           "type": "integer",
           "maximum": 19,
           "minimum": 0
         },
         "default-frozen": {
-          "description": "\\[df\\] Whether holdings of this asset are frozen by default.",
+          "description": "Whether holdings of this asset are frozen by default.",
           "type": "boolean"
         },
         "freeze": {
-          "description": "\\[f\\] Address of account used to freeze holdings of this asset.  If empty, freezing is not permitted.",
+          "description": "Address of account used to freeze holdings of this asset.  If empty, freezing is not permitted.",
           "type": "string"
         },
         "manager": {
-          "description": "\\[m\\] Address of account used to manage the keys of this asset and to destroy it.",
+          "description": "Address of account used to manage the keys of this asset and to destroy it.",
           "type": "string"
         },
         "metadata-hash": {
-          "description": "\\[am\\] A commitment to some unspecified asset metadata. The format of this metadata is up to the application.",
+          "description": "A commitment to some unspecified asset metadata. The format of this metadata is up to the application.",
           "type": "string",
           "format": "byte"
         },
         "name": {
-          "description": "\\[an\\] Name of this asset, as supplied by the creator. Included only when the asset name is composed of printable utf-8 characters.",
+          "description": "Name of this asset, as supplied by the creator. Included only when the asset name is composed of printable utf-8 characters.",
           "type": "string"
         },
         "name-b64": {
@@ -1518,16 +1530,16 @@
           "format": "byte"
         },
         "reserve": {
-          "description": "\\[r\\] Address of account holding reserve (non-minted) units of this asset.",
+          "description": "Address of account holding reserve (non-minted) units of this asset.",
           "type": "string"
         },
         "total": {
-          "description": "\\[t\\] The total number of units of this asset.",
+          "description": "The total number of units of this asset.",
           "type": "integer",
           "x-algorand-format": "uint64"
         },
         "unit-name": {
-          "description": "\\[un\\] Name of a unit of this asset, as supplied by the creator. Included only when the name of a unit of this asset is composed of printable utf-8 characters.",
+          "description": "Name of a unit of this asset, as supplied by the creator. Included only when the name of a unit of this asset is composed of printable utf-8 characters.",
           "type": "string"
         },
         "unit-name-b64": {
@@ -1536,7 +1548,7 @@
           "format": "byte"
         },
         "url": {
-          "description": "\\[au\\] URL where more information about the asset can be retrieved. Included only when the URL is composed of printable utf-8 characters.",
+          "description": "URL where more information about the asset can be retrieved. Included only when the URL is composed of printable utf-8 characters.",
           "type": "string"
         },
         "url-b64": {
@@ -1560,6 +1572,23 @@
         "genesis-hash"
       ],
       "properties": {
+        "proposer": {
+          "description": "the proposer of this block.",
+          "type": "string",
+          "x-algorand-format": "Address"
+        },
+        "fees-collected": {
+          "description": "the sum of all fees paid by transactions in this block.",
+          "type": "integer"
+        },
+        "bonus": {
+          "description": "the potential bonus payout for this block.",
+          "type": "integer"
+        },
+        "proposer-payout": {
+          "description": "the actual amount transferred to the proposer from the fee sink.",
+          "type": "integer"
+        },
         "genesis-hash": {
           "description": "\\[gh\\] hash to which this block belongs.",
           "type": "string",
@@ -1845,6 +1874,13 @@
       "properties": {
         "expired-participation-accounts": {
           "description": "\\[partupdrmv\\] a list of online accounts that needs to be converted to offline since their participation key expired.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "absent-participation-accounts": {
+          "description": "\\[partupabs\\] a list of online accounts that need to be suspended.",
           "type": "array",
           "items": {
             "type": "string"

@@ -1308,16 +1308,22 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64, op
 			UpgradePropose: strPtr(string(blockHeader.UpgradePropose)),
 		}
 
-		var partUpdates *generated.ParticipationUpdates
+		var partUpdates *generated.ParticipationUpdates = &generated.ParticipationUpdates{}
 		if len(blockHeader.ExpiredParticipationAccounts) > 0 {
 			addrs := make([]string, len(blockHeader.ExpiredParticipationAccounts))
 			for i := 0; i < len(addrs); i++ {
 				addrs[i] = blockHeader.ExpiredParticipationAccounts[i].String()
 			}
-			partUpdates = &generated.ParticipationUpdates{
-				ExpiredParticipationAccounts: strArrayPtr(addrs),
+			partUpdates.ExpiredParticipationAccounts = strArrayPtr(addrs)
+		}
+		if len(blockHeader.AbsentParticipationAccounts) > 0 {
+			addrs := make([]string, len(blockHeader.AbsentParticipationAccounts))
+			for i := 0; i < len(addrs); i++ {
+				addrs[i] = blockHeader.AbsentParticipationAccounts[i].String()
 			}
-		} else {
+			partUpdates.AbsentParticipationAccounts = strArrayPtr(addrs)
+		}
+		if *partUpdates == (generated.ParticipationUpdates{}) {
 			partUpdates = nil
 		}
 
@@ -1342,10 +1348,14 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64, op
 		}
 
 		ret = generated.Block{
+			Bonus:                  uint64PtrOrNil(uint64(blockHeader.Bonus)),
+			FeesCollected:          uint64PtrOrNil(uint64(blockHeader.FeesCollected)),
 			GenesisHash:            blockHeader.GenesisHash[:],
 			GenesisId:              blockHeader.GenesisID,
 			ParticipationUpdates:   partUpdates,
 			PreviousBlockHash:      blockHeader.Branch[:],
+			Proposer:               addrPtr(blockHeader.Proposer),
+			ProposerPayout:         uint64PtrOrNil(uint64(blockHeader.ProposerPayout)),
 			Rewards:                &rewards,
 			Round:                  uint64(blockHeader.Round),
 			Seed:                   blockHeader.Seed[:],
