@@ -70,8 +70,8 @@ github.com/alecthomas/units v0.0.0-20190717042225-c3de453c63f4/go.mod h1:ybxpYRF
 github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d/go.mod h1:rBZYJk541a8SKzHPHnH3zbiI+7dagKZ0cgpgrD7Fyho=
 github.com/algorand/avm-abi v0.2.0 h1:bkjsG+BOEcxUcnGSALLosmltE0JZdg+ZisXKx0UDX2k=
 github.com/algorand/avm-abi v0.2.0/go.mod h1:+CgwM46dithy850bpTeHh9MC99zpn2Snirb3QTl2O/g=
-github.com/algorand/go-algorand-sdk/v2 v2.2.1-0.20240424151847-7914b596ba9b h1:blz1WkFP1ZrQFI79hqmoc/Z3aeThPYDcl85Vq4qOt/g=
-github.com/algorand/go-algorand-sdk/v2 v2.2.1-0.20240424151847-7914b596ba9b/go.mod h1:Xk569fTpBTV0QtE74+79NTl6Rz3OC1K3iods4uG0ffU=
+github.com/algorand/go-algorand-sdk/v2 v2.5.0 h1:7XgFrbH9V3Zz/t1916ruBiWrR4Oq1U4UsiwyQSlmt38=
+github.com/algorand/go-algorand-sdk/v2 v2.5.0/go.mod h1:4ayerzjoWChm3kuVhbgFgURTbaYTtlj0c41eP3av5lw=
 github.com/algorand/go-codec/codec v1.1.10 h1:zmWYU1cp64jQVTOG8Tw8wa+k0VfwgXIPbnDfiVa+5QA=
 github.com/algorand/go-codec/codec v1.1.10/go.mod h1:YkEx5nmr/zuCeaDYOIhlDg92Lxju8tj2d2NrYqP7g7k=
 github.com/algorand/oapi-codegen v1.12.0-algorand.0 h1:W9PvED+wAJc+9EeXPONnA+0zE9UhynEqoDs4OgAxKhk=
