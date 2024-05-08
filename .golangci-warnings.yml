@@ -6,10 +6,7 @@ linters:
   disable-all: true
   enable:
     - staticcheck
-    - structcheck
     - typecheck
-    - varcheck
-    - deadcode
     - gosimple
     - unused
 
@@ -48,9 +45,6 @@ issues:
     - path: _test\.go
       linters:
         - staticcheck
-        - structcheck
         - typecheck
-        - varcheck
-        - deadcode
         - gosimple
         - unused
