@@ -1,10 +1,12 @@
 module github.com/algorand/indexer/v3
 
-go 1.20
+go 1.21
+
+toolchain go1.21.10
 
 require (
 	github.com/algorand/avm-abi v0.2.0
-	github.com/algorand/go-algorand-sdk/v2 v2.2.1-0.20240424151847-7914b596ba9b
+	github.com/algorand/go-algorand-sdk/v2 v2.5.0
 	github.com/algorand/go-codec/codec v1.1.10
 	github.com/algorand/oapi-codegen v1.12.0-algorand.0
 	github.com/davecgh/go-spew v1.1.1

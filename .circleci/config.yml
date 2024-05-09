@@ -18,7 +18,7 @@ workflows:
           name: test_with_go_<< matrix.go_version >>
           matrix: &go-version-matrix
             parameters:
-              go_version: ["1.20.14"]
+              go_version: ["1.21.10"]
 
   circleci_build_and_test_nightly:
     triggers:
@@ -33,7 +33,7 @@ workflows:
           context: lamprey-secrets
           matrix: &go-version-matrix
             parameters:
-              go_version: ["1.20.14"]
+              go_version: ["1.21.10"]
       - indexer_vs_algod_nightly:
           name: nightly_test_indexer_vs_algod
           context: lamprey-secrets
