@@ -1,7 +1,7 @@
 {
   "file": "boxes.json",
   "owner": "TestBoxes",
-  "lastModified": "2022-09-23 12:04:49.038378 -0500 CDT m=+3.705634393",
+  "lastModified": "2024-05-22 09:33:26.523711 -0400 EDT m=+2.930686085",
   "frozen": true,
   "cases": [
     {
@@ -14,7 +14,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"accounts\":[{\"address\":\"GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY\",\"amount\":999999499000,\"amount-without-pending-rewards\":999999499000,\"created-apps\":[{\"created-at-round\":1,\"deleted\":false,\"id\":1,\"params\":{\"approval-program\":\"CCABADEYQQB6MRtBAHU2GgCABmNyZWF0ZRJBABiBIDEbgQISQAAFSDYaAhc2GgFMuURCAE42GgCABmRlbGV0ZRJBAAg2GgG8REIANzYaAIADc2V0EkEACzYaASI2GgK7QgAgNhoAgAVjaGVjaxJBABE2GgEiNhoCFbo2GgISREIAAQCBAQ==\",\"clear-state-program\":\"CIEB\",\"creator\":\"GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}}],\"created-at-round\":0,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"sig-type\":\"sig\",\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":1,\"total-created-assets\":0},{\"address\":\"LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU\",\"amount\":999999499000,\"amount-without-pending-rewards\":999999499000,\"created-apps\":[{\"created-at-round\":1,\"deleted\":false,\"id\":3,\"params\":{\"approval-program\":\"CCABADEYQQB6MRtBAHU2GgCABmNyZWF0ZRJBABiBIDEbgQISQAAFSDYaAhc2GgFMuURCAE42GgCABmRlbGV0ZRJBAAg2GgG8REIANzYaAIADc2V0EkEACzYaASI2GgK7QgAgNhoAgAVjaGVjaxJBABE2GgEiNhoCFbo2GgISREIAAQCBAQ==\",\"clear-state-program\":\"CIEB\",\"creator\":\"N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}}],\"created-at-round\":0,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"sig-type\":\"sig\",\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":1,\"total-created-assets\":0},{\"address\":\"OKUWMFFEKF4B4D7FRQYBVV3C2SNS54ZO4WZ2MJ3576UYKFDHM5P3AFMRWE\",\"amount\":999999499000,\"amount-without-pending-rewards\":999999499000,\"created-at-round\":0,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"sig-type\":\"sig\",\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"WCS6TVPJRBSARHLN2326LRU5BYVJZUKI2VJ53CAWKYYHDE455ZGKANWMGM\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":477,\"total-boxes\":9,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"ZROKLZW4GVOK5WQIF2GUR6LHFVEZBMV56BIQEQD4OTIZL2BPSYYUKFBSHM\",\"amount\":3000,\"amount-without-pending-rewards\":3000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"2SYXFSCZAQCZ7YIFUCUZYOVR7G6Y3UBGSJIWT4EZ4CO3T6WVYTMHVSANOY\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":570,\"total-boxes\":13,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"4C3S3A5II6AYMEADSW7EVL7JAKVU2ASJMMJAGVUROIJHYMS6B24NCXVEWM\",\"amount\":100000,\"amount-without-pending-rewards\":100000,\"created-at-round\":0,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"NotParticipating\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"6TB2ZQA2GEEDH6XTIOH5A7FUSGINXDPW5ONN6XBOBBGGUXVHRQTITAIIVI\",\"amount\":1000000000000,\"amount-without-pending-rewards\":1000000000000,\"created-at-round\":0,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0}],\"current-round\":9,\"next-token\":\"6TB2ZQA2GEEDH6XTIOH5A7FUSGINXDPW5ONN6XBOBBGGUXVHRQTITAIIVI\"}\n"
+        "body": "{\"accounts\":[{\"address\":\"GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY\",\"amount\":999999499000,\"amount-without-pending-rewards\":999999499000,\"created-apps\":[{\"created-at-round\":1,\"deleted\":false,\"id\":1,\"params\":{\"approval-program\":\"CCABADEYQQB6MRtBAHU2GgCABmNyZWF0ZRJBABiBIDEbgQISQAAFSDYaAhc2GgFMuURCAE42GgCABmRlbGV0ZRJBAAg2GgG8REIANzYaAIADc2V0EkEACzYaASI2GgK7QgAgNhoAgAVjaGVjaxJBABE2GgEiNhoCFbo2GgISREIAAQCBAQ==\",\"clear-state-program\":\"CIEB\",\"creator\":\"GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}}],\"created-at-round\":0,\"deleted\":false,\"min-balance\":200000,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"sig-type\":\"sig\",\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":1,\"total-created-assets\":0},{\"address\":\"LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"min-balance\":100000,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU\",\"amount\":999999499000,\"amount-without-pending-rewards\":999999499000,\"created-apps\":[{\"created-at-round\":1,\"deleted\":false,\"id\":3,\"params\":{\"approval-program\":\"CCABADEYQQB6MRtBAHU2GgCABmNyZWF0ZRJBABiBIDEbgQISQAAFSDYaAhc2GgFMuURCAE42GgCABmRlbGV0ZRJBAAg2GgG8REIANzYaAIADc2V0EkEACzYaASI2GgK7QgAgNhoAgAVjaGVjaxJBABE2GgEiNhoCFbo2GgISREIAAQCBAQ==\",\"clear-state-program\":\"CIEB\",\"creator\":\"N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}}],\"created-at-round\":0,\"deleted\":false,\"min-balance\":200000,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"sig-type\":\"sig\",\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":1,\"total-created-assets\":0},{\"address\":\"OKUWMFFEKF4B4D7FRQYBVV3C2SNS54ZO4WZ2MJ3576UYKFDHM5P3AFMRWE\",\"amount\":999999499000,\"amount-without-pending-rewards\":999999499000,\"created-at-round\":0,\"deleted\":false,\"min-balance\":100000,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"sig-type\":\"sig\",\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"WCS6TVPJRBSARHLN2326LRU5BYVJZUKI2VJ53CAWKYYHDE455ZGKANWMGM\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"min-balance\":313300,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":477,\"total-boxes\":9,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"ZROKLZW4GVOK5WQIF2GUR6LHFVEZBMV56BIQEQD4OTIZL2BPSYYUKFBSHM\",\"amount\":3000,\"amount-without-pending-rewards\":3000,\"created-at-round\":1,\"deleted\":false,\"min-balance\":100000,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"2SYXFSCZAQCZ7YIFUCUZYOVR7G6Y3UBGSJIWT4EZ4CO3T6WVYTMHVSANOY\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"min-balance\":360500,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":570,\"total-boxes\":13,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"4C3S3A5II6AYMEADSW7EVL7JAKVU2ASJMMJAGVUROIJHYMS6B24NCXVEWM\",\"amount\":100000,\"amount-without-pending-rewards\":100000,\"created-at-round\":0,\"deleted\":false,\"min-balance\":100000,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"NotParticipating\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"6TB2ZQA2GEEDH6XTIOH5A7FUSGINXDPW5ONN6XBOBBGGUXVHRQTITAIIVI\",\"amount\":1000000000000,\"amount-without-pending-rewards\":1000000000000,\"created-at-round\":0,\"deleted\":false,\"min-balance\":100000,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0}],\"current-round\":9,\"next-token\":\"6TB2ZQA2GEEDH6XTIOH5A7FUSGINXDPW5ONN6XBOBBGGUXVHRQTITAIIVI\"}\n"
       },
       "witness": {
         "goType": "generated.AccountsResponse",
@@ -46,6 +46,7 @@
               ],
               "created-at-round": 0,
               "deleted": false,
+              "min-balance": 200000,
               "pending-rewards": 0,
               "reward-base": 0,
               "rewards": 0,
@@ -65,6 +66,7 @@
               "amount-without-pending-rewards": 500000,
               "created-at-round": 1,
               "deleted": false,
+              "min-balance": 100000,
               "pending-rewards": 0,
               "reward-base": 0,
               "rewards": 0,
@@ -103,6 +105,7 @@
               ],
               "created-at-round": 0,
               "deleted": false,
+              "min-balance": 200000,
               "pending-rewards": 0,
               "reward-base": 0,
               "rewards": 0,
@@ -122,6 +125,7 @@
               "amount-without-pending-rewards": 999999499000,
               "created-at-round": 0,
               "deleted": false,
+              "min-balance": 100000,
               "pending-rewards": 0,
               "reward-base": 0,
               "rewards": 0,
@@ -141,6 +145,7 @@
               "amount-without-pending-rewards": 500000,
               "created-at-round": 1,
               "deleted": false,
+              "min-balance": 313300,
               "pending-rewards": 0,
               "reward-base": 0,
               "rewards": 0,
@@ -159,6 +164,7 @@
               "amount-without-pending-rewards": 3000,
               "created-at-round": 1,
               "deleted": false,
+              "min-balance": 100000,
               "pending-rewards": 0,
               "reward-base": 0,
               "rewards": 0,
@@ -177,6 +183,7 @@
               "amount-without-pending-rewards": 500000,
               "created-at-round": 1,
               "deleted": false,
+              "min-balance": 360500,
               "pending-rewards": 0,
               "reward-base": 0,
               "rewards": 0,
@@ -195,6 +202,7 @@
               "amount-without-pending-rewards": 100000,
               "created-at-round": 0,
               "deleted": false,
+              "min-balance": 100000,
               "pending-rewards": 0,
               "reward-base": 0,
               "rewards": 0,
@@ -213,6 +221,7 @@
               "amount-without-pending-rewards": 1000000000000,
               "created-at-round": 0,
               "deleted": false,
+              "min-balance": 100000,
               "pending-rewards": 0,
               "reward-base": 0,
               "rewards": 0,
@@ -407,7 +416,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"account\":{\"address\":\"LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},\"current-round\":9}\n"
+        "body": "{\"account\":{\"address\":\"LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"min-balance\":100000,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},\"current-round\":9}\n"
       },
       "witness": {
         "goType": "generated.AccountResponse",
@@ -418,6 +427,7 @@
             "amount-without-pending-rewards": 500000,
             "created-at-round": 1,
             "deleted": false,
+            "min-balance": 100000,
             "pending-rewards": 0,
             "reward-base": 0,
             "rewards": 0,
@@ -445,7 +455,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"account\":{\"address\":\"LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},\"current-round\":9}\n"
+        "body": "{\"account\":{\"address\":\"LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"min-balance\":100000,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},\"current-round\":9}\n"
       },
       "witness": {
         "goType": "generated.AccountResponse",
@@ -456,6 +466,7 @@
             "amount-without-pending-rewards": 500000,
             "created-at-round": 1,
             "deleted": false,
+            "min-balance": 100000,
             "pending-rewards": 0,
             "reward-base": 0,
             "rewards": 0,
@@ -483,7 +494,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"account\":{\"address\":\"WCS6TVPJRBSARHLN2326LRU5BYVJZUKI2VJ53CAWKYYHDE455ZGKANWMGM\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":477,\"total-boxes\":9,\"total-created-apps\":0,\"total-created-assets\":0},\"current-round\":9}\n"
+        "body": "{\"account\":{\"address\":\"WCS6TVPJRBSARHLN2326LRU5BYVJZUKI2VJ53CAWKYYHDE455ZGKANWMGM\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"min-balance\":313300,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":9,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":477,\"total-boxes\":9,\"total-created-apps\":0,\"total-created-assets\":0},\"current-round\":9}\n"
       },
       "witness": {
         "goType": "generated.AccountResponse",
@@ -494,6 +505,7 @@
             "amount-without-pending-rewards": 500000,
             "created-at-round": 1,
             "deleted": false,
+            "min-balance": 313300,
             "pending-rewards": 0,
             "reward-base": 0,
             "rewards": 0,
@@ -1087,7 +1099,7 @@
         "body": "{\"name\":\"YSBncmVhdCBib3g=\",\"round\":9,\"value\":\"aXQncyBhIHdvbmRlcmZ1bCBib3gAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
-        "goType": "generated.BoxResponse",
+        "goType": "generated.Box",
         "box": {
           "name": "YSBncmVhdCBib3g=",
           "round": 9,
@@ -1114,9 +1126,10 @@
         "body": "{\"name\":\"c3Ry\",\"round\":9,\"value\":\"c3RyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
-        "goType": "generated.BoxResponse",
+        "goType": "generated.Box",
         "box": {
           "name": "c3Ry",
+          "round": 9,
           "value": "c3RyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
         }
       },
@@ -1140,9 +1153,10 @@
         "body": "{\"name\":\"AAAAAAAAAGQ=\",\"round\":9,\"value\":\"AAAAAAAAAGQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
-        "goType": "generated.BoxResponse",
+        "goType": "generated.Box",
         "box": {
           "name": "AAAAAAAAAGQ=",
+          "round": 9,
           "value": "AAAAAAAAAGQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
         }
       },
@@ -1166,9 +1180,10 @@
         "body": "{\"name\":\"YmFzZTMy\",\"round\":9,\"value\":\"YmFzZTMyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
-        "goType": "generated.BoxResponse",
+        "goType": "generated.Box",
         "box": {
           "name": "YmFzZTMy",
+          "round": 9,
           "value": "YmFzZTMyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
         }
       },
@@ -1192,9 +1207,10 @@
         "body": "{\"name\":\"YjY0\",\"round\":9,\"value\":\"YjY0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
-        "goType": "generated.BoxResponse",
+        "goType": "generated.Box",
         "box": {
           "name": "YjY0",
+          "round": 9,
           "value": "YjY0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
         }
       },
@@ -1218,9 +1234,10 @@
         "body": "{\"name\":\"YmFzZTY0\",\"round\":9,\"value\":\"YmFzZTY0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
-        "goType": "generated.BoxResponse",
+        "goType": "generated.Box",
         "box": {
           "name": "YmFzZTY0",
+          "round": 9,
           "value": "YmFzZTY0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
         }
       },
@@ -1244,9 +1261,10 @@
         "body": "{\"name\":\"c3RyaW5n\",\"round\":9,\"value\":\"c3RyaW5nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
-        "goType": "generated.BoxResponse",
+        "goType": "generated.Box",
         "box": {
           "name": "c3RyaW5n",
+          "round": 9,
           "value": "c3RyaW5nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
         }
       },
@@ -1270,9 +1288,10 @@
         "body": "{\"name\":\"AAAAAAAAACo=\",\"round\":9,\"value\":\"AAAAAAAAACoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
-        "goType": "generated.BoxResponse",
+        "goType": "generated.Box",
         "box": {
           "name": "AAAAAAAAACo=",
+          "round": 9,
           "value": "AAAAAAAAACoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
         }
       },
@@ -1296,9 +1315,10 @@
         "body": "{\"name\":\"AAAAAAAAAY8ADAAWAAhwbHMgcGFzcwACgA==\",\"round\":9,\"value\":\"AAAAAAAAAY8ADAAWAAhwbHMgcGFzcwACgAAAAAAAAAA=\"}\n"
       },
       "witness": {
-        "goType": "generated.BoxResponse",
+        "goType": "generated.Box",
         "box": {
           "name": "AAAAAAAAAY8ADAAWAAhwbHMgcGFzcwACgA==",
+          "round": 9,
           "value": "AAAAAAAAAY8ADAAWAAhwbHMgcGFzcwACgAAAAAAAAAA="
         }
       },
@@ -1322,9 +1342,10 @@
         "body": "{\"name\":\"WybsRnqz5Ux5MxW1SJI+w3ZiTT0p5wCDvSVV7yTag4M=\",\"round\":9,\"value\":\"WybsRnqz5Ux5MxW1SJI+w3ZiTT0p5wCDvSVV7yTag4M=\"}\n"
       },
       "witness": {
-        "goType": "generated.BoxResponse",
+        "goType": "generated.Box",
         "box": {
           "name": "WybsRnqz5Ux5MxW1SJI+w3ZiTT0p5wCDvSVV7yTag4M=",
+          "round": 9,
           "value": "WybsRnqz5Ux5MxW1SJI+w3ZiTT0p5wCDvSVV7yTag4M="
         }
       },
@@ -1348,9 +1369,10 @@
         "body": "{\"name\":\"1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg=\",\"round\":9,\"value\":\"1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg=\"}\n"
       },
       "witness": {
-        "goType": "generated.BoxResponse",
+        "goType": "generated.Box",
         "box": {
           "name": "1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg=",
+          "round": 9,
           "value": "1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg="
         }
       },
@@ -1374,9 +1396,10 @@
         "body": "{\"name\":\"YjMy\",\"round\":9,\"value\":\"YjMyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
-        "goType": "generated.BoxResponse",
+        "goType": "generated.Box",
         "box": {
           "name": "YjMy",
+          "round": 9,
           "value": "YjMyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
         }
       },
@@ -1400,9 +1423,10 @@
         "body": "{\"name\":\"Ynl0ZSBiYXNlMzI=\",\"round\":9,\"value\":\"Ynl0ZSBiYXNlMzIAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
-        "goType": "generated.BoxResponse",
+        "goType": "generated.Box",
         "box": {
           "name": "Ynl0ZSBiYXNlMzI=",
+          "round": 9,
           "value": "Ynl0ZSBiYXNlMzIAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
         }
       },
@@ -1426,9 +1450,10 @@
         "body": "{\"name\":\"Ynl0ZSBiYXNlNjQ=\",\"round\":9,\"value\":\"Ynl0ZSBiYXNlNjQAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
-        "goType": "generated.BoxResponse",
+        "goType": "generated.Box",
         "box": {
           "name": "Ynl0ZSBiYXNlNjQ=",
+          "round": 9,
           "value": "Ynl0ZSBiYXNlNjQAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
         }
       },
