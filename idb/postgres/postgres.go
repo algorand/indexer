@@ -1799,13 +1799,28 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions, countOnly b
 			whereArgs = append(whereArgs, *opts.AssetLT)
 			partNumber++
 		}
+
+		// We want to limit the size of the results in this query to what could actually be needed
+		if len(opts.GreaterThanAddress) > 0 {
+			aq += fmt.Sprintf(" AND addr > $%d", partNumber)
+			whereArgs = append(whereArgs, opts.GreaterThanAddress)
+			partNumber++
+		}
 		aq = "qasf AS (" + aq + ")"
 		withClauses = append(withClauses, aq)
 	}
 	if opts.HasAppID != 0 {
-		withClauses = append(withClauses, fmt.Sprintf("qapf AS (SELECT addr FROM account_app WHERE app = $%d)", partNumber))
+		aq := fmt.Sprintf("SELECT addr FROM account_app WHERE app = $%d", partNumber)
 		whereArgs = append(whereArgs, opts.HasAppID)
 		partNumber++
+
+		if len(opts.GreaterThanAddress) > 0 {
+			aq += fmt.Sprintf(" AND addr > $%d", partNumber)
+			whereArgs = append(whereArgs, opts.GreaterThanAddress)
+			partNumber++
+		}
+		aq = "qapf AS (" + aq + ")"
+		withClauses = append(withClauses, aq)
 	}
 	// filters against main account table
 	if len(opts.GreaterThanAddress) > 0 {
