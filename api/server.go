@@ -101,6 +101,7 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, dataError fu
 	}
 
 	e.Use(middlewares.MakeLogger(log))
+	e.Use(middlewares.MakePNA())
 	e.Use(middleware.CORS())
 	e.Use(middleware.GzipWithConfig(middleware.GzipConfig{
 		// we currently support compressed result only for GET /v2/blocks/ API
