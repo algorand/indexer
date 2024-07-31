@@ -18,7 +18,7 @@ import (
 	"github.com/algorand/indexer/v3/idb"
 )
 
-// ExtraOptions are options which change the behavior or the HTTP server.
+// ExtraOptions are options which change the behavior of the HTTP server.
 type ExtraOptions struct {
 	// Tokens are the access tokens which can access the API.
 	Tokens []string
