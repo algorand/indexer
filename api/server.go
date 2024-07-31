@@ -26,6 +26,9 @@ type ExtraOptions struct {
 	// DeveloperMode turns on features like AddressSearchRoundRewind
 	DeveloperMode bool
 
+	// Respond to Private Network Access preflight requests sent to the indexer.
+	EnablePrivateNetworkAccessHeader bool
+
 	// MetricsEndpoint turns on the /metrics endpoint for prometheus metrics.
 	MetricsEndpoint bool
 
@@ -104,7 +107,9 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, dataError fu
 	}
 
 	e.Use(middlewares.MakeLogger(log))
-	e.Use(middlewares.MakePNA())
+	if options.EnablePrivateNetworkAccessHeader {
+		e.Use(middlewares.MakePNA())
+	}
 	e.Use(middleware.CORS())
 	e.Use(middleware.GzipWithConfig(middleware.GzipConfig{
 		// we currently support compressed result only for GET /v2/blocks/ API
