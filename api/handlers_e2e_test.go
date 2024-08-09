@@ -1930,7 +1930,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	err = db.AddBlock(&vb1)
 	require.NoError(t, err)
 
-	opts := idb.ApplicationQuery{ApplicationID: uint64(appid)}
+	opts := idb.ApplicationQuery{ApplicationID: uint64Ptr(uint64(appid))}
 
 	rowsCh, round := db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
@@ -2524,12 +2524,12 @@ func TestAccounts(t *testing.T) {
 	require.NoError(t, err)
 	stxn, _, err := util.DecodeSignedTxn(vb.Block.BlockHeader, vb.Block.Payset[0])
 	require.NoError(t, err)
-	assetID := crypto.TransactionIDString(stxn.Txn)
+	transactionID := crypto.TransactionIDString(stxn.Txn)
 
 	///////////
 	// When // Look up transaction containing this asset
 	///////////
-	path = fmt.Sprintf("/v2/transactions/%s", assetID)
+	path = fmt.Sprintf("/v2/transactions/%s", transactionID)
 	resp, data = makeRequest(t, listenAddr, path, false)
 	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
 	var txn generated.TransactionResponse
@@ -2552,7 +2552,7 @@ func TestAccounts(t *testing.T) {
 	///////////
 	// When // Look up the asset
 	///////////
-	path = fmt.Sprintf("/v2/assets/%d", 0)
+	path = fmt.Sprintf("/v2/assets/%d", expectedAssetIdx)
 	resp, data = makeRequest(t, listenAddr, path, false)
 	require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
 	var asset generated.AssetResponse

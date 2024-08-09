@@ -224,11 +224,11 @@ type TransactionFilter struct {
 	AlgosLT    *uint64
 	RekeyTo    *bool // nil for no filter
 
-	AssetID       uint64 // filter transactions relevant to an asset
+	AssetID       *uint64 // filter transactions relevant to an asset
 	AssetAmountGT *uint64
 	AssetAmountLT *uint64
 
-	ApplicationID uint64 // filter transactions relevant to an application
+	ApplicationID *uint64 // filter transactions relevant to an application
 
 	EffectiveAmountGT *uint64 // Algo: Amount + CloseAmount > x
 	EffectiveAmountLT *uint64 // Algo: Amount + CloseAmount < x
@@ -306,8 +306,8 @@ func (e MaxAPIResourcesPerAccountError) Error() string {
 
 // AssetsQuery is a parameter object with all of the asset filter options.
 type AssetsQuery struct {
-	AssetID            uint64
-	AssetIDGreaterThan uint64
+	AssetID            *uint64
+	AssetIDGreaterThan *uint64
 
 	Creator []byte
 
@@ -338,8 +338,8 @@ type AssetRow struct {
 
 // AssetBalanceQuery is a parameter object with all of the asset balance filter options.
 type AssetBalanceQuery struct {
-	AssetID   uint64
-	AssetIDGT uint64
+	AssetID   *uint64
+	AssetIDGT *uint64
 	AmountGT  *uint64 // only rows > this
 	AmountLT  *uint64 // only rows < this
 
@@ -376,8 +376,8 @@ type ApplicationRow struct {
 // ApplicationQuery is a parameter object used for query local and global application state.
 type ApplicationQuery struct {
 	Address                  []byte
-	ApplicationID            uint64
-	ApplicationIDGreaterThan uint64
+	ApplicationID            *uint64
+	ApplicationIDGreaterThan *uint64
 	IncludeDeleted           bool
 	Limit                    uint64
 }

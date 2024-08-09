@@ -55,7 +55,7 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 		{
 			"Int field",
 			generated.SearchForTransactionsParams{AssetId: uint64Ptr(1234)},
-			idb.TransactionFilter{AssetID: 1234, Limit: defaultOpts.DefaultTransactionsLimit},
+			idb.TransactionFilter{AssetID: uint64Ptr(1234), Limit: defaultOpts.DefaultTransactionsLimit},
 			nil,
 		},
 		{
@@ -120,7 +120,7 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 				Round:             nil,
 				MinRound:          2,
 				MaxRound:          3,
-				AssetID:           4,
+				AssetID:           uint64Ptr(4),
 				BeforeTime:        time.Date(2021, 1, 1, 1, 0, 0, 0, time.FixedZone("UTC", 0)),
 				AfterTime:         time.Date(2022, 2, 2, 2, 0, 0, 0, time.FixedZone("UTC", 0)),
 				AlgosGT:           nil,
@@ -134,7 +134,7 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 				Offset:            nil,
 				OffsetLT:          nil,
 				OffsetGT:          nil,
-				ApplicationID:     7,
+				ApplicationID:     uint64Ptr(7),
 			},
 			nil,
 		},
@@ -195,7 +195,7 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 		{
 			name:          "Searching by application-id",
 			params:        generated.SearchForTransactionsParams{ApplicationId: uint64Ptr(1234)},
-			filter:        idb.TransactionFilter{ApplicationID: 1234, Limit: defaultOpts.DefaultTransactionsLimit},
+			filter:        idb.TransactionFilter{ApplicationID: uint64Ptr(1234), Limit: defaultOpts.DefaultTransactionsLimit},
 			errorContains: nil,
 		},
 		{
@@ -299,14 +299,14 @@ func TestValidateTransactionFilter(t *testing.T) {
 		{
 			name: "application-id > math.MaxInt64",
 			filter: idb.TransactionFilter{
-				ApplicationID: math.MaxInt64 + 1,
+				ApplicationID: uint64Ptr(math.MaxInt64 + 1),
 			},
 			errorContains: []string{errValueExceedingInt64},
 		},
 		{
 			name: "asset-id > math.MaxInt64",
 			filter: idb.TransactionFilter{
-				AssetID: math.MaxInt64 + 1,
+				AssetID: uint64Ptr(math.MaxInt64 + 1),
 			},
 			errorContains: []string{errValueExceedingInt64},
 		},
