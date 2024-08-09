@@ -645,17 +645,17 @@ func (si *ServerImplementation) assetParamsToAssetQuery(params generated.SearchF
 		return idb.AssetsQuery{}, errors.New(errUnableToParseAddress)
 	}
 
-	var assetGreaterThan uint64 = 0
+	var assetGreaterThan *uint64
 	if params.Next != nil {
 		agt, err := strconv.ParseUint(*params.Next, 10, 64)
 		if err != nil {
 			return idb.AssetsQuery{}, fmt.Errorf("%s: %v", errUnableToParseNext, err)
 		}
-		assetGreaterThan = agt
+		assetGreaterThan = &agt
 	}
 
 	query := idb.AssetsQuery{
-		AssetID:            uintOrDefault(params.AssetId),
+		AssetID:            params.AssetId,
 		AssetIDGreaterThan: assetGreaterThan,
 		Creator:            creator,
 		Name:               strOrDefault(params.Name),
@@ -674,17 +674,17 @@ func (si *ServerImplementation) appParamsToApplicationQuery(params generated.Sea
 		return idb.ApplicationQuery{}, errors.New(errUnableToParseAddress)
 	}
 
-	var appGreaterThan uint64 = 0
+	var appGreaterThan *uint64
 	if params.Next != nil {
 		agt, err := strconv.ParseUint(*params.Next, 10, 64)
 		if err != nil {
 			return idb.ApplicationQuery{}, fmt.Errorf("%s: %v", errUnableToParseNext, err)
 		}
-		appGreaterThan = agt
+		appGreaterThan = &agt
 	}
 
 	return idb.ApplicationQuery{
-		ApplicationID:            uintOrDefault(params.ApplicationId),
+		ApplicationID:            params.ApplicationId,
 		ApplicationIDGreaterThan: appGreaterThan,
 		Address:                  addr,
 		IncludeDeleted:           boolOrDefault(params.IncludeAll),
@@ -698,8 +698,8 @@ func (si *ServerImplementation) transactionParamsToTransactionFilter(params gene
 	// Integer
 	filter.MaxRound = uintOrDefault(params.MaxRound)
 	filter.MinRound = uintOrDefault(params.MinRound)
-	filter.AssetID = uintOrDefault(params.AssetId)
-	filter.ApplicationID = uintOrDefault(params.ApplicationId)
+	filter.AssetID = params.AssetId
+	filter.ApplicationID = params.ApplicationId
 	filter.Limit = min(uintOrDefaultValue(params.Limit, si.opts.DefaultTransactionsLimit), si.opts.MaxTransactionsLimit)
 	filter.Round = params.Round
 
@@ -730,7 +730,7 @@ func (si *ServerImplementation) transactionParamsToTransactionFilter(params gene
 	filter.RekeyTo = params.RekeyTo
 
 	// filter Algos or Asset but not both.
-	if filter.AssetID != 0 || filter.TypeEnum == idb.TypeEnumAssetTransfer {
+	if filter.AssetID != nil || filter.TypeEnum == idb.TypeEnumAssetTransfer {
 		filter.AssetAmountLT = params.CurrencyLessThan
 		filter.AssetAmountGT = params.CurrencyGreaterThan
 	} else {

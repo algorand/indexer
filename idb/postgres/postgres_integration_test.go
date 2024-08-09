@@ -856,8 +856,8 @@ func TestAppExtraPages(t *testing.T) {
 	require.Equal(t, uint32(1), ap.ExtraProgramPages)
 
 	var filter idb.ApplicationQuery
-	var aidx uint64 = uint64(index)
-	filter.ApplicationID = aidx
+	var aidx = index
+	filter.ApplicationID = uint64Ptr(aidx)
 	appRows, _ := db.Applications(context.Background(), filter)
 	num := 0
 	for row := range appRows {
@@ -938,7 +938,7 @@ func TestLargeAssetAmount(t *testing.T) {
 
 	// txn := test.MakeAssetConfigTxn(
 	//	0, math.MaxUint64, 0, false, "mc", "mycoin", "", test.AccountA)
-	assetid := uint64(1)
+	assetid := uint64Ptr(uint64(1))
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LargeAssetAmount.vb")
 	require.NoError(t, err)
 	err = db.AddBlock(&vb)
@@ -1068,7 +1068,7 @@ func TestNonDisplayableUTF8(t *testing.T) {
 		},
 	}
 
-	assetID := uint64(1)
+	assetID := uint64Ptr(uint64(1))
 
 	for _, testcase := range tests {
 		testcase := testcase
@@ -1165,7 +1165,7 @@ func TestReconfigAsset(t *testing.T) {
 	unit := "co\000in"
 	name := "algo"
 	url := "https://algorand.com"
-	assetID := uint64(1)
+	assetID := uint64Ptr(uint64(1))
 
 	// txn := test.MakeAssetConfigTxn(
 	//	0, math.MaxUint64, 0, false, unit, name, url, test.AccountA)
@@ -1406,7 +1406,7 @@ func TestAddBlockCreateDeleteAssetSameRound(t *testing.T) {
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 
-	assetid := uint64(1)
+	assetid := uint64Ptr(uint64(1))
 	// createTxn := test.MakeAssetConfigTxn(0, 3, 0, false, "", "", "", test.AccountA)
 	// deleteTxn := test.MakeAssetDestroyTxn(assetid, test.AccountA)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AddBlockCreateDeleteAssetSameRound.vb")
@@ -1460,7 +1460,7 @@ func TestAddBlockCreateDeleteAppSameRound(t *testing.T) {
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 
-	appid := uint64(1)
+	appid := uint64Ptr(uint64(1))
 
 	// createTxn := test.MakeCreateAppTxn(test.AccountA)
 	// deleteTxn := test.MakeAppDestroyTxn(appid, test.AccountA)
@@ -1495,7 +1495,7 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 	// createTxn := test.MakeCreateAppTxn(test.AccountA)
 	// optInTxn := test.MakeAppOptInTxn(appid, test.AccountB)
 	// optOutTxn := test.MakeAppOptOutTxn(appid, test.AccountB)
-	appid := uint64(1)
+	appid := uint64Ptr(uint64(1))
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AddBlockAppOptInOutSameRound.vb")
 	require.NoError(t, err)
 	err = db.AddBlock(&vb)
@@ -1533,7 +1533,7 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 	require.True(t, ok)
 	require.NoError(t, lsRow.Error)
 	ls := lsRow.AppLocalState
-	require.Equal(t, appid, ls.Id)
+	require.Equal(t, appid, uint64Ptr(ls.Id))
 	require.NotNil(t, ls.Deleted)
 	assert.True(t, *ls.Deleted)
 	require.NotNil(t, ls.OptedInAtRound)
