@@ -585,19 +585,17 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 		whereArgs = append(whereArgs, convertedTime)
 		partNumber++
 	}
-	if tf.AssetID != 0 || tf.ApplicationID != 0 {
+	if tf.AssetID != nil || tf.ApplicationID != nil {
 		var creatableID uint64
-		if tf.AssetID != 0 {
-			creatableID = tf.AssetID
-			if tf.ApplicationID != 0 {
-				if tf.AssetID == tf.ApplicationID {
-					// this is nonsense, but I'll allow it
-				} else {
+		if tf.AssetID != nil {
+			creatableID = *tf.AssetID
+			if tf.ApplicationID != nil {
+				if *tf.AssetID != *tf.ApplicationID {
 					return "", nil, fmt.Errorf("cannot search both assetid and appid")
 				}
 			}
 		} else {
-			creatableID = tf.ApplicationID
+			creatableID = *tf.ApplicationID
 		}
 		whereParts = append(whereParts, fmt.Sprintf("t.asset = $%d", partNumber))
 		whereArgs = append(whereArgs, creatableID)
@@ -1978,14 +1976,14 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 	whereParts := make([]string, 0, maxWhereParts)
 	whereArgs := make([]interface{}, 0, maxWhereParts)
 	partNumber := 1
-	if filter.AssetID != 0 {
+	if filter.AssetID != nil {
 		whereParts = append(whereParts, fmt.Sprintf("a.index = $%d", partNumber))
-		whereArgs = append(whereArgs, filter.AssetID)
+		whereArgs = append(whereArgs, *filter.AssetID)
 		partNumber++
 	}
-	if filter.AssetIDGreaterThan != 0 {
+	if filter.AssetIDGreaterThan != nil {
 		whereParts = append(whereParts, fmt.Sprintf("a.index > $%d", partNumber))
-		whereArgs = append(whereArgs, filter.AssetIDGreaterThan)
+		whereArgs = append(whereArgs, *filter.AssetIDGreaterThan)
 		partNumber++
 	}
 	if filter.Creator != nil {
@@ -2107,14 +2105,14 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 	whereParts := make([]string, 0, maxWhereParts)
 	whereArgs := make([]interface{}, 0, maxWhereParts)
 	partNumber := 1
-	if abq.AssetID != 0 {
+	if abq.AssetID != nil {
 		whereParts = append(whereParts, fmt.Sprintf("aa.assetid = $%d", partNumber))
-		whereArgs = append(whereArgs, abq.AssetID)
+		whereArgs = append(whereArgs, *abq.AssetID)
 		partNumber++
 	}
-	if abq.AssetIDGT != 0 {
+	if abq.AssetIDGT != nil {
 		whereParts = append(whereParts, fmt.Sprintf("aa.assetid > $%d", partNumber))
-		whereArgs = append(whereArgs, abq.AssetIDGT)
+		whereArgs = append(whereArgs, *abq.AssetIDGT)
 		partNumber++
 	}
 	if abq.Address != nil {
@@ -2234,9 +2232,9 @@ func (db *IndexerDb) Applications(ctx context.Context, filter idb.ApplicationQue
 	whereParts := make([]string, 0, maxWhereParts)
 	whereArgs := make([]interface{}, 0, maxWhereParts)
 	partNumber := 1
-	if filter.ApplicationID != 0 {
+	if filter.ApplicationID != nil {
 		whereParts = append(whereParts, fmt.Sprintf("index = $%d", partNumber))
-		whereArgs = append(whereArgs, filter.ApplicationID)
+		whereArgs = append(whereArgs, *filter.ApplicationID)
 		partNumber++
 	}
 	if filter.Address != nil {
@@ -2244,9 +2242,9 @@ func (db *IndexerDb) Applications(ctx context.Context, filter idb.ApplicationQue
 		whereArgs = append(whereArgs, filter.Address)
 		partNumber++
 	}
-	if filter.ApplicationIDGreaterThan != 0 {
+	if filter.ApplicationIDGreaterThan != nil {
 		whereParts = append(whereParts, fmt.Sprintf("index > $%d", partNumber))
-		whereArgs = append(whereArgs, filter.ApplicationIDGreaterThan)
+		whereArgs = append(whereArgs, *filter.ApplicationIDGreaterThan)
 		partNumber++
 	}
 	if !filter.IncludeDeleted {
@@ -2485,9 +2483,9 @@ func (db *IndexerDb) AppLocalState(ctx context.Context, filter idb.ApplicationQu
 	whereParts := make([]string, 0, maxWhereParts)
 	whereArgs := make([]interface{}, 0, maxWhereParts)
 	partNumber := 1
-	if filter.ApplicationID != 0 {
+	if filter.ApplicationID != nil {
 		whereParts = append(whereParts, fmt.Sprintf("app = $%d", partNumber))
-		whereArgs = append(whereArgs, filter.ApplicationID)
+		whereArgs = append(whereArgs, *filter.ApplicationID)
 		partNumber++
 	}
 	if filter.Address != nil {
@@ -2495,9 +2493,9 @@ func (db *IndexerDb) AppLocalState(ctx context.Context, filter idb.ApplicationQu
 		whereArgs = append(whereArgs, filter.Address)
 		partNumber++
 	}
-	if filter.ApplicationIDGreaterThan != 0 {
+	if filter.ApplicationIDGreaterThan != nil {
 		whereParts = append(whereParts, fmt.Sprintf("app > $%d", partNumber))
-		whereArgs = append(whereArgs, filter.ApplicationIDGreaterThan)
+		whereArgs = append(whereArgs, *filter.ApplicationIDGreaterThan)
 		partNumber++
 	}
 	if !filter.IncludeDeleted {

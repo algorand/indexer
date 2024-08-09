@@ -124,7 +124,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	err = db.AddBlock(&vb1)
 	require.NoError(t, err)
 
-	opts := idb.ApplicationQuery{ApplicationID: uint64(appid)}
+	opts := idb.ApplicationQuery{ApplicationID: uint64Ptr(uint64(appid))}
 
 	rowsCh, round := db.Applications(context.Background(), opts)
 	require.Equal(t, uint64(currentRound), round)
