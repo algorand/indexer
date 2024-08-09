@@ -223,6 +223,28 @@ func TestApplicationHandlers(t *testing.T) {
 			checkAppLocalState(t, &response.AppsLocalStates[0])
 		})
 	}
+
+	t.Run("app-0-query", func(t *testing.T) {
+		//////////
+		// When // We query an app that does not exist
+		//////////
+
+		c, api, rec := setupReq("/v2/applications/:appidx", "appidx", "0")
+		params := generated.LookupApplicationByIDParams{}
+		err = api.LookupApplicationByID(c, 0, params)
+		require.NoError(t, err)
+
+		//////////
+		// Then // The response is 404
+		//////////
+
+		require.Equal(t, http.StatusNotFound, rec.Code, fmt.Sprintf("unexpected return code, body: %s", rec.Body.String()))
+		data := rec.Body.Bytes()
+		var response generated.ErrorResponse
+		err = json.Decode(data, &response)
+		require.NoError(t, err)
+		require.Equal(t, "no application found for application-id: 0", response.Message)
+	})
 }
 
 func TestAccountExcludeParameters(t *testing.T) {
