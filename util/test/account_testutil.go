@@ -1,9 +1,9 @@
 package test
 
 import (
+	"crypto/rand"
 	"crypto/sha512"
 	"fmt"
-	"math/rand"
 
 	"github.com/algorand/indexer/v3/util"
 
@@ -58,7 +58,10 @@ func DecodeAddressOrPanic(addr string) sdk.Address {
 // This is necessary to ensure the hash of any two txns used in tests are never the same.
 func ArbitraryString() []byte {
 	arb := make([]byte, config.MaxTxnNoteBytes)
-	rand.Read(arb)
+	_, err := rand.Read(arb)
+	if err != nil {
+		panic("rand.Read error")
+	}
 	return arb
 }
 

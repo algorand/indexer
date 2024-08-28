@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,7 +28,7 @@ func algodStat(netpath string) (lastmod time.Time, err error) {
 func AlgodArgsForDataDir(datadir string) (netAddr string, token string, lastmod time.Time, err error) {
 	netpath, tokenpath := algodPaths(datadir)
 	var netaddrbytes []byte
-	netaddrbytes, err = ioutil.ReadFile(netpath)
+	netaddrbytes, err = os.ReadFile(netpath)
 	if err != nil {
 		err = fmt.Errorf("%s: %v", netpath, err)
 		return
@@ -39,7 +38,7 @@ func AlgodArgsForDataDir(datadir string) (netAddr string, token string, lastmod 
 		netAddr = "http://" + netAddr
 	}
 
-	tokenBytes, err := ioutil.ReadFile(tokenpath)
+	tokenBytes, err := os.ReadFile(tokenpath)
 	if err != nil {
 		err = fmt.Errorf("%s: %v", tokenpath, err)
 		return
