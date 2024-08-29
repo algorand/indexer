@@ -1992,12 +1992,12 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 	whereArgs := make([]interface{}, 0, maxWhereParts)
 	partNumber := 1
 	if filter.AssetID != nil {
-		whereParts = append(whereParts, fmt.Sprintf("a.index = $%d", partNumber))
+		whereParts = append(whereParts, fmt.Sprintf("a.id = $%d", partNumber))
 		whereArgs = append(whereArgs, *filter.AssetID)
 		partNumber++
 	}
 	if filter.AssetIDGreaterThan != nil {
-		whereParts = append(whereParts, fmt.Sprintf("a.index > $%d", partNumber))
+		whereParts = append(whereParts, fmt.Sprintf("a.id > $%d", partNumber))
 		whereArgs = append(whereArgs, *filter.AssetIDGreaterThan)
 		partNumber++
 	}
@@ -2248,7 +2248,7 @@ func (db *IndexerDb) Applications(ctx context.Context, filter idb.ApplicationQue
 	whereArgs := make([]interface{}, 0, maxWhereParts)
 	partNumber := 1
 	if filter.ApplicationID != nil {
-		whereParts = append(whereParts, fmt.Sprintf("index = $%d", partNumber))
+		whereParts = append(whereParts, fmt.Sprintf("id = $%d", partNumber))
 		whereArgs = append(whereArgs, *filter.ApplicationID)
 		partNumber++
 	}
@@ -2258,7 +2258,7 @@ func (db *IndexerDb) Applications(ctx context.Context, filter idb.ApplicationQue
 		partNumber++
 	}
 	if filter.ApplicationIDGreaterThan != nil {
-		whereParts = append(whereParts, fmt.Sprintf("index > $%d", partNumber))
+		whereParts = append(whereParts, fmt.Sprintf("id > $%d", partNumber))
 		whereArgs = append(whereArgs, *filter.ApplicationIDGreaterThan)
 		partNumber++
 	}
