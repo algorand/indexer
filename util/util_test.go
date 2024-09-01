@@ -12,7 +12,7 @@ import (
 
 func TestPrintableUTF8OrEmpty(t *testing.T) {
 	encodeArg := func(str string) string {
-		return base64.StdEncoding.EncodeToString([]byte("input"))
+		return base64.StdEncoding.EncodeToString([]byte(str))
 	}
 	tests := []struct {
 		name   string
@@ -28,6 +28,11 @@ func TestPrintableUTF8OrEmpty(t *testing.T) {
 			"Asset 510285544",
 			"8J+qmSBNb25leSwgd2FudAo=",
 			"",
+		},
+		{
+			"Emoji",
+			encodeArg("🫙"),
+			"🫙",
 		},
 	}
 	for _, tt := range tests {

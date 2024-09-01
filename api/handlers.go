@@ -59,7 +59,8 @@ func validateTransactionFilter(filter *idb.TransactionFilter) error {
 	// Round or application-id or asset-id is greater than math.MaxInt64
 	if filter.MinRound > math.MaxInt64 || filter.MaxRound > math.MaxInt64 ||
 		(filter.Round != nil && *filter.Round > math.MaxInt64) ||
-		filter.AssetID > math.MaxInt64 || filter.ApplicationID > math.MaxInt64 {
+		(filter.AssetID != nil && *filter.AssetID > math.MaxInt64) ||
+		(filter.ApplicationID != nil && *filter.ApplicationID > math.MaxInt64) {
 		errorArr = append(errorArr, errValueExceedingInt64)
 	}
 
@@ -304,18 +305,18 @@ func (si *ServerImplementation) LookupAccountAssets(ctx echo.Context, accountID 
 		return badRequest(ctx, errors[0])
 	}
 
-	var assetGreaterThan uint64 = 0
+	var assetGreaterThan *uint64
 	if params.Next != nil {
 		agt, err := strconv.ParseUint(*params.Next, 10, 64)
 		if err != nil {
 			return badRequest(ctx, fmt.Sprintf("%s: %v", errUnableToParseNext, err))
 		}
-		assetGreaterThan = agt
+		assetGreaterThan = &agt
 	}
 
 	query := idb.AssetBalanceQuery{
 		Address:        addr,
-		AssetID:        uintOrDefault(params.AssetId),
+		AssetID:        params.AssetId,
 		AssetIDGT:      assetGreaterThan,
 		IncludeDeleted: boolOrDefault(params.IncludeAll),
 		Limit:          min(uintOrDefaultValue(params.Limit, si.opts.DefaultBalancesLimit), si.opts.MaxBalancesLimit),
@@ -545,7 +546,7 @@ func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicat
 		return notFound(ctx, errValueExceedingInt64)
 	}
 	q := idb.ApplicationQuery{
-		ApplicationID:  applicationID,
+		ApplicationID:  uint64Ptr(applicationID),
 		IncludeDeleted: boolOrDefault(params.IncludeAll),
 		Limit:          1,
 	}
@@ -819,7 +820,7 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID ui
 	}
 
 	query := idb.AssetBalanceQuery{
-		AssetID:        assetID,
+		AssetID:        &assetID,
 		AmountGT:       params.CurrencyGreaterThan,
 		AmountLT:       params.CurrencyLessThan,
 		IncludeDeleted: boolOrDefault(params.IncludeAll),
@@ -1308,16 +1309,22 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64, op
 			UpgradePropose: strPtr(string(blockHeader.UpgradePropose)),
 		}
 
-		var partUpdates *generated.ParticipationUpdates
+		var partUpdates *generated.ParticipationUpdates = &generated.ParticipationUpdates{}
 		if len(blockHeader.ExpiredParticipationAccounts) > 0 {
 			addrs := make([]string, len(blockHeader.ExpiredParticipationAccounts))
 			for i := 0; i < len(addrs); i++ {
 				addrs[i] = blockHeader.ExpiredParticipationAccounts[i].String()
 			}
-			partUpdates = &generated.ParticipationUpdates{
-				ExpiredParticipationAccounts: strArrayPtr(addrs),
+			partUpdates.ExpiredParticipationAccounts = strArrayPtr(addrs)
+		}
+		if len(blockHeader.AbsentParticipationAccounts) > 0 {
+			addrs := make([]string, len(blockHeader.AbsentParticipationAccounts))
+			for i := 0; i < len(addrs); i++ {
+				addrs[i] = blockHeader.AbsentParticipationAccounts[i].String()
 			}
-		} else {
+			partUpdates.AbsentParticipationAccounts = strArrayPtr(addrs)
+		}
+		if *partUpdates == (generated.ParticipationUpdates{}) {
 			partUpdates = nil
 		}
 
@@ -1342,10 +1349,14 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64, op
 		}
 
 		ret = generated.Block{
+			Bonus:                  uint64PtrOrNil(uint64(blockHeader.Bonus)),
+			FeesCollected:          uint64PtrOrNil(uint64(blockHeader.FeesCollected)),
 			GenesisHash:            blockHeader.GenesisHash[:],
 			GenesisId:              blockHeader.GenesisID,
 			ParticipationUpdates:   partUpdates,
 			PreviousBlockHash:      blockHeader.Branch[:],
+			Proposer:               addrPtr(blockHeader.Proposer),
+			ProposerPayout:         uint64PtrOrNil(uint64(blockHeader.ProposerPayout)),
 			Rewards:                &rewards,
 			Round:                  uint64(blockHeader.Round),
 			Seed:                   blockHeader.Seed[:],

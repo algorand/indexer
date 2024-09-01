@@ -9,7 +9,11 @@ type AlgodEncodedAddress sdk.Address
 
 type blockHeader struct {
 	sdk.BlockHeader
+	// these "override" fields are used to encode these arrays of addresses as
+	// human-readable strings, instead of base64.
+	ProposerOverride                     AlgodEncodedAddress   `codec:"prp"`
 	ExpiredParticipationAccountsOverride []AlgodEncodedAddress `codec:"partupdrmv"`
+	AbsentParticipationAccountsOverride  []AlgodEncodedAddress `codec:"partupdabs"`
 }
 
 type assetParams struct {
@@ -87,22 +91,12 @@ type appParams struct {
 	GlobalStateOverride tealKeyValue `codec:"gs"`
 }
 
-type baseOnlineAccountData struct {
-	_struct struct{} `codec:",omitempty,omitemptyarray"`
-
-	VoteID          sdk.OneTimeSignatureVerifier `codec:"vote"`
-	SelectionID     sdk.VRFVerifier              `codec:"sel"`
-	StateProofID    sdk.Commitment               `codec:"stprf"`
-	VoteFirstValid  sdk.Round                    `codec:"voteFst"`
-	VoteLastValid   sdk.Round                    `codec:"voteLst"`
-	VoteKeyDilution uint64                       `codec:"voteKD"`
-}
-
 type baseAccountData struct {
 	_struct struct{} `codec:",omitempty,omitemptyarray"`
 
 	Status              sdk.Status      `codec:"onl"`
 	AuthAddr            sdk.Address     `codec:"spend"`
+	IncentiveEligible   bool            `codec:"ie"`
 	TotalAppSchema      sdk.StateSchema `codec:"tsch"`
 	TotalExtraAppPages  uint32          `codec:"teap"`
 	TotalAssetParams    uint64          `codec:"tasp"`
@@ -112,5 +106,13 @@ type baseAccountData struct {
 	TotalBoxes          uint64          `codec:"tbx"`
 	TotalBoxBytes       uint64          `codec:"tbxb"`
 
-	baseOnlineAccountData
+	LastProposed  sdk.Round `codec:"lpr"`
+	LastHeartbeat sdk.Round `codec:"lhb"`
+
+	VoteID          sdk.OneTimeSignatureVerifier `codec:"vote"`
+	SelectionID     sdk.VRFVerifier              `codec:"sel"`
+	StateProofID    sdk.Commitment               `codec:"stprf"`
+	VoteFirstValid  sdk.Round                    `codec:"voteFst"`
+	VoteLastValid   sdk.Round                    `codec:"voteLst"`
+	VoteKeyDilution uint64                       `codec:"voteKD"`
 }

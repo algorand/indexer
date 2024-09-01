@@ -1,14 +1,4 @@
-SRCPATH		:= $(shell pwd)
-OS_TYPE		?= $(shell $(SRCPATH)/mule/scripts/ostype.sh)
-ARCH		?= $(shell $(SRCPATH)/mule/scripts/archtype.sh)
-ifeq ($(OS_TYPE), darwin)
-ifeq ($(ARCH), arm64)
-export CPATH=/opt/homebrew/include
-export LIBRARY_PATH=/opt/homebrew/lib
-endif
-endif
 export GOPATH := $(shell go env GOPATH)
-GOPATH1 := $(firstword $(subst :, ,$(GOPATH)))
 
 GOLDFLAGS += -X github.com/algorand/indexer/v3/version.Hash=$(shell git log -n 1 --pretty="%H")
 GOLDFLAGS += -X github.com/algorand/indexer/v3/version.CompileTime=$(shell date -u +%Y-%m-%dT%H:%M:%S%z)

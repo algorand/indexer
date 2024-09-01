@@ -1,127 +1,109 @@
--- This file is setup_postgres.sql which gets compiled into go source using a go:generate statement in postgres.go
---
--- TODO? replace all 'addr bytea' with 'addr_id bigint' and a mapping table? makes addrs an 8 byte int that fits in a register instead of a 32 byte string
 
-CREATE TABLE IF NOT EXISTS block_header (
-  round bigint PRIMARY KEY,
-  realtime timestamp without time zone NOT NULL,
-  rewardslevel bigint NOT NULL,
-  header jsonb NOT NULL
+CREATE TABLE public.block_header (
+    round INT8 NOT NULL,
+    realtime TIMESTAMP NOT NULL,
+    rewardslevel INT8 NOT NULL,
+    header JSONB NOT NULL,
+    CONSTRAINT block_header_pkey PRIMARY KEY (round ASC),
+    INDEX block_header_time (realtime ASC)
 );
 
--- For looking round by timestamp. We could replace this with a round-to-timestamp algorithm, it should be extremely
--- efficient since there is such a high correlation between round and time.
-CREATE INDEX IF NOT EXISTS block_header_time ON block_header (realtime);
-
-CREATE TABLE IF NOT EXISTS txn (
-  round bigint NOT NULL,
-  intra integer NOT NULL,
-  typeenum smallint NOT NULL,
-  asset bigint NOT NULL, -- 0=Algos, otherwise AssetIndex
-  txid bytea, -- base32 of [32]byte hash, or NULL for inner transactions.
-  txn jsonb NOT NULL, -- json encoding of signed txn with apply data; inner txns exclude nested inner txns
-  extra jsonb NOT NULL,
-  PRIMARY KEY ( round, intra )
+CREATE TABLE public.txn (
+    round INT8 NOT NULL,
+    intra INT8 NOT NULL,
+    typeenum INT2 NOT NULL,
+    asset INT8 NOT NULL,
+    txid BYTES NULL,
+    txn JSONB NOT NULL,
+    extra JSONB NOT NULL,
+    note3 BYTES NULL AS (substring(decode((txn->'txn':::STRING)->>'note':::STRING, 'base64':::STRING), 1:::INT8, 3:::INT8)) STORED,
+    CONSTRAINT txn_pkey PRIMARY KEY (round ASC, intra ASC),
+    INDEX ndly_txn_asset_extra (asset ASC, round ASC, intra ASC) STORING (txn, extra) WHERE asset > 0:::INT8,
+    INDEX ndly_txn_txid (txid ASC) STORING (asset, txn, extra),
+    INDEX ndly_txn_note3 (note3 ASC) WHERE (note3 IS NOT NULL) AND (note3 != '\x000000':::BYTES)
 );
 
--- For transaction lookup
-CREATE INDEX IF NOT EXISTS txn_by_tixid ON txn ( txid );
-
--- Optional, to make txn queries by asset fast:
--- CREATE INDEX CONCURRENTLY IF NOT EXISTS txn_asset ON txn (asset, round, intra);
-
-CREATE TABLE IF NOT EXISTS txn_participation (
-  addr bytea NOT NULL,
-  round bigint NOT NULL,
-  intra integer NOT NULL
+CREATE TABLE public.account (
+    addr BYTES NOT NULL,
+    microalgos INT8 NOT NULL,
+    rewardsbase INT8 NOT NULL,
+    rewards_total INT8 NOT NULL,
+    deleted BOOL NOT NULL,
+    created_at INT8 NOT NULL,
+    closed_at INT8 NULL,
+    keytype VARCHAR(8) NULL,
+    account_data JSONB NOT NULL,
+    CONSTRAINT account_pkey PRIMARY KEY (addr ASC)
 );
 
--- For query account transactions
-CREATE UNIQUE INDEX IF NOT EXISTS txn_participation_i ON txn_participation ( addr, round DESC, intra DESC );
-
--- expand data.basics.AccountData
-CREATE TABLE IF NOT EXISTS account (
-  addr bytea primary key,
-  microalgos bigint NOT NULL, -- okay because less than 2^54 Algos
-  rewardsbase bigint NOT NULL,
-  rewards_total bigint NOT NULL,
-  deleted bool NOT NULL, -- whether or not it is currently deleted
-  created_at bigint NOT NULL, -- round that the account is first used
-  closed_at bigint, -- round that the account was last closed
-  keytype varchar(8), -- "sig", "msig", "lsig", or NULL if unknown
-  account_data jsonb NOT NULL -- trimmed ledgercore.AccountData that excludes the fields above; SQL 'NOT NULL' is held though the json string will be "null" iff account is deleted
+CREATE TABLE public.account_asset (
+    addr BYTES NOT NULL,
+    assetid INT8 NOT NULL,
+    amount DECIMAL(20) NOT NULL,
+    frozen BOOL NOT NULL,
+    deleted BOOL NOT NULL,
+    created_at INT8 NOT NULL,
+    closed_at INT8 NULL,
+    CONSTRAINT account_asset_pkey PRIMARY KEY (addr ASC, assetid ASC),
+    INDEX account_asset_by_addr_partial (addr ASC) WHERE NOT deleted,
+    INDEX account_asset_asset (assetid ASC, addr ASC),
+    INDEX ndly_account_asset_holder (assetid ASC, amount DESC) WHERE amount > 0:::DECIMAL,
+    INDEX ndly_account_asset_optedin (assetid ASC, amount DESC) STORING (frozen, deleted, created_at, closed_at) WHERE NOT deleted
 );
 
--- data.basics.AccountData Assets[asset id] AssetHolding{}
-CREATE TABLE IF NOT EXISTS account_asset (
-  addr bytea NOT NULL, -- [32]byte
-  assetid bigint NOT NULL,
-  amount numeric(20) NOT NULL, -- need the full 18446744073709551615
-  frozen boolean NOT NULL,
-  deleted bool NOT NULL, -- whether or not it is currently deleted
-  created_at bigint NOT NULL, -- round that the asset was added to an account
-  closed_at bigint, -- round that the asset was last removed from the account
-  PRIMARY KEY (addr, assetid)
+CREATE TABLE public.asset (
+    id INT8 NOT NULL,
+    creator_addr BYTES NOT NULL,
+    params JSONB NOT NULL,
+    deleted BOOL NOT NULL,
+    created_at INT8 NOT NULL,
+    closed_at INT8 NULL,
+    CONSTRAINT asset_pkey PRIMARY KEY (id ASC),
+    INDEX ndly_asset_by_creator_addr_deleted (creator_addr ASC, deleted ASC) STORING (params, created_at, closed_at),
+    INVERTED INDEX ndly_asset_params_an ((params->>'an':::STRING) gin_trgm_ops),
+    INVERTED INDEX ndly_asset_params_un ((params->>'un':::STRING) gin_trgm_ops)
 );
 
--- For lookup up existing assets by account
-CREATE INDEX IF NOT EXISTS account_asset_by_addr_partial ON account_asset(addr) WHERE NOT deleted;
-
--- Optional, to make queries of all asset balances fast /v2/assets/<assetid>/balances
--- CREATE INDEX CONCURRENTLY IF NOT EXISTS account_asset_asset ON account_asset (assetid, addr ASC);
-
--- data.basics.AccountData AssetParams[index] AssetParams{}
-CREATE TABLE IF NOT EXISTS asset (
-  index bigint PRIMARY KEY,
-  creator_addr bytea NOT NULL,
-  params jsonb NOT NULL, -- data.basics.AssetParams; json string "null" iff asset is deleted
-  deleted bool NOT NULL, -- whether or not it is currently deleted
-  created_at bigint NOT NULL, -- round that the asset was created
-  closed_at bigint -- round that the asset was closed; cannot be recreated because the index is unique
+CREATE TABLE public.metastate (
+    k STRING NOT NULL,
+    v JSONB NULL,
+    CONSTRAINT metastate_pkey PRIMARY KEY (k ASC)
 );
 
--- For account lookup
-CREATE INDEX IF NOT EXISTS asset_by_creator_addr_deleted ON asset(creator_addr, deleted);
-
--- Includes indexer import state, migration state, special accounts (fee sink and
--- rewards pool) and account totals.
-CREATE TABLE IF NOT EXISTS metastate (
-  k text primary key,
-  v jsonb
+CREATE TABLE public.app (
+    id INT8 NOT NULL,
+    creator BYTES NOT NULL,
+    params JSONB NOT NULL,
+    deleted BOOL NOT NULL,
+    created_at INT8 NOT NULL,
+    closed_at INT8 NULL,
+    CONSTRAINT app_pkey PRIMARY KEY (id ASC),
+    INDEX app_by_creator_deleted (creator ASC, deleted ASC)
 );
 
--- per app global state
--- roughly go-algorand/data/basics/userBalance.go AppParams
-CREATE TABLE IF NOT EXISTS app (
-  index bigint PRIMARY KEY,
-  creator bytea NOT NULL, -- account address
-  params jsonb NOT NULL, -- json string "null" iff app is deleted
-  deleted bool NOT NULL, -- whether or not it is currently deleted
-  created_at bigint NOT NULL, -- round that the asset was created
-  closed_at bigint -- round that the app was deleted; cannot be recreated because the index is unique
+CREATE TABLE public.account_app (
+    addr BYTES NOT NULL,
+    app INT8 NOT NULL,
+    localstate JSONB NOT NULL,
+    deleted BOOL NOT NULL,
+    created_at INT8 NOT NULL,
+    closed_at INT8 NULL,
+    CONSTRAINT account_app_pkey PRIMARY KEY (addr ASC, app ASC),
+    INDEX account_app_by_addr_partial (addr ASC) WHERE NOT deleted,
+    INDEX ndly_account_app_app (app ASC, addr ASC)
 );
 
--- For account lookup
-CREATE INDEX IF NOT EXISTS app_by_creator_deleted ON app(creator, deleted);
-
--- per-account app local state
-CREATE TABLE IF NOT EXISTS account_app (
-  addr bytea,
-  app bigint,
-  localstate jsonb NOT NULL, -- json string "null" iff deleted from the account
-  deleted bool NOT NULL, -- whether or not it is currently deleted
-  created_at bigint NOT NULL, -- round that the app was added to an account
-  closed_at bigint, -- round that the account_app was last removed from the account
-  PRIMARY KEY (addr, app)
+CREATE TABLE public.app_box (
+    app INT8 NOT NULL,
+    name BYTES NOT NULL,
+    value BYTES NOT NULL,
+    CONSTRAINT app_box_pkey PRIMARY KEY (app ASC, name ASC)
 );
 
--- For looking up existing app local states by account
-CREATE INDEX IF NOT EXISTS account_app_by_addr_partial ON account_app(addr) WHERE NOT deleted;
-
--- For looking up app box storage
-CREATE TABLE IF NOT EXISTS app_box (
-  app bigint NOT NULL,
-  name bytea NOT NULL,
-  value bytea NOT NULL, -- upon creation 'value' is 0x000...000 with length being the box'es size
-  PRIMARY KEY (app, name)
+CREATE TABLE public.txn_participation (
+    addr BYTES NOT NULL,
+    round INT8 NOT NULL,
+    intra INT8 NOT NULL,
+    CONSTRAINT txn_participation_pkey PRIMARY KEY (addr ASC, round DESC, intra DESC),
+    INDEX ndly_txn_participation_rnd (round ASC)
 );

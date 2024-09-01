@@ -585,19 +585,17 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 		whereArgs = append(whereArgs, convertedTime)
 		partNumber++
 	}
-	if tf.AssetID != 0 || tf.ApplicationID != 0 {
+	if tf.AssetID != nil || tf.ApplicationID != nil {
 		var creatableID uint64
-		if tf.AssetID != 0 {
-			creatableID = tf.AssetID
-			if tf.ApplicationID != 0 {
-				if tf.AssetID == tf.ApplicationID {
-					// this is nonsense, but I'll allow it
-				} else {
+		if tf.AssetID != nil {
+			creatableID = *tf.AssetID
+			if tf.ApplicationID != nil {
+				if *tf.AssetID != *tf.ApplicationID {
 					return "", nil, fmt.Errorf("cannot search both assetid and appid")
 				}
 			}
 		} else {
-			creatableID = tf.ApplicationID
+			creatableID = *tf.ApplicationID
 		}
 		whereParts = append(whereParts, fmt.Sprintf("t.asset = $%d", partNumber))
 		whereArgs = append(whereArgs, creatableID)
@@ -1002,6 +1000,17 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			db.log.Warnf("long query %fs: %s", dt.Seconds(), req.query)
 		}
 	}()
+	var proto config.ConsensusParams
+	{
+		var ok bool
+		// temporarily cast req.blockheader.CurrentProtocol(string) to protocol.ConsensusVersion
+		proto, ok = config.Consensus[protocol.ConsensusVersion(req.blockheader.CurrentProtocol)]
+		if !ok {
+			err := fmt.Errorf("get protocol err (%s)", req.blockheader.CurrentProtocol)
+			req.out <- idb.AccountRow{Error: err}
+			return
+		}
+	}
 	for req.rows.Next() {
 		var addr []byte
 		var microalgos uint64
@@ -1117,21 +1126,14 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			if !accountData.AuthAddr.IsZero() {
 				var spendingkey sdk.Address
 				copy(spendingkey[:], accountData.AuthAddr[:])
-				account.AuthAddr = stringPtr(spendingkey.String())
+				account.AuthAddr = omitEmpty(spendingkey.String())
 			}
 
-			{
-				totalSchema := models.ApplicationStateSchema{
-					NumByteSlice: accountData.TotalAppSchema.NumByteSlice,
-					NumUint:      accountData.TotalAppSchema.NumUint,
-				}
-				if totalSchema != (models.ApplicationStateSchema{}) {
-					account.AppsTotalSchema = &totalSchema
-				}
-			}
-			if accountData.TotalExtraAppPages != 0 {
-				account.AppsTotalExtraPages = uint64Ptr(uint64(accountData.TotalExtraAppPages))
-			}
+			account.AppsTotalSchema = omitEmpty(models.ApplicationStateSchema{
+				NumByteSlice: accountData.TotalAppSchema.NumByteSlice,
+				NumUint:      accountData.TotalAppSchema.NumUint,
+			})
+			account.AppsTotalExtraPages = omitEmpty(uint64(accountData.TotalExtraAppPages))
 
 			account.TotalAppsOptedIn = accountData.TotalAppLocalStates
 			account.TotalCreatedApps = accountData.TotalAppParams
@@ -1140,20 +1142,18 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 
 			account.TotalBoxes = accountData.TotalBoxes
 			account.TotalBoxBytes = accountData.TotalBoxBytes
+
+			account.IncentiveEligible = omitEmpty(accountData.IncentiveEligible)
+			account.LastHeartbeat = omitEmpty(uint64(accountData.LastHeartbeat))
+			account.LastProposed = omitEmpty(uint64(accountData.LastProposed))
+
+			account.MinBalance = itypes.AccountMinBalance(accountData, &proto)
 		}
 
 		if account.Status == "NotParticipating" {
 			account.PendingRewards = 0
 		} else {
 			// TODO: pending rewards calculation doesn't belong in database layer (this is just the most covenient place which has all the data)
-			// TODO: replace config.Consensus. config.Consensus map[protocol.ConsensusVersion]ConsensusParams
-			// temporarily cast req.blockheader.CurrentProtocol(string) to protocol.ConsensusVersion
-			proto, ok := config.Consensus[protocol.ConsensusVersion(req.blockheader.CurrentProtocol)]
-			if !ok {
-				err = fmt.Errorf("get protocol err (%s)", req.blockheader.CurrentProtocol)
-				req.out <- idb.AccountRow{Error: err}
-				break
-			}
 			rewardsUnits := uint64(0)
 			if proto.RewardUnit != 0 {
 				rewardsUnits = microalgos / proto.RewardUnit
@@ -1311,11 +1311,11 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 						Total:         ap.Total,
 						Decimals:      uint64(ap.Decimals),
 						DefaultFrozen: boolPtr(ap.DefaultFrozen),
-						UnitName:      stringPtr(util.PrintableUTF8OrEmpty(ap.UnitName)),
+						UnitName:      omitEmpty(util.PrintableUTF8OrEmpty(ap.UnitName)),
 						UnitNameB64:   byteSlicePtr([]byte(ap.UnitName)),
-						Name:          stringPtr(util.PrintableUTF8OrEmpty(ap.AssetName)),
+						Name:          omitEmpty(util.PrintableUTF8OrEmpty(ap.AssetName)),
 						NameB64:       byteSlicePtr([]byte(ap.AssetName)),
-						Url:           stringPtr(util.PrintableUTF8OrEmpty(ap.URL)),
+						Url:           omitEmpty(util.PrintableUTF8OrEmpty(ap.URL)),
 						UrlB64:        byteSlicePtr([]byte(ap.URL)),
 						MetadataHash:  byteSliceOmitZeroPtr(ap.MetadataHash[:]),
 						Manager:       addrStr(ap.Manager),
@@ -1499,6 +1499,15 @@ func uintOrDefault(x *uint64) uint64 {
 	return 0
 }
 
+// omitEmpty defines a handy impl for all comparable types to convert from default value to nil ptr
+func omitEmpty[T comparable](val T) *T {
+	var defaultVal T
+	if val == defaultVal {
+		return nil
+	}
+	return &val
+}
+
 func uint64Ptr(x uint64) *uint64 {
 	out := new(uint64)
 	*out = x
@@ -1507,15 +1516,6 @@ func uint64Ptr(x uint64) *uint64 {
 
 func boolPtr(x bool) *bool {
 	out := new(bool)
-	*out = x
-	return out
-}
-
-func stringPtr(x string) *string {
-	if len(x) == 0 {
-		return nil
-	}
-	out := new(string)
 	*out = x
 	return out
 }
@@ -1803,6 +1803,8 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions, countOnly b
 			whereArgs = append(whereArgs, *opts.AssetLT)
 			partNumber++
 		}
+
+		// We want to limit the size of the results in this query to what could actually be needed
 		if len(opts.GreaterThanAddress) > 0 {
 			aq += fmt.Sprintf(" AND addr > $%d", partNumber)
 			whereArgs = append(whereArgs, opts.GreaterThanAddress)
@@ -1815,6 +1817,7 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions, countOnly b
 		aq := fmt.Sprintf("SELECT addr FROM account_app WHERE app = $%d", partNumber)
 		whereArgs = append(whereArgs, opts.HasAppID)
 		partNumber++
+
 		if len(opts.GreaterThanAddress) > 0 {
 			aq += fmt.Sprintf(" AND addr > $%d", partNumber)
 			whereArgs = append(whereArgs, opts.GreaterThanAddress)
@@ -1988,14 +1991,14 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 	whereParts := make([]string, 0, maxWhereParts)
 	whereArgs := make([]interface{}, 0, maxWhereParts)
 	partNumber := 1
-	if filter.AssetID != 0 {
+	if filter.AssetID != nil {
 		whereParts = append(whereParts, fmt.Sprintf("a.id = $%d", partNumber))
-		whereArgs = append(whereArgs, filter.AssetID)
+		whereArgs = append(whereArgs, *filter.AssetID)
 		partNumber++
 	}
-	if filter.AssetIDGreaterThan != 0 {
+	if filter.AssetIDGreaterThan != nil {
 		whereParts = append(whereParts, fmt.Sprintf("a.id > $%d", partNumber))
-		whereArgs = append(whereArgs, filter.AssetIDGreaterThan)
+		whereArgs = append(whereArgs, *filter.AssetIDGreaterThan)
 		partNumber++
 	}
 	if filter.Creator != nil {
@@ -2117,14 +2120,14 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 	whereParts := make([]string, 0, maxWhereParts)
 	whereArgs := make([]interface{}, 0, maxWhereParts)
 	partNumber := 1
-	if abq.AssetID != 0 {
+	if abq.AssetID != nil {
 		whereParts = append(whereParts, fmt.Sprintf("aa.assetid = $%d", partNumber))
-		whereArgs = append(whereArgs, abq.AssetID)
+		whereArgs = append(whereArgs, *abq.AssetID)
 		partNumber++
 	}
-	if abq.AssetIDGT != 0 {
+	if abq.AssetIDGT != nil {
 		whereParts = append(whereParts, fmt.Sprintf("aa.assetid > $%d", partNumber))
-		whereArgs = append(whereArgs, abq.AssetIDGT)
+		whereArgs = append(whereArgs, *abq.AssetIDGT)
 		partNumber++
 	}
 	if abq.Address != nil {
@@ -2244,9 +2247,9 @@ func (db *IndexerDb) Applications(ctx context.Context, filter idb.ApplicationQue
 	whereParts := make([]string, 0, maxWhereParts)
 	whereArgs := make([]interface{}, 0, maxWhereParts)
 	partNumber := 1
-	if filter.ApplicationID != 0 {
+	if filter.ApplicationID != nil {
 		whereParts = append(whereParts, fmt.Sprintf("id = $%d", partNumber))
-		whereArgs = append(whereArgs, filter.ApplicationID)
+		whereArgs = append(whereArgs, *filter.ApplicationID)
 		partNumber++
 	}
 	if filter.Address != nil {
@@ -2254,9 +2257,9 @@ func (db *IndexerDb) Applications(ctx context.Context, filter idb.ApplicationQue
 		whereArgs = append(whereArgs, filter.Address)
 		partNumber++
 	}
-	if filter.ApplicationIDGreaterThan != 0 {
+	if filter.ApplicationIDGreaterThan != nil {
 		whereParts = append(whereParts, fmt.Sprintf("id > $%d", partNumber))
-		whereArgs = append(whereArgs, filter.ApplicationIDGreaterThan)
+		whereArgs = append(whereArgs, *filter.ApplicationIDGreaterThan)
 		partNumber++
 	}
 	if !filter.IncludeDeleted {
@@ -2495,9 +2498,9 @@ func (db *IndexerDb) AppLocalState(ctx context.Context, filter idb.ApplicationQu
 	whereParts := make([]string, 0, maxWhereParts)
 	whereArgs := make([]interface{}, 0, maxWhereParts)
 	partNumber := 1
-	if filter.ApplicationID != 0 {
+	if filter.ApplicationID != nil {
 		whereParts = append(whereParts, fmt.Sprintf("app = $%d", partNumber))
-		whereArgs = append(whereArgs, filter.ApplicationID)
+		whereArgs = append(whereArgs, *filter.ApplicationID)
 		partNumber++
 	}
 	if filter.Address != nil {
@@ -2505,9 +2508,9 @@ func (db *IndexerDb) AppLocalState(ctx context.Context, filter idb.ApplicationQu
 		whereArgs = append(whereArgs, filter.Address)
 		partNumber++
 	}
-	if filter.ApplicationIDGreaterThan != 0 {
+	if filter.ApplicationIDGreaterThan != nil {
 		whereParts = append(whereParts, fmt.Sprintf("app > $%d", partNumber))
-		whereArgs = append(whereArgs, filter.ApplicationIDGreaterThan)
+		whereArgs = append(whereArgs, *filter.ApplicationIDGreaterThan)
 		partNumber++
 	}
 	if !filter.IncludeDeleted {

@@ -230,12 +230,14 @@ func TestBlockHeaderEncoding(t *testing.T) {
 		},
 		ParticipationUpdates: sdk.ParticipationUpdates{
 			ExpiredParticipationAccounts: []sdk.Address{newaddr()},
+			AbsentParticipationAccounts:  []sdk.Address{newaddr()},
 		},
+		Proposer: newaddr(),
 	}
 
 	buf := EncodeBlockHeader(header)
 
-	template := `{"fees":"AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","partupdrmv":["%s"],"prev":"BQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","rnd":3,"rwd":"AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}`
+	template := `{"fees":"AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","partupdabs":["AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJVBPJXY"],"partupdrmv":["%s"],"prev":"BQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","prp":"AUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITAR5VI","rnd":3,"rwd":"AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}`
 	expectedString := fmt.Sprintf(template, "AMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANVWEXNA")
 	assert.Equal(t, expectedString, string(buf))
 
@@ -539,6 +541,9 @@ func TestLcAccountDataEncoding(t *testing.T) {
 			TotalAssets:         13,
 			TotalBoxes:          20,
 			TotalBoxBytes:       21,
+			LastHeartbeat:       22,
+			LastProposed:        23,
+			IncentiveEligible:   true,
 		},
 		VotingData: sdk.VotingData{
 			VoteID:          voteID,
@@ -551,7 +556,7 @@ func TestLcAccountDataEncoding(t *testing.T) {
 	}
 	buf := EncodeTrimmedLcAccountData(ad)
 
-	expectedString := `{"onl":1,"sel":"DwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","spend":"BgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","stprf":"EwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==","tapl":11,"tapp":10,"tas":13,"tasp":12,"tbx":20,"tbxb":21,"teap":9,"tsch":{"nbs":8,"nui":7},"vote":"DgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","voteFst":16,"voteKD":18,"voteLst":17}`
+	expectedString := `{"ie":true,"lhb":22,"lpr":23,"onl":1,"sel":"DwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","spend":"BgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","stprf":"EwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==","tapl":11,"tapp":10,"tas":13,"tasp":12,"tbx":20,"tbxb":21,"teap":9,"tsch":{"nbs":8,"nui":7},"vote":"DgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","voteFst":16,"voteKD":18,"voteLst":17}`
 	assert.Equal(t, expectedString, string(buf))
 
 	decodedAd, err := DecodeTrimmedLcAccountData(buf)
