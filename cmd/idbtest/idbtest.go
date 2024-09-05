@@ -9,14 +9,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/algorand/indexer/v3/accounting"
 	models "github.com/algorand/indexer/v3/api/generated/v2"
 	"github.com/algorand/indexer/v3/idb"
 	_ "github.com/algorand/indexer/v3/idb/postgres"
 	"github.com/algorand/indexer/v3/util"
 	testutil "github.com/algorand/indexer/v3/util/test"
 
-	ajson "github.com/algorand/go-algorand-sdk/v2/encoding/json"
 	sdk_types "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
@@ -145,24 +143,6 @@ func main() {
 	}
 	if assettest {
 		doAssetQueryTests(db)
-	}
-
-	if false {
-		// account rewind debug
-		xa, _ := sdk_types.DecodeAddress("QRP4AJLQXHJ42VJ5PSGAH53IVVACYCI6ZDRJMF4JPRFY5VKSYKFWKKMFVU")
-		account, err := getAccount(db, xa[:])
-		fmt.Printf("account %s\n", string(ajson.Encode(account)))
-		maybeFail(err, "addr lookup, %v", err)
-		round := uint64(5426258)
-		tf := idb.TransactionFilter{
-			Address:  xa[:],
-			MinRound: round - 100,
-			MaxRound: account.Round,
-		}
-		printTxnQuery(db, tf)
-		raccount, err := accounting.AccountAtRound(context.Background(), account, round, db)
-		maybeFail(err, "AccountAtRound, %v", err)
-		fmt.Printf("raccount %s\n", string(ajson.Encode(raccount)))
 	}
 
 	if txntest {

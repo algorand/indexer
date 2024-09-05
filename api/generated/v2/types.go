@@ -1499,9 +1499,6 @@ type SearchForAccountsParams struct {
 	// AuthAddr Include accounts configured to use this spending key.
 	AuthAddr *string `form:"auth-addr,omitempty" json:"auth-addr,omitempty"`
 
-	// Round Include results for the specified round. For performance reasons, this parameter may be disabled on some configurations. Using application-id or asset-id filters will return both creator and opt-in accounts. Filtering by include-all will return creator and opt-in accounts for deleted assets and accounts. Non-opt-in managers are not included in the results when asset-id is used.
-	Round *uint64 `form:"round,omitempty" json:"round,omitempty"`
-
 	// ApplicationId Application ID
 	ApplicationId *uint64 `form:"application-id,omitempty" json:"application-id,omitempty"`
 }
@@ -1511,9 +1508,6 @@ type SearchForAccountsParamsExclude string
 
 // LookupAccountByIDParams defines parameters for LookupAccountByID.
 type LookupAccountByIDParams struct {
-	// Round Include results for the specified round.
-	Round *uint64 `form:"round,omitempty" json:"round,omitempty"`
-
 	// IncludeAll Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.
 	IncludeAll *bool `form:"include-all,omitempty" json:"include-all,omitempty"`
 

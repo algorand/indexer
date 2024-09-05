@@ -2480,14 +2480,6 @@
             "x-algorand-format": "Address"
           },
           {
-            "description": "Include results for the specified round. For performance reasons, this parameter may be disabled on some configurations. Using application-id or asset-id filters will return both creator and opt-in accounts. Filtering by include-all will return creator and opt-in accounts for deleted assets and accounts. Non-opt-in managers are not included in the results when asset-id is used.",
-            "in": "query",
-            "name": "round",
-            "schema": {
-              "type": "integer"
-            }
-          },
-          {
             "description": "Application ID",
             "in": "query",
             "name": "application-id",
@@ -2589,14 +2581,6 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "description": "Include results for the specified round.",
-            "in": "query",
-            "name": "round",
-            "schema": {
-              "type": "integer"
             }
           },
           {
