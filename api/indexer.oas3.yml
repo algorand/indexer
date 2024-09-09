@@ -135,6 +135,14 @@
           "type": "boolean"
         }
       },
+      "group-id": {
+        "description": "Lookup transactions by group ID.",
+        "in": "query",
+        "name": "group-id",
+        "schema": {
+          "type": "string"
+        }
+      },
       "header-only": {
         "description": "Header only flag. When this is set to true, returned block does not contain the transactions",
         "in": "query",
@@ -4904,6 +4912,14 @@
                 "msig",
                 "lsig"
               ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Lookup transactions by group ID.",
+            "in": "query",
+            "name": "group-id",
+            "schema": {
               "type": "string"
             }
           },
