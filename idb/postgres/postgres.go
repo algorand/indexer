@@ -576,13 +576,13 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	}
 	if !tf.BeforeTime.IsZero() {
 		convertedTime := tf.BeforeTime.In(time.UTC)
-		whereParts = append(whereParts, fmt.Sprintf("h.realtime < $%d", partNumber))
+		whereParts = append(whereParts, fmt.Sprintf("t.round <= (SELECT bh.round FROM block_header bh WHERE bh.realtime < $%d ORDER BY bh.realtime DESC, bh.round DESC LIMIT 1)", partNumber))
 		whereArgs = append(whereArgs, convertedTime)
 		partNumber++
 	}
 	if !tf.AfterTime.IsZero() {
 		convertedTime := tf.AfterTime.In(time.UTC)
-		whereParts = append(whereParts, fmt.Sprintf("h.realtime > $%d", partNumber))
+		whereParts = append(whereParts, fmt.Sprintf("t.round >= (SELECT bh.round FROM block_header bh WHERE bh.realtime > $%d ORDER BY bh.realtime ASC, bh.round ASC LIMIT 1)", partNumber))
 		whereArgs = append(whereArgs, convertedTime)
 		partNumber++
 	}
