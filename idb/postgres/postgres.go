@@ -7,6 +7,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"os"
@@ -619,6 +620,11 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	if len(tf.Txid) != 0 {
 		whereParts = append(whereParts, fmt.Sprintf("t.txid = $%d", partNumber))
 		whereArgs = append(whereArgs, tf.Txid)
+		partNumber++
+	}
+	if len(tf.GroupID) != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("t.txn->'txn'->>'grp' = $%d AND t.txn->'txn'->>'grp' IS NOT NULL", partNumber))
+		whereArgs = append(whereArgs, base64.StdEncoding.EncodeToString(tf.GroupID))
 		partNumber++
 	}
 	if tf.Round != nil {

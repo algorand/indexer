@@ -81,7 +81,6 @@
           {
             "type": "integer",
             "description": "Include results for the specified round. For performance reasons, this parameter may be disabled on some configurations. Using application-id or asset-id filters will return both creator and opt-in accounts. Filtering by include-all will return creator and opt-in accounts for deleted assets and accounts. Non-opt-in managers are not included in the results when asset-id is used.",
-
             "name": "round",
             "in": "query"
           },
@@ -952,6 +951,9 @@
             "$ref": "#/parameters/sig-type"
           },
           {
+            "$ref": "#/parameters/group-id"
+          },
+          {
             "$ref": "#/parameters/txid"
           },
           {
@@ -1751,7 +1753,7 @@
     "Box": {
       "description": "Box name and its content.",
       "required": [
-        "name", 
+        "name",
         "value",
         "round"
       ],
@@ -2593,10 +2595,10 @@
     "StateProofParticipant": {
       "type": "object",
       "properties": {
-         "verifier": {
-           "description": "\\[p\\]",
-           "$ref": "#/definitions/StateProofVerifier"
-         },
+        "verifier": {
+          "description": "\\[p\\]",
+          "$ref": "#/definitions/StateProofVerifier"
+        },
         "weight": {
           "description": "\\[w\\]",
           "type": "integer",
@@ -2857,6 +2859,12 @@
       "in": "query",
       "x-algorand-format": "Address"
     },
+    "group-id": {
+      "type": "string",
+      "description": "Lookup transactions by group ID.",
+      "name": "group-id",
+      "in": "query"
+    },
     "txid": {
       "type": "string",
       "description": "Lookup the specific transaction by ID.",
@@ -3101,7 +3109,7 @@
       "schema": {
         "type": "object",
         "required": [
-          "application-id", 
+          "application-id",
           "boxes"
         ],
         "properties": {
@@ -3130,7 +3138,7 @@
     },
     "ErrorResponse": {
       "description": "Response for errors",
-      "schema":{
+      "schema": {
         "type": "object",
         "required": [
           "message"
