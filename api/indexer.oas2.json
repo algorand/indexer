@@ -954,6 +954,9 @@
             "$ref": "#/parameters/sig-type"
           },
           {
+            "$ref": "#/parameters/group-id"
+          },
+          {
             "$ref": "#/parameters/txid"
           },
           {
@@ -1753,7 +1756,7 @@
     "Box": {
       "description": "Box name and its content.",
       "required": [
-        "name", 
+        "name",
         "value",
         "round"
       ],
@@ -2595,10 +2598,10 @@
     "StateProofParticipant": {
       "type": "object",
       "properties": {
-         "verifier": {
-           "description": "\\[p\\]",
-           "$ref": "#/definitions/StateProofVerifier"
-         },
+        "verifier": {
+          "description": "\\[p\\]",
+          "$ref": "#/definitions/StateProofVerifier"
+        },
         "weight": {
           "description": "\\[w\\]",
           "type": "integer",
@@ -2859,6 +2862,12 @@
       "in": "query",
       "x-algorand-format": "Address"
     },
+    "group-id": {
+      "type": "string",
+      "description": "Lookup transactions by group ID.",
+      "name": "group-id",
+      "in": "query"
+    },
     "txid": {
       "type": "string",
       "description": "Lookup the specific transaction by ID.",
@@ -3103,7 +3112,7 @@
       "schema": {
         "type": "object",
         "required": [
-          "application-id", 
+          "application-id",
           "boxes"
         ],
         "properties": {
@@ -3132,7 +3141,7 @@
     },
     "ErrorResponse": {
       "description": "Response for errors",
-      "schema":{
+      "schema": {
         "type": "object",
         "required": [
           "message"

@@ -1183,6 +1183,9 @@ type Exclude = []string
 // ExcludeCloseTo defines model for exclude-close-to.
 type ExcludeCloseTo = bool
 
+// GroupId defines model for group-id.
+type GroupId = string
+
 // HeaderOnly defines model for header-only.
 type HeaderOnly = bool
 

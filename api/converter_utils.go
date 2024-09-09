@@ -110,6 +110,20 @@ func decodeBase64Byte(str *string, field string, errorArr []string) ([]byte, []s
 	return nil, errorArr
 }
 
+func decodeGroupID(str *string, field string, errorArr []string) ([]byte, []string) {
+	if str != nil {
+		data, err := base64.StdEncoding.DecodeString(*str)
+		if err != nil {
+			return nil, append(errorArr, fmt.Sprintf("%s: '%s'", errUnableToParseBase64, field))
+		}
+		if len(data) != len(sdk.Digest{}) {
+			return nil, append(errorArr, fmt.Sprintf("%s: '%s'", errBadGroupIdLen, field))
+		}
+		return data, errorArr
+	}
+	return nil, errorArr
+}
+
 // decodeSigType validates the input string and dereferences it if present, or appends an error to errorArr
 func decodeSigType(str *string, errorArr []string) (idb.SigType, []string) {
 	if str != nil {
@@ -713,6 +727,9 @@ func (si *ServerImplementation) transactionParamsToTransactionFilter(params gene
 
 	// Byte array
 	filter.NotePrefix, errorArr = decodeBase64Byte(params.NotePrefix, "note-prefix", errorArr)
+
+	// Group ID
+	filter.GroupID, errorArr = decodeGroupID(params.GroupId, "group-id", errorArr)
 
 	// Time
 	if params.AfterTime != nil {
