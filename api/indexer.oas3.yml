@@ -136,12 +136,14 @@
         }
       },
       "group-id": {
-        "description": "Lookup transactions by group ID.",
+        "description": "Lookup transactions by group ID. This field must be base64-encoded, and afterwards, base64 characters like +, / and = must be URL-encoded",
         "in": "query",
         "name": "group-id",
         "schema": {
-          "type": "string"
-        }
+          "type": "string",
+          "x-algorand-format": "base64"
+        },
+        "x-algorand-format": "base64"
       },
       "header-only": {
         "description": "Header only flag. When this is set to true, returned block does not contain the transactions",
@@ -4916,12 +4918,14 @@
             }
           },
           {
-            "description": "Lookup transactions by group ID.",
+            "description": "Lookup transactions by group ID. This field must be base64-encoded, and afterwards, base64 characters like +, / and = must be URL-encoded",
             "in": "query",
             "name": "group-id",
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "x-algorand-format": "base64"
+            },
+            "x-algorand-format": "base64"
           },
           {
             "description": "Lookup the specific transaction by ID.",
