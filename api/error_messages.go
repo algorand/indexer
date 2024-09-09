@@ -14,7 +14,7 @@ const (
 	errUnableToParseAddress            = "unable to parse address"
 	errInvalidCreatorAddress           = "found an invalid creator address"
 	errUnableToParseBase64             = "unable to parse base64 data"
-	errBadGroupIdLen                   = "bad length for group ID"
+	errBadGroupIDLen                   = "bad length for group ID"
 	errUnableToParseDigest             = "unable to parse base32 digest data"
 	errUnableToParseNext               = "unable to parse next token"
 	errUnableToDecodeTransaction       = "unable to decode transaction bytes"
