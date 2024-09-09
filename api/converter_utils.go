@@ -117,7 +117,7 @@ func decodeGroupID(str *string, field string, errorArr []string) ([]byte, []stri
 			return nil, append(errorArr, fmt.Sprintf("%s: '%s'", errUnableToParseBase64, field))
 		}
 		if len(data) != len(sdk.Digest{}) {
-			return nil, append(errorArr, fmt.Sprintf("%s: '%s'", errBadGroupIdLen, field))
+			return nil, append(errorArr, fmt.Sprintf("%s: '%s'", errBadGroupIDLen, field))
 		}
 		return data, errorArr
 	}
