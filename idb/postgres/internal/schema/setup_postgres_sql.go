@@ -24,7 +24,8 @@ CREATE TABLE public.txn (
     CONSTRAINT txn_pkey PRIMARY KEY (round ASC, intra ASC),
     INDEX ndly_txn_asset_extra (asset ASC, round ASC, intra ASC) STORING (txn, extra) WHERE asset > 0:::INT8,
     INDEX ndly_txn_txid (txid ASC) STORING (asset, txn, extra),
-    INDEX ndly_txn_note3 (note3 ASC) WHERE (note3 IS NOT NULL) AND (note3 != '\x000000':::BYTES)
+    INDEX ndly_txn_note3 (note3 ASC) WHERE (note3 IS NOT NULL) AND (note3 != '\x000000':::BYTES),
+    INDEX ndly_txn_grp (((txn->'txn'::STRING)->>'grp'::STRING) ASC) WHERE (((txn->'txn'::STRING)->>'grp'::STRING) IS NOT NULL)
 );
 
 CREATE TABLE public.account (
