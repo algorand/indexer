@@ -9,7 +9,6 @@ import (
 	"math"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -664,7 +663,6 @@ func TestFetchTransactions(t *testing.T) {
 			// Setup the mocked responses
 			mockIndexer := &mocks.IndexerDb{}
 			si := testServerImplementation(mockIndexer)
-			si.EnableAddressSearchRoundRewind = true
 			si.timeout = 1 * time.Second
 
 			roundTime := time.Now()
@@ -740,26 +738,9 @@ func TestFetchTransactions(t *testing.T) {
 	}
 }
 
-func TestFetchAccountsRewindRoundTooLarge(t *testing.T) {
-	ch := make(chan idb.AccountRow)
-	close(ch)
-	var outCh <-chan idb.AccountRow = ch
-
-	db := &mocks.IndexerDb{}
-	db.On("GetAccounts", mock.Anything, mock.Anything).Return(outCh, uint64(7)).Once()
-
-	si := testServerImplementation(db)
-	si.EnableAddressSearchRoundRewind = true
-	atRound := uint64(8)
-	_, _, err := si.fetchAccounts(context.Background(), idb.AccountQueryOptions{}, &atRound)
-	assert.Error(t, err)
-	assert.True(t, strings.HasPrefix(err.Error(), errRewindingAccount), err.Error())
-}
-
 func TestLookupApplicationLogsByID(t *testing.T) {
 	mockIndexer := &mocks.IndexerDb{}
 	si := testServerImplementation(mockIndexer)
-	si.EnableAddressSearchRoundRewind = true
 
 	txnBytes := loadResourceFileOrPanic("test_resources/app_call_logs.txn")
 	var stxn sdk.SignedTxnWithAD
@@ -1120,13 +1101,6 @@ func TestBigNumbers(t *testing.T) {
 			},
 		},
 		{
-			name:      "SearchForAccountInvalidRound",
-			errString: errValueExceedingInt64,
-			callHandler: func(ctx echo.Context, si ServerImplementation) error {
-				return si.SearchForAccounts(ctx, generated.SearchForAccountsParams{Round: uint64Ptr(uint64(math.MaxInt64 + 1))})
-			},
-		},
-		{
 			name:      "SearchForAccountInvalidAppID",
 			errString: errValueExceedingInt64,
 			callHandler: func(ctx echo.Context, si ServerImplementation) error {
@@ -1138,15 +1112,6 @@ func TestBigNumbers(t *testing.T) {
 			errString: errValueExceedingInt64,
 			callHandler: func(ctx echo.Context, si ServerImplementation) error {
 				return si.SearchForAccounts(ctx, generated.SearchForAccountsParams{AssetId: uint64Ptr(uint64(math.MaxInt64 + 1))})
-			},
-		},
-		{
-			name:      "LookupAccountByID",
-			errString: errValueExceedingInt64,
-			callHandler: func(ctx echo.Context, si ServerImplementation) error {
-				return si.LookupAccountByID(ctx,
-					"PBH2JQNVP5SBXLTOWNHHPGU6FUMBVS4ZDITPK5RA5FG2YIIFS6UYEMFM2Y",
-					generated.LookupAccountByIDParams{Round: uint64Ptr(uint64(math.MaxInt64 + 1))})
 			},
 		},
 		{
@@ -1224,6 +1189,53 @@ func TestBigNumbers(t *testing.T) {
 			// call handler
 			tc.callHandler(c, *si)
 			assert.Equal(t, http.StatusNotFound, rec1.Code)
+			bodyStr := rec1.Body.String()
+			require.Contains(t, bodyStr, tc.errString)
+		})
+	}
+}
+
+func TestRewindRoundParameterRejected(t *testing.T) {
+	testcases := []struct {
+		name        string
+		errString   string
+		callHandler func(ctx echo.Context, si ServerImplementation) error
+	}{
+		{
+			name:      "SearchForAccountInvalidRound",
+			errString: errRewindingAccountNotSupported,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.SearchForAccounts(ctx, generated.SearchForAccountsParams{Round: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "LookupAccountByID",
+			errString: errRewindingAccountNotSupported,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupAccountByID(ctx,
+					"PBH2JQNVP5SBXLTOWNHHPGU6FUMBVS4ZDITPK5RA5FG2YIIFS6UYEMFM2Y",
+					generated.LookupAccountByIDParams{Round: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+
+			// Make a mock indexer.
+			mockIndexer := &mocks.IndexerDb{}
+
+			si := testServerImplementation(mockIndexer)
+
+			// Setup context...
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			rec1 := httptest.NewRecorder()
+			c := e.NewContext(req, rec1)
+
+			// call handler
+			tc.callHandler(c, *si)
+			assert.Equal(t, http.StatusBadRequest, rec1.Code)
 			bodyStr := rec1.Body.String()
 			require.Contains(t, bodyStr, tc.errString)
 		})
