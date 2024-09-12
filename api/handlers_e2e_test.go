@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/algorand/avm-abi/apps"
 	"github.com/algorand/indexer/v3/api/generated/v2"
 	"github.com/algorand/indexer/v3/idb"
 	"github.com/algorand/indexer/v3/idb/postgres"
@@ -27,7 +28,6 @@ import (
 	"github.com/algorand/indexer/v3/util"
 	"github.com/algorand/indexer/v3/util/test"
 
-	"github.com/algorand/avm-abi/apps"
 	"github.com/algorand/go-algorand-sdk/v2/crypto"
 	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
@@ -80,7 +80,7 @@ func setupIdb(t *testing.T, genesis sdk.Genesis) (*postgres.IndexerDb, func()) {
 		Block: test.MakeGenesisBlock(),
 		Delta: sdk.LedgerStateDelta{},
 	}
-	db.AddBlock(&vb)
+	require.NoError(t, db.AddBlock(&vb))
 	require.NoError(t, err)
 
 	return db, newShutdownFunc
@@ -1738,6 +1738,7 @@ func TestGetBlockWithCompression(t *testing.T) {
 	// we now make sure that compression flag works with other flags.
 	notCompressedBlock = getBlockFunc(t, true, false)
 	compressedBlock = getBlockFunc(t, true, true)
+	require.Equal(t, notCompressedBlock, compressedBlock)
 	require.Equal(t, len(*notCompressedBlock.Transactions), 0)
 }
 

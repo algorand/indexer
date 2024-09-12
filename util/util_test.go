@@ -101,7 +101,7 @@ func TestDecodeSignedTxnErrors(t *testing.T) {
 	// v16.RequireGenesisHash = true
 	b.BlockHeader.CurrentProtocol = "https://github.com/algorand/spec/tree/22726c9dcd12d9cddce4a8bd7e8ccaa707f74101"
 	txib.HasGenesisHash = true
-	_, ad, err := DecodeSignedTxn(b.BlockHeader, txib)
+	_, _, err = DecodeSignedTxn(b.BlockHeader, txib)
 	require.Contains(t, err.Error(), "HasGenesisHash set to true but RequireGenesisHash obviates the flag")
 
 	// gh not empty
@@ -112,7 +112,7 @@ func TestDecodeSignedTxnErrors(t *testing.T) {
 
 	// if !proto.SupportSignedTxnInBlock, applyData is empty
 	b.BlockHeader.CurrentProtocol = "v10"
-	_, ad, err = DecodeSignedTxn(b.BlockHeader, txib)
+	_, ad, err := DecodeSignedTxn(b.BlockHeader, txib)
 	require.Equal(t, sdk.ApplyData{}, ad)
 
 	// genesisID not empty

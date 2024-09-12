@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -16,6 +15,8 @@ import (
 	cad "github.com/algorand/indexer/v3/idb/postgres/internal/migrations/convert_account_data"
 	pgtest "github.com/algorand/indexer/v3/idb/postgres/internal/testing"
 	pgutil "github.com/algorand/indexer/v3/idb/postgres/internal/util"
+
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 func makeAddress(i int) sdk.Address {
