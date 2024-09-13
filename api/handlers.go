@@ -17,7 +17,6 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/avm-abi/apps"
-	"github.com/algorand/indexer/v3/accounting"
 	"github.com/algorand/indexer/v3/api/generated/common"
 	"github.com/algorand/indexer/v3/api/generated/v2"
 	"github.com/algorand/indexer/v3/idb"
@@ -29,13 +28,6 @@ import (
 
 // ServerImplementation implements the handler interface used by the generated route definitions.
 type ServerImplementation struct {
-	// EnableAddressSearchRoundRewind is allows configuring whether or not the
-	// 'accounts' endpoint allows specifying a round number. This is done for
-	// performance reasons, because requesting many accounts at a particular
-	// round could put a lot of strain on the system (especially if the round
-	// is from long ago).
-	EnableAddressSearchRoundRewind bool
-
 	db idb.IndexerDb
 
 	dataError func() error
@@ -196,8 +188,9 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 	if err := si.verifyHandler("LookupAccountByID", ctx); err != nil {
 		return badRequest(ctx, err.Error())
 	}
-	if params.Round != nil && uint64(*params.Round) > math.MaxInt64 {
-		return notFound(ctx, errValueExceedingInt64)
+	// The Round parameter is no longer supported (as it was used to request account rewinding)
+	if params.Round != nil {
+		return badRequest(ctx, errRewindingAccountNotSupported)
 	}
 
 	addr, decodeErrors := decodeAddress(&accountID, "account-id", make([]string, 0))
@@ -227,7 +220,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 		}
 	}
 
-	accounts, round, err := si.fetchAccounts(ctx.Request().Context(), options, params.Round)
+	accounts, round, err := si.fetchAccounts(ctx.Request().Context(), options)
 	if err != nil {
 		var maxErr idb.MaxAPIResourcesPerAccountError
 		if errors.As(err, &maxErr) {
@@ -385,13 +378,13 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		return badRequest(ctx, err.Error())
 	}
 	if (params.AssetId != nil && uint64(*params.AssetId) > math.MaxInt64) ||
-		(params.ApplicationId != nil && uint64(*params.ApplicationId) > math.MaxInt64) ||
-		(params.Round != nil && uint64(*params.Round) > math.MaxInt64) {
+		(params.ApplicationId != nil && uint64(*params.ApplicationId) > math.MaxInt64) {
 		return notFound(ctx, errValueExceedingInt64)
 	}
 
-	if !si.EnableAddressSearchRoundRewind && params.Round != nil {
-		return badRequest(ctx, errMultiAcctRewind)
+	// The Round parameter is no longer supported (as it was used to request account rewinding)
+	if params.Round != nil {
+		return badRequest(ctx, errRewindingAccountNotSupported)
 	}
 
 	spendingAddr, decodeErrors := decodeAddress(params.AuthAddr, "account-id", make([]string, 0))
@@ -440,7 +433,7 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		options.GreaterThanAddress = addr[:]
 	}
 
-	accounts, round, err := si.fetchAccounts(ctx.Request().Context(), options, params.Round)
+	accounts, round, err := si.fetchAccounts(ctx.Request().Context(), options)
 	if err != nil {
 		var maxErr idb.MaxAPIResourcesPerAccountError
 		if errors.As(err, &maxErr) {
@@ -1391,7 +1384,7 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64, op
 
 // fetchAccounts queries for accounts and converts them into generated.Account
 // objects, optionally rewinding their value back to a particular round.
-func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.AccountQueryOptions, atRound *uint64) ([]generated.Account, uint64 /*round*/, error) {
+func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.AccountQueryOptions) ([]generated.Account, uint64 /*round*/, error) {
 	var round uint64
 	accounts := make([]generated.Account, 0)
 	err := callWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
@@ -1404,33 +1397,12 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 			}
 		}()
 
-		if (atRound != nil) && (*atRound > round) {
-			return fmt.Errorf("%s: the requested round %d > the current round %d",
-				errRewindingAccount, *atRound, round)
-		}
-
 		for row := range accountchan {
 			if row.Error != nil {
 				return row.Error
 			}
 
-			// Compute for a given round if requested.
-			var account generated.Account
-			if atRound != nil {
-				acct, err := accounting.AccountAtRound(ctx, row.Account, *atRound, si.db)
-				if err != nil {
-					// Ignore the error if this is an account search rewind error
-					_, isSpecialAccountRewindError := err.(*accounting.SpecialAccountRewindError)
-					if len(options.EqualToAddress) != 0 || !isSpecialAccountRewindError {
-						return fmt.Errorf("%s: %v", errRewindingAccount, err)
-					}
-					// If we didn't return, continue to the next account
-					continue
-				}
-				account = acct
-			} else {
-				account = row.Account
-			}
+			account := row.Account
 
 			// match the algod equivalent which includes pending rewards
 			account.Rewards += account.PendingRewards
