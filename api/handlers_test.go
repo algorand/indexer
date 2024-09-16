@@ -1235,7 +1235,7 @@ func TestRewindRoundParameterRejected(t *testing.T) {
 			c := e.NewContext(req, rec1)
 
 			// call handler
-			tc.callHandler(c, *si)
+			require.NoError(t, tc.callHandler(c, *si))
 			assert.Equal(t, http.StatusBadRequest, rec1.Code)
 			bodyStr := rec1.Body.String()
 			require.Contains(t, bodyStr, tc.errString)
