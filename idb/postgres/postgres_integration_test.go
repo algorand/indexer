@@ -2186,11 +2186,6 @@ func TestDeleteTransactions(t *testing.T) {
 
 	txns := []sdk.SignedTxn{}
 
-	genBlock := types.ValidatedBlock{
-		Block: test.MakeGenesisBlock(),
-		Delta: sdk.LedgerStateDelta{},
-	}
-	require.NoError(t, db.AddBlock(&genBlock))
 	// add 4 rounds of txns
 	// txnA := test.MakeCreateAppTxn(test.AccountA)
 	// txnB := test.MakeCreateAppTxn(test.AccountB)
