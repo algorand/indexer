@@ -12,6 +12,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/indexer/v3/config"
 	"github.com/algorand/indexer/v3/util"
@@ -23,7 +24,7 @@ func TestParameterConfigErrorWhenBothFileTypesArePresent(t *testing.T) {
 	indexerDataDir := t.TempDir()
 	for _, configFiletype := range config.FileTypes {
 		autoloadPath := filepath.Join(indexerDataDir, autoLoadParameterConfigFileName+"."+configFiletype)
-		os.WriteFile(autoloadPath, []byte{}, fs.ModePerm)
+		require.NoError(t, os.WriteFile(autoloadPath, []byte{}, fs.ModePerm))
 	}
 
 	daemonConfig := &daemonConfig{}
@@ -41,7 +42,7 @@ func TestIndexerConfigErrorWhenBothFileTypesArePresent(t *testing.T) {
 	indexerDataDir := t.TempDir()
 	for _, configFiletype := range config.FileTypes {
 		autoloadPath := filepath.Join(indexerDataDir, autoLoadIndexerConfigFileName+"."+configFiletype)
-		os.WriteFile(autoloadPath, []byte{}, fs.ModePerm)
+		require.NoError(t, os.WriteFile(autoloadPath, []byte{}, fs.ModePerm))
 	}
 
 	daemonConfig := &daemonConfig{}
@@ -59,7 +60,7 @@ func TestConfigWithEnableAllParamsExpectError(t *testing.T) {
 	for _, configFiletype := range config.FileTypes {
 		indexerDataDir := t.TempDir()
 		autoloadPath := filepath.Join(indexerDataDir, autoLoadIndexerConfigFileName+"."+configFiletype)
-		os.WriteFile(autoloadPath, []byte{}, fs.ModePerm)
+		require.NoError(t, os.WriteFile(autoloadPath, []byte{}, fs.ModePerm))
 		daemonConfig := &daemonConfig{}
 		daemonConfig.flags = pflag.NewFlagSet("indexer", 0)
 		daemonConfig.indexerDataDir = indexerDataDir
@@ -88,7 +89,7 @@ func TestConfigInvalidExpectError(t *testing.T) {
 	b := bytes.NewBufferString("")
 	indexerDataDir := t.TempDir()
 	tempConfigFile := indexerDataDir + "/indexer-alt.yml"
-	os.WriteFile(tempConfigFile, []byte(";;;"), fs.ModePerm)
+	require.NoError(t, os.WriteFile(tempConfigFile, []byte(";;;"), fs.ModePerm))
 	daemonConfig := &daemonConfig{}
 	daemonConfig.flags = pflag.NewFlagSet("indexer", 0)
 	daemonConfig.indexerDataDir = indexerDataDir
@@ -102,7 +103,7 @@ func TestConfigInvalidExpectError(t *testing.T) {
 func TestConfigSpecifiedTwiceExpectError(t *testing.T) {
 	indexerDataDir := t.TempDir()
 	tempConfigFile := indexerDataDir + "/indexer.yml"
-	os.WriteFile(tempConfigFile, []byte{}, fs.ModePerm)
+	require.NoError(t, os.WriteFile(tempConfigFile, []byte{}, fs.ModePerm))
 	daemonConfig := &daemonConfig{}
 	daemonConfig.flags = pflag.NewFlagSet("indexer", 0)
 	daemonConfig.indexerDataDir = indexerDataDir
@@ -120,7 +121,7 @@ func TestLoadAPIConfigGivenAutoLoadAndUserSuppliedExpectError(t *testing.T) {
 
 		autoloadPath := filepath.Join(indexerDataDir, autoLoadParameterConfigFileName+"."+configFiletype)
 		userSuppliedPath := filepath.Join(indexerDataDir, "foobar.yml")
-		os.WriteFile(autoloadPath, []byte{}, fs.ModePerm)
+		require.NoError(t, os.WriteFile(autoloadPath, []byte{}, fs.ModePerm))
 		cfg := &daemonConfig{}
 		cfg.indexerDataDir = indexerDataDir
 		cfg.suppliedAPIConfigFile = userSuppliedPath
@@ -149,7 +150,7 @@ func TestLoadAPIConfigGivenAutoLoadExpectSuccess(t *testing.T) {
 		indexerDataDir := t.TempDir()
 
 		autoloadPath := filepath.Join(indexerDataDir, autoLoadParameterConfigFileName+"."+configFiletype)
-		os.WriteFile(autoloadPath, []byte{}, fs.ModePerm)
+		require.NoError(t, os.WriteFile(autoloadPath, []byte{}, fs.ModePerm))
 		cfg := &daemonConfig{}
 		cfg.indexerDataDir = indexerDataDir
 
@@ -180,7 +181,7 @@ func TestIndexerPidFileCreateFailExpectError(t *testing.T) {
 	for _, configFiletype := range config.FileTypes {
 		indexerDataDir := t.TempDir()
 		autoloadPath := filepath.Join(indexerDataDir, autoLoadIndexerConfigFileName+"."+configFiletype)
-		os.WriteFile(autoloadPath, []byte{}, fs.ModePerm)
+		require.NoError(t, os.WriteFile(autoloadPath, []byte{}, fs.ModePerm))
 
 		invalidDir := filepath.Join(indexerDataDir, "foo", "bar")
 		cfg := &daemonConfig{}

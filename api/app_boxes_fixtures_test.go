@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/algorand/indexer/v3/idb/postgres"
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/avm-abi/apps"
+	"github.com/algorand/indexer/v3/idb/postgres"
+	"github.com/algorand/indexer/v3/util/test"
+
 	"github.com/algorand/go-algorand-sdk/v2/crypto"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/indexer/v3/util/test"
 )
 
 func goalEncode(t *testing.T, s string) string {
@@ -23,7 +24,7 @@ func goalEncode(t *testing.T, s string) string {
 	return string(b2)
 }
 
-var goalEncodingExamples map[string]string = map[string]string{
+var goalEncodingExamples = map[string]string{
 	"str":         "str",
 	"string":      "string",
 	"int":         "42",

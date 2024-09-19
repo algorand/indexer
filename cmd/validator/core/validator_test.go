@@ -7,9 +7,9 @@ import (
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/algorand/go-algorand-sdk/v2/types"
-
 	"github.com/algorand/indexer/v3/api"
+
+	"github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 type mockProcessor struct {

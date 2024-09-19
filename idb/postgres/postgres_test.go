@@ -8,10 +8,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-
 	"github.com/algorand/indexer/v3/idb"
 	"github.com/algorand/indexer/v3/types"
+
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 func Test_txnFilterOptimization(t *testing.T) {
@@ -76,11 +76,11 @@ func Test_UnknownProtocol(t *testing.T) {
 }
 
 func Test_buildTransactionQueryTime(t *testing.T) {
-	us_east_tz, err := time.LoadLocation("America/New_York")
+	usEastTZ, err := time.LoadLocation("America/New_York")
 	require.NoError(t, err)
-	us_west_tz, err := time.LoadLocation("America/Los_Angeles")
+	usWestTZ, err := time.LoadLocation("America/Los_Angeles")
 	require.NoError(t, err)
-	random_date_utc := time.Date(1000, time.December, 25, 1, 2, 3, 4, time.UTC)
+	randomDateUTC := time.Date(1000, time.December, 25, 1, 2, 3, 4, time.UTC)
 	tests := []struct {
 		name      string
 		arg       idb.TransactionFilter
@@ -89,26 +89,26 @@ func Test_buildTransactionQueryTime(t *testing.T) {
 		{
 			"BeforeTime UTC to UTC",
 			idb.TransactionFilter{
-				BeforeTime: random_date_utc,
+				BeforeTime: randomDateUTC,
 			},
-			[]interface{}{random_date_utc},
+			[]interface{}{randomDateUTC},
 		},
 		{
 			"AfterTime UTC to UTC",
 			idb.TransactionFilter{
-				AfterTime: random_date_utc,
+				AfterTime: randomDateUTC,
 			},
-			[]interface{}{random_date_utc},
+			[]interface{}{randomDateUTC},
 		},
 		{
 			"BeforeTime AfterTime Conversion",
 			idb.TransactionFilter{
-				BeforeTime: time.Date(1000, time.December, 25, 1, 2, 3, 4, us_east_tz),
-				AfterTime:  time.Date(1000, time.December, 25, 1, 2, 3, 4, us_west_tz),
+				BeforeTime: time.Date(1000, time.December, 25, 1, 2, 3, 4, usEastTZ),
+				AfterTime:  time.Date(1000, time.December, 25, 1, 2, 3, 4, usWestTZ),
 			},
 			[]interface{}{
-				time.Date(1000, time.December, 25, 1, 2, 3, 4, us_east_tz).UTC(),
-				time.Date(1000, time.December, 25, 1, 2, 3, 4, us_west_tz).UTC(),
+				time.Date(1000, time.December, 25, 1, 2, 3, 4, usEastTZ).UTC(),
+				time.Date(1000, time.December, 25, 1, 2, 3, 4, usWestTZ).UTC(),
 			},
 		},
 	}

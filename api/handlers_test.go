@@ -17,13 +17,14 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	sdkcrypto "github.com/algorand/go-algorand-sdk/v2/crypto"
-	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
-	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/indexer/v3/api/generated/v2"
 	"github.com/algorand/indexer/v3/idb"
 	"github.com/algorand/indexer/v3/idb/mocks"
 	"github.com/algorand/indexer/v3/types"
+
+	sdkcrypto "github.com/algorand/go-algorand-sdk/v2/crypto"
+	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 func TestTransactionParamToTransactionFilter(t *testing.T) {
@@ -1187,7 +1188,7 @@ func TestBigNumbers(t *testing.T) {
 			c := e.NewContext(req, rec1)
 
 			// call handler
-			tc.callHandler(c, *si)
+			require.NoError(t, tc.callHandler(c, *si))
 			assert.Equal(t, http.StatusNotFound, rec1.Code)
 			bodyStr := rec1.Body.String()
 			require.Contains(t, bodyStr, tc.errString)
@@ -1234,7 +1235,7 @@ func TestRewindRoundParameterRejected(t *testing.T) {
 			c := e.NewContext(req, rec1)
 
 			// call handler
-			tc.callHandler(c, *si)
+			require.NoError(t, tc.callHandler(c, *si))
 			assert.Equal(t, http.StatusBadRequest, rec1.Code)
 			bodyStr := rec1.Body.String()
 			require.Contains(t, bodyStr, tc.errString)
