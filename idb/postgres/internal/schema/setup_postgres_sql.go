@@ -38,7 +38,8 @@ CREATE TABLE public.account (
     closed_at INT8 NULL,
     keytype VARCHAR(8) NULL,
     account_data JSONB NOT NULL,
-    CONSTRAINT account_pkey PRIMARY KEY (addr ASC)
+    CONSTRAINT account_pkey PRIMARY KEY (addr ASC),
+    INDEX ndly_account_spend ((account_data->>'spend'::STRING) ASC) WHERE ((account_data->>'spend'::STRING) IS NOT NULL)
 );
 
 CREATE TABLE public.account_asset (
