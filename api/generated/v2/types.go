@@ -1431,6 +1431,17 @@ type AssetsResponse struct {
 // data/bookkeeping/block.go : Block
 type BlockResponse = Block
 
+// BlocksResponse defines model for BlocksResponse.
+type BlocksResponse struct {
+	Blocks []Block `json:"blocks"`
+
+	// CurrentRound Round at which the results were computed.
+	CurrentRound uint64 `json:"current-round"`
+
+	// NextToken Used for pagination, when making another request provide this token with the next parameter.
+	NextToken *string `json:"next-token,omitempty"`
+}
+
 // BoxResponse Box name and its content.
 type BoxResponse = Box
 
@@ -1813,6 +1824,15 @@ type LookupAssetTransactionsParamsSigType string
 
 // LookupAssetTransactionsParamsAddressRole defines parameters for LookupAssetTransactions.
 type LookupAssetTransactionsParamsAddressRole string
+
+// SearchForBlocksParams defines parameters for SearchForBlocks.
+type SearchForBlocksParams struct {
+	// Limit Maximum number of results to return. There could be additional pages even if the limit is not reached.
+	Limit *uint64 `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Next The next page of results. Use the next token provided by the previous results.
+	Next *string `form:"next,omitempty" json:"next,omitempty"`
+}
 
 // LookupBlockParams defines parameters for LookupBlock.
 type LookupBlockParams struct {

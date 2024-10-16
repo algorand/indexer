@@ -39,6 +39,7 @@ const (
 	ErrFailedLookingUpBoxes            = "failed while looking up application boxes"
 	errRewindingAccountNotSupported    = "rewinding account is no longer supported, please remove the `round=` query parameter and try again"
 	errLookingUpBlockForRound          = "error while looking up block for round"
+	errBlockHeaderSearch               = "error while searching for block headers"
 	errTransactionSearch               = "error while searching for transaction"
 	errZeroAddressCloseRemainderToRole = "searching transactions by zero address with close address role is not supported"
 	errZeroAddressAssetSenderRole      = "searching transactions by zero address with asset sender role is not supported"

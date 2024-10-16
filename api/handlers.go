@@ -45,6 +45,16 @@ type ServerImplementation struct {
 // Helper functions //
 //////////////////////
 
+func validateBlockFilter(filter *idb.BlockFilter) error {
+	var errorArr = make([]string, 0)
+
+	if len(errorArr) > 0 {
+		return errors.New("invalid input: " + strings.Join(errorArr, ", "))
+	}
+
+	return nil
+}
+
 func validateTransactionFilter(filter *idb.TransactionFilter) error {
 	var errorArr = make([]string, 0)
 
@@ -981,6 +991,40 @@ func (si *ServerImplementation) LookupTransaction(ctx echo.Context, txid string)
 	return ctx.JSON(http.StatusOK, response)
 }
 
+// SearchForBlocks returns block headers matching the provided parameters
+// (GET /v2/blocks)
+func (si *ServerImplementation) SearchForBlocks(ctx echo.Context, params generated.SearchForBlocksParams) error {
+
+	// Validate query parameters
+	if err := si.verifyHandler("SearchForBlocks", ctx); err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
+	// Convert query params into a filter
+	filter, err := si.blockParamsToBlockFilter(params)
+	if err != nil {
+		return badRequest(ctx, err.Error())
+	}
+	err = validateBlockFilter(&filter)
+	if err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
+	// Fetch the block headers
+	blockHeaders, next, round, err := si.fetchBlockHeaders(ctx.Request().Context(), filter)
+	if err != nil {
+		return indexerError(ctx, fmt.Errorf("%s: %w", errBlockHeaderSearch, err))
+	}
+
+	// Populate the response model and render it
+	response := generated.BlocksResponse{
+		CurrentRound: round,
+		NextToken:    strPtr(next),
+		Blocks:       blockHeaders,
+	}
+	return ctx.JSON(http.StatusOK, response)
+}
+
 // SearchForTransactions returns transactions matching the provided parameters
 // (GET /v2/transactions)
 func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params generated.SearchForTransactionsParams) error {
@@ -1414,6 +1458,46 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 		return nil, 0, err
 	}
 	return accounts, round, nil
+}
+
+// fetchBlockHeaders is used to query the backend for block headers, and compute the next token
+func (si *ServerImplementation) fetchBlockHeaders(ctx context.Context, bf idb.BlockFilter) ([]generated.Block, string, uint64 /*round*/, error) {
+
+	var round uint64
+	var nextToken string
+	results := make([]generated.Block, 0)
+	err := callWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
+
+		// Open a channel from which result rows will be received
+		var rows <-chan idb.BlockRow
+		rows, round = si.db.Blocks(ctx, bf)
+
+		// Iterate recieved rows, converting each to a generated.Block
+		var lastRow idb.BlockRow
+		for row := range rows {
+			if row.Error != nil {
+				return row.Error
+			}
+
+			results = append(results, rowToBlock(&row.BlockHeader))
+			lastRow = row
+		}
+
+		// No next token if there were no results.
+		if len(results) == 0 {
+			return nil
+		}
+
+		// Generate the next token and return
+		var err error
+		nextToken, err = lastRow.Next()
+		return err
+	})
+	if err != nil {
+		return nil, "", 0, err
+	}
+
+	return results, nextToken, round, nil
 }
 
 // fetchTransactions is used to query the backend for transactions, and compute the next token

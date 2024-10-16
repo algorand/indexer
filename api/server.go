@@ -48,6 +48,10 @@ type ExtraOptions struct {
 	// Limit Constants //
 	/////////////////////
 
+	// Blocks
+	MaxBlocksLimit     uint64
+	DefaultBlocksLimit uint64
+
 	// Transactions
 	MaxTransactionsLimit     uint64
 	DefaultTransactionsLimit uint64

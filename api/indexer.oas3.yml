@@ -569,6 +569,36 @@
         },
         "description": "(empty)"
       },
+      "BlocksResponse": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "blocks": {
+                  "items": {
+                    "$ref": "#/components/schemas/Block"
+                  },
+                  "type": "array"
+                },
+                "current-round": {
+                  "description": "Round at which the results were computed.",
+                  "type": "integer"
+                },
+                "next-token": {
+                  "description": "Used for pagination, when making another request provide this token with the next parameter.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "blocks",
+                "current-round"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "description": "(empty)"
+      },
       "BoxResponse": {
         "content": {
           "application/json": {
@@ -4770,6 +4800,109 @@
         },
         "tags": [
           "lookup"
+        ]
+      }
+    },
+    "/v2/blocks": {
+      "get": {
+        "description": "Search for blocks. Blocks are returned in ascending round order. Transactions are not included in the output.",
+        "operationId": "searchForBlocks",
+        "parameters": [
+          {
+            "description": "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page of results. Use the next token provided by the previous results.",
+            "in": "query",
+            "name": "next",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "blocks": {
+                      "items": {
+                        "$ref": "#/components/schemas/Block"
+                      },
+                      "type": "array"
+                    },
+                    "current-round": {
+                      "description": "Round at which the results were computed.",
+                      "type": "integer"
+                    },
+                    "next-token": {
+                      "description": "Used for pagination, when making another request provide this token with the next parameter.",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "blocks",
+                    "current-round"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "(empty)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          }
+        },
+        "tags": [
+          "search"
         ]
       }
     },

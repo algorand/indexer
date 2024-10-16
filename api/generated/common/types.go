@@ -1343,6 +1343,17 @@ type AssetsResponse struct {
 // data/bookkeeping/block.go : Block
 type BlockResponse = Block
 
+// BlocksResponse defines model for BlocksResponse.
+type BlocksResponse struct {
+	Blocks []Block `json:"blocks"`
+
+	// CurrentRound Round at which the results were computed.
+	CurrentRound uint64 `json:"current-round"`
+
+	// NextToken Used for pagination, when making another request provide this token with the next parameter.
+	NextToken *string `json:"next-token,omitempty"`
+}
+
 // BoxResponse Box name and its content.
 type BoxResponse = Box
 

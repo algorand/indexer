@@ -258,6 +258,95 @@ type rowData struct {
 	AssetCloseAmount uint64
 }
 
+// rowToBlock parses the idb.BlockRow and generates the appropriate generated.Block object.
+func rowToBlock(blockHeader *sdk.BlockHeader) generated.Block {
+
+	rewards := generated.BlockRewards{
+		FeeSink:                 blockHeader.FeeSink.String(),
+		RewardsCalculationRound: uint64(blockHeader.RewardsRecalculationRound),
+		RewardsLevel:            blockHeader.RewardsLevel,
+		RewardsPool:             blockHeader.RewardsPool.String(),
+		RewardsRate:             blockHeader.RewardsRate,
+		RewardsResidue:          blockHeader.RewardsResidue,
+	}
+
+	upgradeState := generated.BlockUpgradeState{
+		CurrentProtocol:        string(blockHeader.CurrentProtocol),
+		NextProtocol:           strPtr(string(blockHeader.NextProtocol)),
+		NextProtocolApprovals:  uint64Ptr(blockHeader.NextProtocolApprovals),
+		NextProtocolSwitchOn:   uint64Ptr(uint64(blockHeader.NextProtocolSwitchOn)),
+		NextProtocolVoteBefore: uint64Ptr(uint64(blockHeader.NextProtocolVoteBefore)),
+	}
+
+	upgradeVote := generated.BlockUpgradeVote{
+		UpgradeApprove: boolPtr(blockHeader.UpgradeApprove),
+		UpgradeDelay:   uint64Ptr(uint64(blockHeader.UpgradeDelay)),
+		UpgradePropose: strPtr(string(blockHeader.UpgradePropose)),
+	}
+
+	var partUpdates *generated.ParticipationUpdates = &generated.ParticipationUpdates{}
+	if len(blockHeader.ExpiredParticipationAccounts) > 0 {
+		addrs := make([]string, len(blockHeader.ExpiredParticipationAccounts))
+		for i := 0; i < len(addrs); i++ {
+			addrs[i] = blockHeader.ExpiredParticipationAccounts[i].String()
+		}
+		partUpdates.ExpiredParticipationAccounts = strArrayPtr(addrs)
+	}
+	if len(blockHeader.AbsentParticipationAccounts) > 0 {
+		addrs := make([]string, len(blockHeader.AbsentParticipationAccounts))
+		for i := 0; i < len(addrs); i++ {
+			addrs[i] = blockHeader.AbsentParticipationAccounts[i].String()
+		}
+		partUpdates.AbsentParticipationAccounts = strArrayPtr(addrs)
+	}
+	if *partUpdates == (generated.ParticipationUpdates{}) {
+		partUpdates = nil
+	}
+
+	// order these so they're deterministic
+	orderedTrackingTypes := make([]sdk.StateProofType, len(blockHeader.StateProofTracking))
+	trackingArray := make([]generated.StateProofTracking, len(blockHeader.StateProofTracking))
+	elems := 0
+	for key := range blockHeader.StateProofTracking {
+		orderedTrackingTypes[elems] = key
+		elems++
+	}
+	sort.Slice(orderedTrackingTypes, func(i, j int) bool { return orderedTrackingTypes[i] < orderedTrackingTypes[j] })
+	for i := 0; i < len(orderedTrackingTypes); i++ {
+		stpfTracking := blockHeader.StateProofTracking[orderedTrackingTypes[i]]
+		thing1 := generated.StateProofTracking{
+			NextRound:         uint64Ptr(uint64(stpfTracking.StateProofNextRound)),
+			Type:              uint64Ptr(uint64(orderedTrackingTypes[i])),
+			VotersCommitment:  byteSliceOmitZeroPtr(stpfTracking.StateProofVotersCommitment),
+			OnlineTotalWeight: uint64Ptr(uint64(stpfTracking.StateProofOnlineTotalWeight)),
+		}
+		trackingArray[orderedTrackingTypes[i]] = thing1
+	}
+
+	ret := generated.Block{
+		Bonus:                  uint64PtrOrNil(uint64(blockHeader.Bonus)),
+		FeesCollected:          uint64PtrOrNil(uint64(blockHeader.FeesCollected)),
+		GenesisHash:            blockHeader.GenesisHash[:],
+		GenesisId:              blockHeader.GenesisID,
+		ParticipationUpdates:   partUpdates,
+		PreviousBlockHash:      blockHeader.Branch[:],
+		Proposer:               addrPtr(blockHeader.Proposer),
+		ProposerPayout:         uint64PtrOrNil(uint64(blockHeader.ProposerPayout)),
+		Rewards:                &rewards,
+		Round:                  uint64(blockHeader.Round),
+		Seed:                   blockHeader.Seed[:],
+		StateProofTracking:     &trackingArray,
+		Timestamp:              uint64(blockHeader.TimeStamp),
+		Transactions:           nil,
+		TransactionsRoot:       blockHeader.TxnCommitments.NativeSha512_256Commitment[:],
+		TransactionsRootSha256: blockHeader.TxnCommitments.Sha256Commitment[:],
+		TxnCounter:             uint64Ptr(blockHeader.TxnCounter),
+		UpgradeState:           &upgradeState,
+		UpgradeVote:            &upgradeVote,
+	}
+	return ret
+}
+
 // txnRowToTransaction parses the idb.TxnRow and generates the appropriate generated.Transaction object.
 // If the TxnRow contains a RootTxn, the generated.Transaction object will be the root txn.
 func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
@@ -704,6 +793,24 @@ func (si *ServerImplementation) appParamsToApplicationQuery(params generated.Sea
 		IncludeDeleted:           boolOrDefault(params.IncludeAll),
 		Limit:                    min(uintOrDefaultValue(params.Limit, si.opts.DefaultApplicationsLimit), si.opts.MaxApplicationsLimit),
 	}, nil
+}
+
+func (si *ServerImplementation) blockParamsToBlockFilter(params generated.SearchForBlocksParams) (filter idb.BlockFilter, err error) {
+	var errorArr = make([]string, 0)
+
+	// Integer
+	filter.Limit = min(uintOrDefaultValue(params.Limit, si.opts.DefaultBlocksLimit), si.opts.MaxBlocksLimit)
+
+	// String
+	if params.Next != nil {
+		n, err := idb.DecodeBlockRowNext(*params.Next)
+		if err != nil {
+			errorArr = append(errorArr, fmt.Sprintf("%s: %v", errUnableToParseNext, err))
+		}
+		filter.MinRound = max(filter.MinRound, n+1)
+	}
+
+	return
 }
 
 func (si *ServerImplementation) transactionParamsToTransactionFilter(params generated.SearchForTransactionsParams) (filter idb.TransactionFilter, err error) {

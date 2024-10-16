@@ -853,6 +853,40 @@
         }
       }
     },
+    "/v2/blocks": {
+      "get": {
+        "description": "Search for blocks. Blocks are returned in ascending round order. Transactions are not included in the output.",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "search"
+        ],
+        "operationId": "searchForBlocks",
+        "parameters": [
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/next"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/BlocksResponse"
+          },
+          "404": {
+            "$ref": "#/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/responses/ErrorResponse"
+          }
+        }
+      }
+    },
     "/v2/blocks/{round-number}": {
       "get": {
         "description": "Lookup block.",
@@ -3187,6 +3221,32 @@
       "description": "(empty)",
       "schema": {
         "$ref": "#/definitions/Block"
+      }
+    },
+    "BlocksResponse": {
+      "description": "(empty)",
+      "schema": {
+        "type": "object",
+        "required": [
+          "current-round",
+          "blocks"
+        ],
+        "properties": {
+          "current-round": {
+            "description": "Round at which the results were computed.",
+            "type": "integer"
+          },
+          "next-token": {
+            "description": "Used for pagination, when making another request provide this token with the next parameter.",
+            "type": "string"
+          },
+          "blocks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/Block"
+            }
+          }
+        }
       }
     },
     "HealthCheckResponse": {
