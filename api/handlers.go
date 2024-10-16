@@ -1477,7 +1477,7 @@ func (si *ServerImplementation) fetchBlockHeaders(ctx context.Context, bf idb.Bl
 		var rows <-chan idb.BlockRow
 		rows, round = si.db.Blocks(ctx, bf)
 
-		// Iterate recieved rows, converting each to a generated.Block
+		// Iterate receieved rows, converting each to a generated.Block
 		var lastRow idb.BlockRow
 		for row := range rows {
 			if row.Error != nil {

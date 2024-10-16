@@ -796,7 +796,7 @@ func (si *ServerImplementation) appParamsToApplicationQuery(params generated.Sea
 }
 
 func (si *ServerImplementation) blockParamsToBlockFilter(params generated.SearchForBlocksParams) (filter idb.BlockFilter, err error) {
-	var errorArr = make([]string, 0)
+	var errorArr []string
 
 	// Integer
 	filter.Limit = min(uintOrDefaultValue(params.Limit, si.opts.DefaultBlocksLimit), si.opts.MaxBlocksLimit)
