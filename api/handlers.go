@@ -48,9 +48,15 @@ type ServerImplementation struct {
 func validateBlockFilter(filter *idb.BlockFilter) error {
 	var errorArr = make([]string, 0)
 
+	// Int64 overflows
 	if (filter.MaxRound != nil && *filter.MaxRound > math.MaxInt64) ||
 		(filter.MinRound != nil && *filter.MinRound > math.MaxInt64) {
 		errorArr = append(errorArr, errValueExceedingInt64)
+	}
+
+	// Time
+	if !filter.AfterTime.IsZero() && !filter.BeforeTime.IsZero() && filter.AfterTime.After(filter.BeforeTime) {
+		errorArr = append(errorArr, errInvalidTimeMinMax)
 	}
 
 	if len(errorArr) > 0 {

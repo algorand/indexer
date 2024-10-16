@@ -11,6 +11,7 @@ import (
 const (
 	errInvalidRoundAndMinMax           = "cannot specify round and min-round/max-round"
 	errInvalidRoundMinMax              = "min-round must be less than max-round"
+	errInvalidTimeMinMax               = "after-time must be less than before-time"
 	errUnableToParseAddress            = "unable to parse address"
 	errInvalidCreatorAddress           = "found an invalid creator address"
 	errUnableToParseBase64             = "unable to parse base64 data"

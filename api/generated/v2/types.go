@@ -1838,6 +1838,12 @@ type SearchForBlocksParams struct {
 
 	// MaxRound Include results at or before the specified max-round.
 	MaxRound *uint64 `form:"max-round,omitempty" json:"max-round,omitempty"`
+
+	// BeforeTime Include results before the given time. Must be an RFC 3339 formatted string.
+	BeforeTime *time.Time `form:"before-time,omitempty" json:"before-time,omitempty"`
+
+	// AfterTime Include results after the given time. Must be an RFC 3339 formatted string.
+	AfterTime *time.Time `form:"after-time,omitempty" json:"after-time,omitempty"`
 }
 
 // LookupBlockParams defines parameters for LookupBlock.

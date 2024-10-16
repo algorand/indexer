@@ -824,6 +824,14 @@ func (si *ServerImplementation) blockParamsToBlockFilter(params generated.Search
 		}
 	}
 
+	// Time
+	if params.AfterTime != nil {
+		filter.AfterTime = *params.AfterTime
+	}
+	if params.BeforeTime != nil {
+		filter.BeforeTime = *params.BeforeTime
+	}
+
 	// If there were any errorArr while setting up the BlockFilter, return now.
 	if len(errorArr) > 0 {
 		err = errors.New("invalid input: " + strings.Join(errorArr, ", "))

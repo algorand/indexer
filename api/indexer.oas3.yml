@@ -4839,6 +4839,28 @@
             "schema": {
               "type": "integer"
             }
+          },
+          {
+            "description": "Include results before the given time. Must be an RFC 3339 formatted string.",
+            "in": "query",
+            "name": "before-time",
+            "schema": {
+              "format": "date-time",
+              "type": "string",
+              "x-algorand-format": "RFC3339 String"
+            },
+            "x-algorand-format": "RFC3339 String"
+          },
+          {
+            "description": "Include results after the given time. Must be an RFC 3339 formatted string.",
+            "in": "query",
+            "name": "after-time",
+            "schema": {
+              "format": "date-time",
+              "type": "string",
+              "x-algorand-format": "RFC3339 String"
+            },
+            "x-algorand-format": "RFC3339 String"
           }
         ],
         "responses": {

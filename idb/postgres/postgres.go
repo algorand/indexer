@@ -741,6 +741,22 @@ func buildBlockQuery(bf idb.BlockFilter) (query string, whereArgs []interface{},
 			whereParts = append(whereParts, fmt.Sprintf("round >= $%d", partNumber))
 			whereArgs = append(whereArgs, *bf.MinRound)
 		}
+		if !bf.AfterTime.IsZero() {
+			partNumber++
+			whereParts = append(
+				whereParts,
+				fmt.Sprintf("round >= (SELECT tmp.round FROM block_header tmp WHERE tmp.realtime > $%d ORDER BY tmp.realtime ASC, tmp.round ASC LIMIT 1)", partNumber),
+			)
+			whereArgs = append(whereArgs, bf.AfterTime)
+		}
+		if !bf.BeforeTime.IsZero() {
+			partNumber++
+			whereParts = append(
+				whereParts,
+				fmt.Sprintf("round <= (SELECT tmp.round FROM block_header tmp WHERE tmp.realtime < $%d ORDER BY tmp.realtime DESC, tmp.round DESC LIMIT 1)", partNumber),
+			)
+			whereArgs = append(whereArgs, bf.BeforeTime)
+		}
 	}
 
 	// SELECT, FROM

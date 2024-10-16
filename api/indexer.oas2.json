@@ -878,6 +878,12 @@
           },
           {
             "$ref": "#/parameters/max-round"
+          },
+          {
+            "$ref": "#/parameters/before-time"
+          },
+          {
+            "$ref": "#/parameters/after-time"
           }
         ],
         "responses": {
