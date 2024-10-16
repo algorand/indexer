@@ -872,6 +872,12 @@
           },
           {
             "$ref": "#/parameters/next"
+          },
+          {
+            "$ref": "#/parameters/min-round"
+          },
+          {
+            "$ref": "#/parameters/max-round"
           }
         ],
         "responses": {

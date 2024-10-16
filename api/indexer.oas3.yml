@@ -4823,6 +4823,22 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "Include results at or after the specified min-round.",
+            "in": "query",
+            "name": "min-round",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Include results at or before the specified max-round.",
+            "in": "query",
+            "name": "max-round",
+            "schema": {
+              "type": "integer"
+            }
           }
         ],
         "responses": {

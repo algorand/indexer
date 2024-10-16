@@ -1832,6 +1832,12 @@ type SearchForBlocksParams struct {
 
 	// Next The next page of results. Use the next token provided by the previous results.
 	Next *string `form:"next,omitempty" json:"next,omitempty"`
+
+	// MinRound Include results at or after the specified min-round.
+	MinRound *uint64 `form:"min-round,omitempty" json:"min-round,omitempty"`
+
+	// MaxRound Include results at or before the specified max-round.
+	MaxRound *uint64 `form:"max-round,omitempty" json:"max-round,omitempty"`
 }
 
 // LookupBlockParams defines parameters for LookupBlock.

@@ -231,7 +231,8 @@ type GetBlockOptions struct {
 // BlockFilter is a parameter object with all the block filter options.
 type BlockFilter struct {
 	Limit    uint64
-	MinRound uint64
+	MaxRound *uint64
+	MinRound *uint64
 }
 
 // TransactionFilter is a parameter object with all the transaction filter options.

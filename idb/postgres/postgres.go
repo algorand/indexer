@@ -725,14 +725,22 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 
 func buildBlockQuery(bf idb.BlockFilter) (query string, whereArgs []interface{}, err error) {
 
+	// Compute the terms in the WHERE clause
 	whereParts := make([]string, 0)
 	whereArgs = make([]interface{}, 0)
-	partNumber := 1
+	{
+		partNumber := 1
 
-	if bf.MinRound != 0 {
-		whereParts = append(whereParts, fmt.Sprintf("round >= $%d", partNumber))
-		whereArgs = append(whereArgs, bf.MinRound)
-		partNumber++
+		if bf.MaxRound != nil {
+			whereParts = append(whereParts, fmt.Sprintf("round <= $%d", partNumber))
+			whereArgs = append(whereArgs, *bf.MaxRound)
+			partNumber++
+		}
+		if bf.MinRound != nil {
+			whereParts = append(whereParts, fmt.Sprintf("round >= $%d", partNumber))
+			whereArgs = append(whereArgs, *bf.MinRound)
+			partNumber++
+		}
 	}
 
 	// SELECT, FROM

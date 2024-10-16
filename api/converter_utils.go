@@ -800,6 +800,15 @@ func (si *ServerImplementation) blockParamsToBlockFilter(params generated.Search
 
 	// Integer
 	filter.Limit = min(uintOrDefaultValue(params.Limit, si.opts.DefaultBlocksLimit), si.opts.MaxBlocksLimit)
+	// If min/max are mixed up
+	//
+	// This check is performed here instead of in validateBlockFilter because
+	// when converting params into a filter, the next token is merged with params.MinRound.
+	if params.MinRound != nil && params.MaxRound != nil && *params.MinRound > *params.MaxRound {
+		errorArr = append(errorArr, errInvalidRoundMinMax)
+	}
+	filter.MaxRound = params.MaxRound
+	filter.MinRound = params.MinRound
 
 	// String
 	if params.Next != nil {
@@ -807,9 +816,21 @@ func (si *ServerImplementation) blockParamsToBlockFilter(params generated.Search
 		if err != nil {
 			errorArr = append(errorArr, fmt.Sprintf("%s: %v", errUnableToParseNext, err))
 		}
-		filter.MinRound = max(filter.MinRound, n+1)
+		// Set the MinRound
+		if filter.MinRound == nil {
+			filter.MinRound = uint64Ptr(n + 1)
+		} else {
+			filter.MinRound = uint64Ptr(max(*filter.MinRound, n+1))
+		}
 	}
 
+	// If there were any errorArr while setting up the BlockFilter, return now.
+	if len(errorArr) > 0 {
+		err = errors.New("invalid input: " + strings.Join(errorArr, ", "))
+
+		// clear out the intermediates.
+		filter = idb.BlockFilter{}
+	}
 	return
 }
 

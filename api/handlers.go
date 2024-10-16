@@ -48,6 +48,11 @@ type ServerImplementation struct {
 func validateBlockFilter(filter *idb.BlockFilter) error {
 	var errorArr = make([]string, 0)
 
+	if (filter.MaxRound != nil && *filter.MaxRound > math.MaxInt64) ||
+		(filter.MinRound != nil && *filter.MinRound > math.MaxInt64) {
+		errorArr = append(errorArr, errValueExceedingInt64)
+	}
+
 	if len(errorArr) > 0 {
 		return errors.New("invalid input: " + strings.Join(errorArr, ", "))
 	}
