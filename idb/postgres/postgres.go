@@ -757,6 +757,16 @@ func buildBlockQuery(bf idb.BlockFilter) (query string, whereArgs []interface{},
 			)
 			whereArgs = append(whereArgs, bf.BeforeTime)
 		}
+		if len(bf.Proposers) > 0 {
+			var proposersStr []string
+			for addr := range bf.Proposers {
+				proposersStr = append(proposersStr, `'"`+addr.String()+`"'`)
+			}
+			whereParts = append(
+				whereParts,
+				fmt.Sprintf("( (header->'prp') IS NOT NULL AND ((header->'prp')::TEXT IN (%s)) )", strings.Join(proposersStr, ",")),
+			)
+		}
 	}
 
 	// SELECT, FROM

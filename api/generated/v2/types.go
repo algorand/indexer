@@ -1295,6 +1295,9 @@ type Next = string
 // NotePrefix defines model for note-prefix.
 type NotePrefix = string
 
+// Proposer defines model for proposer.
+type Proposer = []string
+
 // RekeyTo defines model for rekey-to.
 type RekeyTo = bool
 
@@ -1844,6 +1847,9 @@ type SearchForBlocksParams struct {
 
 	// AfterTime Include results after the given time. Must be an RFC 3339 formatted string.
 	AfterTime *time.Time `form:"after-time,omitempty" json:"after-time,omitempty"`
+
+	// Proposer Block proposer. Comma separated list of addresses.
+	Proposer *[]string `form:"proposer,omitempty" json:"proposer,omitempty"`
 }
 
 // LookupBlockParams defines parameters for LookupBlock.

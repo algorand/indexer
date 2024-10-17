@@ -34,6 +34,15 @@ func decodeDigest(str *string, field string, errorArr []string) (string, []strin
 	return "", errorArr
 }
 
+// decodeSdkAddress returns the sdk.Address representation of the input string, or appends an error to errorArr
+func decodeSdkAddress(str string, field string, errorArr []string) (sdk.Address, []string) {
+	addr, err := sdk.DecodeAddress(str)
+	if err != nil {
+		return sdk.ZeroAddress, append(errorArr, fmt.Sprintf("%s '%s': %v", errUnableToParseAddress, field, err))
+	}
+	return addr, errorArr
+}
+
 // decodeAddress returns the byte representation of the input string, or appends an error to errorArr
 func decodeAddress(str *string, field string, errorArr []string) ([]byte, []string) {
 	if str != nil {
@@ -830,6 +839,18 @@ func (si *ServerImplementation) blockParamsToBlockFilter(params generated.Search
 	}
 	if params.BeforeTime != nil {
 		filter.BeforeTime = *params.BeforeTime
+	}
+
+	// Address list
+	{
+		filter.Proposers = make(map[sdk.Address]struct{}, 0)
+		if params.Proposer != nil {
+			for _, s := range *params.Proposer {
+				var addr sdk.Address
+				addr, errorArr = decodeSdkAddress(s, "proposer", errorArr)
+				filter.Proposers[addr] = struct{}{}
+			}
+		}
 	}
 
 	// If there were any errorArr while setting up the BlockFilter, return now.

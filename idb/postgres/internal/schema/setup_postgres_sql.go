@@ -9,7 +9,8 @@ CREATE TABLE public.block_header (
     rewardslevel INT8 NOT NULL,
     header JSONB NOT NULL,
     CONSTRAINT block_header_pkey PRIMARY KEY (round ASC),
-    INDEX block_header_time (realtime ASC)
+    INDEX block_header_time (realtime ASC),
+    INDEX block_header_idx_proposer (((header->'prp')::TEXT), round) WHERE (header->'prp') IS NOT NULL
 );
 
 CREATE TABLE public.txn (

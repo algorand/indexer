@@ -203,6 +203,20 @@
         },
         "x-algorand-format": "base64"
       },
+      "proposer": {
+        "description": "Block proposer. Comma separated list of addresses.",
+        "explode": false,
+        "in": "query",
+        "name": "proposer",
+        "schema": {
+          "items": {
+            "type": "string",
+            "x-algorand-format": "Address"
+          },
+          "type": "array"
+        },
+        "style": "form"
+      },
       "rekey-to": {
         "description": "Include results which include the rekey-to field.",
         "in": "query",
@@ -4861,6 +4875,20 @@
               "x-algorand-format": "RFC3339 String"
             },
             "x-algorand-format": "RFC3339 String"
+          },
+          {
+            "description": "Block proposer. Comma separated list of addresses.",
+            "explode": false,
+            "in": "query",
+            "name": "proposer",
+            "schema": {
+              "items": {
+                "type": "string",
+                "x-algorand-format": "Address"
+              },
+              "type": "array"
+            },
+            "style": "form"
           }
         ],
         "responses": {

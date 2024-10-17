@@ -235,6 +235,7 @@ type BlockFilter struct {
 	MinRound   *uint64
 	AfterTime  time.Time
 	BeforeTime time.Time
+	Proposers  map[sdk.Address]struct{}
 }
 
 // TransactionFilter is a parameter object with all the transaction filter options.

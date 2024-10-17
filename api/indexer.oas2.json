@@ -884,6 +884,9 @@
           },
           {
             "$ref": "#/parameters/after-time"
+          },
+          {
+            "$ref": "#/parameters/proposer"
           }
         ],
         "responses": {
@@ -2726,6 +2729,17 @@
     }
   },
   "parameters": {
+    "proposer": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "x-algorand-format": "Address"
+      },
+      "description": "Block proposer. Comma separated list of addresses.",
+      "name": "proposer",
+      "in": "query",
+      "required": false
+    },
     "account-id": {
       "type": "string",
       "description": "account string",
