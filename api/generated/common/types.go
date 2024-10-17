@@ -1183,6 +1183,9 @@ type Exclude = []string
 // ExcludeCloseTo defines model for exclude-close-to.
 type ExcludeCloseTo = bool
 
+// Expired defines model for expired.
+type Expired = []string
+
 // GroupId defines model for group-id.
 type GroupId = string
 

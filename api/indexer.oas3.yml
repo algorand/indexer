@@ -135,6 +135,20 @@
           "type": "boolean"
         }
       },
+      "expired": {
+        "description": "Expired participation accounts. Comma separated list of addresses.",
+        "explode": false,
+        "in": "query",
+        "name": "expired",
+        "schema": {
+          "items": {
+            "type": "string",
+            "x-algorand-format": "Address"
+          },
+          "type": "array"
+        },
+        "style": "form"
+      },
       "group-id": {
         "description": "Lookup transactions by group ID. This field must be base64-encoded, and afterwards, base64 characters like +, / and = must be URL-encoded",
         "in": "query",
@@ -4881,6 +4895,20 @@
             "explode": false,
             "in": "query",
             "name": "proposer",
+            "schema": {
+              "items": {
+                "type": "string",
+                "x-algorand-format": "Address"
+              },
+              "type": "array"
+            },
+            "style": "form"
+          },
+          {
+            "description": "Expired participation accounts. Comma separated list of addresses.",
+            "explode": false,
+            "in": "query",
+            "name": "expired",
             "schema": {
               "items": {
                 "type": "string",

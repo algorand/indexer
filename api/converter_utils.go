@@ -851,6 +851,15 @@ func (si *ServerImplementation) blockParamsToBlockFilter(params generated.Search
 				filter.Proposers[addr] = struct{}{}
 			}
 		}
+
+		filter.ExpiredParticipationAccounts = make(map[sdk.Address]struct{}, 0)
+		if params.Expired != nil {
+			for _, s := range *params.Expired {
+				var addr sdk.Address
+				addr, errorArr = decodeSdkAddress(s, "expired", errorArr)
+				filter.ExpiredParticipationAccounts[addr] = struct{}{}
+			}
+		}
 	}
 
 	// If there were any errorArr while setting up the BlockFilter, return now.

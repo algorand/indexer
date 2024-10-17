@@ -1271,6 +1271,9 @@ type Exclude = []string
 // ExcludeCloseTo defines model for exclude-close-to.
 type ExcludeCloseTo = bool
 
+// Expired defines model for expired.
+type Expired = []string
+
 // GroupId defines model for group-id.
 type GroupId = string
 
@@ -1850,6 +1853,9 @@ type SearchForBlocksParams struct {
 
 	// Proposer Block proposer. Comma separated list of addresses.
 	Proposer *[]string `form:"proposer,omitempty" json:"proposer,omitempty"`
+
+	// Expired Expired participation accounts. Comma separated list of addresses.
+	Expired *[]string `form:"expired,omitempty" json:"expired,omitempty"`
 }
 
 // LookupBlockParams defines parameters for LookupBlock.

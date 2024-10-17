@@ -887,6 +887,9 @@
           },
           {
             "$ref": "#/parameters/proposer"
+          },
+          {
+            "$ref": "#/parameters/expired"
           }
         ],
         "responses": {
@@ -2729,6 +2732,17 @@
     }
   },
   "parameters": {
+    "expired": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "x-algorand-format": "Address"
+      },
+      "description": "Expired participation accounts. Comma separated list of addresses.",
+      "name": "expired",
+      "in": "query",
+      "required": false
+    },
     "proposer": {
       "type": "array",
       "items": {

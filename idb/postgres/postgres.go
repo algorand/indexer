@@ -767,6 +767,16 @@ func buildBlockQuery(bf idb.BlockFilter) (query string, whereArgs []interface{},
 				fmt.Sprintf("( (header->'prp') IS NOT NULL AND ((header->'prp')::TEXT IN (%s)) )", strings.Join(proposersStr, ",")),
 			)
 		}
+		if len(bf.ExpiredParticipationAccounts) > 0 {
+			var expiredStr []string
+			for addr := range bf.ExpiredParticipationAccounts {
+				expiredStr = append(expiredStr, `'`+addr.String()+`'`)
+			}
+			whereParts = append(
+				whereParts,
+				fmt.Sprintf("( (header->'partupdrmv') IS NOT NULL AND (header->'partupdrmv') ?| array[%s] )", strings.Join(expiredStr, ",")),
+			)
+		}
 	}
 
 	// SELECT, FROM

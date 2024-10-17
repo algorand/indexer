@@ -230,12 +230,13 @@ type GetBlockOptions struct {
 
 // BlockFilter is a parameter object with all the block filter options.
 type BlockFilter struct {
-	Limit      uint64
-	MaxRound   *uint64
-	MinRound   *uint64
-	AfterTime  time.Time
-	BeforeTime time.Time
-	Proposers  map[sdk.Address]struct{}
+	Limit                        uint64
+	MaxRound                     *uint64
+	MinRound                     *uint64
+	AfterTime                    time.Time
+	BeforeTime                   time.Time
+	Proposers                    map[sdk.Address]struct{}
+	ExpiredParticipationAccounts map[sdk.Address]struct{}
 }
 
 // TransactionFilter is a parameter object with all the transaction filter options.
