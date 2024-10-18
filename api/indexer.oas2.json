@@ -890,6 +890,9 @@
           },
           {
             "$ref": "#/parameters/expired"
+          },
+          {
+            "$ref": "#/parameters/absent"
           }
         ],
         "responses": {
@@ -2732,6 +2735,17 @@
     }
   },
   "parameters": {
+    "absent": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "x-algorand-format": "Address"
+      },
+      "description": "Absent participation accounts. Comma separated list of addresses.",
+      "name": "absent",
+      "in": "query",
+      "required": false
+    },
     "expired": {
       "type": "array",
       "items": {

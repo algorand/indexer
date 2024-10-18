@@ -1232,6 +1232,9 @@ type TransactionStateProof struct {
 	StateProofType *uint64 `json:"state-proof-type,omitempty"`
 }
 
+// Absent defines model for absent.
+type Absent = []string
+
 // AccountId defines model for account-id.
 type AccountId = string
 
@@ -1856,6 +1859,9 @@ type SearchForBlocksParams struct {
 
 	// Expired Expired participation accounts. Comma separated list of addresses.
 	Expired *[]string `form:"expired,omitempty" json:"expired,omitempty"`
+
+	// Absent Absent participation accounts. Comma separated list of addresses.
+	Absent *[]string `form:"absent,omitempty" json:"absent,omitempty"`
 }
 
 // LookupBlockParams defines parameters for LookupBlock.

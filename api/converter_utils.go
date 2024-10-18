@@ -860,6 +860,15 @@ func (si *ServerImplementation) blockParamsToBlockFilter(params generated.Search
 				filter.ExpiredParticipationAccounts[addr] = struct{}{}
 			}
 		}
+
+		filter.AbsentParticipationAccounts = make(map[sdk.Address]struct{}, 0)
+		if params.Absent != nil {
+			for _, s := range *params.Absent {
+				var addr sdk.Address
+				addr, errorArr = decodeSdkAddress(s, "absent", errorArr)
+				filter.AbsentParticipationAccounts[addr] = struct{}{}
+			}
+		}
 	}
 
 	// If there were any errorArr while setting up the BlockFilter, return now.

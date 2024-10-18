@@ -1,6 +1,20 @@
 {
   "components": {
     "parameters": {
+      "absent": {
+        "description": "Absent participation accounts. Comma separated list of addresses.",
+        "explode": false,
+        "in": "query",
+        "name": "absent",
+        "schema": {
+          "items": {
+            "type": "string",
+            "x-algorand-format": "Address"
+          },
+          "type": "array"
+        },
+        "style": "form"
+      },
       "account-id": {
         "description": "account string",
         "in": "path",
@@ -4909,6 +4923,20 @@
             "explode": false,
             "in": "query",
             "name": "expired",
+            "schema": {
+              "items": {
+                "type": "string",
+                "x-algorand-format": "Address"
+              },
+              "type": "array"
+            },
+            "style": "form"
+          },
+          {
+            "description": "Absent participation accounts. Comma separated list of addresses.",
+            "explode": false,
+            "in": "query",
+            "name": "absent",
             "schema": {
               "items": {
                 "type": "string",

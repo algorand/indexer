@@ -1144,6 +1144,9 @@ type TransactionStateProof struct {
 	StateProofType *uint64 `json:"state-proof-type,omitempty"`
 }
 
+// Absent defines model for absent.
+type Absent = []string
+
 // AccountId defines model for account-id.
 type AccountId = string
 

@@ -237,6 +237,7 @@ type BlockFilter struct {
 	BeforeTime                   time.Time
 	Proposers                    map[sdk.Address]struct{}
 	ExpiredParticipationAccounts map[sdk.Address]struct{}
+	AbsentParticipationAccounts  map[sdk.Address]struct{}
 }
 
 // TransactionFilter is a parameter object with all the transaction filter options.
