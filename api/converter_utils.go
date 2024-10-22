@@ -843,6 +843,26 @@ func (si *ServerImplementation) blockParamsToBlockFilter(params generated.Search
 
 	// Address list
 	{
+		numParticipationFilters := 0
+		if params.Proposer != nil {
+			numParticipationFilters++
+		}
+		if params.Expired != nil {
+			numParticipationFilters++
+		}
+		if params.Absent != nil {
+			numParticipationFilters++
+		}
+		if params.Updates != nil {
+			numParticipationFilters++
+		}
+		if params.Participation != nil {
+			numParticipationFilters++
+		}
+		if numParticipationFilters > 1 {
+			errorArr = append(errorArr, "only one of `proposer`, `expired`, `absent`, `updates`, or `participation` can be specified")
+		}
+
 		filter.Proposers = make(map[sdk.Address]struct{}, 0)
 		if params.Proposer != nil {
 			for _, s := range *params.Proposer {
@@ -867,6 +887,27 @@ func (si *ServerImplementation) blockParamsToBlockFilter(params generated.Search
 				var addr sdk.Address
 				addr, errorArr = decodeSdkAddress(s, "absent", errorArr)
 				filter.AbsentParticipationAccounts[addr] = struct{}{}
+			}
+		}
+
+		// Updates = absent || expired
+		if params.Updates != nil {
+			for _, s := range *params.Updates {
+				var addr sdk.Address
+				addr, errorArr = decodeSdkAddress(s, "updates", errorArr)
+				filter.AbsentParticipationAccounts[addr] = struct{}{}
+				filter.ExpiredParticipationAccounts[addr] = struct{}{}
+			}
+		}
+
+		// Participation = proposer || absent || expired
+		if params.Participation != nil {
+			for _, s := range *params.Participation {
+				var addr sdk.Address
+				addr, errorArr = decodeSdkAddress(s, "participation", errorArr)
+				filter.Proposers[addr] = struct{}{}
+				filter.AbsentParticipationAccounts[addr] = struct{}{}
+				filter.ExpiredParticipationAccounts[addr] = struct{}{}
 			}
 		}
 	}

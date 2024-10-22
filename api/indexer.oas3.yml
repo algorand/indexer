@@ -231,6 +231,20 @@
         },
         "x-algorand-format": "base64"
       },
+      "participation": {
+        "description": "Proposer, expired or absent participation accounts. Comma separated list of addresses.",
+        "explode": false,
+        "in": "query",
+        "name": "participation",
+        "schema": {
+          "items": {
+            "type": "string",
+            "x-algorand-format": "Address"
+          },
+          "type": "array"
+        },
+        "style": "form"
+      },
       "proposer": {
         "description": "Block proposer. Comma separated list of addresses.",
         "explode": false,
@@ -316,6 +330,20 @@
         "schema": {
           "type": "string"
         }
+      },
+      "updates": {
+        "description": "Expired or absent participation accounts. Comma separated list of addresses.",
+        "explode": false,
+        "in": "query",
+        "name": "updates",
+        "schema": {
+          "items": {
+            "type": "string",
+            "x-algorand-format": "Address"
+          },
+          "type": "array"
+        },
+        "style": "form"
       }
     },
     "responses": {
@@ -4937,6 +4965,34 @@
             "explode": false,
             "in": "query",
             "name": "absent",
+            "schema": {
+              "items": {
+                "type": "string",
+                "x-algorand-format": "Address"
+              },
+              "type": "array"
+            },
+            "style": "form"
+          },
+          {
+            "description": "Expired or absent participation accounts. Comma separated list of addresses.",
+            "explode": false,
+            "in": "query",
+            "name": "updates",
+            "schema": {
+              "items": {
+                "type": "string",
+                "x-algorand-format": "Address"
+              },
+              "type": "array"
+            },
+            "style": "form"
+          },
+          {
+            "description": "Proposer, expired or absent participation accounts. Comma separated list of addresses.",
+            "explode": false,
+            "in": "query",
+            "name": "participation",
             "schema": {
               "items": {
                 "type": "string",

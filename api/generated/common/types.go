@@ -1213,6 +1213,9 @@ type Next = string
 // NotePrefix defines model for note-prefix.
 type NotePrefix = string
 
+// Participation defines model for participation.
+type Participation = []string
+
 // Proposer defines model for proposer.
 type Proposer = []string
 
@@ -1236,6 +1239,9 @@ type TxType string
 
 // Txid defines model for txid.
 type Txid = string
+
+// Updates defines model for updates.
+type Updates = []string
 
 // AccountResponse defines model for AccountResponse.
 type AccountResponse struct {

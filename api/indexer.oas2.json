@@ -893,6 +893,12 @@
           },
           {
             "$ref": "#/parameters/absent"
+          },
+          {
+            "$ref": "#/parameters/updates"
+          },
+          {
+            "$ref": "#/parameters/participation"
           }
         ],
         "responses": {
@@ -2735,6 +2741,17 @@
     }
   },
   "parameters": {
+    "proposer": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "x-algorand-format": "Address"
+      },
+      "description": "Block proposer. Comma separated list of addresses.",
+      "name": "proposer",
+      "in": "query",
+      "required": false
+    },
     "absent": {
       "type": "array",
       "items": {
@@ -2757,14 +2774,25 @@
       "in": "query",
       "required": false
     },
-    "proposer": {
+    "updates": {
       "type": "array",
       "items": {
         "type": "string",
         "x-algorand-format": "Address"
       },
-      "description": "Block proposer. Comma separated list of addresses.",
-      "name": "proposer",
+      "description": "Expired or absent participation accounts. Comma separated list of addresses.",
+      "name": "updates",
+      "in": "query",
+      "required": false
+    },
+    "participation": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "x-algorand-format": "Address"
+      },
+      "description": "Proposer, expired or absent participation accounts. Comma separated list of addresses.",
+      "name": "participation",
       "in": "query",
       "required": false
     },

@@ -1301,6 +1301,9 @@ type Next = string
 // NotePrefix defines model for note-prefix.
 type NotePrefix = string
 
+// Participation defines model for participation.
+type Participation = []string
+
 // Proposer defines model for proposer.
 type Proposer = []string
 
@@ -1324,6 +1327,9 @@ type TxType string
 
 // Txid defines model for txid.
 type Txid = string
+
+// Updates defines model for updates.
+type Updates = []string
 
 // AccountResponse defines model for AccountResponse.
 type AccountResponse struct {
@@ -1862,6 +1868,12 @@ type SearchForBlocksParams struct {
 
 	// Absent Absent participation accounts. Comma separated list of addresses.
 	Absent *[]string `form:"absent,omitempty" json:"absent,omitempty"`
+
+	// Updates Expired or absent participation accounts. Comma separated list of addresses.
+	Updates *[]string `form:"updates,omitempty" json:"updates,omitempty"`
+
+	// Participation Proposer, expired or absent participation accounts. Comma separated list of addresses.
+	Participation *[]string `form:"participation,omitempty" json:"participation,omitempty"`
 }
 
 // LookupBlockParams defines parameters for LookupBlock.
