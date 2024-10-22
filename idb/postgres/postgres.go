@@ -727,7 +727,7 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 //
 // It only generates terms that filter blocks based on round and/or timestamp.
 //
-// Filters related to participacion are generated elsewhere.
+// Filters related to participation are generated elsewhere.
 func buildBlockWhereTerms(bf idb.BlockFilter) []string {
 
 	var terms []string
