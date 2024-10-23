@@ -1005,7 +1005,6 @@ func (si *ServerImplementation) LookupTransaction(ctx echo.Context, txid string)
 // SearchForBlocks returns block headers matching the provided parameters
 // (GET /v2/blocks)
 func (si *ServerImplementation) SearchForBlocks(ctx echo.Context, params generated.SearchForBlocksParams) error {
-
 	// Validate query parameters
 	if err := si.verifyHandler("SearchForBlocks", ctx); err != nil {
 		return badRequest(ctx, err.Error())

@@ -44,6 +44,12 @@ type ExtraOptions struct {
 	// If an address exceeds this number, a 400 error is returned. Zero means unlimited.
 	MaxAPIResourcesPerAccount uint64
 
+	// MaxAccountListSize is the maximum number of items that can be passed in query parameter account lists.
+	// (e.g.: GET /v2/blocks?proposer=A,B,C)
+	//
+	// Zero means unlimited.
+	MaxAccountListSize uint64
+
 	/////////////////////
 	// Limit Constants //
 	/////////////////////

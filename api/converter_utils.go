@@ -843,6 +843,7 @@ func (si *ServerImplementation) blockParamsToBlockFilter(params generated.Search
 
 	// Address list
 	{
+		// Make sure at most one of the participation parameters is set
 		numParticipationFilters := 0
 		if params.Proposer != nil {
 			numParticipationFilters++
@@ -861,6 +862,23 @@ func (si *ServerImplementation) blockParamsToBlockFilter(params generated.Search
 		}
 		if numParticipationFilters > 1 {
 			errorArr = append(errorArr, "only one of `proposer`, `expired`, `absent`, `updates`, or `participation` can be specified")
+		}
+
+		// Validate the number of items in the participation account lists
+		if params.Proposer != nil && uint64(len(*params.Proposer)) > si.opts.MaxAccountListSize {
+			errorArr = append(errorArr, fmt.Sprintf("proposer list too long, max size is %d", si.opts.MaxAccountListSize))
+		}
+		if params.Expired != nil && uint64(len(*params.Expired)) > si.opts.MaxAccountListSize {
+			errorArr = append(errorArr, fmt.Sprintf("expired list too long, max size is %d", si.opts.MaxAccountListSize))
+		}
+		if params.Absent != nil && uint64(len(*params.Absent)) > si.opts.MaxAccountListSize {
+			errorArr = append(errorArr, fmt.Sprintf("absent list too long, max size is %d", si.opts.MaxAccountListSize))
+		}
+		if params.Updates != nil && uint64(len(*params.Updates)) > si.opts.MaxAccountListSize {
+			errorArr = append(errorArr, fmt.Sprintf("updates list too long, max size is %d", si.opts.MaxAccountListSize))
+		}
+		if params.Participation != nil && uint64(len(*params.Participation)) > si.opts.MaxAccountListSize {
+			errorArr = append(errorArr, fmt.Sprintf("participation list too long, max size is %d", si.opts.MaxAccountListSize))
 		}
 
 		filter.Proposers = make(map[sdk.Address]struct{}, 0)
