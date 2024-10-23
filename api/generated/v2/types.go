@@ -1860,19 +1860,19 @@ type SearchForBlocksParams struct {
 	// AfterTime Include results after the given time. Must be an RFC 3339 formatted string.
 	AfterTime *time.Time `form:"after-time,omitempty" json:"after-time,omitempty"`
 
-	// Proposer Block proposer. Comma separated list of addresses.
+	// Proposer Account(s) marked as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.
 	Proposer *[]string `form:"proposer,omitempty" json:"proposer,omitempty"`
 
-	// Expired Expired participation accounts. Comma separated list of addresses.
+	// Expired Account(s) marked as expired in the block header's participation updates. This parameter accepts a comma separated list of addresses.
 	Expired *[]string `form:"expired,omitempty" json:"expired,omitempty"`
 
-	// Absent Absent participation accounts. Comma separated list of addresses.
+	// Absent Account(s) marked as absent in the block header's participation updates. This parameter accepts a comma separated list of addresses.
 	Absent *[]string `form:"absent,omitempty" json:"absent,omitempty"`
 
-	// Updates Expired or absent participation accounts. Comma separated list of addresses.
+	// Updates Account(s) marked as expired or absent in the block header's participation updates. This parameter accepts a comma separated list of addresses.
 	Updates *[]string `form:"updates,omitempty" json:"updates,omitempty"`
 
-	// Participation Proposer, expired or absent participation accounts. Comma separated list of addresses.
+	// Participation Account(s) marked as expired, absent or as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.
 	Participation *[]string `form:"participation,omitempty" json:"participation,omitempty"`
 }
 

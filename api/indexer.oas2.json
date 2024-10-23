@@ -2747,7 +2747,7 @@
         "type": "string",
         "x-algorand-format": "Address"
       },
-      "description": "Block proposer. Comma separated list of addresses.",
+      "description": "Account(s) marked as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
       "name": "proposer",
       "in": "query",
       "required": false
@@ -2758,7 +2758,7 @@
         "type": "string",
         "x-algorand-format": "Address"
       },
-      "description": "Absent participation accounts. Comma separated list of addresses.",
+      "description": "Account(s) marked as absent in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
       "name": "absent",
       "in": "query",
       "required": false
@@ -2769,7 +2769,7 @@
         "type": "string",
         "x-algorand-format": "Address"
       },
-      "description": "Expired participation accounts. Comma separated list of addresses.",
+      "description": "Account(s) marked as expired in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
       "name": "expired",
       "in": "query",
       "required": false
@@ -2780,7 +2780,7 @@
         "type": "string",
         "x-algorand-format": "Address"
       },
-      "description": "Expired or absent participation accounts. Comma separated list of addresses.",
+      "description": "Account(s) marked as expired or absent in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
       "name": "updates",
       "in": "query",
       "required": false
@@ -2791,7 +2791,7 @@
         "type": "string",
         "x-algorand-format": "Address"
       },
-      "description": "Proposer, expired or absent participation accounts. Comma separated list of addresses.",
+      "description": "Account(s) marked as expired, absent or as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
       "name": "participation",
       "in": "query",
       "required": false
