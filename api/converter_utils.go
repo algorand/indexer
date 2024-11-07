@@ -306,6 +306,7 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 	var assetTransfer *generated.TransactionAssetTransfer
 	var application *generated.TransactionApplication
 	var stateProof *generated.TransactionStateProof
+	var heartbeat *generated.TransactionHeartBeat
 
 	switch stxn.Txn.Type {
 	case sdk.PaymentTx:
@@ -509,6 +510,20 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 			StateProofType: uint64Ptr(uint64(stxn.Txn.StateProofType)),
 		}
 		stateProof = &proofTxn
+	case sdk.HeartbeatTx:
+		hb := stxn.Txn.HeartbeatTxnFields
+		hbTxn := generated.TransactionHeartBeat{
+			HbAddress: hb.HbAddress.String(),
+			HbProof: generated.HbProofFields{
+				HbPk:     byteSliceOmitZeroPtr(hb.HbProof.PK[:]),
+				HbPk1sig: byteSliceOmitZeroPtr(hb.HbProof.PK1Sig[:]),
+				HbPk2:    byteSliceOmitZeroPtr(hb.HbProof.PK2[:]),
+				HbPk2sig: byteSliceOmitZeroPtr(hb.HbProof.PK2Sig[:]),
+				HbSig:    byteSliceOmitZeroPtr(hb.HbProof.Sig[:]),
+			},
+			HbSeed: hb.HbSeed[:],
+		}
+		heartbeat = &hbTxn
 	}
 
 	var localStateDelta *[]generated.AccountStateDelta
@@ -585,6 +600,7 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 		PaymentTransaction:       payment,
 		KeyregTransaction:        keyreg,
 		StateProofTransaction:    stateProof,
+		HeartBeatTransaction:     heartbeat,
 		ClosingAmount:            uint64Ptr(uint64(stxn.ClosingAmount)),
 		ConfirmedRound:           uint64Ptr(extra.Round),
 		IntraRoundOffset:         uint64Ptr(uint64(extra.Intra)),

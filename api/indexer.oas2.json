@@ -1993,7 +1993,8 @@
         "asset-transfer-transaction",
         "keyreg-transaction",
         "payment-transaction",
-        "state-proof-transaction"
+        "state-proof-transaction",
+        "heart-beat-transaction"
       ],
       "properties": {
         "application-transaction": {
@@ -2010,6 +2011,9 @@
         },
         "state-proof-transaction": {
           "$ref": "#/definitions/TransactionStateProof"
+        },
+        "heart-beat-transaction": {
+          "$ref": "#/definitions/TransactionHeartBeat"
         },
         "auth-addr": {
           "description": "\\[sgnr\\] this is included with signed transactions when the signing address does not equal the sender. The backend can use this to ensure that auth addr is equal to the accounts auth addr.",
@@ -2111,7 +2115,7 @@
           "$ref": "#/definitions/TransactionSignature"
         },
         "tx-type": {
-          "description": "\\[type\\] Indicates what type of transaction this is. Different types have different fields.\n\nValid types, and where their fields are stored:\n* \\[pay\\] payment-transaction\n* \\[keyreg\\] keyreg-transaction\n* \\[acfg\\] asset-config-transaction\n* \\[axfer\\] asset-transfer-transaction\n* \\[afrz\\] asset-freeze-transaction\n* \\[appl\\] application-transaction\n* \\[stpf\\] state-proof-transaction",
+          "description": "\\[type\\] Indicates what type of transaction this is. Different types have different fields.\n\nValid types, and where their fields are stored:\n* \\[pay\\] payment-transaction\n* \\[keyreg\\] keyreg-transaction\n* \\[acfg\\] asset-config-transaction\n* \\[axfer\\] asset-transfer-transaction\n* \\[afrz\\] asset-freeze-transaction\n* \\[appl\\] application-transaction\n* \\[stpf\\] state-proof-transaction\n* \\[hb\\] heart-beat-transaction",
           "type": "string",
           "enum": [
             "pay",
@@ -2120,7 +2124,8 @@
             "axfer",
             "afrz",
             "appl",
-            "stpf"
+            "stpf",
+            "hb"
           ],
           "x-algorand-format": "tx-type-enum"
         },
@@ -2275,6 +2280,29 @@
         "message": {
           "$ref": "#/definitions/IndexerStateProofMessage",
           "description": "\\[spmsg\\]"
+        }
+      }
+    },
+    "TransactionHeartBeat": {
+      "description": "Fields for a heartbeat transaction.\n\nDefinition:\ndata/transactions/heartbeat.go : HeartBeatTxnFields",
+      "type": "object",
+      "required": [
+        "hb-address",
+        "hb-proof",
+        "hb-seed"
+      ],
+      "properties": {
+        "hb-address": {
+          "description": "\\[hbad\\] HbAddress is the account this txn is proving onlineness for.",
+          "type": "string"
+        },
+        "hb-proof": {
+          "$ref": "#/definitions/HbProofFields"
+        },
+        "hb-seed": {
+          "description": "\\[hbsd\\] HbSeed must be the block seed for the block before this transaction's\n\t// firstValid..",
+          "type": "string",
+          "format": "byte"
         }
       }
     },
@@ -2506,6 +2534,37 @@
             "type": "integer",
             "x-algorand-format": "uint64"
           }
+        }
+      }
+    },
+    "HbProofFields": {
+      "description": "\\[hbprf\\] HbProof is a signature using HeartbeatAddress's partkey, thereby showing it is online.",
+      "type": "object",
+      "properties": {
+        "hb-sig": {
+          "description": "\\[s\\] Signature of the heartbeat message.",
+          "type": "string",
+          "format": "byte"
+        },
+        "hb-pk": {
+          "description": "\\[p\\] Public key of the heartbeat message.",
+          "type": "string",
+          "format": "byte"
+        },
+        "hb-pk2": {
+          "description": "\\[p2\\] Key for new-style two-level ephemeral signature.",
+          "type": "string",
+          "format": "byte"
+        },
+        "hb-pk1sig": {
+          "description": "\\[p1s\\] Signature of OneTimeSignatureSubkeyOffsetID(PK, Batch, Offset) under the key PK2.",
+          "type": "string",
+          "format": "byte"
+        },
+        "hb-pk2sig": {
+          "description": "\\[p2s\\] Signature of OneTimeSignatureSubkeyBatchID(PK2, Batch) under the master key (OneTimeSignatureVerifier).",
+          "type": "string",
+          "format": "byte"
         }
       }
     },
@@ -2873,7 +2932,8 @@
         "axfer",
         "afrz",
         "appl",
-        "stpf"
+        "stpf",
+        "hb"
       ],
       "type": "string",
       "name": "tx-type",

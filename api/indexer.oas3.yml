@@ -252,7 +252,8 @@
             "axfer",
             "afrz",
             "appl",
-            "stpf"
+            "stpf",
+            "hb"
           ],
           "type": "string"
         }
@@ -1492,6 +1493,42 @@
         ],
         "type": "string"
       },
+      "HbProofFields": {
+        "description": "\\[hbprf\\] HbProof is a signature using HeartbeatAddress's partkey, thereby showing it is online.",
+        "properties": {
+          "hb-pk": {
+            "description": "\\[p\\] Public key of the heartbeat message.",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          },
+          "hb-pk1sig": {
+            "description": "\\[p1s\\] Signature of OneTimeSignatureSubkeyOffsetID(PK, Batch, Offset) under the key PK2.",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          },
+          "hb-pk2": {
+            "description": "\\[p2\\] Key for new-style two-level ephemeral signature.",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          },
+          "hb-pk2sig": {
+            "description": "\\[p2s\\] Signature of OneTimeSignatureSubkeyBatchID(PK2, Batch) under the master key (OneTimeSignatureVerifier).",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          },
+          "hb-sig": {
+            "description": "\\[s\\] Signature of the heartbeat message.",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "HealthCheck": {
         "description": "A health check response.",
         "properties": {
@@ -1940,6 +1977,9 @@
             "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
             "type": "string"
           },
+          "heart-beat-transaction": {
+            "$ref": "#/components/schemas/TransactionHeartBeat"
+          },
           "id": {
             "description": "Transaction ID",
             "type": "string"
@@ -2021,7 +2061,7 @@
             "$ref": "#/components/schemas/TransactionStateProof"
           },
           "tx-type": {
-            "description": "\\[type\\] Indicates what type of transaction this is. Different types have different fields.\n\nValid types, and where their fields are stored:\n* \\[pay\\] payment-transaction\n* \\[keyreg\\] keyreg-transaction\n* \\[acfg\\] asset-config-transaction\n* \\[axfer\\] asset-transfer-transaction\n* \\[afrz\\] asset-freeze-transaction\n* \\[appl\\] application-transaction\n* \\[stpf\\] state-proof-transaction",
+            "description": "\\[type\\] Indicates what type of transaction this is. Different types have different fields.\n\nValid types, and where their fields are stored:\n* \\[pay\\] payment-transaction\n* \\[keyreg\\] keyreg-transaction\n* \\[acfg\\] asset-config-transaction\n* \\[axfer\\] asset-transfer-transaction\n* \\[afrz\\] asset-freeze-transaction\n* \\[appl\\] application-transaction\n* \\[stpf\\] state-proof-transaction\n* \\[hb\\] heart-beat-transaction",
             "enum": [
               "pay",
               "keyreg",
@@ -2029,7 +2069,8 @@
               "axfer",
               "afrz",
               "appl",
-              "stpf"
+              "stpf",
+              "hb"
             ],
             "type": "string",
             "x-algorand-format": "tx-type-enum"
@@ -2184,6 +2225,30 @@
           "amount",
           "asset-id",
           "receiver"
+        ],
+        "type": "object"
+      },
+      "TransactionHeartBeat": {
+        "description": "Fields for a heartbeat transaction.\n\nDefinition:\ndata/transactions/heartbeat.go : HeartBeatTxnFields",
+        "properties": {
+          "hb-address": {
+            "description": "\\[hbad\\] HbAddress is the account this txn is proving onlineness for.",
+            "type": "string"
+          },
+          "hb-proof": {
+            "$ref": "#/components/schemas/HbProofFields"
+          },
+          "hb-seed": {
+            "description": "\\[hbsd\\] HbSeed must be the block seed for the block before this transaction's\n\t// firstValid..",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "hb-address",
+          "hb-proof",
+          "hb-seed"
         ],
         "type": "object"
       },
@@ -3367,7 +3432,8 @@
                 "axfer",
                 "afrz",
                 "appl",
-                "stpf"
+                "stpf",
+                "hb"
               ],
               "type": "string"
             }
@@ -4546,7 +4612,8 @@
                 "axfer",
                 "afrz",
                 "appl",
-                "stpf"
+                "stpf",
+                "hb"
               ],
               "type": "string"
             }
@@ -4889,7 +4956,8 @@
                 "axfer",
                 "afrz",
                 "appl",
-                "stpf"
+                "stpf",
+                "hb"
               ],
               "type": "string"
             }
