@@ -1531,7 +1531,7 @@ func TestFetchBlockWithOptions(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		t.Run(fmt.Sprintf(tc.name), func(t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			c, api, rec := setupReq("/v2/blocks/:round-number", "round-number", "1")
 			if tc.name == "default" {
 				err = api.LookupBlock(c, 1, generated.LookupBlockParams{})

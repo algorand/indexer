@@ -1,7 +1,7 @@
 version: 2.1
 
 orbs:
-  go: circleci/go@1.7.3
+  go: circleci/go@1.12.0
   slack: circleci/slack@4.7.1
   codecov: codecov/codecov@3.2.4
 
@@ -18,7 +18,7 @@ workflows:
           name: test_with_go_<< matrix.go_version >>
           matrix: &go-version-matrix
             parameters:
-              go_version: ["1.21.10"]
+              go_version: ["1.23.3"]
 
   circleci_build_and_test_nightly:
     triggers:
@@ -33,7 +33,7 @@ workflows:
           context: lamprey-secrets
           matrix: &go-version-matrix
             parameters:
-              go_version: ["1.21.10"]
+              go_version: ["1.23.3"]
       - indexer_vs_algod_nightly:
           name: nightly_test_indexer_vs_algod
           context: lamprey-secrets
@@ -135,7 +135,7 @@ commands:
     steps:
       - run:
           name: Install golangci-lint
-          command: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.53.2
+          command: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.0
 
   run_e2e_tests:
     steps:

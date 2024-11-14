@@ -32,41 +32,41 @@ func minBalance(
 	totalExtraAppPages uint64,
 	totalBoxes uint64, totalBoxBytes uint64,
 ) uint64 {
-	var min uint64
+	var minBal uint64
 
 	// First, base MinBalance
-	min = proto.MinBalance
+	minBal = proto.MinBalance
 
 	// MinBalance for each Asset
 	assetCost := proto.MinBalance * totalAssets
-	min += assetCost
+	minBal += assetCost
 
 	// Base MinBalance for each created application
 	appCreationCost := proto.AppFlatParamsMinBalance * totalAppParams
-	min += appCreationCost
+	minBal += appCreationCost
 
 	// Base MinBalance for each opted in application
 	appOptInCost := proto.AppFlatOptInMinBalance * totalAppLocalStates
-	min += appOptInCost
+	minBal += appOptInCost
 
 	// MinBalance for state usage measured by LocalStateSchemas and
 	// GlobalStateSchemas
 	schemaCost := stateSchemaMinBalance(totalAppSchema, proto)
-	min += schemaCost
+	minBal += schemaCost
 
 	// MinBalance for each extra app program page
 	extraAppProgramLenCost := proto.AppFlatParamsMinBalance * totalExtraAppPages
-	min += extraAppProgramLenCost
+	minBal += extraAppProgramLenCost
 
 	// Base MinBalance for each created box
 	boxBaseCost := proto.BoxFlatMinBalance * totalBoxes
-	min += boxBaseCost
+	minBal += boxBaseCost
 
 	// Per byte MinBalance for boxes
 	boxByteCost := proto.BoxByteMinBalance * totalBoxBytes
-	min += boxByteCost
+	minBal += boxByteCost
 
-	return min
+	return minBal
 }
 
 // AccountMinBalance computes the minimum balance requirements for an account

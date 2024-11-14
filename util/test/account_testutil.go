@@ -100,7 +100,7 @@ func MakeAssetConfigTxn(configid, total, decimals uint64, defaultFrozen bool, un
 }
 
 // MakeAssetTransferTxn creates an asset transfer transaction.
-func MakeAssetTransferTxn(assetid, amt uint64, sender, receiver, close sdk.Address) sdk.SignedTxnWithAD {
+func MakeAssetTransferTxn(assetid, amt uint64, sender, receiver, closeTo sdk.Address) sdk.SignedTxnWithAD {
 	return sdk.SignedTxnWithAD{
 		SignedTxn: sdk.SignedTxn{
 			Txn: sdk.Transaction{
@@ -117,7 +117,7 @@ func MakeAssetTransferTxn(assetid, amt uint64, sender, receiver, close sdk.Addre
 					//only used for clawback transactions
 					//AssetSender:   sdk.Address{},
 					AssetReceiver: receiver,
-					AssetCloseTo:  close,
+					AssetCloseTo:  closeTo,
 				},
 			},
 			Sig: Signature,
@@ -127,7 +127,7 @@ func MakeAssetTransferTxn(assetid, amt uint64, sender, receiver, close sdk.Addre
 
 // MakePaymentTxn creates an algo transfer transaction.
 func MakePaymentTxn(fee, amt, closeAmt, sendRewards, receiveRewards,
-	closeRewards uint64, sender, receiver, close, rekeyTo sdk.Address) sdk.SignedTxnWithAD {
+	closeRewards uint64, sender, receiver, closeTo, rekeyTo sdk.Address) sdk.SignedTxnWithAD {
 	return sdk.SignedTxnWithAD{
 		SignedTxn: sdk.SignedTxn{
 			Txn: sdk.Transaction{
@@ -143,7 +143,7 @@ func MakePaymentTxn(fee, amt, closeAmt, sendRewards, receiveRewards,
 				PaymentTxnFields: sdk.PaymentTxnFields{
 					Receiver:         receiver,
 					Amount:           sdk.MicroAlgos(amt),
-					CloseRemainderTo: close,
+					CloseRemainderTo: closeTo,
 				},
 			},
 			Sig: Signature,
