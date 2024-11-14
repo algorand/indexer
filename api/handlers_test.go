@@ -992,12 +992,13 @@ func TestApplicationLimits(t *testing.T) {
 		},
 	}
 
-	// Mock backend to capture default limits
-	mockIndexer := &mocks.IndexerDb{}
-	si := testServerImplementation(mockIndexer)
-	si.timeout = 5 * time.Millisecond
-
 	for _, tc := range testcases {
+
+		// Mock backend to capture default limits
+		mockIndexer := &mocks.IndexerDb{}
+		si := testServerImplementation(mockIndexer)
+		si.timeout = 5 * time.Millisecond
+
 		t.Run(tc.name, func(t *testing.T) {
 			// Setup context...
 			e := echo.New()
