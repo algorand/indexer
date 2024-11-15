@@ -600,7 +600,7 @@ func (si *ServerImplementation) LookupApplicationBoxByIDAndName(ctx echo.Context
 
 	if len(boxes) == 0 { // this is an unexpected situation as should have received a sql.ErrNoRows from fetchApplicationBoxes's err
 		msg := fmt.Sprintf("%s: round=?=%d, appid=%d, boxName=%s", ErrFailedLookingUpBoxes, round, applicationID, encodedBoxName)
-		return indexerError(ctx, fmt.Errorf(msg))
+		return indexerError(ctx, errors.New(msg))
 	}
 
 	if appid != generated.ApplicationId(applicationID) {
@@ -668,7 +668,7 @@ func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, appl
 
 	if len(boxes) == 0 { // this is an unexpected situation as should have received a sql.ErrNoRows from fetchApplicationBoxes's err
 		msg := fmt.Sprintf("%s: round=?=%d, appid=%d", errFailedSearchingBoxes, round, applicationID)
-		return indexerError(ctx, fmt.Errorf(msg))
+		return indexerError(ctx, errors.New(msg))
 	}
 
 	if appid != generated.ApplicationId(applicationID) {

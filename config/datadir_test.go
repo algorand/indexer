@@ -19,11 +19,11 @@ func TestAlgodArgsForDataDirNetDoesNotExist(t *testing.T) {
 func TestAlgodArgsForDataDirTokenDoesNotExist(t *testing.T) {
 	dir, err := os.MkdirTemp("", "datadir")
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	err = os.WriteFile(filepath.Join(dir, "algod.net"), []byte("127.0.0.1:8080"), fs.ModePerm)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	defer os.RemoveAll(dir)
 	_, _, _, err = AlgodArgsForDataDir(dir)
@@ -34,15 +34,15 @@ func TestAlgodArgsForDataDirTokenDoesNotExist(t *testing.T) {
 func TestAlgodArgsForDataDirSuccess(t *testing.T) {
 	dir, err := os.MkdirTemp("", "datadir")
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	err = os.WriteFile(filepath.Join(dir, "algod.net"), []byte("127.0.0.1:8080"), fs.ModePerm)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	err = os.WriteFile(filepath.Join(dir, "algod.token"), []byte("abc123"), fs.ModePerm)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	defer os.RemoveAll(dir)
 	netAddr, token, lastmod, err := AlgodArgsForDataDir(dir)
