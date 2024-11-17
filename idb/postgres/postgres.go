@@ -949,6 +949,274 @@ finish:
 	}
 }
 
+// buildBlockFilters generates filters based on a block's round and/or timestamp.
+//
+// Filters related to participation are generated elsewhere.
+//
+// Some of the filters are meant to be used as boolean conditions in the WHERE clause.
+// Others, for performance reasons, have to be used as INNER JOIN terms in the FROM clause.
+func buildBlockFilters(bf idb.BlockFilter) (whereTerms []string, joinTerms []string) {
+
+	// Round-based filters
+	if bf.MaxRound != nil {
+		whereTerms = append(
+			whereTerms,
+			fmt.Sprintf("bh.round <= %d", *bf.MaxRound),
+		)
+	}
+	if bf.MinRound != nil {
+		whereTerms = append(
+			whereTerms,
+			fmt.Sprintf("bh.round >= %d", *bf.MinRound),
+		)
+	}
+
+	// Timestamp-based filters
+	//
+	// Converting the timestamp into a round usually results in faster execution plans
+	// (compared to the execution plans that would result from using the `block_header.realtime` column directly)
+	//
+	// Unfortunately, writing this condition in the WHERE clause results in poor execution plans.
+	// Expressing the filter as an INNER JOIN results in an efficient query execution plan.
+	if !bf.AfterTime.IsZero() {
+		tmpl := `
+			INNER JOIN (
+				SELECT COALESCE(tmp.round, 0) AS round
+				FROM block_header tmp
+				WHERE tmp.realtime > (to_timestamp(%d) AT TIME ZONE 'UTC')
+				ORDER BY tmp.realtime ASC, tmp.round ASC
+				LIMIT 1
+			) bh_at ON bh.round >= bh_at.round
+		`
+		joinTerms = append(
+			joinTerms,
+			fmt.Sprintf(tmpl, bf.AfterTime.UTC().Unix()),
+		)
+	}
+	if !bf.BeforeTime.IsZero() {
+		tmpl := `
+			INNER JOIN (
+				SELECT COALESCE(tmp.round, 0) AS round
+				FROM block_header tmp
+				WHERE tmp.realtime < (to_timestamp(%d) AT TIME ZONE 'UTC')
+				ORDER BY tmp.realtime DESC, tmp.round DESC
+				LIMIT 1
+			) bh_bt ON bh.round <= bh_bt.round
+		`
+		joinTerms = append(
+			joinTerms,
+			fmt.Sprintf(tmpl, bf.BeforeTime.UTC().Unix()),
+		)
+	}
+
+	return whereTerms, joinTerms
+}
+
+func buildBlockQuery(bf idb.BlockFilter) (query string, err error) {
+
+	// helper function to build CTEs
+	buildCte := func(cteName string, whereTerms []string, joinTerms []string) string {
+		tmpl := `%s AS (
+			SELECT bh.round, bh.header
+			FROM block_header bh
+			%s
+			WHERE %s
+			ORDER BY bh.round ASC
+			LIMIT %d
+		)`
+		return fmt.Sprintf(tmpl, cteName, strings.Join(joinTerms, "\n"), strings.Join(whereTerms, " AND "), bf.Limit)
+	}
+
+	// Build auxiliary CTEs for participation-related parameters.
+	//
+	// Using CTEs in this way turned out to be necessary to lead CockroachDB's query optimizer
+	// into using the execution plan we want.
+	//
+	// If we were to put the CTE filters in the main query's WHERE clause, that would result
+	// in a sub-optimal execution plan. At least this was the case at the time of writing.
+	var CTEs []string
+	var CteNames []string
+	{
+		if len(bf.Proposers) > 0 {
+			whereTerms, joinTerms := buildBlockFilters(bf)
+			var proposersStr []string
+			for addr := range bf.Proposers {
+				proposersStr = append(proposersStr, `'"`+addr.String()+`"'`)
+			}
+			whereTerms = append(
+				whereTerms,
+				fmt.Sprintf("( (bh.header->'prp') IS NOT NULL AND ((bh.header->'prp')::TEXT IN (%s)) )", strings.Join(proposersStr, ",")),
+			)
+
+			cteName := "prp"
+			cte := buildCte(cteName, whereTerms, joinTerms)
+			CTEs = append(CTEs, cte)
+			CteNames = append(CteNames, cteName)
+
+		}
+		if len(bf.ExpiredParticipationAccounts) > 0 {
+			whereTerms, joinTerms := buildBlockFilters(bf)
+			var expiredStr []string
+			for addr := range bf.ExpiredParticipationAccounts {
+				expiredStr = append(expiredStr, `'`+addr.String()+`'`)
+			}
+			whereTerms = append(
+				whereTerms,
+				fmt.Sprintf("( (bh.header->'partupdrmv') IS NOT NULL AND (bh.header->'partupdrmv') ?| array[%s] )", strings.Join(expiredStr, ",")),
+			)
+
+			cteName := "expired"
+			CTE := buildCte(cteName, whereTerms, joinTerms)
+			CTEs = append(CTEs, CTE)
+			CteNames = append(CteNames, "expired")
+
+		}
+		if len(bf.AbsentParticipationAccounts) > 0 {
+			whereTerms, joinTerms := buildBlockFilters(bf)
+			var absentStr []string
+			for addr := range bf.AbsentParticipationAccounts {
+				absentStr = append(absentStr, `'`+addr.String()+`'`)
+			}
+			whereTerms = append(
+				whereTerms,
+				fmt.Sprintf("( (bh.header->'partupdabs') IS NOT NULL AND (bh.header->'partupdabs') ?| array[%s] )", strings.Join(absentStr, ",")),
+			)
+
+			cteName := "absent"
+			CTE := buildCte(cteName, whereTerms, joinTerms)
+			CTEs = append(CTEs, CTE)
+			CteNames = append(CteNames, cteName)
+		}
+		if len(CteNames) > 0 {
+			var selects []string
+			for _, cteName := range CteNames {
+				selects = append(selects, fmt.Sprintf("SELECT * FROM %s", cteName))
+			}
+			CTE := "tmp AS (" + strings.Join(selects, " UNION ") + ")"
+			CTEs = append(CTEs, CTE)
+		}
+	}
+
+	// Build the main query. It uses the CTEs, if any.
+	{
+		var withClause string
+		if len(CTEs) > 0 {
+			withClause = "WITH " + strings.Join(CTEs, ",\n")
+		}
+
+		var fromTable string
+		if len(CTEs) > 0 {
+			fromTable = "tmp bh"
+		} else {
+			fromTable = "block_header bh"
+		}
+
+		var whereClause string
+		var joinClause string
+		if len(CTEs) == 0 {
+			whereTerms, joinTerms := buildBlockFilters(bf)
+			if len(whereTerms) > 0 {
+				whereClause = "WHERE " + strings.Join(whereTerms, " AND ") + "\n"
+			}
+			if len(joinTerms) > 0 {
+				joinClause = strings.Join(joinTerms, "\n")
+			}
+		}
+
+		tmpl := `
+		%s
+		SELECT bh.header
+		FROM %s
+		%s
+		%s
+		ORDER BY bh.round ASC
+		LIMIT %d`
+
+		query = fmt.Sprintf(tmpl, withClause, fromTable, joinClause, whereClause, bf.Limit)
+	}
+
+	return query, nil
+}
+
+// This function blocks. `tx` must be non-nil.
+func (db *IndexerDb) yieldBlocks(ctx context.Context, tx pgx.Tx, bf idb.BlockFilter, out chan<- idb.BlockRow) {
+
+	query, err := buildBlockQuery(bf)
+	if err != nil {
+		err = fmt.Errorf("block query err %v", err)
+		out <- idb.BlockRow{Error: err}
+		return
+	}
+
+	rows, err := tx.Query(ctx, query)
+	if err != nil {
+		err = fmt.Errorf("block query %#v err %v", query, err)
+		out <- idb.BlockRow{Error: err}
+		return
+	}
+	db.yieldBlocksThreadSimple(rows, out)
+}
+
+// Blocks is part of idb.IndexerDB
+func (db *IndexerDb) Blocks(ctx context.Context, bf idb.BlockFilter) (<-chan idb.BlockRow, uint64) {
+	out := make(chan idb.BlockRow, 1)
+
+	tx, err := db.db.BeginTx(ctx, readonlyRepeatableRead)
+	if err != nil {
+		out <- idb.BlockRow{Error: err}
+		close(out)
+		return out, 0
+	}
+
+	round, err := db.getMaxRoundAccounted(ctx, tx)
+	if err != nil {
+		out <- idb.BlockRow{Error: err}
+		close(out)
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			db.log.Printf("rollback error: %s", rerr)
+		}
+		return out, round
+	}
+
+	go func() {
+		db.yieldBlocks(ctx, tx, bf, out)
+		// Because we return a channel into a "callWithTimeout" function,
+		// We need to make sure that rollback is called before close()
+		// otherwise we can end up with a situation where "callWithTimeout"
+		// will cancel our context, resulting in connection pool churn
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			db.log.Printf("rollback error: %s", rerr)
+		}
+		close(out)
+	}()
+
+	return out, round
+}
+
+func (db *IndexerDb) yieldBlocksThreadSimple(rows pgx.Rows, results chan<- idb.BlockRow) {
+	defer rows.Close()
+
+	for rows.Next() {
+		var row idb.BlockRow
+
+		var blockheaderjson []byte
+		err := rows.Scan(&blockheaderjson)
+		if err != nil {
+			row.Error = err
+		} else {
+			row.BlockHeader, err = encoding.DecodeBlockHeader(blockheaderjson)
+			if err != nil {
+				row.Error = fmt.Errorf("failed to decode block header: %w", err)
+			}
+		}
+
+		results <- row
+	}
+	if err := rows.Err(); err != nil {
+		results <- idb.BlockRow{Error: err}
+	}
+}
+
 var statusStrings = []string{"Offline", "Online", "NotParticipating"}
 
 const offlineStatusIdx = 0
