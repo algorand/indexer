@@ -34,8 +34,8 @@ func decodeDigest(str *string, field string, errorArr []string) (string, []strin
 	return "", errorArr
 }
 
-// decodeSdkAddress returns the sdk.Address representation of the input string, or appends an error to errorArr
-func decodeSdkAddress(str string, field string, errorArr []string) (sdk.Address, []string) {
+// decodeAddress returns the sdk.Address representation of the input string, or appends an error to errorArr
+func decodeAddress(str string, field string, errorArr []string) (sdk.Address, []string) {
 	addr, err := sdk.DecodeAddress(str)
 	if err != nil {
 		return sdk.ZeroAddress, append(errorArr, fmt.Sprintf("%s '%s': %v", errUnableToParseAddress, field, err))
@@ -928,7 +928,7 @@ func (si *ServerImplementation) blockParamsToBlockFilter(params generated.Search
 		if params.Proposer != nil {
 			for _, s := range *params.Proposer {
 				var addr sdk.Address
-				addr, errorArr = decodeSdkAddress(s, "proposer", errorArr)
+				addr, errorArr = decodeAddress(s, "proposer", errorArr)
 				filter.Proposers[addr] = struct{}{}
 			}
 		}
@@ -937,7 +937,7 @@ func (si *ServerImplementation) blockParamsToBlockFilter(params generated.Search
 		if params.Expired != nil {
 			for _, s := range *params.Expired {
 				var addr sdk.Address
-				addr, errorArr = decodeSdkAddress(s, "expired", errorArr)
+				addr, errorArr = decodeAddress(s, "expired", errorArr)
 				filter.ExpiredParticipationAccounts[addr] = struct{}{}
 			}
 		}
@@ -946,7 +946,7 @@ func (si *ServerImplementation) blockParamsToBlockFilter(params generated.Search
 		if params.Absent != nil {
 			for _, s := range *params.Absent {
 				var addr sdk.Address
-				addr, errorArr = decodeSdkAddress(s, "absent", errorArr)
+				addr, errorArr = decodeAddress(s, "absent", errorArr)
 				filter.AbsentParticipationAccounts[addr] = struct{}{}
 			}
 		}
@@ -955,7 +955,7 @@ func (si *ServerImplementation) blockParamsToBlockFilter(params generated.Search
 		if params.Updates != nil {
 			for _, s := range *params.Updates {
 				var addr sdk.Address
-				addr, errorArr = decodeSdkAddress(s, "updates", errorArr)
+				addr, errorArr = decodeAddress(s, "updates", errorArr)
 				filter.AbsentParticipationAccounts[addr] = struct{}{}
 				filter.ExpiredParticipationAccounts[addr] = struct{}{}
 			}
@@ -965,7 +965,7 @@ func (si *ServerImplementation) blockParamsToBlockFilter(params generated.Search
 		if params.Participation != nil {
 			for _, s := range *params.Participation {
 				var addr sdk.Address
-				addr, errorArr = decodeSdkAddress(s, "participation", errorArr)
+				addr, errorArr = decodeAddress(s, "participation", errorArr)
 				filter.Proposers[addr] = struct{}{}
 				filter.AbsentParticipationAccounts[addr] = struct{}{}
 				filter.ExpiredParticipationAccounts[addr] = struct{}{}
