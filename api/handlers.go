@@ -214,7 +214,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 		return badRequest(ctx, errRewindingAccountNotSupported)
 	}
 
-	addr, decodeErrors := decodeAddress(&accountID, "account-id", make([]string, 0))
+	addr, decodeErrors := decodeAddressToBytes(&accountID, "account-id", make([]string, 0))
 	if len(decodeErrors) != 0 {
 		return badRequest(ctx, decodeErrors[0])
 	}
@@ -314,7 +314,7 @@ func (si *ServerImplementation) LookupAccountAssets(ctx echo.Context, accountID 
 		return notFound(ctx, errValueExceedingInt64)
 	}
 
-	addr, errors := decodeAddress(&accountID, "account-id", make([]string, 0))
+	addr, errors := decodeAddressToBytes(&accountID, "account-id", make([]string, 0))
 	if len(errors) != 0 {
 		return badRequest(ctx, errors[0])
 	}
@@ -408,7 +408,7 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		return badRequest(ctx, errRewindingAccountNotSupported)
 	}
 
-	spendingAddr, decodeErrors := decodeAddress(params.AuthAddr, "account-id", make([]string, 0))
+	spendingAddr, decodeErrors := decodeAddressToBytes(params.AuthAddr, "account-id", make([]string, 0))
 	if len(decodeErrors) != 0 {
 		return badRequest(ctx, decodeErrors[0])
 	}
@@ -487,7 +487,7 @@ func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, acco
 		return notFound(ctx, errValueExceedingInt64)
 	}
 	// Check that a valid account was provided
-	_, errors := decodeAddress(strPtr(accountID), "account-id", make([]string, 0))
+	_, errors := decodeAddressToBytes(strPtr(accountID), "account-id", make([]string, 0))
 	if len(errors) != 0 {
 		return badRequest(ctx, errors[0])
 	}

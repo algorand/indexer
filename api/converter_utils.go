@@ -40,11 +40,12 @@ func decodeSdkAddress(str string, field string, errorArr []string) (sdk.Address,
 	if err != nil {
 		return sdk.ZeroAddress, append(errorArr, fmt.Sprintf("%s '%s': %v", errUnableToParseAddress, field, err))
 	}
+	// Pass through
 	return addr, errorArr
 }
 
-// decodeAddress returns the byte representation of the input string, or appends an error to errorArr
-func decodeAddress(str *string, field string, errorArr []string) ([]byte, []string) {
+// decodeAddressToBytes returns the byte representation of the input string, or appends an error to errorArr
+func decodeAddressToBytes(str *string, field string, errorArr []string) ([]byte, []string) {
 	if str != nil {
 		addr, err := sdk.DecodeAddress(*str)
 		if err != nil {
@@ -737,7 +738,7 @@ func edIndexToAddress(index uint64, txn sdk.Transaction, shared []sdk.Address) (
 }
 
 func (si *ServerImplementation) assetParamsToAssetQuery(params generated.SearchForAssetsParams) (idb.AssetsQuery, error) {
-	creator, errorArr := decodeAddress(params.Creator, "creator", make([]string, 0))
+	creator, errorArr := decodeAddressToBytes(params.Creator, "creator", make([]string, 0))
 	if len(errorArr) != 0 {
 		return idb.AssetsQuery{}, errors.New(errUnableToParseAddress)
 	}
@@ -766,7 +767,7 @@ func (si *ServerImplementation) assetParamsToAssetQuery(params generated.SearchF
 }
 
 func (si *ServerImplementation) appParamsToApplicationQuery(params generated.SearchForApplicationsParams) (idb.ApplicationQuery, error) {
-	addr, errorArr := decodeAddress(params.Creator, "creator", make([]string, 0))
+	addr, errorArr := decodeAddressToBytes(params.Creator, "creator", make([]string, 0))
 	if len(errorArr) != 0 {
 		return idb.ApplicationQuery{}, errors.New(errUnableToParseAddress)
 	}
@@ -805,7 +806,7 @@ func (si *ServerImplementation) transactionParamsToTransactionFilter(params gene
 	filter.NextToken = strOrDefault(params.Next)
 
 	// Address
-	filter.Address, errorArr = decodeAddress(params.Address, "address", errorArr)
+	filter.Address, errorArr = decodeAddressToBytes(params.Address, "address", errorArr)
 	filter.Txid, errorArr = decodeDigest(params.Txid, "txid", errorArr)
 
 	// Byte array
