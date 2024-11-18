@@ -424,36 +424,6 @@ func (_m *IndexerDb) SetNetworkState(genesis v2types.Digest) error {
 	return r0
 }
 
-// Blocks provides a mock function with given fields: ctx, bf
-func (_m *IndexerDb) Blocks(ctx context.Context, bf idb.BlockFilter) (<-chan idb.BlockRow, uint64) {
-	ret := _m.Called(ctx, bf)
-
-	if len(ret) == 0 {
-		panic("no return value specified for Blocks")
-	}
-
-	var r0 <-chan idb.BlockRow
-	var r1 uint64
-	if rf, ok := ret.Get(0).(func(context.Context, idb.BlockFilter) (<-chan idb.BlockRow, uint64)); ok {
-		return rf(ctx, bf)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, idb.BlockFilter) <-chan idb.BlockRow); ok {
-		r0 = rf(ctx, bf)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(<-chan idb.BlockRow)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, idb.BlockFilter) uint64); ok {
-		r1 = rf(ctx, bf)
-	} else {
-		r1 = ret.Get(1).(uint64)
-	}
-
-	return r0, r1
-}
-
 // Transactions provides a mock function with given fields: ctx, tf
 func (_m *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter) (<-chan idb.TxnRow, uint64) {
 	ret := _m.Called(ctx, tf)
