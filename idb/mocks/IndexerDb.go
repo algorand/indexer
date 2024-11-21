@@ -186,12 +186,12 @@ func (_m *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 	return r0, r1
 }
 
-// Blocks provides a mock function with given fields: ctx, bf
-func (_m *IndexerDb) Blocks(ctx context.Context, bf idb.BlockFilter) (<-chan idb.BlockRow, uint64) {
+// BlockHeaders provides a mock function with given fields: ctx, bf
+func (_m *IndexerDb) BlockHeaders(ctx context.Context, bf idb.BlockFilter) (<-chan idb.BlockRow, uint64) {
 	ret := _m.Called(ctx, bf)
 
 	if len(ret) == 0 {
-		panic("no return value specified for Blocks")
+		panic("no return value specified for BlockHeaders")
 	}
 
 	var r0 <-chan idb.BlockRow

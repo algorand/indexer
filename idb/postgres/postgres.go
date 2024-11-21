@@ -1012,7 +1012,7 @@ func buildBlockFilters(bf idb.BlockFilter) (whereTerms []string, joinTerms []str
 	return whereTerms, joinTerms
 }
 
-func buildBlockQuery(bf idb.BlockFilter) (query string, err error) {
+func buildBlockHeadersQuery(bf idb.BlockFilter) (query string, err error) {
 
 	// helper function to build CTEs
 	buildCte := func(cteName string, whereTerms []string, joinTerms []string) string {
@@ -1139,9 +1139,9 @@ func buildBlockQuery(bf idb.BlockFilter) (query string, err error) {
 }
 
 // This function blocks. `tx` must be non-nil.
-func (db *IndexerDb) yieldBlocks(ctx context.Context, tx pgx.Tx, bf idb.BlockFilter, out chan<- idb.BlockRow) {
+func (db *IndexerDb) yieldBlockHeaders(ctx context.Context, tx pgx.Tx, bf idb.BlockFilter, out chan<- idb.BlockRow) {
 
-	query, err := buildBlockQuery(bf)
+	query, err := buildBlockHeadersQuery(bf)
 	if err != nil {
 		err = fmt.Errorf("block query err %v", err)
 		out <- idb.BlockRow{Error: err}
@@ -1158,7 +1158,7 @@ func (db *IndexerDb) yieldBlocks(ctx context.Context, tx pgx.Tx, bf idb.BlockFil
 }
 
 // Blocks is part of idb.IndexerDB
-func (db *IndexerDb) Blocks(ctx context.Context, bf idb.BlockFilter) (<-chan idb.BlockRow, uint64) {
+func (db *IndexerDb) BlockHeaders(ctx context.Context, bf idb.BlockFilter) (<-chan idb.BlockRow, uint64) {
 	out := make(chan idb.BlockRow, 1)
 
 	tx, err := db.db.BeginTx(ctx, readonlyRepeatableRead)
@@ -1179,7 +1179,7 @@ func (db *IndexerDb) Blocks(ctx context.Context, bf idb.BlockFilter) (<-chan idb
 	}
 
 	go func() {
-		db.yieldBlocks(ctx, tx, bf, out)
+		db.yieldBlockHeaders(ctx, tx, bf, out)
 		// Because we return a channel into a "callWithTimeout" function,
 		// We need to make sure that rollback is called before close()
 		// otherwise we can end up with a situation where "callWithTimeout"

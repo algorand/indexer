@@ -847,7 +847,7 @@ func (si *ServerImplementation) transactionParamsToTransactionFilter(params gene
 	return
 }
 
-func (si *ServerImplementation) blockParamsToBlockFilter(params generated.SearchForBlocksParams) (filter idb.BlockFilter, err error) {
+func (si *ServerImplementation) blockParamsToBlockFilter(params generated.SearchForBlockHeadersParams) (filter idb.BlockFilter, err error) {
 	var errorArr []string
 
 	// Integer

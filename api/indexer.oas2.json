@@ -853,9 +853,9 @@
         }
       }
     },
-    "/v2/blocks": {
+    "/v2/block-headers": {
       "get": {
-        "description": "Search for blocks. Blocks are returned in ascending round order. Transactions are not included in the output.",
+        "description": "Search for block headers. Block headers are returned in ascending round order. Transactions are not included in the output.",
         "consumes": [
           "application/json"
         ],
@@ -865,7 +865,7 @@
         "tags": [
           "search"
         ],
-        "operationId": "searchForBlocks",
+        "operationId": "searchForBlockHeaders",
         "parameters": [
           {
             "$ref": "#/parameters/limit"
@@ -903,7 +903,7 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/responses/BlocksResponse"
+            "$ref": "#/responses/BlockHeadersResponse"
           },
           "404": {
             "$ref": "#/responses/ErrorResponse"
@@ -3295,7 +3295,7 @@
         "$ref": "#/definitions/Block"
       }
     },
-    "BlocksResponse": {
+    "BlockHeadersResponse": {
       "description": "(empty)",
       "schema": {
         "type": "object",

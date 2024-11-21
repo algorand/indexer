@@ -205,7 +205,7 @@ type IndexerDb interface {
 
 	// The next multiple functions return a channel with results as well as the latest round
 	// accounted.
-	Blocks(ctx context.Context, bf BlockFilter) (<-chan BlockRow, uint64)
+	BlockHeaders(ctx context.Context, bf BlockFilter) (<-chan BlockRow, uint64)
 	Transactions(ctx context.Context, tf TransactionFilter) (<-chan TxnRow, uint64)
 	GetAccounts(ctx context.Context, opts AccountQueryOptions) (<-chan AccountRow, uint64)
 	Assets(ctx context.Context, filter AssetsQuery) (<-chan AssetRow, uint64)

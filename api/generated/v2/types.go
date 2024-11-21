@@ -1437,14 +1437,8 @@ type AssetsResponse struct {
 	NextToken *string `json:"next-token,omitempty"`
 }
 
-// BlockResponse Block information.
-//
-// Definition:
-// data/bookkeeping/block.go : Block
-type BlockResponse = Block
-
-// BlocksResponse defines model for BlocksResponse.
-type BlocksResponse struct {
+// BlockHeadersResponse defines model for BlockHeadersResponse.
+type BlockHeadersResponse struct {
 	Blocks []Block `json:"blocks"`
 
 	// CurrentRound Round at which the results were computed.
@@ -1453,6 +1447,12 @@ type BlocksResponse struct {
 	// NextToken Used for pagination, when making another request provide this token with the next parameter.
 	NextToken *string `json:"next-token,omitempty"`
 }
+
+// BlockResponse Block information.
+//
+// Definition:
+// data/bookkeeping/block.go : Block
+type BlockResponse = Block
 
 // BoxResponse Box name and its content.
 type BoxResponse = Box
@@ -1837,8 +1837,8 @@ type LookupAssetTransactionsParamsSigType string
 // LookupAssetTransactionsParamsAddressRole defines parameters for LookupAssetTransactions.
 type LookupAssetTransactionsParamsAddressRole string
 
-// SearchForBlocksParams defines parameters for SearchForBlocks.
-type SearchForBlocksParams struct {
+// SearchForBlockHeadersParams defines parameters for SearchForBlockHeaders.
+type SearchForBlockHeadersParams struct {
 	// Limit Maximum number of results to return. There could be additional pages even if the limit is not reached.
 	Limit *uint64 `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -1857,19 +1857,19 @@ type SearchForBlocksParams struct {
 	// AfterTime Include results after the given time. Must be an RFC 3339 formatted string.
 	AfterTime *time.Time `form:"after-time,omitempty" json:"after-time,omitempty"`
 
-	// Proposer Account(s) marked as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.
+	// Proposer Accounts marked as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.
 	Proposer *[]string `form:"proposer,omitempty" json:"proposer,omitempty"`
 
-	// Expired Account(s) marked as expired in the block header's participation updates. This parameter accepts a comma separated list of addresses.
+	// Expired Accounts marked as expired in the block header's participation updates. This parameter accepts a comma separated list of addresses.
 	Expired *[]string `form:"expired,omitempty" json:"expired,omitempty"`
 
-	// Absent Account(s) marked as absent in the block header's participation updates. This parameter accepts a comma separated list of addresses.
+	// Absent Accounts marked as absent in the block header's participation updates. This parameter accepts a comma separated list of addresses.
 	Absent *[]string `form:"absent,omitempty" json:"absent,omitempty"`
 
-	// Updates Account(s) marked as expired or absent in the block header's participation updates. This parameter accepts a comma separated list of addresses.
+	// Updates Accounts marked as expired or absent in the block header's participation updates. This parameter accepts a comma separated list of addresses.
 	Updates *[]string `form:"updates,omitempty" json:"updates,omitempty"`
 
-	// Participation Account(s) marked as expired, absent or as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.
+	// Participation Accounts marked as expired, absent or as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.
 	Participation *[]string `form:"participation,omitempty" json:"participation,omitempty"`
 }
 

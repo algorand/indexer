@@ -1349,14 +1349,8 @@ type AssetsResponse struct {
 	NextToken *string `json:"next-token,omitempty"`
 }
 
-// BlockResponse Block information.
-//
-// Definition:
-// data/bookkeeping/block.go : Block
-type BlockResponse = Block
-
-// BlocksResponse defines model for BlocksResponse.
-type BlocksResponse struct {
+// BlockHeadersResponse defines model for BlockHeadersResponse.
+type BlockHeadersResponse struct {
 	Blocks []Block `json:"blocks"`
 
 	// CurrentRound Round at which the results were computed.
@@ -1365,6 +1359,12 @@ type BlocksResponse struct {
 	// NextToken Used for pagination, when making another request provide this token with the next parameter.
 	NextToken *string `json:"next-token,omitempty"`
 }
+
+// BlockResponse Block information.
+//
+// Definition:
+// data/bookkeeping/block.go : Block
+type BlockResponse = Block
 
 // BoxResponse Box name and its content.
 type BoxResponse = Box

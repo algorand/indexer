@@ -1004,9 +1004,9 @@ func (si *ServerImplementation) LookupTransaction(ctx echo.Context, txid string)
 
 // SearchForBlocks returns block headers matching the provided parameters
 // (GET /v2/blocks)
-func (si *ServerImplementation) SearchForBlocks(ctx echo.Context, params generated.SearchForBlocksParams) error {
+func (si *ServerImplementation) SearchForBlockHeaders(ctx echo.Context, params generated.SearchForBlockHeadersParams) error {
 	// Validate query parameters
-	if err := si.verifyHandler("SearchForBlocks", ctx); err != nil {
+	if err := si.verifyHandler("SearchForBlockHeaders", ctx); err != nil {
 		return badRequest(ctx, err.Error())
 	}
 
@@ -1027,7 +1027,7 @@ func (si *ServerImplementation) SearchForBlocks(ctx echo.Context, params generat
 	}
 
 	// Populate the response model and render it
-	response := generated.BlocksResponse{
+	response := generated.BlockHeadersResponse{
 		CurrentRound: round,
 		NextToken:    strPtr(next),
 		Blocks:       blockHeaders,
@@ -1045,7 +1045,7 @@ func (si *ServerImplementation) fetchBlockHeaders(ctx context.Context, bf idb.Bl
 
 		// Open a channel from which result rows will be received
 		var rows <-chan idb.BlockRow
-		rows, round = si.db.Blocks(ctx, bf)
+		rows, round = si.db.BlockHeaders(ctx, bf)
 
 		// Iterate received rows, converting each to a generated.Block
 		var lastRow idb.BlockRow
