@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -360,7 +361,7 @@ func rowToBlock(blockHeader *sdk.BlockHeader) generated.Block {
 		orderedTrackingTypes[elems] = key
 		elems++
 	}
-	sort.Slice(orderedTrackingTypes, func(i, j int) bool { return orderedTrackingTypes[i] < orderedTrackingTypes[j] })
+	slices.Sort(orderedTrackingTypes)
 	for i := 0; i < len(orderedTrackingTypes); i++ {
 		stpfTracking := blockHeader.StateProofTracking[orderedTrackingTypes[i]]
 		thing1 := generated.StateProofTracking{
