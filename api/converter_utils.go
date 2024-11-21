@@ -847,7 +847,7 @@ func (si *ServerImplementation) transactionParamsToTransactionFilter(params gene
 	return
 }
 
-func (si *ServerImplementation) blockParamsToBlockFilter(params generated.SearchForBlockHeadersParams) (filter idb.BlockFilter, err error) {
+func (si *ServerImplementation) blockParamsToBlockFilter(params generated.SearchForBlockHeadersParams) (filter idb.BlockHeaderFilter, err error) {
 	var errorArr []string
 
 	// Integer
@@ -945,7 +945,7 @@ func (si *ServerImplementation) blockParamsToBlockFilter(params generated.Search
 		err = errors.New("invalid input: " + strings.Join(errorArr, ", "))
 
 		// clear out the intermediates.
-		filter = idb.BlockFilter{}
+		filter = idb.BlockHeaderFilter{}
 	}
 	return
 }

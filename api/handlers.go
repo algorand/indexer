@@ -45,7 +45,7 @@ type ServerImplementation struct {
 // Helper functions //
 //////////////////////
 
-func validateBlockFilter(filter *idb.BlockFilter) error {
+func validateBlockFilter(filter *idb.BlockHeaderFilter) error {
 	var errorArr = make([]string, 0)
 
 	// Int64 overflows
@@ -1036,7 +1036,7 @@ func (si *ServerImplementation) SearchForBlockHeaders(ctx echo.Context, params g
 }
 
 // fetchBlockHeaders is used to query the backend for block headers, and compute the next token
-func (si *ServerImplementation) fetchBlockHeaders(ctx context.Context, bf idb.BlockFilter) ([]generated.Block, string, uint64 /*round*/, error) {
+func (si *ServerImplementation) fetchBlockHeaders(ctx context.Context, bf idb.BlockHeaderFilter) ([]generated.Block, string, uint64 /*round*/, error) {
 
 	var round uint64
 	var nextToken string

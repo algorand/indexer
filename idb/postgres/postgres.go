@@ -949,7 +949,7 @@ finish:
 	}
 }
 
-func buildBlockHeadersQuery(bf idb.BlockFilter) (query string, err error) {
+func buildBlockHeadersQuery(bf idb.BlockHeaderFilter) (query string, err error) {
 
 	// Build the terms for the WHERE clause based on the input parameters
 	var whereTerms []string
@@ -1050,7 +1050,7 @@ func buildBlockHeadersQuery(bf idb.BlockFilter) (query string, err error) {
 }
 
 // This function blocks. `tx` must be non-nil.
-func (db *IndexerDb) yieldBlockHeaders(ctx context.Context, tx pgx.Tx, bf idb.BlockFilter, out chan<- idb.BlockRow) {
+func (db *IndexerDb) yieldBlockHeaders(ctx context.Context, tx pgx.Tx, bf idb.BlockHeaderFilter, out chan<- idb.BlockRow) {
 
 	query, err := buildBlockHeadersQuery(bf)
 	if err != nil {
@@ -1069,7 +1069,7 @@ func (db *IndexerDb) yieldBlockHeaders(ctx context.Context, tx pgx.Tx, bf idb.Bl
 }
 
 // BlockHeaders is part of idb.IndexerDB
-func (db *IndexerDb) BlockHeaders(ctx context.Context, bf idb.BlockFilter) (<-chan idb.BlockRow, uint64) {
+func (db *IndexerDb) BlockHeaders(ctx context.Context, bf idb.BlockHeaderFilter) (<-chan idb.BlockRow, uint64) {
 	out := make(chan idb.BlockRow, 1)
 
 	tx, err := db.db.BeginTx(ctx, readonlyRepeatableRead)
