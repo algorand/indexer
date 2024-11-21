@@ -1002,7 +1002,7 @@ func (si *ServerImplementation) LookupTransaction(ctx echo.Context, txid string)
 	return ctx.JSON(http.StatusOK, response)
 }
 
-// SearchForBlocks returns block headers matching the provided parameters
+// SearchForBlockHeaders returns block headers matching the provided parameters
 // (GET /v2/blocks)
 func (si *ServerImplementation) SearchForBlockHeaders(ctx echo.Context, params generated.SearchForBlockHeadersParams) error {
 	// Validate query parameters

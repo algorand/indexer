@@ -1068,7 +1068,7 @@ func (db *IndexerDb) yieldBlockHeaders(ctx context.Context, tx pgx.Tx, bf idb.Bl
 	db.yieldBlocksThreadSimple(rows, out)
 }
 
-// Blocks is part of idb.IndexerDB
+// BlockHeaders is part of idb.IndexerDB
 func (db *IndexerDb) BlockHeaders(ctx context.Context, bf idb.BlockFilter) (<-chan idb.BlockRow, uint64) {
 	out := make(chan idb.BlockRow, 1)
 
