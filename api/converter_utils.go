@@ -309,7 +309,7 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 	return txn, nil
 }
 
-func rowToBlock(blockHeader *sdk.BlockHeader) generated.Block {
+func hdrRowToBlock(blockHeader *sdk.BlockHeader) generated.Block {
 
 	rewards := generated.BlockRewards{
 		FeeSink:                 blockHeader.FeeSink.String(),
