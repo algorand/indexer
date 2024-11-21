@@ -897,14 +897,8 @@ func (si *ServerImplementation) blockParamsToBlockFilter(params generated.Search
 		if params.Absent != nil {
 			numParticipationFilters++
 		}
-		if params.Updates != nil {
-			numParticipationFilters++
-		}
-		if params.Participation != nil {
-			numParticipationFilters++
-		}
 		if numParticipationFilters > 1 {
-			errorArr = append(errorArr, "only one of `proposer`, `expired`, `absent`, `updates`, or `participation` can be specified")
+			errorArr = append(errorArr, "only one of `proposer`, `expired`, or `absent` can be specified")
 		}
 
 		// Validate the number of items in the participation account lists
@@ -916,12 +910,6 @@ func (si *ServerImplementation) blockParamsToBlockFilter(params generated.Search
 		}
 		if params.Absent != nil && uint64(len(*params.Absent)) > si.opts.MaxAccountListSize {
 			errorArr = append(errorArr, fmt.Sprintf("absent list too long, max size is %d", si.opts.MaxAccountListSize))
-		}
-		if params.Updates != nil && uint64(len(*params.Updates)) > si.opts.MaxAccountListSize {
-			errorArr = append(errorArr, fmt.Sprintf("updates list too long, max size is %d", si.opts.MaxAccountListSize))
-		}
-		if params.Participation != nil && uint64(len(*params.Participation)) > si.opts.MaxAccountListSize {
-			errorArr = append(errorArr, fmt.Sprintf("participation list too long, max size is %d", si.opts.MaxAccountListSize))
 		}
 
 		filter.Proposers = make(map[sdk.Address]struct{}, 0)
@@ -948,27 +936,6 @@ func (si *ServerImplementation) blockParamsToBlockFilter(params generated.Search
 				var addr sdk.Address
 				addr, errorArr = decodeAddress(s, "absent", errorArr)
 				filter.AbsentParticipationAccounts[addr] = struct{}{}
-			}
-		}
-
-		// Updates = absent || expired
-		if params.Updates != nil {
-			for _, s := range *params.Updates {
-				var addr sdk.Address
-				addr, errorArr = decodeAddress(s, "updates", errorArr)
-				filter.AbsentParticipationAccounts[addr] = struct{}{}
-				filter.ExpiredParticipationAccounts[addr] = struct{}{}
-			}
-		}
-
-		// Participation = proposer || absent || expired
-		if params.Participation != nil {
-			for _, s := range *params.Participation {
-				var addr sdk.Address
-				addr, errorArr = decodeAddress(s, "participation", errorArr)
-				filter.Proposers[addr] = struct{}{}
-				filter.AbsentParticipationAccounts[addr] = struct{}{}
-				filter.ExpiredParticipationAccounts[addr] = struct{}{}
 			}
 		}
 	}

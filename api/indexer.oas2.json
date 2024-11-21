@@ -893,12 +893,6 @@
           },
           {
             "$ref": "#/parameters/absent"
-          },
-          {
-            "$ref": "#/parameters/updates"
-          },
-          {
-            "$ref": "#/parameters/participation"
           }
         ],
         "responses": {
@@ -2768,28 +2762,6 @@
       },
       "description": "Accounts marked as expired in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
       "name": "expired",
-      "in": "query",
-      "required": false
-    },
-    "updates": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "x-algorand-format": "Address"
-      },
-      "description": "Accounts marked as expired or absent in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
-      "name": "updates",
-      "in": "query",
-      "required": false
-    },
-    "participation": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "x-algorand-format": "Address"
-      },
-      "description": "Accounts marked as expired, absent or as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
-      "name": "participation",
       "in": "query",
       "required": false
     },
