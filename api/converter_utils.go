@@ -286,43 +286,43 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 	return txn, nil
 }
 
-func hdrRowToBlock(blockHeader *sdk.BlockHeader) generated.Block {
+func hdrRowToBlock(row idb.BlockRow) generated.Block {
 
 	rewards := generated.BlockRewards{
-		FeeSink:                 blockHeader.FeeSink.String(),
-		RewardsCalculationRound: uint64(blockHeader.RewardsRecalculationRound),
-		RewardsLevel:            blockHeader.RewardsLevel,
-		RewardsPool:             blockHeader.RewardsPool.String(),
-		RewardsRate:             blockHeader.RewardsRate,
-		RewardsResidue:          blockHeader.RewardsResidue,
+		FeeSink:                 row.BlockHeader.FeeSink.String(),
+		RewardsCalculationRound: uint64(row.BlockHeader.RewardsRecalculationRound),
+		RewardsLevel:            row.BlockHeader.RewardsLevel,
+		RewardsPool:             row.BlockHeader.RewardsPool.String(),
+		RewardsRate:             row.BlockHeader.RewardsRate,
+		RewardsResidue:          row.BlockHeader.RewardsResidue,
 	}
 
 	upgradeState := generated.BlockUpgradeState{
-		CurrentProtocol:        string(blockHeader.CurrentProtocol),
-		NextProtocol:           strPtr(string(blockHeader.NextProtocol)),
-		NextProtocolApprovals:  uint64Ptr(blockHeader.NextProtocolApprovals),
-		NextProtocolSwitchOn:   uint64Ptr(uint64(blockHeader.NextProtocolSwitchOn)),
-		NextProtocolVoteBefore: uint64Ptr(uint64(blockHeader.NextProtocolVoteBefore)),
+		CurrentProtocol:        string(row.BlockHeader.CurrentProtocol),
+		NextProtocol:           strPtr(string(row.BlockHeader.NextProtocol)),
+		NextProtocolApprovals:  uint64Ptr(row.BlockHeader.NextProtocolApprovals),
+		NextProtocolSwitchOn:   uint64Ptr(uint64(row.BlockHeader.NextProtocolSwitchOn)),
+		NextProtocolVoteBefore: uint64Ptr(uint64(row.BlockHeader.NextProtocolVoteBefore)),
 	}
 
 	upgradeVote := generated.BlockUpgradeVote{
-		UpgradeApprove: boolPtr(blockHeader.UpgradeApprove),
-		UpgradeDelay:   uint64Ptr(uint64(blockHeader.UpgradeDelay)),
-		UpgradePropose: strPtr(string(blockHeader.UpgradePropose)),
+		UpgradeApprove: boolPtr(row.BlockHeader.UpgradeApprove),
+		UpgradeDelay:   uint64Ptr(uint64(row.BlockHeader.UpgradeDelay)),
+		UpgradePropose: strPtr(string(row.BlockHeader.UpgradePropose)),
 	}
 
 	var partUpdates *generated.ParticipationUpdates = &generated.ParticipationUpdates{}
-	if len(blockHeader.ExpiredParticipationAccounts) > 0 {
-		addrs := make([]string, len(blockHeader.ExpiredParticipationAccounts))
+	if len(row.BlockHeader.ExpiredParticipationAccounts) > 0 {
+		addrs := make([]string, len(row.BlockHeader.ExpiredParticipationAccounts))
 		for i := 0; i < len(addrs); i++ {
-			addrs[i] = blockHeader.ExpiredParticipationAccounts[i].String()
+			addrs[i] = row.BlockHeader.ExpiredParticipationAccounts[i].String()
 		}
 		partUpdates.ExpiredParticipationAccounts = strArrayPtr(addrs)
 	}
-	if len(blockHeader.AbsentParticipationAccounts) > 0 {
-		addrs := make([]string, len(blockHeader.AbsentParticipationAccounts))
+	if len(row.BlockHeader.AbsentParticipationAccounts) > 0 {
+		addrs := make([]string, len(row.BlockHeader.AbsentParticipationAccounts))
 		for i := 0; i < len(addrs); i++ {
-			addrs[i] = blockHeader.AbsentParticipationAccounts[i].String()
+			addrs[i] = row.BlockHeader.AbsentParticipationAccounts[i].String()
 		}
 		partUpdates.AbsentParticipationAccounts = strArrayPtr(addrs)
 	}
@@ -331,16 +331,16 @@ func hdrRowToBlock(blockHeader *sdk.BlockHeader) generated.Block {
 	}
 
 	// order these so they're deterministic
-	orderedTrackingTypes := make([]sdk.StateProofType, len(blockHeader.StateProofTracking))
-	trackingArray := make([]generated.StateProofTracking, len(blockHeader.StateProofTracking))
+	orderedTrackingTypes := make([]sdk.StateProofType, len(row.BlockHeader.StateProofTracking))
+	trackingArray := make([]generated.StateProofTracking, len(row.BlockHeader.StateProofTracking))
 	elems := 0
-	for key := range blockHeader.StateProofTracking {
+	for key := range row.BlockHeader.StateProofTracking {
 		orderedTrackingTypes[elems] = key
 		elems++
 	}
 	slices.Sort(orderedTrackingTypes)
 	for i := 0; i < len(orderedTrackingTypes); i++ {
-		stpfTracking := blockHeader.StateProofTracking[orderedTrackingTypes[i]]
+		stpfTracking := row.BlockHeader.StateProofTracking[orderedTrackingTypes[i]]
 		thing1 := generated.StateProofTracking{
 			NextRound:         uint64Ptr(uint64(stpfTracking.StateProofNextRound)),
 			Type:              uint64Ptr(uint64(orderedTrackingTypes[i])),
@@ -351,23 +351,23 @@ func hdrRowToBlock(blockHeader *sdk.BlockHeader) generated.Block {
 	}
 
 	ret := generated.Block{
-		Bonus:                  uint64PtrOrNil(uint64(blockHeader.Bonus)),
-		FeesCollected:          uint64PtrOrNil(uint64(blockHeader.FeesCollected)),
-		GenesisHash:            blockHeader.GenesisHash[:],
-		GenesisId:              blockHeader.GenesisID,
+		Bonus:                  uint64PtrOrNil(uint64(row.BlockHeader.Bonus)),
+		FeesCollected:          uint64PtrOrNil(uint64(row.BlockHeader.FeesCollected)),
+		GenesisHash:            row.BlockHeader.GenesisHash[:],
+		GenesisId:              row.BlockHeader.GenesisID,
 		ParticipationUpdates:   partUpdates,
-		PreviousBlockHash:      blockHeader.Branch[:],
-		Proposer:               addrPtr(blockHeader.Proposer),
-		ProposerPayout:         uint64PtrOrNil(uint64(blockHeader.ProposerPayout)),
+		PreviousBlockHash:      row.BlockHeader.Branch[:],
+		Proposer:               addrPtr(row.BlockHeader.Proposer),
+		ProposerPayout:         uint64PtrOrNil(uint64(row.BlockHeader.ProposerPayout)),
 		Rewards:                &rewards,
-		Round:                  uint64(blockHeader.Round),
-		Seed:                   blockHeader.Seed[:],
+		Round:                  uint64(row.BlockHeader.Round),
+		Seed:                   row.BlockHeader.Seed[:],
 		StateProofTracking:     &trackingArray,
-		Timestamp:              uint64(blockHeader.TimeStamp),
+		Timestamp:              uint64(row.BlockHeader.TimeStamp),
 		Transactions:           nil,
-		TransactionsRoot:       blockHeader.TxnCommitments.NativeSha512_256Commitment[:],
-		TransactionsRootSha256: blockHeader.TxnCommitments.Sha256Commitment[:],
-		TxnCounter:             uint64Ptr(blockHeader.TxnCounter),
+		TransactionsRoot:       row.BlockHeader.TxnCommitments.NativeSha512_256Commitment[:],
+		TransactionsRootSha256: row.BlockHeader.TxnCommitments.Sha256Commitment[:],
+		TxnCounter:             uint64Ptr(row.BlockHeader.TxnCounter),
 		UpgradeState:           &upgradeState,
 		UpgradeVote:            &upgradeVote,
 	}

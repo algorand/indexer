@@ -1059,7 +1059,7 @@ func (si *ServerImplementation) fetchBlockHeaders(ctx context.Context, bf idb.Bl
 				return row.Error
 			}
 
-			results = append(results, hdrRowToBlock(&row.BlockHeader))
+			results = append(results, hdrRowToBlock(row))
 			lastRow = row
 		}
 
