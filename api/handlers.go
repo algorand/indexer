@@ -214,9 +214,9 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 		return badRequest(ctx, errRewindingAccountNotSupported)
 	}
 
-	addr, decodeErrors := decodeAddressToBytes(&accountID, "account-id", make([]string, 0))
-	if len(decodeErrors) != 0 {
-		return badRequest(ctx, decodeErrors[0])
+	addr, err := sdk.DecodeAddress(accountID)
+	if err != nil {
+		return badRequest(ctx, fmt.Sprintf("%s: %v", errUnableToParseAddress, err))
 	}
 
 	options := idb.AccountQueryOptions{
@@ -314,9 +314,9 @@ func (si *ServerImplementation) LookupAccountAssets(ctx echo.Context, accountID 
 		return notFound(ctx, errValueExceedingInt64)
 	}
 
-	addr, errors := decodeAddressToBytes(&accountID, "account-id", make([]string, 0))
-	if len(errors) != 0 {
-		return badRequest(ctx, errors[0])
+	addr, err := sdk.DecodeAddress(accountID)
+	if err != nil {
+		return badRequest(ctx, fmt.Sprintf("%s: %v", errUnableToParseAddress, err))
 	}
 
 	var assetGreaterThan *uint64
@@ -329,7 +329,7 @@ func (si *ServerImplementation) LookupAccountAssets(ctx echo.Context, accountID 
 	}
 
 	query := idb.AssetBalanceQuery{
-		Address:        addr,
+		Address:        addr[:],
 		AssetID:        params.AssetId,
 		AssetIDGT:      assetGreaterThan,
 		IncludeDeleted: boolOrDefault(params.IncludeAll),
@@ -408,9 +408,13 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		return badRequest(ctx, errRewindingAccountNotSupported)
 	}
 
-	spendingAddr, decodeErrors := decodeAddressToBytes(params.AuthAddr, "account-id", make([]string, 0))
-	if len(decodeErrors) != 0 {
-		return badRequest(ctx, decodeErrors[0])
+	var spendingAddrBytes []byte
+	if params.AuthAddr != nil {
+		spendingAddr, err := sdk.DecodeAddress(*params.AuthAddr)
+		if err != nil {
+			return badRequest(ctx, fmt.Sprintf("unable to parse auth addr: %v", err))
+		}
+		spendingAddrBytes = spendingAddr[:]
 	}
 
 	options := idb.AccountQueryOptions{
@@ -421,7 +425,7 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		Limit:                min(uintOrDefaultValue(params.Limit, si.opts.DefaultAccountsLimit), si.opts.MaxAccountsLimit),
 		HasAssetID:           uintOrDefault(params.AssetId),
 		HasAppID:             uintOrDefault(params.ApplicationId),
-		EqualToAuthAddr:      spendingAddr[:],
+		EqualToAuthAddr:      spendingAddrBytes,
 		IncludeDeleted:       boolOrDefault(params.IncludeAll),
 		MaxResources:         si.opts.MaxAPIResourcesPerAccount,
 	}
@@ -486,10 +490,11 @@ func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, acco
 	if (params.AssetId != nil && uint64(*params.AssetId) > math.MaxInt64) || (params.Round != nil && uint64(*params.Round) > math.MaxInt64) {
 		return notFound(ctx, errValueExceedingInt64)
 	}
+
 	// Check that a valid account was provided
-	_, errors := decodeAddressToBytes(strPtr(accountID), "account-id", make([]string, 0))
-	if len(errors) != 0 {
-		return badRequest(ctx, errors[0])
+	_, err := sdk.DecodeAddress(accountID)
+	if err != nil {
+		return badRequest(ctx, fmt.Sprintf("%s: %v", errUnableToParseAddress, err))
 	}
 
 	searchParams := generated.SearchForTransactionsParams{

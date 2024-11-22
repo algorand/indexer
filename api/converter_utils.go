@@ -35,29 +35,6 @@ func decodeDigest(str *string, field string, errorArr []string) (string, []strin
 	return "", errorArr
 }
 
-// decodeAddress returns the sdk.Address representation of the input string, or appends an error to errorArr
-func decodeAddress(str string, field string, errorArr []string) (sdk.Address, []string) {
-	addr, err := sdk.DecodeAddress(str)
-	if err != nil {
-		return sdk.ZeroAddress, append(errorArr, fmt.Sprintf("%s '%s': %v", errUnableToParseAddress, field, err))
-	}
-	// Pass through
-	return addr, errorArr
-}
-
-// decodeAddressToBytes returns the byte representation of the input string, or appends an error to errorArr
-func decodeAddressToBytes(str *string, field string, errorArr []string) ([]byte, []string) {
-	if str != nil {
-		addr, err := sdk.DecodeAddress(*str)
-		if err != nil {
-			return nil, append(errorArr, fmt.Sprintf("%s '%s': %v", errUnableToParseAddress, field, err))
-		}
-		return addr[:], errorArr
-	}
-	// Pass through
-	return nil, errorArr
-}
-
 // decodeAddress converts the role information into a bitmask, or appends an error to errorArr
 func decodeAddressRole(role *string, excludeCloseTo *bool, errorArr []string) (idb.AddressRole, []string) {
 	// If the string is nil, return early.
@@ -739,9 +716,14 @@ func edIndexToAddress(index uint64, txn sdk.Transaction, shared []sdk.Address) (
 }
 
 func (si *ServerImplementation) assetParamsToAssetQuery(params generated.SearchForAssetsParams) (idb.AssetsQuery, error) {
-	creator, errorArr := decodeAddressToBytes(params.Creator, "creator", make([]string, 0))
-	if len(errorArr) != 0 {
-		return idb.AssetsQuery{}, errors.New(errUnableToParseAddress)
+
+	var creatorAddressBytes []byte
+	if params.Creator != nil {
+		creator, err := sdk.DecodeAddress(*params.Creator)
+		if err != nil {
+			return idb.AssetsQuery{}, fmt.Errorf("unable to parse creator address: %w", err)
+		}
+		creatorAddressBytes = creator[:]
 	}
 
 	var assetGreaterThan *uint64
@@ -756,7 +738,7 @@ func (si *ServerImplementation) assetParamsToAssetQuery(params generated.SearchF
 	query := idb.AssetsQuery{
 		AssetID:            params.AssetId,
 		AssetIDGreaterThan: assetGreaterThan,
-		Creator:            creator,
+		Creator:            creatorAddressBytes,
 		Name:               strOrDefault(params.Name),
 		Unit:               strOrDefault(params.Unit),
 		Query:              "",
@@ -768,9 +750,14 @@ func (si *ServerImplementation) assetParamsToAssetQuery(params generated.SearchF
 }
 
 func (si *ServerImplementation) appParamsToApplicationQuery(params generated.SearchForApplicationsParams) (idb.ApplicationQuery, error) {
-	addr, errorArr := decodeAddressToBytes(params.Creator, "creator", make([]string, 0))
-	if len(errorArr) != 0 {
-		return idb.ApplicationQuery{}, errors.New(errUnableToParseAddress)
+
+	var creatorAddressBytes []byte
+	if params.Creator != nil {
+		addr, err := sdk.DecodeAddress(*params.Creator)
+		if err != nil {
+			return idb.ApplicationQuery{}, fmt.Errorf("unable to parse creator address: %w", err)
+		}
+		creatorAddressBytes = addr[:]
 	}
 
 	var appGreaterThan *uint64
@@ -785,7 +772,7 @@ func (si *ServerImplementation) appParamsToApplicationQuery(params generated.Sea
 	return idb.ApplicationQuery{
 		ApplicationID:            params.ApplicationId,
 		ApplicationIDGreaterThan: appGreaterThan,
-		Address:                  addr,
+		Address:                  creatorAddressBytes,
 		IncludeDeleted:           boolOrDefault(params.IncludeAll),
 		Limit:                    min(uintOrDefaultValue(params.Limit, si.opts.DefaultApplicationsLimit), si.opts.MaxApplicationsLimit),
 	}, nil
@@ -807,7 +794,15 @@ func (si *ServerImplementation) transactionParamsToTransactionFilter(params gene
 	filter.NextToken = strOrDefault(params.Next)
 
 	// Address
-	filter.Address, errorArr = decodeAddressToBytes(params.Address, "address", errorArr)
+	if params.Address != nil {
+		addr, err := sdk.DecodeAddress(*params.Address)
+		if err != nil {
+			errorArr = append(errorArr, fmt.Sprintf("%s: %v", errUnableToParseAddress, err))
+		}
+		filter.Address = addr[:]
+	}
+
+	// Txid
 	filter.Txid, errorArr = decodeDigest(params.Txid, "txid", errorArr)
 
 	// Byte array
@@ -849,7 +844,8 @@ func (si *ServerImplementation) transactionParamsToTransactionFilter(params gene
 }
 
 func (si *ServerImplementation) blockParamsToBlockFilter(params generated.SearchForBlockHeadersParams) (filter idb.BlockHeaderFilter, err error) {
-	var errorArr []string
+
+	var errs []error
 
 	// Integer
 	filter.Limit = min(uintOrDefaultValue(params.Limit, si.opts.DefaultBlocksLimit), si.opts.MaxBlocksLimit)
@@ -858,7 +854,7 @@ func (si *ServerImplementation) blockParamsToBlockFilter(params generated.Search
 	// This check is performed here instead of in validateBlockFilter because
 	// when converting params into a filter, the next token is merged with params.MinRound.
 	if params.MinRound != nil && params.MaxRound != nil && *params.MinRound > *params.MaxRound {
-		errorArr = append(errorArr, errInvalidRoundMinMax)
+		errs = append(errs, errors.New(errInvalidRoundMinMax))
 	}
 	filter.MaxRound = params.MaxRound
 	filter.MinRound = params.MinRound
@@ -867,7 +863,7 @@ func (si *ServerImplementation) blockParamsToBlockFilter(params generated.Search
 	if params.Next != nil {
 		n, err := idb.DecodeBlockRowNext(*params.Next)
 		if err != nil {
-			errorArr = append(errorArr, fmt.Sprintf("%s: %v", errUnableToParseNext, err))
+			errs = append(errs, fmt.Errorf("%s: %w", errUnableToParseNext, err))
 		}
 		// Set the MinRound
 		if filter.MinRound == nil {
@@ -899,56 +895,58 @@ func (si *ServerImplementation) blockParamsToBlockFilter(params generated.Search
 			numParticipationFilters++
 		}
 		if numParticipationFilters > 1 {
-			errorArr = append(errorArr, "only one of `proposer`, `expired`, or `absent` can be specified")
+			errs = append(errs, errors.New("only one of `proposer`, `expired`, or `absent` can be specified"))
 		}
 
 		// Validate the number of items in the participation account lists
 		if params.Proposer != nil && uint64(len(*params.Proposer)) > si.opts.MaxAccountListSize {
-			errorArr = append(errorArr, fmt.Sprintf("proposer list too long, max size is %d", si.opts.MaxAccountListSize))
+			errs = append(errs, fmt.Errorf("proposer list too long, max size is %d", si.opts.MaxAccountListSize))
 		}
 		if params.Expired != nil && uint64(len(*params.Expired)) > si.opts.MaxAccountListSize {
-			errorArr = append(errorArr, fmt.Sprintf("expired list too long, max size is %d", si.opts.MaxAccountListSize))
+			errs = append(errs, fmt.Errorf("expired list too long, max size is %d", si.opts.MaxAccountListSize))
 		}
 		if params.Absent != nil && uint64(len(*params.Absent)) > si.opts.MaxAccountListSize {
-			errorArr = append(errorArr, fmt.Sprintf("absent list too long, max size is %d", si.opts.MaxAccountListSize))
+			errs = append(errs, fmt.Errorf("absent list too long, max size is %d", si.opts.MaxAccountListSize))
 		}
 
 		filter.Proposers = make(map[sdk.Address]struct{}, 0)
 		if params.Proposer != nil {
 			for _, s := range *params.Proposer {
-				var addr sdk.Address
-				addr, errorArr = decodeAddress(s, "proposer", errorArr)
-				filter.Proposers[addr] = struct{}{}
+				addr, err := sdk.DecodeAddress(s)
+				if err != nil {
+					errs = append(errs, fmt.Errorf("unable to parse proposer address `%s`: %w", s, err))
+				} else {
+					filter.Proposers[addr] = struct{}{}
+				}
 			}
 		}
 
 		filter.ExpiredParticipationAccounts = make(map[sdk.Address]struct{}, 0)
 		if params.Expired != nil {
 			for _, s := range *params.Expired {
-				var addr sdk.Address
-				addr, errorArr = decodeAddress(s, "expired", errorArr)
-				filter.ExpiredParticipationAccounts[addr] = struct{}{}
+				addr, err := sdk.DecodeAddress(s)
+				if err != nil {
+					errs = append(errs, fmt.Errorf("unable to parse expired address `%s`: %w", s, err))
+				} else {
+					filter.ExpiredParticipationAccounts[addr] = struct{}{}
+				}
 			}
 		}
 
 		filter.AbsentParticipationAccounts = make(map[sdk.Address]struct{}, 0)
 		if params.Absent != nil {
 			for _, s := range *params.Absent {
-				var addr sdk.Address
-				addr, errorArr = decodeAddress(s, "absent", errorArr)
-				filter.AbsentParticipationAccounts[addr] = struct{}{}
+				addr, err := sdk.DecodeAddress(s)
+				if err != nil {
+					errs = append(errs, fmt.Errorf("unable to parse absent address `%s`: %w", s, err))
+				} else {
+					filter.AbsentParticipationAccounts[addr] = struct{}{}
+				}
 			}
 		}
 	}
 
-	// If there were any errorArr while setting up the BlockFilter, return now.
-	if len(errorArr) > 0 {
-		err = errors.New("invalid input: " + strings.Join(errorArr, ", "))
-
-		// clear out the intermediates.
-		filter = idb.BlockHeaderFilter{}
-	}
-	return
+	return filter, errors.Join(errs...)
 }
 
 func (si *ServerImplementation) maxAccountsErrorToAccountsErrorResponse(maxErr idb.MaxAPIResourcesPerAccountError) generated.ErrorResponse {
