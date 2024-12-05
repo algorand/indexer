@@ -33,6 +33,9 @@ type daemonConfig struct {
 	readTimeout                      time.Duration
 	maxConn                          uint32
 	maxAPIResourcesPerAccount        uint32
+	maxAccountListSize               uint32
+	maxBlocksLimit                   uint32
+	defaultBlocksLimit               uint32
 	maxTransactionsLimit             uint32
 	defaultTransactionsLimit         uint32
 	maxAccountsLimit                 uint32
@@ -81,6 +84,9 @@ func DaemonCmd() *cobra.Command {
 	cfg.flags.StringVar(&cfg.suppliedAPIConfigFile, "api-config-file", "", "supply an API config file to enable/disable parameters")
 	cfg.flags.BoolVar(&cfg.enableAllParameters, "enable-all-parameters", false, "override default configuration and enable all parameters. Can't be used with --api-config-file")
 	cfg.flags.Uint32VarP(&cfg.maxAPIResourcesPerAccount, "max-api-resources-per-account", "", 1000, "set the maximum total number of resources (created assets, created apps, asset holdings, and application local state) per account that will be allowed in REST API lookupAccountByID and searchForAccounts responses before returning a 400 Bad Request. Set zero for no limit")
+	cfg.flags.Uint32VarP(&cfg.maxAccountListSize, "max-account-list-size", "", 50, "set the maximum number of items for query parameters that accept account lists. Set zero for no limit")
+	cfg.flags.Uint32VarP(&cfg.maxBlocksLimit, "max-blocks-limit", "", 1000, "set the maximum allowed Limit parameter for querying blocks")
+	cfg.flags.Uint32VarP(&cfg.defaultBlocksLimit, "default-blocks-limit", "", 100, "set the default Limit parameter for querying blocks, if none is provided")
 	cfg.flags.Uint32VarP(&cfg.maxTransactionsLimit, "max-transactions-limit", "", 10000, "set the maximum allowed Limit parameter for querying transactions")
 	cfg.flags.Uint32VarP(&cfg.defaultTransactionsLimit, "default-transactions-limit", "", 1000, "set the default Limit parameter for querying transactions, if none is provided")
 	cfg.flags.Uint32VarP(&cfg.maxAccountsLimit, "max-accounts-limit", "", 1000, "set the maximum allowed Limit parameter for querying accounts")
@@ -322,6 +328,9 @@ func makeOptions(daemonConfig *daemonConfig) (options api.ExtraOptions) {
 	options.ReadTimeout = daemonConfig.readTimeout
 
 	options.MaxAPIResourcesPerAccount = uint64(daemonConfig.maxAPIResourcesPerAccount)
+	options.MaxAccountListSize = uint64(daemonConfig.maxAccountListSize)
+	options.MaxBlocksLimit = uint64(daemonConfig.maxBlocksLimit)
+	options.DefaultBlocksLimit = uint64(daemonConfig.defaultBlocksLimit)
 	options.MaxTransactionsLimit = uint64(daemonConfig.maxTransactionsLimit)
 	options.DefaultTransactionsLimit = uint64(daemonConfig.defaultTransactionsLimit)
 	options.MaxAccountsLimit = uint64(daemonConfig.maxAccountsLimit)

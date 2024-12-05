@@ -186,6 +186,36 @@ func (_m *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 	return r0, r1
 }
 
+// BlockHeaders provides a mock function with given fields: ctx, bf
+func (_m *IndexerDb) BlockHeaders(ctx context.Context, bf idb.BlockHeaderFilter) (<-chan idb.BlockRow, uint64) {
+	ret := _m.Called(ctx, bf)
+
+	if len(ret) == 0 {
+		panic("no return value specified for BlockHeaders")
+	}
+
+	var r0 <-chan idb.BlockRow
+	var r1 uint64
+	if rf, ok := ret.Get(0).(func(context.Context, idb.BlockHeaderFilter) (<-chan idb.BlockRow, uint64)); ok {
+		return rf(ctx, bf)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, idb.BlockHeaderFilter) <-chan idb.BlockRow); ok {
+		r0 = rf(ctx, bf)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(<-chan idb.BlockRow)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, idb.BlockHeaderFilter) uint64); ok {
+		r1 = rf(ctx, bf)
+	} else {
+		r1 = ret.Get(1).(uint64)
+	}
+
+	return r0, r1
+}
+
 // Close provides a mock function with given fields:
 func (_m *IndexerDb) Close() {
 	_m.Called()

@@ -15,6 +15,23 @@ import (
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
+// BlockRow is metadata relating to one block in a block query.
+type BlockRow struct {
+	BlockHeader sdk.BlockHeader
+
+	// Error indicates that there was an internal problem processing the expected block.
+	Error error
+}
+
+// Next returns what should be an opaque string to be used with the next query to resume where a previous limit left off.
+func (br BlockRow) Next() (string, error) {
+
+	var b [8]byte
+	binary.LittleEndian.PutUint64(b[:8], uint64(br.BlockHeader.Round))
+
+	return base64.URLEncoding.EncodeToString(b[:]), nil
+}
+
 // TxnRow is metadata relating to one transaction in a transaction query.
 type TxnRow struct {
 	// Round is the round where the transaction was committed.
@@ -99,6 +116,21 @@ func DecodeTxnRowNext(s string) (uint64 /*round*/, uint32 /*intra*/, error) {
 	return round, intra, nil
 }
 
+// DecodeBlockRowNext unpacks opaque string returned from BlockRow.Next()
+func DecodeBlockRowNext(s string) (uint64 /*round*/, error) {
+	b, err := base64.URLEncoding.DecodeString(s)
+	if err != nil {
+		return 0, fmt.Errorf("DecodeBlockRowNext() decode err: %w", err)
+	}
+
+	if len(b) != 8 {
+		return 0, fmt.Errorf("DecodeBlockRowNext() bad next token b: %x", b)
+	}
+
+	round := binary.LittleEndian.Uint64(b[:8])
+	return round, nil
+}
+
 // OptionalUint wraps bool and uint. It has a custom marshaller below.
 type OptionalUint struct {
 	Present bool
@@ -173,6 +205,7 @@ type IndexerDb interface {
 
 	// The next multiple functions return a channel with results as well as the latest round
 	// accounted.
+	BlockHeaders(ctx context.Context, bf BlockHeaderFilter) (<-chan BlockRow, uint64)
 	Transactions(ctx context.Context, tf TransactionFilter) (<-chan TxnRow, uint64)
 	GetAccounts(ctx context.Context, opts AccountQueryOptions) (<-chan AccountRow, uint64)
 	Assets(ctx context.Context, filter AssetsQuery) (<-chan AssetRow, uint64)
@@ -193,6 +226,18 @@ type GetBlockOptions struct {
 	// if len of the results from buildTransactionQuery is greater than MaxTransactionsLimit, return an error
 	// indicating that the header-only flag should be enabled
 	MaxTransactionsLimit uint64
+}
+
+// BlockHeaderFilter is a parameter object with all the block filter options.
+type BlockHeaderFilter struct {
+	Limit                        uint64
+	MaxRound                     *uint64
+	MinRound                     *uint64
+	AfterTime                    time.Time
+	BeforeTime                   time.Time
+	Proposers                    map[sdk.Address]struct{}
+	ExpiredParticipationAccounts map[sdk.Address]struct{}
+	AbsentParticipationAccounts  map[sdk.Address]struct{}
 }
 
 // TransactionFilter is a parameter object with all the transaction filter options.

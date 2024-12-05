@@ -1144,6 +1144,9 @@ type TransactionStateProof struct {
 	StateProofType *uint64 `json:"state-proof-type,omitempty"`
 }
 
+// Absent defines model for absent.
+type Absent = []string
+
 // AccountId defines model for account-id.
 type AccountId = string
 
@@ -1183,6 +1186,9 @@ type Exclude = []string
 // ExcludeCloseTo defines model for exclude-close-to.
 type ExcludeCloseTo = bool
 
+// Expired defines model for expired.
+type Expired = []string
+
 // HeaderOnly defines model for header-only.
 type HeaderOnly = bool
 
@@ -1203,6 +1209,9 @@ type Next = string
 
 // NotePrefix defines model for note-prefix.
 type NotePrefix = string
+
+// Proposers defines model for proposers.
+type Proposers = []string
 
 // RekeyTo defines model for rekey-to.
 type RekeyTo = bool
@@ -1326,6 +1335,17 @@ type AssetResponse struct {
 // AssetsResponse defines model for AssetsResponse.
 type AssetsResponse struct {
 	Assets []Asset `json:"assets"`
+
+	// CurrentRound Round at which the results were computed.
+	CurrentRound uint64 `json:"current-round"`
+
+	// NextToken Used for pagination, when making another request provide this token with the next parameter.
+	NextToken *string `json:"next-token,omitempty"`
+}
+
+// BlockHeadersResponse defines model for BlockHeadersResponse.
+type BlockHeadersResponse struct {
+	Blocks []Block `json:"blocks"`
 
 	// CurrentRound Round at which the results were computed.
 	CurrentRound uint64 `json:"current-round"`
