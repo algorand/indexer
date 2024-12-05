@@ -221,11 +221,11 @@
         },
         "x-algorand-format": "base64"
       },
-      "proposer": {
+      "proposers": {
         "description": "Accounts marked as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
         "explode": false,
         "in": "query",
-        "name": "proposer",
+        "name": "proposers",
         "schema": {
           "items": {
             "type": "string",
@@ -4898,7 +4898,7 @@
             "description": "Accounts marked as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
             "explode": false,
             "in": "query",
-            "name": "proposer",
+            "name": "proposers",
             "schema": {
               "items": {
                 "type": "string",

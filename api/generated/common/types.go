@@ -1210,8 +1210,8 @@ type Next = string
 // NotePrefix defines model for note-prefix.
 type NotePrefix = string
 
-// Proposer defines model for proposer.
-type Proposer = []string
+// Proposers defines model for proposers.
+type Proposers = []string
 
 // RekeyTo defines model for rekey-to.
 type RekeyTo = bool

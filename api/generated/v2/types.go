@@ -1298,8 +1298,8 @@ type Next = string
 // NotePrefix defines model for note-prefix.
 type NotePrefix = string
 
-// Proposer defines model for proposer.
-type Proposer = []string
+// Proposers defines model for proposers.
+type Proposers = []string
 
 // RekeyTo defines model for rekey-to.
 type RekeyTo = bool
@@ -1851,8 +1851,8 @@ type SearchForBlockHeadersParams struct {
 	// AfterTime Include results after the given time. Must be an RFC 3339 formatted string.
 	AfterTime *time.Time `form:"after-time,omitempty" json:"after-time,omitempty"`
 
-	// Proposer Accounts marked as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.
-	Proposer *[]string `form:"proposer,omitempty" json:"proposer,omitempty"`
+	// Proposers Accounts marked as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.
+	Proposers *[]string `form:"proposers,omitempty" json:"proposers,omitempty"`
 
 	// Expired Accounts marked as expired in the block header's participation updates. This parameter accepts a comma separated list of addresses.
 	Expired *[]string `form:"expired,omitempty" json:"expired,omitempty"`

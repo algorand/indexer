@@ -885,7 +885,7 @@ func (si *ServerImplementation) blockParamsToBlockFilter(params generated.Search
 	{
 		// Make sure at most one of the participation parameters is set
 		numParticipationFilters := 0
-		if params.Proposer != nil {
+		if params.Proposers != nil {
 			numParticipationFilters++
 		}
 		if params.Expired != nil {
@@ -899,8 +899,8 @@ func (si *ServerImplementation) blockParamsToBlockFilter(params generated.Search
 		}
 
 		// Validate the number of items in the participation account lists
-		if params.Proposer != nil && uint64(len(*params.Proposer)) > si.opts.MaxAccountListSize {
-			errs = append(errs, fmt.Errorf("proposer list too long, max size is %d", si.opts.MaxAccountListSize))
+		if params.Proposers != nil && uint64(len(*params.Proposers)) > si.opts.MaxAccountListSize {
+			errs = append(errs, fmt.Errorf("proposers list too long, max size is %d", si.opts.MaxAccountListSize))
 		}
 		if params.Expired != nil && uint64(len(*params.Expired)) > si.opts.MaxAccountListSize {
 			errs = append(errs, fmt.Errorf("expired list too long, max size is %d", si.opts.MaxAccountListSize))
@@ -910,8 +910,8 @@ func (si *ServerImplementation) blockParamsToBlockFilter(params generated.Search
 		}
 
 		filter.Proposers = make(map[sdk.Address]struct{}, 0)
-		if params.Proposer != nil {
-			for _, s := range *params.Proposer {
+		if params.Proposers != nil {
+			for _, s := range *params.Proposers {
 				addr, err := sdk.DecodeAddress(s)
 				if err != nil {
 					errs = append(errs, fmt.Errorf("unable to parse proposer address `%s`: %w", s, err))

@@ -886,7 +886,7 @@
             "$ref": "#/parameters/after-time"
           },
           {
-            "$ref": "#/parameters/proposer"
+            "$ref": "#/parameters/proposers"
           },
           {
             "$ref": "#/parameters/expired"
@@ -2732,14 +2732,14 @@
     }
   },
   "parameters": {
-    "proposer": {
+    "proposers": {
       "type": "array",
       "items": {
         "type": "string",
         "x-algorand-format": "Address"
       },
       "description": "Accounts marked as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
-      "name": "proposer",
+      "name": "proposers",
       "in": "query",
       "required": false
     },
