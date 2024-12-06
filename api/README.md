@@ -9,7 +9,7 @@ The API is defined using [OpenAPI v2](https://swagger.io/specification/v2/) in *
 The Makefile will install our fork of **oapi-codegen**, use `make oapi-codegen` to install it directly.
 
 1. Document your changes by editing **indexer.oas2.yml**
-2. Regenerate the endpoints by running **generate.sh**. The sources at **generated/** will be updated.
+2. Regenerate the endpoints by running **make generate** from the `api` directory. The sources at **generated/** will be updated.
 3. Update the implementation in **handlers.go**. It is sometimes useful to consult **generated/routes.go** to make sure the handler properly implements **ServerInterface**.
 
 ## What codegen tool is used?

@@ -698,8 +698,9 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 		whereStr := strings.Join(whereParts, " AND ")
 		query += " WHERE " + whereStr
 	}
+
 	if joinParticipation {
-		// this should match the index on txn_particpation
+		// this should match the index on txn_participation
 		query += " ORDER BY p.addr, p.round DESC, p.intra DESC"
 	} else {
 		// this should explicitly match the primary key on txn (round,intra)
