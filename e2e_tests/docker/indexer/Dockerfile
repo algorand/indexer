@@ -1,4 +1,4 @@
-ARG GO_IMAGE=golang:1.213.3
+ARG GO_IMAGE=golang:1.23.3
 FROM $GO_IMAGE
 ARG CHANNEL=stable
 
