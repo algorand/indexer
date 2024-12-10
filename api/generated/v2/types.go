@@ -938,11 +938,11 @@ type Transaction struct {
 	// Group \[grp\] Base64 encoded byte array of a sha512/256 digest. When present indicates that this transaction is part of a transaction group and the value is the sha512/256 hash of the transactions in that group.
 	Group *[]byte `json:"group,omitempty"`
 
-	// HeartBeatTransaction Fields for a heartbeat transaction.
+	// HeartbeatTransaction Fields for a heartbeat transaction.
 	//
 	// Definition:
-	// data/transactions/heartbeat.go : HeartBeatTxnFields
-	HeartBeatTransaction *TransactionHeartBeat `json:"heart-beat-transaction,omitempty"`
+	// data/transactions/heartbeat.go : HeartbeatTxnFields
+	HeartbeatTransaction *TransactionHeartbeat `json:"heartbeat-transaction,omitempty"`
 
 	// Id Transaction ID
 	Id *string `json:"id,omitempty"`
@@ -1014,7 +1014,7 @@ type Transaction struct {
 	// * \[afrz\] asset-freeze-transaction
 	// * \[appl\] application-transaction
 	// * \[stpf\] state-proof-transaction
-	// * \[hb\] heart-beat-transaction
+	// * \[hb\] heartbeat-transaction
 	TxType TransactionTxType `json:"tx-type"`
 }
 
@@ -1028,7 +1028,7 @@ type Transaction struct {
 // * \[afrz\] asset-freeze-transaction
 // * \[appl\] application-transaction
 // * \[stpf\] state-proof-transaction
-// * \[hb\] heart-beat-transaction
+// * \[hb\] heartbeat-transaction
 type TransactionTxType string
 
 // TransactionApplication Fields for application transactions.
@@ -1138,11 +1138,11 @@ type TransactionAssetTransfer struct {
 	Sender *string `json:"sender,omitempty"`
 }
 
-// TransactionHeartBeat Fields for a heartbeat transaction.
+// TransactionHeartbeat Fields for a heartbeat transaction.
 //
 // Definition:
-// data/transactions/heartbeat.go : HeartBeatTxnFields
-type TransactionHeartBeat struct {
+// data/transactions/heartbeat.go : HeartbeatTxnFields
+type TransactionHeartbeat struct {
 	// HbAddress \[hbad\] HbAddress is the account this txn is proving onlineness for.
 	HbAddress string `json:"hb-address"`
 

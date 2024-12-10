@@ -131,7 +131,6 @@ func AddTransactionParticipation(block *types.Block, tx pgx.Tx) error {
 		for j := range participants {
 			rows = append(rows, []interface{}{participants[j][:], uint64(block.Round), next})
 		}
-		next++
 	}
 
 	_, err := tx.CopyFrom(

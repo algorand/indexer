@@ -171,7 +171,6 @@ func yieldTransactions(ctx context.Context, block *types.Block, modifiedTxns []t
 			return fmt.Errorf("yieldTransactions() ProposerPayout ctx.Err(): %w", ctx.Err())
 		case outCh <- row:
 		}
-		intra++
 	}
 
 	return nil
