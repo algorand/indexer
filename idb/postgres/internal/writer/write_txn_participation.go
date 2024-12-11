@@ -125,6 +125,14 @@ func AddTransactionParticipation(block *types.Block, tx pgx.Tx) error {
 		next, rows = addInnerTransactionParticipation(&stxnib.SignedTxnWithAD, uint64(block.Round), next+1, rows)
 	}
 
+	if block.ProposerPayout > 0 {
+		// FeeSink is the sender, Proposer is the receiver.
+		participants := []types.Address{block.FeeSink, block.Proposer}
+		for j := range participants {
+			rows = append(rows, []interface{}{participants[j][:], uint64(block.Round), next})
+		}
+	}
+
 	_, err := tx.CopyFrom(
 		context.Background(),
 		pgx.Identifier{"txn_participation"},
