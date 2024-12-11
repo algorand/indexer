@@ -6,7 +6,7 @@ toolchain go1.23.3
 
 require (
 	github.com/algorand/avm-abi v0.2.0
-	github.com/algorand/go-algorand-sdk/v2 v2.2.1-0.20241127164804-625a18def941
+	github.com/algorand/go-algorand-sdk/v2 v2.2.1-0.20241211195928-f2700fd860bb
 	github.com/algorand/go-codec/codec v1.1.10
 	github.com/algorand/oapi-codegen v1.12.0-algorand.0
 	github.com/davecgh/go-spew v1.1.1

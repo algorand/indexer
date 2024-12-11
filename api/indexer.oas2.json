@@ -2289,7 +2289,9 @@
       "required": [
         "hb-address",
         "hb-proof",
-        "hb-seed"
+        "hb-seed",
+        "hb-vote-id",
+        "hb-key-dilution"
       ],
       "properties": {
         "hb-address": {
@@ -2300,9 +2302,19 @@
           "$ref": "#/definitions/HbProofFields"
         },
         "hb-seed": {
-          "description": "\\[hbsd\\] HbSeed must be the block seed for the block before this transaction's\n\t// firstValid..",
+          "description": "\\[hbsd\\] HbSeed must be the block seed for the this transaction's firstValid block.",
           "type": "string",
           "format": "byte"
+        },
+        "hb-vote-id": {
+          "description": "\\[hbvid\\] HbVoteID must match the HbAddress account's current VoteID.",
+          "type": "string",
+          "format": "byte"
+        },
+        "hb-key-dilution": {
+          "description": "\\[hbkd\\] HbKeyDilution must match HbAddress account's current KeyDilution.",
+          "type": "integer",
+          "x-algorand-format": "uint64"
         }
       }
     },

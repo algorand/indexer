@@ -513,7 +513,8 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 	case sdk.HeartbeatTx:
 		hb := stxn.Txn.HeartbeatTxnFields
 		hbTxn := generated.TransactionHeartbeat{
-			HbAddress: hb.HbAddress.String(),
+			HbAddress:     hb.HbAddress.String(),
+			HbKeyDilution: hb.HbKeyDilution,
 			HbProof: generated.HbProofFields{
 				HbPk:     byteSliceOmitZeroPtr(hb.HbProof.PK[:]),
 				HbPk1sig: byteSliceOmitZeroPtr(hb.HbProof.PK1Sig[:]),
@@ -521,7 +522,8 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 				HbPk2sig: byteSliceOmitZeroPtr(hb.HbProof.PK2Sig[:]),
 				HbSig:    byteSliceOmitZeroPtr(hb.HbProof.Sig[:]),
 			},
-			HbSeed: hb.HbSeed[:],
+			HbSeed:   hb.HbSeed[:],
+			HbVoteId: hb.HbVoteID[:],
 		}
 		heartbeat = &hbTxn
 	}
