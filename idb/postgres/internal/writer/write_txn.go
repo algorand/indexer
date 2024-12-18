@@ -28,7 +28,7 @@ func transactionAssetID(stxnad *types.SignedTxnWithAD, intra uint, block *types.
 	case types.ApplicationCallTx:
 		assetid = uint64(stxnad.Txn.ApplicationID)
 		if assetid == 0 {
-			assetid = uint64(stxnad.ApplyData.ApplicationID)
+			assetid = stxnad.ApplyData.ApplicationID
 		}
 		if assetid == 0 {
 			if block == nil {
@@ -42,7 +42,7 @@ func transactionAssetID(stxnad *types.SignedTxnWithAD, intra uint, block *types.
 	case types.AssetConfigTx:
 		assetid = uint64(stxnad.Txn.ConfigAsset)
 		if assetid == 0 {
-			assetid = uint64(stxnad.ApplyData.ConfigAsset)
+			assetid = stxnad.ApplyData.ConfigAsset
 		}
 		if assetid == 0 {
 			if block == nil {
@@ -112,6 +112,7 @@ func yieldInnerTransactions(ctx context.Context, stxnad *types.SignedTxnWithAD, 
 // Writes database rows for transactions (including inner transactions) to `outCh`.
 func yieldTransactions(ctx context.Context, block *types.Block, modifiedTxns []types.SignedTxnInBlock, outCh chan []interface{}) error {
 	intra := uint(0)
+
 	for idx, stib := range block.Payset {
 		var stxnad types.SignedTxnWithAD
 		var err error
@@ -123,7 +124,7 @@ func yieldTransactions(ctx context.Context, block *types.Block, modifiedTxns []t
 		}
 
 		txn := &stxnad.Txn
-		typeenum, ok := idb.GetTypeEnum(types.TxType(txn.Type))
+		typeenum, ok := idb.GetTypeEnum(txn.Type)
 		if !ok {
 			return fmt.Errorf("yieldTransactions() get type enum")
 		}
@@ -153,7 +154,51 @@ func yieldTransactions(ctx context.Context, block *types.Block, modifiedTxns []t
 		}
 	}
 
+	if block.ProposerPayout > 0 {
+		stxnad := SignedTransactionFromBlockPayout(block)
+		typeenum, ok := idb.GetTypeEnum(stxnad.Txn.Type)
+		if !ok {
+			return fmt.Errorf("yieldTransactions() ProposerPayout get type enum - should NEVER happen")
+		}
+		id := crypto.TransactionIDString(stxnad.Txn)
+		extra := idb.TxnExtra{}
+		row := []interface{}{
+			uint64(block.Round), intra, int(typeenum), 0, id,
+			encoding.EncodeSignedTxnWithAD(stxnad),
+			encoding.EncodeTxnExtra(&extra)}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("yieldTransactions() ProposerPayout ctx.Err(): %w", ctx.Err())
+		case outCh <- row:
+		}
+	}
+
 	return nil
+}
+
+// SignedTransactionFromBlockPayout creates a synthetic transaction for the proposer payout.
+func SignedTransactionFromBlockPayout(block *types.Block) types.SignedTxnWithAD {
+	stxnad := types.SignedTxnWithAD{
+		SignedTxn: types.SignedTxn{
+			Txn: types.Transaction{
+				Type: types.PaymentTx,
+				Header: types.Header{
+					Sender:      block.FeeSink,
+					Note:        []byte("ProposerPayout for Round " + fmt.Sprint(block.Round)),
+					FirstValid:  block.Round,
+					LastValid:   block.Round,
+					GenesisID:   block.GenesisID,
+					GenesisHash: block.GenesisHash,
+				},
+				PaymentTxnFields: types.PaymentTxnFields{
+					Receiver: block.Proposer,
+					Amount:   block.ProposerPayout,
+				},
+			},
+		},
+	}
+
+	return stxnad
 }
 
 // AddTransactions adds transactions from `block` to the database.
