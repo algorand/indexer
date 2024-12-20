@@ -382,6 +382,7 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 	var assetTransfer *generated.TransactionAssetTransfer
 	var application *generated.TransactionApplication
 	var stateProof *generated.TransactionStateProof
+	var heartbeat *generated.TransactionHeartbeat
 
 	switch stxn.Txn.Type {
 	case sdk.PaymentTx:
@@ -585,6 +586,22 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 			StateProofType: uint64Ptr(uint64(stxn.Txn.StateProofType)),
 		}
 		stateProof = &proofTxn
+	case sdk.HeartbeatTx:
+		hb := stxn.Txn.HeartbeatTxnFields
+		hbTxn := generated.TransactionHeartbeat{
+			HbAddress:     hb.HbAddress.String(),
+			HbKeyDilution: hb.HbKeyDilution,
+			HbProof: generated.HbProofFields{
+				HbPk:     byteSliceOmitZeroPtr(hb.HbProof.PK[:]),
+				HbPk1sig: byteSliceOmitZeroPtr(hb.HbProof.PK1Sig[:]),
+				HbPk2:    byteSliceOmitZeroPtr(hb.HbProof.PK2[:]),
+				HbPk2sig: byteSliceOmitZeroPtr(hb.HbProof.PK2Sig[:]),
+				HbSig:    byteSliceOmitZeroPtr(hb.HbProof.Sig[:]),
+			},
+			HbSeed:   hb.HbSeed[:],
+			HbVoteId: hb.HbVoteID[:],
+		}
+		heartbeat = &hbTxn
 	}
 
 	var localStateDelta *[]generated.AccountStateDelta
@@ -635,9 +652,9 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 		for _, t := range stxn.ApplyData.EvalDelta.InnerTxns {
 			extra2 := extra
 			if t.Txn.Type == sdk.ApplicationCallTx {
-				extra2.AssetID = uint64(t.ApplyData.ApplicationID)
+				extra2.AssetID = t.ApplyData.ApplicationID
 			} else if t.Txn.Type == sdk.AssetConfigTx {
-				extra2.AssetID = uint64(t.ApplyData.ConfigAsset)
+				extra2.AssetID = t.ApplyData.ConfigAsset
 			} else {
 				extra2.AssetID = 0
 			}
@@ -661,6 +678,7 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 		PaymentTransaction:       payment,
 		KeyregTransaction:        keyreg,
 		StateProofTransaction:    stateProof,
+		HeartbeatTransaction:     heartbeat,
 		ClosingAmount:            uint64Ptr(uint64(stxn.ClosingAmount)),
 		ConfirmedRound:           uint64Ptr(extra.Round),
 		IntraRoundOffset:         uint64Ptr(uint64(extra.Intra)),
@@ -951,9 +969,9 @@ func (si *ServerImplementation) blockParamsToBlockFilter(params generated.Search
 
 func (si *ServerImplementation) maxAccountsErrorToAccountsErrorResponse(maxErr idb.MaxAPIResourcesPerAccountError) generated.ErrorResponse {
 	addr := maxErr.Address.String()
-	max := uint64(si.opts.MaxAPIResourcesPerAccount)
+	maxResults := si.opts.MaxAPIResourcesPerAccount
 	extraData := map[string]interface{}{
-		"max-results":           max,
+		"max-results":           maxResults,
 		"address":               addr,
 		"total-assets-opted-in": maxErr.TotalAssets,
 		"total-created-assets":  maxErr.TotalAssetParams,
