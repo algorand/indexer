@@ -855,7 +855,7 @@ func TestTimeouts(t *testing.T) {
 			errString: errTransactionSearch,
 			mockCall:  transactionFunc,
 			callHandler: func(ctx echo.Context, si ServerImplementation) error {
-				return si.LookupAccountTransactions(ctx, "", generated.LookupAccountTransactionsParams{})
+				return si.LookupAccountTransactions(ctx, "MONEYMBRSMUAM2NGL6PCEQEDVHFWAQB6DU47NUS6P5DJM4OJFN7E7DSVBA", generated.LookupAccountTransactionsParams{})
 			},
 		},
 		{

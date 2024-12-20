@@ -950,6 +950,185 @@ finish:
 	}
 }
 
+func buildBlockHeadersQuery(bf idb.BlockHeaderFilter) (query string, err error) {
+
+	// Build the terms for the WHERE clause based on the input parameters
+	var whereTerms []string
+	{
+		// Round-based filters
+		if bf.MaxRound != nil {
+			whereTerms = append(
+				whereTerms,
+				fmt.Sprintf("bh.round <= %d", *bf.MaxRound),
+			)
+		}
+		if bf.MinRound != nil {
+			whereTerms = append(
+				whereTerms,
+				fmt.Sprintf("bh.round >= %d", *bf.MinRound),
+			)
+		}
+
+		// Timestamp-based filters
+		//
+		// Converting the timestamp into a round usually results in faster execution plans
+		// (compared to the execution plans that would result from using the `block_header.realtime` column directly)
+		if !bf.AfterTime.IsZero() {
+			tmpl := `bh.round >= (
+					SELECT tmp.round
+					FROM block_header tmp
+					WHERE tmp.realtime > (to_timestamp(%d) AT TIME ZONE 'UTC')
+					ORDER BY tmp.realtime ASC, tmp.round ASC
+					LIMIT 1
+				)`
+			whereTerms = append(
+				whereTerms,
+				fmt.Sprintf(tmpl, bf.AfterTime.UTC().Unix()),
+			)
+		}
+		if !bf.BeforeTime.IsZero() {
+			tmpl := `bh.round <= (
+				SELECT tmp.round
+				FROM block_header tmp
+				WHERE tmp.realtime < (to_timestamp(%d) AT TIME ZONE 'UTC')
+				ORDER BY tmp.realtime DESC, tmp.round DESC
+				LIMIT 1
+			)`
+			whereTerms = append(
+				whereTerms,
+				fmt.Sprintf(tmpl, bf.BeforeTime.UTC().Unix()),
+			)
+		}
+
+		// Participation-based filters
+		if len(bf.Proposers) > 0 {
+			var ps []string
+			for addr := range bf.Proposers {
+				ps = append(ps, `'"`+addr.String()+`"'`)
+			}
+			whereTerms = append(
+				whereTerms,
+				fmt.Sprintf("( (bh.header->'prp') IS NOT NULL AND ((bh.header->'prp')::TEXT IN (%s)) )", strings.Join(ps, ",")),
+			)
+		}
+		if len(bf.ExpiredParticipationAccounts) > 0 {
+			var es []string
+			for addr := range bf.ExpiredParticipationAccounts {
+				es = append(es, `'`+addr.String()+`'`)
+			}
+			whereTerms = append(
+				whereTerms,
+				fmt.Sprintf("( (bh.header->'partupdrmv') IS NOT NULL AND (bh.header->'partupdrmv') ?| array[%s] )", strings.Join(es, ",")),
+			)
+		}
+		if len(bf.AbsentParticipationAccounts) > 0 {
+			var as []string
+			for addr := range bf.AbsentParticipationAccounts {
+				as = append(as, `'`+addr.String()+`'`)
+			}
+			whereTerms = append(
+				whereTerms,
+				fmt.Sprintf("( (bh.header->'partupdabs') IS NOT NULL AND (bh.header->'partupdabs') ?| array[%s] )", strings.Join(as, ",")),
+			)
+		}
+
+	}
+
+	// Build the full SQL query
+	var whereClause string
+	if len(whereTerms) > 0 {
+		whereClause = "WHERE " + strings.Join(whereTerms, " AND ")
+	}
+	tmpl := `
+			SELECT bh.header
+			FROM block_header bh
+			%s
+			ORDER BY bh.round ASC
+			LIMIT %d`
+	query = fmt.Sprintf(tmpl, whereClause, bf.Limit)
+
+	return query, nil
+}
+
+// This function blocks. `tx` must be non-nil.
+func (db *IndexerDb) yieldBlockHeaders(ctx context.Context, tx pgx.Tx, bf idb.BlockHeaderFilter, out chan<- idb.BlockRow) {
+
+	query, err := buildBlockHeadersQuery(bf)
+	if err != nil {
+		err = fmt.Errorf("block query err %v", err)
+		out <- idb.BlockRow{Error: err}
+		return
+	}
+
+	rows, err := tx.Query(ctx, query)
+	if err != nil {
+		err = fmt.Errorf("block query %#v err %v", query, err)
+		out <- idb.BlockRow{Error: err}
+		return
+	}
+	db.yieldBlocksThreadSimple(rows, out)
+}
+
+// BlockHeaders is part of idb.IndexerDB
+func (db *IndexerDb) BlockHeaders(ctx context.Context, bf idb.BlockHeaderFilter) (<-chan idb.BlockRow, uint64) {
+	out := make(chan idb.BlockRow, 1)
+
+	tx, err := db.db.BeginTx(ctx, readonlyRepeatableRead)
+	if err != nil {
+		out <- idb.BlockRow{Error: err}
+		close(out)
+		return out, 0
+	}
+
+	round, err := db.getMaxRoundAccounted(ctx, tx)
+	if err != nil {
+		out <- idb.BlockRow{Error: err}
+		close(out)
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			db.log.Printf("rollback error: %s", rerr)
+		}
+		return out, round
+	}
+
+	go func() {
+		db.yieldBlockHeaders(ctx, tx, bf, out)
+		// Because we return a channel into a "callWithTimeout" function,
+		// We need to make sure that rollback is called before close()
+		// otherwise we can end up with a situation where "callWithTimeout"
+		// will cancel our context, resulting in connection pool churn
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			db.log.Printf("rollback error: %s", rerr)
+		}
+		close(out)
+	}()
+
+	return out, round
+}
+
+func (db *IndexerDb) yieldBlocksThreadSimple(rows pgx.Rows, results chan<- idb.BlockRow) {
+	defer rows.Close()
+
+	for rows.Next() {
+		var row idb.BlockRow
+
+		var blockheaderjson []byte
+		err := rows.Scan(&blockheaderjson)
+		if err != nil {
+			row.Error = err
+		} else {
+			row.BlockHeader, err = encoding.DecodeBlockHeader(blockheaderjson)
+			if err != nil {
+				row.Error = fmt.Errorf("failed to decode block header: %w", err)
+			}
+		}
+
+		results <- row
+	}
+	if err := rows.Err(); err != nil {
+		results <- idb.BlockRow{Error: err}
+	}
+}
+
 var statusStrings = []string{"Offline", "Online", "NotParticipating"}
 
 const offlineStatusIdx = 0

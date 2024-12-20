@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -32,19 +33,6 @@ func decodeDigest(str *string, field string, errorArr []string) (string, []strin
 	}
 	// Pass through
 	return "", errorArr
-}
-
-// decodeAddress returns the byte representation of the input string, or appends an error to errorArr
-func decodeAddress(str *string, field string, errorArr []string) ([]byte, []string) {
-	if str != nil {
-		addr, err := sdk.DecodeAddress(*str)
-		if err != nil {
-			return nil, append(errorArr, fmt.Sprintf("%s '%s': %v", errUnableToParseAddress, field, err))
-		}
-		return addr[:], errorArr
-	}
-	// Pass through
-	return nil, errorArr
 }
 
 // decodeAddress converts the role information into a bitmask, or appends an error to errorArr
@@ -296,6 +284,94 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 	txn.Signature = &sig
 
 	return txn, nil
+}
+
+func hdrRowToBlock(row idb.BlockRow) generated.Block {
+
+	rewards := generated.BlockRewards{
+		FeeSink:                 row.BlockHeader.FeeSink.String(),
+		RewardsCalculationRound: uint64(row.BlockHeader.RewardsRecalculationRound),
+		RewardsLevel:            row.BlockHeader.RewardsLevel,
+		RewardsPool:             row.BlockHeader.RewardsPool.String(),
+		RewardsRate:             row.BlockHeader.RewardsRate,
+		RewardsResidue:          row.BlockHeader.RewardsResidue,
+	}
+
+	upgradeState := generated.BlockUpgradeState{
+		CurrentProtocol:        string(row.BlockHeader.CurrentProtocol),
+		NextProtocol:           strPtr(string(row.BlockHeader.NextProtocol)),
+		NextProtocolApprovals:  uint64Ptr(row.BlockHeader.NextProtocolApprovals),
+		NextProtocolSwitchOn:   uint64Ptr(uint64(row.BlockHeader.NextProtocolSwitchOn)),
+		NextProtocolVoteBefore: uint64Ptr(uint64(row.BlockHeader.NextProtocolVoteBefore)),
+	}
+
+	upgradeVote := generated.BlockUpgradeVote{
+		UpgradeApprove: boolPtr(row.BlockHeader.UpgradeApprove),
+		UpgradeDelay:   uint64Ptr(uint64(row.BlockHeader.UpgradeDelay)),
+		UpgradePropose: strPtr(string(row.BlockHeader.UpgradePropose)),
+	}
+
+	var partUpdates *generated.ParticipationUpdates = &generated.ParticipationUpdates{}
+	if len(row.BlockHeader.ExpiredParticipationAccounts) > 0 {
+		addrs := make([]string, len(row.BlockHeader.ExpiredParticipationAccounts))
+		for i := 0; i < len(addrs); i++ {
+			addrs[i] = row.BlockHeader.ExpiredParticipationAccounts[i].String()
+		}
+		partUpdates.ExpiredParticipationAccounts = strArrayPtr(addrs)
+	}
+	if len(row.BlockHeader.AbsentParticipationAccounts) > 0 {
+		addrs := make([]string, len(row.BlockHeader.AbsentParticipationAccounts))
+		for i := 0; i < len(addrs); i++ {
+			addrs[i] = row.BlockHeader.AbsentParticipationAccounts[i].String()
+		}
+		partUpdates.AbsentParticipationAccounts = strArrayPtr(addrs)
+	}
+	if *partUpdates == (generated.ParticipationUpdates{}) {
+		partUpdates = nil
+	}
+
+	// order these so they're deterministic
+	orderedTrackingTypes := make([]sdk.StateProofType, len(row.BlockHeader.StateProofTracking))
+	trackingArray := make([]generated.StateProofTracking, len(row.BlockHeader.StateProofTracking))
+	elems := 0
+	for key := range row.BlockHeader.StateProofTracking {
+		orderedTrackingTypes[elems] = key
+		elems++
+	}
+	slices.Sort(orderedTrackingTypes)
+	for i := 0; i < len(orderedTrackingTypes); i++ {
+		stpfTracking := row.BlockHeader.StateProofTracking[orderedTrackingTypes[i]]
+		thing1 := generated.StateProofTracking{
+			NextRound:         uint64Ptr(uint64(stpfTracking.StateProofNextRound)),
+			Type:              uint64Ptr(uint64(orderedTrackingTypes[i])),
+			VotersCommitment:  byteSliceOmitZeroPtr(stpfTracking.StateProofVotersCommitment),
+			OnlineTotalWeight: uint64Ptr(uint64(stpfTracking.StateProofOnlineTotalWeight)),
+		}
+		trackingArray[orderedTrackingTypes[i]] = thing1
+	}
+
+	ret := generated.Block{
+		Bonus:                  uint64PtrOrNil(uint64(row.BlockHeader.Bonus)),
+		FeesCollected:          uint64PtrOrNil(uint64(row.BlockHeader.FeesCollected)),
+		GenesisHash:            row.BlockHeader.GenesisHash[:],
+		GenesisId:              row.BlockHeader.GenesisID,
+		ParticipationUpdates:   partUpdates,
+		PreviousBlockHash:      row.BlockHeader.Branch[:],
+		Proposer:               addrPtr(row.BlockHeader.Proposer),
+		ProposerPayout:         uint64PtrOrNil(uint64(row.BlockHeader.ProposerPayout)),
+		Rewards:                &rewards,
+		Round:                  uint64(row.BlockHeader.Round),
+		Seed:                   row.BlockHeader.Seed[:],
+		StateProofTracking:     &trackingArray,
+		Timestamp:              uint64(row.BlockHeader.TimeStamp),
+		Transactions:           nil,
+		TransactionsRoot:       row.BlockHeader.TxnCommitments.NativeSha512_256Commitment[:],
+		TransactionsRootSha256: row.BlockHeader.TxnCommitments.Sha256Commitment[:],
+		TxnCounter:             uint64Ptr(row.BlockHeader.TxnCounter),
+		UpgradeState:           &upgradeState,
+		UpgradeVote:            &upgradeVote,
+	}
+	return ret
 }
 
 func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (generated.Transaction, error) {
@@ -658,9 +734,14 @@ func edIndexToAddress(index uint64, txn sdk.Transaction, shared []sdk.Address) (
 }
 
 func (si *ServerImplementation) assetParamsToAssetQuery(params generated.SearchForAssetsParams) (idb.AssetsQuery, error) {
-	creator, errorArr := decodeAddress(params.Creator, "creator", make([]string, 0))
-	if len(errorArr) != 0 {
-		return idb.AssetsQuery{}, errors.New(errUnableToParseAddress)
+
+	var creatorAddressBytes []byte
+	if params.Creator != nil {
+		creator, err := sdk.DecodeAddress(*params.Creator)
+		if err != nil {
+			return idb.AssetsQuery{}, fmt.Errorf("unable to parse creator address: %w", err)
+		}
+		creatorAddressBytes = creator[:]
 	}
 
 	var assetGreaterThan *uint64
@@ -675,7 +756,7 @@ func (si *ServerImplementation) assetParamsToAssetQuery(params generated.SearchF
 	query := idb.AssetsQuery{
 		AssetID:            params.AssetId,
 		AssetIDGreaterThan: assetGreaterThan,
-		Creator:            creator,
+		Creator:            creatorAddressBytes,
 		Name:               strOrDefault(params.Name),
 		Unit:               strOrDefault(params.Unit),
 		Query:              "",
@@ -687,9 +768,14 @@ func (si *ServerImplementation) assetParamsToAssetQuery(params generated.SearchF
 }
 
 func (si *ServerImplementation) appParamsToApplicationQuery(params generated.SearchForApplicationsParams) (idb.ApplicationQuery, error) {
-	addr, errorArr := decodeAddress(params.Creator, "creator", make([]string, 0))
-	if len(errorArr) != 0 {
-		return idb.ApplicationQuery{}, errors.New(errUnableToParseAddress)
+
+	var creatorAddressBytes []byte
+	if params.Creator != nil {
+		addr, err := sdk.DecodeAddress(*params.Creator)
+		if err != nil {
+			return idb.ApplicationQuery{}, fmt.Errorf("unable to parse creator address: %w", err)
+		}
+		creatorAddressBytes = addr[:]
 	}
 
 	var appGreaterThan *uint64
@@ -704,7 +790,7 @@ func (si *ServerImplementation) appParamsToApplicationQuery(params generated.Sea
 	return idb.ApplicationQuery{
 		ApplicationID:            params.ApplicationId,
 		ApplicationIDGreaterThan: appGreaterThan,
-		Address:                  addr,
+		Address:                  creatorAddressBytes,
 		IncludeDeleted:           boolOrDefault(params.IncludeAll),
 		Limit:                    min(uintOrDefaultValue(params.Limit, si.opts.DefaultApplicationsLimit), si.opts.MaxApplicationsLimit),
 	}, nil
@@ -726,7 +812,15 @@ func (si *ServerImplementation) transactionParamsToTransactionFilter(params gene
 	filter.NextToken = strOrDefault(params.Next)
 
 	// Address
-	filter.Address, errorArr = decodeAddress(params.Address, "address", errorArr)
+	if params.Address != nil {
+		addr, err := sdk.DecodeAddress(*params.Address)
+		if err != nil {
+			errorArr = append(errorArr, fmt.Sprintf("%s: %v", errUnableToParseAddress, err))
+		}
+		filter.Address = addr[:]
+	}
+
+	// Txid
 	filter.Txid, errorArr = decodeDigest(params.Txid, "txid", errorArr)
 
 	// Byte array
@@ -765,6 +859,112 @@ func (si *ServerImplementation) transactionParamsToTransactionFilter(params gene
 	}
 
 	return
+}
+
+func (si *ServerImplementation) blockParamsToBlockFilter(params generated.SearchForBlockHeadersParams) (filter idb.BlockHeaderFilter, err error) {
+
+	var errs []error
+
+	// Integer
+	filter.Limit = min(uintOrDefaultValue(params.Limit, si.opts.DefaultBlocksLimit), si.opts.MaxBlocksLimit)
+	// If min/max are mixed up
+	//
+	// This check is performed here instead of in validateBlockFilter because
+	// when converting params into a filter, the next token is merged with params.MinRound.
+	if params.MinRound != nil && params.MaxRound != nil && *params.MinRound > *params.MaxRound {
+		errs = append(errs, errors.New(errInvalidRoundMinMax))
+	}
+	filter.MaxRound = params.MaxRound
+	filter.MinRound = params.MinRound
+
+	// String
+	if params.Next != nil {
+		n, err := idb.DecodeBlockRowNext(*params.Next)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", errUnableToParseNext, err))
+		}
+		// Set the MinRound
+		if filter.MinRound == nil {
+			filter.MinRound = uint64Ptr(n + 1)
+		} else {
+			filter.MinRound = uint64Ptr(max(*filter.MinRound, n+1))
+		}
+	}
+
+	// Time
+	if params.AfterTime != nil {
+		filter.AfterTime = *params.AfterTime
+	}
+	if params.BeforeTime != nil {
+		filter.BeforeTime = *params.BeforeTime
+	}
+
+	// Address list
+	{
+		// Make sure at most one of the participation parameters is set
+		numParticipationFilters := 0
+		if params.Proposers != nil {
+			numParticipationFilters++
+		}
+		if params.Expired != nil {
+			numParticipationFilters++
+		}
+		if params.Absent != nil {
+			numParticipationFilters++
+		}
+		if numParticipationFilters > 1 {
+			errs = append(errs, errors.New("only one of `proposer`, `expired`, or `absent` can be specified"))
+		}
+
+		// Validate the number of items in the participation account lists
+		if params.Proposers != nil && uint64(len(*params.Proposers)) > si.opts.MaxAccountListSize {
+			errs = append(errs, fmt.Errorf("proposers list too long, max size is %d", si.opts.MaxAccountListSize))
+		}
+		if params.Expired != nil && uint64(len(*params.Expired)) > si.opts.MaxAccountListSize {
+			errs = append(errs, fmt.Errorf("expired list too long, max size is %d", si.opts.MaxAccountListSize))
+		}
+		if params.Absent != nil && uint64(len(*params.Absent)) > si.opts.MaxAccountListSize {
+			errs = append(errs, fmt.Errorf("absent list too long, max size is %d", si.opts.MaxAccountListSize))
+		}
+
+		filter.Proposers = make(map[sdk.Address]struct{}, 0)
+		if params.Proposers != nil {
+			for _, s := range *params.Proposers {
+				addr, err := sdk.DecodeAddress(s)
+				if err != nil {
+					errs = append(errs, fmt.Errorf("unable to parse proposer address `%s`: %w", s, err))
+				} else {
+					filter.Proposers[addr] = struct{}{}
+				}
+			}
+		}
+
+		filter.ExpiredParticipationAccounts = make(map[sdk.Address]struct{}, 0)
+		if params.Expired != nil {
+			for _, s := range *params.Expired {
+				addr, err := sdk.DecodeAddress(s)
+				if err != nil {
+					errs = append(errs, fmt.Errorf("unable to parse expired address `%s`: %w", s, err))
+				} else {
+					filter.ExpiredParticipationAccounts[addr] = struct{}{}
+				}
+			}
+		}
+
+		filter.AbsentParticipationAccounts = make(map[sdk.Address]struct{}, 0)
+		if params.Absent != nil {
+			for _, s := range *params.Absent {
+				addr, err := sdk.DecodeAddress(s)
+				if err != nil {
+					errs = append(errs, fmt.Errorf("unable to parse absent address `%s`: %w", s, err))
+				} else {
+					filter.AbsentParticipationAccounts[addr] = struct{}{}
+				}
+			}
+		}
+	}
+
+	return filter, errors.Join(errs...)
 }
 
 func (si *ServerImplementation) maxAccountsErrorToAccountsErrorResponse(maxErr idb.MaxAPIResourcesPerAccountError) generated.ErrorResponse {
