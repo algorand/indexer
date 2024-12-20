@@ -853,6 +853,61 @@
         }
       }
     },
+    "/v2/block-headers": {
+      "get": {
+        "description": "Search for block headers. Block headers are returned in ascending round order. Transactions are not included in the output.",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "search"
+        ],
+        "operationId": "searchForBlockHeaders",
+        "parameters": [
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/next"
+          },
+          {
+            "$ref": "#/parameters/min-round"
+          },
+          {
+            "$ref": "#/parameters/max-round"
+          },
+          {
+            "$ref": "#/parameters/before-time"
+          },
+          {
+            "$ref": "#/parameters/after-time"
+          },
+          {
+            "$ref": "#/parameters/proposers"
+          },
+          {
+            "$ref": "#/parameters/expired"
+          },
+          {
+            "$ref": "#/parameters/absent"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/BlockHeadersResponse"
+          },
+          "404": {
+            "$ref": "#/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/responses/ErrorResponse"
+          }
+        }
+      }
+    },
     "/v2/blocks/{round-number}": {
       "get": {
         "description": "Lookup block.",
@@ -1753,7 +1808,7 @@
     "Box": {
       "description": "Box name and its content.",
       "required": [
-        "name", 
+        "name",
         "value",
         "round"
       ],
@@ -2595,10 +2650,10 @@
     "StateProofParticipant": {
       "type": "object",
       "properties": {
-         "verifier": {
-           "description": "\\[p\\]",
-           "$ref": "#/definitions/StateProofVerifier"
-         },
+        "verifier": {
+          "description": "\\[p\\]",
+          "$ref": "#/definitions/StateProofVerifier"
+        },
         "weight": {
           "description": "\\[w\\]",
           "type": "integer",
@@ -2677,6 +2732,39 @@
     }
   },
   "parameters": {
+    "proposers": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "x-algorand-format": "Address"
+      },
+      "description": "Accounts marked as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+      "name": "proposers",
+      "in": "query",
+      "required": false
+    },
+    "absent": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "x-algorand-format": "Address"
+      },
+      "description": "Accounts marked as absent in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+      "name": "absent",
+      "in": "query",
+      "required": false
+    },
+    "expired": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "x-algorand-format": "Address"
+      },
+      "description": "Accounts marked as expired in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+      "name": "expired",
+      "in": "query",
+      "required": false
+    },
     "account-id": {
       "type": "string",
       "description": "account string",
@@ -3103,7 +3191,7 @@
       "schema": {
         "type": "object",
         "required": [
-          "application-id", 
+          "application-id",
           "boxes"
         ],
         "properties": {
@@ -3132,7 +3220,7 @@
     },
     "ErrorResponse": {
       "description": "Response for errors",
-      "schema":{
+      "schema": {
         "type": "object",
         "required": [
           "message"
@@ -3177,6 +3265,32 @@
       "description": "(empty)",
       "schema": {
         "$ref": "#/definitions/Block"
+      }
+    },
+    "BlockHeadersResponse": {
+      "description": "(empty)",
+      "schema": {
+        "type": "object",
+        "required": [
+          "current-round",
+          "blocks"
+        ],
+        "properties": {
+          "current-round": {
+            "description": "Round at which the results were computed.",
+            "type": "integer"
+          },
+          "next-token": {
+            "description": "Used for pagination, when making another request provide this token with the next parameter.",
+            "type": "string"
+          },
+          "blocks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/Block"
+            }
+          }
+        }
       }
     },
     "HealthCheckResponse": {

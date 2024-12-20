@@ -1,6 +1,20 @@
 {
   "components": {
     "parameters": {
+      "absent": {
+        "description": "Accounts marked as absent in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+        "explode": false,
+        "in": "query",
+        "name": "absent",
+        "schema": {
+          "items": {
+            "type": "string",
+            "x-algorand-format": "Address"
+          },
+          "type": "array"
+        },
+        "style": "form"
+      },
       "account-id": {
         "description": "account string",
         "in": "path",
@@ -135,6 +149,20 @@
           "type": "boolean"
         }
       },
+      "expired": {
+        "description": "Accounts marked as expired in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+        "explode": false,
+        "in": "query",
+        "name": "expired",
+        "schema": {
+          "items": {
+            "type": "string",
+            "x-algorand-format": "Address"
+          },
+          "type": "array"
+        },
+        "style": "form"
+      },
       "header-only": {
         "description": "Header only flag. When this is set to true, returned block does not contain the transactions",
         "in": "query",
@@ -192,6 +220,20 @@
           "x-algorand-format": "base64"
         },
         "x-algorand-format": "base64"
+      },
+      "proposers": {
+        "description": "Accounts marked as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+        "explode": false,
+        "in": "query",
+        "name": "proposers",
+        "schema": {
+          "items": {
+            "type": "string",
+            "x-algorand-format": "Address"
+          },
+          "type": "array"
+        },
+        "style": "form"
       },
       "rekey-to": {
         "description": "Include results which include the rekey-to field.",
@@ -541,6 +583,36 @@
               },
               "required": [
                 "assets",
+                "current-round"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "description": "(empty)"
+      },
+      "BlockHeadersResponse": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "blocks": {
+                  "items": {
+                    "$ref": "#/components/schemas/Block"
+                  },
+                  "type": "array"
+                },
+                "current-round": {
+                  "description": "Round at which the results were computed.",
+                  "type": "integer"
+                },
+                "next-token": {
+                  "description": "Used for pagination, when making another request provide this token with the next parameter.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "blocks",
                 "current-round"
               ],
               "type": "object"
@@ -4760,6 +4832,189 @@
         },
         "tags": [
           "lookup"
+        ]
+      }
+    },
+    "/v2/block-headers": {
+      "get": {
+        "description": "Search for block headers. Block headers are returned in ascending round order. Transactions are not included in the output.",
+        "operationId": "searchForBlockHeaders",
+        "parameters": [
+          {
+            "description": "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page of results. Use the next token provided by the previous results.",
+            "in": "query",
+            "name": "next",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Include results at or after the specified min-round.",
+            "in": "query",
+            "name": "min-round",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Include results at or before the specified max-round.",
+            "in": "query",
+            "name": "max-round",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Include results before the given time. Must be an RFC 3339 formatted string.",
+            "in": "query",
+            "name": "before-time",
+            "schema": {
+              "format": "date-time",
+              "type": "string",
+              "x-algorand-format": "RFC3339 String"
+            },
+            "x-algorand-format": "RFC3339 String"
+          },
+          {
+            "description": "Include results after the given time. Must be an RFC 3339 formatted string.",
+            "in": "query",
+            "name": "after-time",
+            "schema": {
+              "format": "date-time",
+              "type": "string",
+              "x-algorand-format": "RFC3339 String"
+            },
+            "x-algorand-format": "RFC3339 String"
+          },
+          {
+            "description": "Accounts marked as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+            "explode": false,
+            "in": "query",
+            "name": "proposers",
+            "schema": {
+              "items": {
+                "type": "string",
+                "x-algorand-format": "Address"
+              },
+              "type": "array"
+            },
+            "style": "form"
+          },
+          {
+            "description": "Accounts marked as expired in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+            "explode": false,
+            "in": "query",
+            "name": "expired",
+            "schema": {
+              "items": {
+                "type": "string",
+                "x-algorand-format": "Address"
+              },
+              "type": "array"
+            },
+            "style": "form"
+          },
+          {
+            "description": "Accounts marked as absent in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+            "explode": false,
+            "in": "query",
+            "name": "absent",
+            "schema": {
+              "items": {
+                "type": "string",
+                "x-algorand-format": "Address"
+              },
+              "type": "array"
+            },
+            "style": "form"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "blocks": {
+                      "items": {
+                        "$ref": "#/components/schemas/Block"
+                      },
+                      "type": "array"
+                    },
+                    "current-round": {
+                      "description": "Round at which the results were computed.",
+                      "type": "integer"
+                    },
+                    "next-token": {
+                      "description": "Used for pagination, when making another request provide this token with the next parameter.",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "blocks",
+                    "current-round"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "(empty)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          }
+        },
+        "tags": [
+          "search"
         ]
       }
     },
