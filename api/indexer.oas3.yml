@@ -2,7 +2,7 @@
   "components": {
     "parameters": {
       "absent": {
-        "description": "Account(s) marked as absent in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+        "description": "Accounts marked as absent in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
         "explode": false,
         "in": "query",
         "name": "absent",
@@ -150,7 +150,7 @@
         }
       },
       "expired": {
-        "description": "Account(s) marked as expired in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+        "description": "Accounts marked as expired in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
         "explode": false,
         "in": "query",
         "name": "expired",
@@ -232,7 +232,7 @@
         "x-algorand-format": "base64"
       },
       "participation": {
-        "description": "Account(s) marked as expired, absent or as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+        "description": "Accounts marked as expired, absent or as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
         "explode": false,
         "in": "query",
         "name": "participation",
@@ -246,10 +246,24 @@
         "style": "form"
       },
       "proposer": {
-        "description": "Account(s) marked as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+        "description": "This parameter is an alias to the `proposers` parameter, it exposes the exact same functionality.",
         "explode": false,
         "in": "query",
         "name": "proposer",
+        "schema": {
+          "items": {
+            "type": "string",
+            "x-algorand-format": "Address"
+          },
+          "type": "array"
+        },
+        "style": "form"
+      },
+      "proposers": {
+        "description": "Accounts marked as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+        "explode": false,
+        "in": "query",
+        "name": "proposers",
         "schema": {
           "items": {
             "type": "string",
@@ -318,7 +332,8 @@
             "axfer",
             "afrz",
             "appl",
-            "stpf"
+            "stpf",
+            "hb"
           ],
           "type": "string"
         }
@@ -332,7 +347,7 @@
         }
       },
       "updates": {
-        "description": "Account(s) marked as expired or absent in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+        "description": "Accounts marked as expired or absent in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
         "explode": false,
         "in": "query",
         "name": "updates",
@@ -1730,6 +1745,42 @@
         ],
         "type": "string"
       },
+      "HbProofFields": {
+        "description": "\\[hbprf\\] HbProof is a signature using HeartbeatAddress's partkey, thereby showing it is online.",
+        "properties": {
+          "hb-pk": {
+            "description": "\\[p\\] Public key of the heartbeat message.",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          },
+          "hb-pk1sig": {
+            "description": "\\[p1s\\] Signature of OneTimeSignatureSubkeyOffsetID(PK, Batch, Offset) under the key PK2.",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          },
+          "hb-pk2": {
+            "description": "\\[p2\\] Key for new-style two-level ephemeral signature.",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          },
+          "hb-pk2sig": {
+            "description": "\\[p2s\\] Signature of OneTimeSignatureSubkeyBatchID(PK2, Batch) under the master key (OneTimeSignatureVerifier).",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          },
+          "hb-sig": {
+            "description": "\\[s\\] Signature of the heartbeat message.",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "HealthCheck": {
         "description": "A health check response.",
         "properties": {
@@ -2178,6 +2229,9 @@
             "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
             "type": "string"
           },
+          "heartbeat-transaction": {
+            "$ref": "#/components/schemas/TransactionHeartbeat"
+          },
           "id": {
             "description": "Transaction ID",
             "type": "string"
@@ -2259,7 +2313,7 @@
             "$ref": "#/components/schemas/TransactionStateProof"
           },
           "tx-type": {
-            "description": "\\[type\\] Indicates what type of transaction this is. Different types have different fields.\n\nValid types, and where their fields are stored:\n* \\[pay\\] payment-transaction\n* \\[keyreg\\] keyreg-transaction\n* \\[acfg\\] asset-config-transaction\n* \\[axfer\\] asset-transfer-transaction\n* \\[afrz\\] asset-freeze-transaction\n* \\[appl\\] application-transaction\n* \\[stpf\\] state-proof-transaction",
+            "description": "\\[type\\] Indicates what type of transaction this is. Different types have different fields.\n\nValid types, and where their fields are stored:\n* \\[pay\\] payment-transaction\n* \\[keyreg\\] keyreg-transaction\n* \\[acfg\\] asset-config-transaction\n* \\[axfer\\] asset-transfer-transaction\n* \\[afrz\\] asset-freeze-transaction\n* \\[appl\\] application-transaction\n* \\[stpf\\] state-proof-transaction\n* \\[hb\\] heartbeat-transaction",
             "enum": [
               "pay",
               "keyreg",
@@ -2267,7 +2321,8 @@
               "axfer",
               "afrz",
               "appl",
-              "stpf"
+              "stpf",
+              "hb"
             ],
             "type": "string",
             "x-algorand-format": "tx-type-enum"
@@ -2422,6 +2477,43 @@
           "amount",
           "asset-id",
           "receiver"
+        ],
+        "type": "object"
+      },
+      "TransactionHeartbeat": {
+        "description": "Fields for a heartbeat transaction.\n\nDefinition:\ndata/transactions/heartbeat.go : HeartbeatTxnFields",
+        "properties": {
+          "hb-address": {
+            "description": "\\[hbad\\] HbAddress is the account this txn is proving onlineness for.",
+            "type": "string"
+          },
+          "hb-key-dilution": {
+            "description": "\\[hbkd\\] HbKeyDilution must match HbAddress account's current KeyDilution.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          "hb-proof": {
+            "$ref": "#/components/schemas/HbProofFields"
+          },
+          "hb-seed": {
+            "description": "\\[hbsd\\] HbSeed must be the block seed for the this transaction's firstValid block.",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          },
+          "hb-vote-id": {
+            "description": "\\[hbvid\\] HbVoteID must match the HbAddress account's current VoteID.",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "hb-address",
+          "hb-key-dilution",
+          "hb-proof",
+          "hb-seed",
+          "hb-vote-id"
         ],
         "type": "object"
       },
@@ -2718,7 +2810,7 @@
             "x-algorand-format": "Address"
           },
           {
-            "description": "Deprecated and disallowed. This parameter used to include results for a specified round. Requests with this parameter set are now rejected.",
+            "description": "Include results for the specified round. For performance reasons, this parameter may be disabled on some configurations. Using application-id or asset-id filters will return both creator and opt-in accounts. Filtering by include-all will return creator and opt-in accounts for deleted assets and accounts. Non-opt-in managers are not included in the results when asset-id is used.",
             "in": "query",
             "name": "round",
             "schema": {
@@ -2830,7 +2922,7 @@
             }
           },
           {
-            "description": "Deprecated and disallowed. This parameter used to include results for a specified round. Requests with this parameter set are now rejected.",
+            "description": "Include results for the specified round.",
             "in": "query",
             "name": "round",
             "schema": {
@@ -3605,7 +3697,8 @@
                 "axfer",
                 "afrz",
                 "appl",
-                "stpf"
+                "stpf",
+                "hb"
               ],
               "type": "string"
             }
@@ -4784,7 +4877,8 @@
                 "axfer",
                 "afrz",
                 "appl",
-                "stpf"
+                "stpf",
+                "hb"
               ],
               "type": "string"
             }
@@ -5001,9 +5095,234 @@
         ]
       }
     },
+    "/v2/block-headers": {
+      "get": {
+        "description": "Search for block headers. Block headers are returned in ascending round order. Transactions are not included in the output.",
+        "operationId": "searchForBlockHeaders",
+        "parameters": [
+          {
+            "description": "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page of results. Use the next token provided by the previous results.",
+            "in": "query",
+            "name": "next",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Include results at or after the specified min-round.",
+            "in": "query",
+            "name": "min-round",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Include results at or before the specified max-round.",
+            "in": "query",
+            "name": "max-round",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Include results before the given time. Must be an RFC 3339 formatted string.",
+            "in": "query",
+            "name": "before-time",
+            "schema": {
+              "format": "date-time",
+              "type": "string",
+              "x-algorand-format": "RFC3339 String"
+            },
+            "x-algorand-format": "RFC3339 String"
+          },
+          {
+            "description": "Include results after the given time. Must be an RFC 3339 formatted string.",
+            "in": "query",
+            "name": "after-time",
+            "schema": {
+              "format": "date-time",
+              "type": "string",
+              "x-algorand-format": "RFC3339 String"
+            },
+            "x-algorand-format": "RFC3339 String"
+          },
+          {
+            "description": "This parameter is an alias to the `proposers` parameter, it exposes the exact same functionality.",
+            "explode": false,
+            "in": "query",
+            "name": "proposer",
+            "schema": {
+              "items": {
+                "type": "string",
+                "x-algorand-format": "Address"
+              },
+              "type": "array"
+            },
+            "style": "form"
+          },
+          {
+            "description": "Accounts marked as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+            "explode": false,
+            "in": "query",
+            "name": "proposers",
+            "schema": {
+              "items": {
+                "type": "string",
+                "x-algorand-format": "Address"
+              },
+              "type": "array"
+            },
+            "style": "form"
+          },
+          {
+            "description": "Accounts marked as expired in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+            "explode": false,
+            "in": "query",
+            "name": "expired",
+            "schema": {
+              "items": {
+                "type": "string",
+                "x-algorand-format": "Address"
+              },
+              "type": "array"
+            },
+            "style": "form"
+          },
+          {
+            "description": "Accounts marked as absent in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+            "explode": false,
+            "in": "query",
+            "name": "absent",
+            "schema": {
+              "items": {
+                "type": "string",
+                "x-algorand-format": "Address"
+              },
+              "type": "array"
+            },
+            "style": "form"
+          },
+          {
+            "description": "Accounts marked as expired or absent in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+            "explode": false,
+            "in": "query",
+            "name": "updates",
+            "schema": {
+              "items": {
+                "type": "string",
+                "x-algorand-format": "Address"
+              },
+              "type": "array"
+            },
+            "style": "form"
+          },
+          {
+            "description": "Accounts marked as expired, absent or as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+            "explode": false,
+            "in": "query",
+            "name": "participation",
+            "schema": {
+              "items": {
+                "type": "string",
+                "x-algorand-format": "Address"
+              },
+              "type": "array"
+            },
+            "style": "form"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "blocks": {
+                      "items": {
+                        "$ref": "#/components/schemas/BlockHeader"
+                      },
+                      "type": "array"
+                    },
+                    "current-round": {
+                      "description": "Round at which the results were computed.",
+                      "type": "integer"
+                    },
+                    "next-token": {
+                      "description": "Used for pagination, when making another request provide this token with the next parameter.",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "blocks",
+                    "current-round"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "(empty)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          }
+        },
+        "tags": [
+          "search"
+        ]
+      }
+    },
     "/v2/blocks": {
       "get": {
-        "description": "Search for blocks. Blocks are returned in ascending round order. Transactions are not included in the output.",
+        "description": "This endpoint is an alias for GET /v2/blocks. The behavior is identical.",
         "operationId": "searchForBlocks",
         "parameters": [
           {
@@ -5061,7 +5380,7 @@
             "x-algorand-format": "RFC3339 String"
           },
           {
-            "description": "Account(s) marked as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+            "description": "This parameter is an alias to the `proposers` parameter, it exposes the exact same functionality.",
             "explode": false,
             "in": "query",
             "name": "proposer",
@@ -5075,7 +5394,21 @@
             "style": "form"
           },
           {
-            "description": "Account(s) marked as expired in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+            "description": "Accounts marked as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+            "explode": false,
+            "in": "query",
+            "name": "proposers",
+            "schema": {
+              "items": {
+                "type": "string",
+                "x-algorand-format": "Address"
+              },
+              "type": "array"
+            },
+            "style": "form"
+          },
+          {
+            "description": "Accounts marked as expired in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
             "explode": false,
             "in": "query",
             "name": "expired",
@@ -5089,7 +5422,7 @@
             "style": "form"
           },
           {
-            "description": "Account(s) marked as absent in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+            "description": "Accounts marked as absent in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
             "explode": false,
             "in": "query",
             "name": "absent",
@@ -5103,7 +5436,7 @@
             "style": "form"
           },
           {
-            "description": "Account(s) marked as expired or absent in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+            "description": "Accounts marked as expired or absent in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
             "explode": false,
             "in": "query",
             "name": "updates",
@@ -5117,7 +5450,7 @@
             "style": "form"
           },
           {
-            "description": "Account(s) marked as expired, absent or as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+            "description": "Accounts marked as expired, absent or as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
             "explode": false,
             "in": "query",
             "name": "participation",
@@ -5338,7 +5671,8 @@
                 "axfer",
                 "afrz",
                 "appl",
-                "stpf"
+                "stpf",
+                "hb"
               ],
               "type": "string"
             }

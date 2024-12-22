@@ -11,12 +11,12 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/stretchr/testify/require"
 
-	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-
 	models "github.com/algorand/indexer/v3/api/generated/v2"
 	"github.com/algorand/indexer/v3/idb"
 	"github.com/algorand/indexer/v3/idb/postgres/internal/writer"
 	"github.com/algorand/indexer/v3/util/test"
+
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 func generateAddress(t *testing.T) sdk.Address {

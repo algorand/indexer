@@ -23,36 +23,37 @@ import (
 )
 
 type daemonConfig struct {
-	flags                     *pflag.FlagSet
-	daemonServerAddr          string
-	developerMode             bool
-	metricsMode               string
-	tokenString               string
-	writeTimeout              time.Duration
-	readTimeout               time.Duration
-	maxConn                   uint32
-	maxAPIResourcesPerAccount uint32
-	maxAccountListSize        uint32
-	maxBlocksLimit            uint32
-	defaultBlocksLimit        uint32
-	maxTransactionsLimit      uint32
-	defaultTransactionsLimit  uint32
-	maxAccountsLimit          uint32
-	defaultAccountsLimit      uint32
-	maxAssetsLimit            uint32
-	defaultAssetsLimit        uint32
-	maxBoxesLimit             uint32
-	defaultBoxesLimit         uint32
-	maxBalancesLimit          uint32
-	defaultBalancesLimit      uint32
-	maxApplicationsLimit      uint32
-	defaultApplicationsLimit  uint32
-	enableAllParameters       bool
-	indexerDataDir            string
-	cpuProfile                string
-	pidFilePath               string
-	configFile                string
-	suppliedAPIConfigFile     string
+	flags                            *pflag.FlagSet
+	daemonServerAddr                 string
+	developerMode                    bool
+	enablePrivateNetworkAccessHeader bool
+	metricsMode                      string
+	tokenString                      string
+	writeTimeout                     time.Duration
+	readTimeout                      time.Duration
+	maxConn                          uint32
+	maxAPIResourcesPerAccount        uint32
+	maxAccountListSize               uint32
+	maxBlocksLimit                   uint32
+	defaultBlocksLimit               uint32
+	maxTransactionsLimit             uint32
+	defaultTransactionsLimit         uint32
+	maxAccountsLimit                 uint32
+	defaultAccountsLimit             uint32
+	maxAssetsLimit                   uint32
+	defaultAssetsLimit               uint32
+	maxBoxesLimit                    uint32
+	defaultBoxesLimit                uint32
+	maxBalancesLimit                 uint32
+	defaultBalancesLimit             uint32
+	maxApplicationsLimit             uint32
+	defaultApplicationsLimit         uint32
+	enableAllParameters              bool
+	indexerDataDir                   string
+	cpuProfile                       string
+	pidFilePath                      string
+	configFile                       string
+	suppliedAPIConfigFile            string
 }
 
 // DaemonCmd creates the main cobra command, initializes flags, and viper aliases
@@ -73,7 +74,8 @@ func DaemonCmd() *cobra.Command {
 	cfg.flags = daemonCmd.Flags()
 	cfg.flags.StringVarP(&cfg.daemonServerAddr, "server", "S", ":8980", "host:port to serve API on (default :8980)")
 	cfg.flags.StringVarP(&cfg.tokenString, "token", "t", "", "an optional auth token, when set REST calls must use this token in a bearer format, or in a 'X-Indexer-API-Token' header")
-	cfg.flags.BoolVarP(&cfg.developerMode, "dev-mode", "", false, "has no effect currently, reserved for future performance intensive operations")
+	cfg.flags.BoolVarP(&cfg.developerMode, "dev-mode", "", false, "allow performance intensive operations like searching for accounts at a particular round")
+	cfg.flags.BoolVarP(&cfg.enablePrivateNetworkAccessHeader, "enable-private-network-access-header", "", false, "respond to Private Network Access preflight requests")
 	cfg.flags.StringVarP(&cfg.metricsMode, "metrics-mode", "", "OFF", "configure the /metrics endpoint to [ON, OFF, VERBOSE]")
 	cfg.flags.DurationVarP(&cfg.writeTimeout, "write-timeout", "", 30*time.Second, "set the maximum duration to wait before timing out writes to a http response, breaking connection")
 	cfg.flags.DurationVarP(&cfg.readTimeout, "read-timeout", "", 5*time.Second, "set the maximum duration for reading the entire request")
@@ -306,6 +308,8 @@ func runDaemon(daemonConfig *daemonConfig) error {
 
 // makeOptions converts CLI options to server options
 func makeOptions(daemonConfig *daemonConfig) (options api.ExtraOptions) {
+	options.EnablePrivateNetworkAccessHeader = daemonConfig.enablePrivateNetworkAccessHeader
+	options.DeveloperMode = daemonConfig.developerMode
 	if daemonConfig.tokenString != "" {
 		options.Tokens = append(options.Tokens, daemonConfig.tokenString)
 	}

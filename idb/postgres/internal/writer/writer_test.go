@@ -168,7 +168,7 @@ func TestWriterSpecialAccounts(t *testing.T) {
 	assert.Equal(t, expected, accounts)
 }
 
-func TestWriterTxnTableBasic(t *testing.T) {
+func TestWriterTxnTableBasicNoPayout(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
@@ -255,6 +255,116 @@ func TestWriterTxnTableBasic(t *testing.T) {
 	assert.NoError(t, rows.Err())
 }
 
+func TestWriterTxnTableBasicWithProposalPayout(t *testing.T) {
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
+	defer shutdownFunc()
+
+	block := sdk.Block{
+		BlockHeader: sdk.BlockHeader{
+			Round:       sdk.Round(2),
+			TimeStamp:   333,
+			GenesisID:   test.MakeGenesis().ID(),
+			GenesisHash: test.MakeGenesis().Hash(),
+			RewardsState: sdk.RewardsState{
+				FeeSink:      test.FeeAddr,
+				RewardsLevel: 111111,
+			},
+			TxnCounter: 9,
+			UpgradeState: sdk.UpgradeState{
+				CurrentProtocol: "future",
+			},
+			Proposer:       test.AccountE,
+			ProposerPayout: 2000000,
+		},
+		Payset: make([]sdk.SignedTxnInBlock, 2),
+	}
+
+	stxnad0 := test.MakePaymentTxn(
+		1000, 1, 0, 0, 0, 0, sdk.Address(test.AccountA), sdk.Address(test.AccountB), sdk.Address{},
+		sdk.Address{})
+	var err error
+	block.Payset[0], err =
+		util.EncodeSignedTxn(block.BlockHeader, stxnad0.SignedTxn, stxnad0.ApplyData)
+	require.NoError(t, err)
+
+	stxnad1 := test.MakeAssetConfigTxn(
+		0, 100, 1, false, "ma", "myasset", "myasset.com", sdk.Address(test.AccountA))
+	block.Payset[1], err =
+		util.EncodeSignedTxn(block.BlockHeader, stxnad1.SignedTxn, stxnad1.ApplyData)
+	require.NoError(t, err)
+
+	f := func(tx pgx.Tx) error {
+		return writer.AddTransactions(&block, block.Payset, tx)
+	}
+	err = pgutil.TxWithRetry(db, serializable, f, nil)
+	require.NoError(t, err)
+
+	rows, err := db.Query(context.Background(), "SELECT * FROM txn ORDER BY intra")
+	require.NoError(t, err)
+	defer rows.Close()
+
+	var round uint64
+	var intra uint64
+	var typeenum uint
+	var asset uint64
+	var txid []byte
+	var txn []byte
+	var extra []byte
+
+	require.True(t, rows.Next())
+	err = rows.Scan(&round, &intra, &typeenum, &asset, &txid, &txn, &extra)
+	require.NoError(t, err)
+	assert.Equal(t, block.Round, sdk.Round(round))
+	assert.Equal(t, uint64(0), intra)
+	assert.Equal(t, idb.TypeEnumPay, idb.TxnTypeEnum(typeenum))
+	assert.Equal(t, uint64(0), asset)
+	assert.Equal(t, crypto2.TransactionIDString(stxnad0.Txn), string(txid))
+	{
+		stxn, err := encoding.DecodeSignedTxnWithAD(txn)
+		require.NoError(t, err)
+		assert.Equal(t, stxnad0, stxn)
+	}
+	assert.Equal(t, "{}", string(extra))
+
+	require.True(t, rows.Next())
+	err = rows.Scan(&round, &intra, &typeenum, &asset, &txid, &txn, &extra)
+	require.NoError(t, err)
+	assert.Equal(t, block.Round, sdk.Round(round))
+	assert.Equal(t, uint64(1), intra)
+	assert.Equal(t, idb.TypeEnumAssetConfig, idb.TxnTypeEnum(typeenum))
+	assert.Equal(t, uint64(9), asset)
+	assert.Equal(t, crypto2.TransactionIDString(stxnad1.Txn), string(txid))
+	{
+		stxn, err := encoding.DecodeSignedTxnWithAD(txn)
+		require.NoError(t, err)
+		assert.Equal(t, stxnad1, stxn)
+	}
+	assert.Equal(t, "{}", string(extra))
+
+	// Payout should be the last transaction.
+	require.True(t, rows.Next())
+	err = rows.Scan(&round, &intra, &typeenum, &asset, &txid, &txn, &extra)
+	require.NoError(t, err)
+
+	assert.Equal(t, block.Round, sdk.Round(round))
+	assert.Equal(t, uint64(2), intra)
+	assert.Equal(t, idb.TypeEnumPay, idb.TxnTypeEnum(typeenum))
+	assert.Equal(t, uint64(0), asset)
+
+	// Intentionally using synthetic payout transaction logic; we are testing insertion and validity
+	payoutTxn := writer.SignedTransactionFromBlockPayout(&block)
+	assert.Equal(t, crypto2.TransactionIDString(payoutTxn.Txn), string(txid))
+	{
+		stxn, err := encoding.DecodeSignedTxnWithAD(txn)
+		require.NoError(t, err)
+		assert.Equal(t, payoutTxn, stxn)
+	}
+	assert.Equal(t, "{}", string(extra))
+
+	assert.False(t, rows.Next())
+	assert.NoError(t, rows.Err())
+}
+
 // Test that asset close amount is written even if it is missing in the apply data
 // in the block (it is present in the "modified transactions").
 func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
@@ -314,7 +424,7 @@ func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
 	assert.NoError(t, rows.Err())
 }
 
-func TestWriterTxnParticipationTable(t *testing.T) {
+func TestWriterTxnParticipationTableNoPayout(t *testing.T) {
 	type testtype struct {
 		name     string
 		payset   sdk.Payset
@@ -395,6 +505,144 @@ func TestWriterTxnParticipationTable(t *testing.T) {
 					addr:  sdk.Address(test.AccountC),
 					round: 2,
 					intra: 0,
+				},
+			},
+		}
+		tests = append(tests, testcase)
+	}
+
+	for _, testcase := range tests {
+		t.Run(testcase.name, func(t *testing.T) {
+			db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
+			defer shutdownFunc()
+
+			block := makeBlockFunc()
+			block.Payset = testcase.payset
+
+			f := func(tx pgx.Tx) error {
+				return writer.AddTransactionParticipation(&block, tx)
+			}
+			err := pgutil.TxWithRetry(db, serializable, f, nil)
+			require.NoError(t, err)
+
+			results, err := txnParticipationQuery(
+				db, `SELECT * FROM txn_participation ORDER BY round, intra, addr`)
+			assert.NoError(t, err)
+
+			// Verify expected participation
+			assert.Equal(t, testcase.expected, results)
+		})
+	}
+}
+
+func TestWriterTxnParticipationTableWithPayout(t *testing.T) {
+	type testtype struct {
+		name     string
+		payset   sdk.Payset
+		expected []txnParticipationRow
+	}
+
+	makeBlockFunc := func() sdk.Block {
+		return sdk.Block{
+			BlockHeader: sdk.BlockHeader{
+				Round:       sdk.Round(2),
+				GenesisID:   test.MakeGenesis().ID(),
+				GenesisHash: test.MakeGenesis().Hash(),
+				RewardsState: sdk.RewardsState{
+					FeeSink: test.FeeAddr,
+				},
+				UpgradeState: sdk.UpgradeState{
+					CurrentProtocol: "future",
+				},
+				Proposer:       test.AccountE,
+				ProposerPayout: 2000000,
+			},
+		}
+	}
+
+	var tests []testtype
+	{
+		stxnad0 := test.MakePaymentTxn(
+			1000, 1, 0, 0, 0, 0, sdk.Address(test.AccountA), sdk.Address(test.AccountB), sdk.Address{},
+			sdk.Address{})
+		stib0, err := util.EncodeSignedTxn(makeBlockFunc().BlockHeader, stxnad0.SignedTxn, stxnad0.ApplyData)
+		require.NoError(t, err)
+
+		stxnad1 := test.MakeAssetConfigTxn(
+			0, 100, 1, false, "ma", "myasset", "myasset.com", sdk.Address(test.AccountC))
+		stib1, err := util.EncodeSignedTxn(makeBlockFunc().BlockHeader, stxnad1.SignedTxn, stxnad1.ApplyData)
+		require.NoError(t, err)
+
+		testcase := testtype{
+			name:   "basic",
+			payset: []sdk.SignedTxnInBlock{stib0, stib1},
+			expected: []txnParticipationRow{
+				{
+					addr:  test.AccountA,
+					round: 2,
+					intra: 0,
+				},
+				{
+					addr:  test.AccountB,
+					round: 2,
+					intra: 0,
+				},
+				{
+					addr:  test.AccountC,
+					round: 2,
+					intra: 1,
+				},
+				// Payout involved accounts
+				{
+					addr:  test.AccountE,
+					round: 2,
+					intra: 2,
+				},
+				{
+					addr:  test.FeeAddr,
+					round: 2,
+					intra: 2,
+				},
+			},
+		}
+		tests = append(tests, testcase)
+	}
+	{
+		stxnad := test.MakeCreateAppTxn(sdk.Address(test.AccountA))
+		stxnad.Txn.ApplicationCallTxnFields.Accounts =
+			[]sdk.Address{sdk.Address(test.AccountB), sdk.Address(test.AccountC)}
+		stib, err := util.EncodeSignedTxn(makeBlockFunc().BlockHeader, stxnad.SignedTxn, stxnad.ApplyData)
+		require.NoError(t, err)
+
+		testcase := testtype{
+			name:   "app_call_addresses",
+			payset: []sdk.SignedTxnInBlock{stib},
+			expected: []txnParticipationRow{
+				{
+					addr:  sdk.Address(test.AccountA),
+					round: 2,
+					intra: 0,
+				},
+				{
+					addr:  sdk.Address(test.AccountB),
+					round: 2,
+					intra: 0,
+				},
+				{
+					addr:  sdk.Address(test.AccountC),
+					round: 2,
+					intra: 0,
+				},
+				// Payout involved accounts
+				{
+					addr:  test.AccountE,
+					round: 2,
+					intra: 1,
+				},
+				{
+					addr:  test.FeeAddr,
+					round: 2,
+					intra: 1,
 				},
 			},
 		}
