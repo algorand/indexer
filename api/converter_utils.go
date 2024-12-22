@@ -1016,7 +1016,7 @@ func (si *ServerImplementation) blockParamsToBlockFilter(params generated.Search
 		}
 
 		// Participation = proposers || absent || expired
-		if params.Absent != nil {
+		if params.Participation != nil {
 			for _, s := range *params.Participation {
 				addr, err := sdk.DecodeAddress(s)
 				if err != nil {
