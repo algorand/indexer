@@ -74,7 +74,7 @@ func DaemonCmd() *cobra.Command {
 	cfg.flags = daemonCmd.Flags()
 	cfg.flags.StringVarP(&cfg.daemonServerAddr, "server", "S", ":8980", "host:port to serve API on (default :8980)")
 	cfg.flags.StringVarP(&cfg.tokenString, "token", "t", "", "an optional auth token, when set REST calls must use this token in a bearer format, or in a 'X-Indexer-API-Token' header")
-	cfg.flags.BoolVarP(&cfg.developerMode, "dev-mode", "", false, "has no effect currently, reserved for future performance intensive operations")
+	cfg.flags.BoolVarP(&cfg.developerMode, "dev-mode", "", false, "allow performance intensive operations like searching for accounts at a particular round")
 	cfg.flags.BoolVarP(&cfg.enablePrivateNetworkAccessHeader, "enable-private-network-access-header", "", false, "respond to Private Network Access preflight requests")
 	cfg.flags.StringVarP(&cfg.metricsMode, "metrics-mode", "", "OFF", "configure the /metrics endpoint to [ON, OFF, VERBOSE]")
 	cfg.flags.DurationVarP(&cfg.writeTimeout, "write-timeout", "", 30*time.Second, "set the maximum duration to wait before timing out writes to a http response, breaking connection")
@@ -309,6 +309,7 @@ func runDaemon(daemonConfig *daemonConfig) error {
 // makeOptions converts CLI options to server options
 func makeOptions(daemonConfig *daemonConfig) (options api.ExtraOptions) {
 	options.EnablePrivateNetworkAccessHeader = daemonConfig.enablePrivateNetworkAccessHeader
+	options.DeveloperMode = daemonConfig.developerMode
 	if daemonConfig.tokenString != "" {
 		options.Tokens = append(options.Tokens, daemonConfig.tokenString)
 	}
