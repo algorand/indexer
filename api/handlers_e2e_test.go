@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/algorand/avm-abi/apps"
 	"github.com/algorand/indexer/v3/api/generated/v2"
 	"github.com/algorand/indexer/v3/idb"
 	"github.com/algorand/indexer/v3/idb/postgres"
@@ -27,7 +28,6 @@ import (
 	"github.com/algorand/indexer/v3/util"
 	"github.com/algorand/indexer/v3/util/test"
 
-	"github.com/algorand/avm-abi/apps"
 	"github.com/algorand/go-algorand-sdk/v2/crypto"
 	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
@@ -80,7 +80,7 @@ func setupIdb(t *testing.T, genesis sdk.Genesis) (*postgres.IndexerDb, func()) {
 		Block: test.MakeGenesisBlock(),
 		Delta: sdk.LedgerStateDelta{},
 	}
-	db.AddBlock(&vb)
+	require.NoError(t, db.AddBlock(&vb))
 	require.NoError(t, err)
 
 	return db, newShutdownFunc
@@ -1531,7 +1531,7 @@ func TestFetchBlockWithOptions(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		t.Run(fmt.Sprintf(tc.name), func(t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			c, api, rec := setupReq("/v2/blocks/:round-number", "round-number", "1")
 			if tc.name == "default" {
 				err = api.LookupBlock(c, 1, generated.LookupBlockParams{})
@@ -1738,6 +1738,7 @@ func TestGetBlockWithCompression(t *testing.T) {
 	// we now make sure that compression flag works with other flags.
 	notCompressedBlock = getBlockFunc(t, true, false)
 	compressedBlock = getBlockFunc(t, true, true)
+	require.Equal(t, notCompressedBlock, compressedBlock)
 	require.Equal(t, len(*notCompressedBlock.Transactions), 0)
 }
 
@@ -2612,4 +2613,40 @@ func TestAccounts(t *testing.T) {
 	assert.Equal(t, test.AccountA.String(), *(*acctA.Account.CreatedAssets)[0].Params.Reserve)
 	assert.Equal(t, uint64(1000000000000), (*acctA.Account.CreatedAssets)[0].Params.Total)
 	assert.Equal(t, "bogo", *(*acctA.Account.CreatedAssets)[0].Params.UnitName)
+}
+
+func TestPNAHeader(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+
+	//////////
+	// When // We preflight an endpoint with the PNA "Request" header set
+	//////////
+
+	serverCtx, serverCancel := context.WithCancel(context.Background())
+	defer serverCancel()
+	opts := defaultOpts
+	opts.EnablePrivateNetworkAccessHeader = true
+	listenAddr := "localhost:8894"
+	go Serve(serverCtx, listenAddr, db, nil, logrus.New(), opts)
+
+	waitForServer(t, listenAddr)
+
+	path := "/health"
+	client := &http.Client{}
+	req, err := http.NewRequest("OPTIONS", "http://"+listenAddr+path, nil)
+	require.NoError(t, err)
+	req.Header.Add("Access-Control-Request-Private-Network", "true")
+
+	t.Log("making HTTP request path", req.URL)
+
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+
+	//////////
+	// Then // We expect the PNA "Allow" header to be set
+	//////////
+
+	require.Equal(t, resp.Header.Get("Access-Control-Allow-Private-Network"), "true")
+	defer resp.Body.Close()
 }

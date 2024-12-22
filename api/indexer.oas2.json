@@ -855,7 +855,7 @@
     },
     "/v2/blocks": {
       "get": {
-        "description": "Search for blocks. Blocks are returned in ascending round order. Transactions are not included in the output.",
+        "description": "This endpoint is an alias for GET /v2/blocks. The behavior is identical.",
         "consumes": [
           "application/json"
         ],
@@ -887,6 +887,73 @@
           },
           {
             "$ref": "#/parameters/proposer"
+          },
+          {
+            "$ref": "#/parameters/proposers"
+          },
+          {
+            "$ref": "#/parameters/expired"
+          },
+          {
+            "$ref": "#/parameters/absent"
+          },
+          {
+            "$ref": "#/parameters/updates"
+          },
+          {
+            "$ref": "#/parameters/participation"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/BlockHeadersResponse"
+          },
+          "404": {
+            "$ref": "#/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/v2/block-headers": {
+      "get": {
+        "description": "Search for block headers. Block headers are returned in ascending round order. Transactions are not included in the output.",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "search"
+        ],
+        "operationId": "searchForBlockHeaders",
+        "parameters": [
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/next"
+          },
+          {
+            "$ref": "#/parameters/min-round"
+          },
+          {
+            "$ref": "#/parameters/max-round"
+          },
+          {
+            "$ref": "#/parameters/before-time"
+          },
+          {
+            "$ref": "#/parameters/after-time"
+          },
+          {
+            "$ref": "#/parameters/proposer"
+          },
+          {
+            "$ref": "#/parameters/proposers"
           },
           {
             "$ref": "#/parameters/expired"
@@ -2150,7 +2217,8 @@
         "asset-transfer-transaction",
         "keyreg-transaction",
         "payment-transaction",
-        "state-proof-transaction"
+        "state-proof-transaction",
+        "heartbeat-transaction"
       ],
       "properties": {
         "application-transaction": {
@@ -2167,6 +2235,9 @@
         },
         "state-proof-transaction": {
           "$ref": "#/definitions/TransactionStateProof"
+        },
+        "heartbeat-transaction": {
+          "$ref": "#/definitions/TransactionHeartbeat"
         },
         "auth-addr": {
           "description": "\\[sgnr\\] this is included with signed transactions when the signing address does not equal the sender. The backend can use this to ensure that auth addr is equal to the accounts auth addr.",
@@ -2268,7 +2339,7 @@
           "$ref": "#/definitions/TransactionSignature"
         },
         "tx-type": {
-          "description": "\\[type\\] Indicates what type of transaction this is. Different types have different fields.\n\nValid types, and where their fields are stored:\n* \\[pay\\] payment-transaction\n* \\[keyreg\\] keyreg-transaction\n* \\[acfg\\] asset-config-transaction\n* \\[axfer\\] asset-transfer-transaction\n* \\[afrz\\] asset-freeze-transaction\n* \\[appl\\] application-transaction\n* \\[stpf\\] state-proof-transaction",
+          "description": "\\[type\\] Indicates what type of transaction this is. Different types have different fields.\n\nValid types, and where their fields are stored:\n* \\[pay\\] payment-transaction\n* \\[keyreg\\] keyreg-transaction\n* \\[acfg\\] asset-config-transaction\n* \\[axfer\\] asset-transfer-transaction\n* \\[afrz\\] asset-freeze-transaction\n* \\[appl\\] application-transaction\n* \\[stpf\\] state-proof-transaction\n* \\[hb\\] heartbeat-transaction",
           "type": "string",
           "enum": [
             "pay",
@@ -2277,7 +2348,8 @@
             "axfer",
             "afrz",
             "appl",
-            "stpf"
+            "stpf",
+            "hb"
           ],
           "x-algorand-format": "tx-type-enum"
         },
@@ -2432,6 +2504,41 @@
         "message": {
           "$ref": "#/definitions/IndexerStateProofMessage",
           "description": "\\[spmsg\\]"
+        }
+      }
+    },
+    "TransactionHeartbeat": {
+      "description": "Fields for a heartbeat transaction.\n\nDefinition:\ndata/transactions/heartbeat.go : HeartbeatTxnFields",
+      "type": "object",
+      "required": [
+        "hb-address",
+        "hb-proof",
+        "hb-seed",
+        "hb-vote-id",
+        "hb-key-dilution"
+      ],
+      "properties": {
+        "hb-address": {
+          "description": "\\[hbad\\] HbAddress is the account this txn is proving onlineness for.",
+          "type": "string"
+        },
+        "hb-proof": {
+          "$ref": "#/definitions/HbProofFields"
+        },
+        "hb-seed": {
+          "description": "\\[hbsd\\] HbSeed must be the block seed for the this transaction's firstValid block.",
+          "type": "string",
+          "format": "byte"
+        },
+        "hb-vote-id": {
+          "description": "\\[hbvid\\] HbVoteID must match the HbAddress account's current VoteID.",
+          "type": "string",
+          "format": "byte"
+        },
+        "hb-key-dilution": {
+          "description": "\\[hbkd\\] HbKeyDilution must match HbAddress account's current KeyDilution.",
+          "type": "integer",
+          "x-algorand-format": "uint64"
         }
       }
     },
@@ -2666,6 +2773,37 @@
         }
       }
     },
+    "HbProofFields": {
+      "description": "\\[hbprf\\] HbProof is a signature using HeartbeatAddress's partkey, thereby showing it is online.",
+      "type": "object",
+      "properties": {
+        "hb-sig": {
+          "description": "\\[s\\] Signature of the heartbeat message.",
+          "type": "string",
+          "format": "byte"
+        },
+        "hb-pk": {
+          "description": "\\[p\\] Public key of the heartbeat message.",
+          "type": "string",
+          "format": "byte"
+        },
+        "hb-pk2": {
+          "description": "\\[p2\\] Key for new-style two-level ephemeral signature.",
+          "type": "string",
+          "format": "byte"
+        },
+        "hb-pk1sig": {
+          "description": "\\[p1s\\] Signature of OneTimeSignatureSubkeyOffsetID(PK, Batch, Offset) under the key PK2.",
+          "type": "string",
+          "format": "byte"
+        },
+        "hb-pk2sig": {
+          "description": "\\[p2s\\] Signature of OneTimeSignatureSubkeyBatchID(PK2, Batch) under the master key (OneTimeSignatureVerifier).",
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
     "IndexerStateProofMessage": {
       "type": "object",
       "properties": {
@@ -2840,8 +2978,19 @@
         "type": "string",
         "x-algorand-format": "Address"
       },
-      "description": "Account(s) marked as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+      "description": "This parameter is an alias to the `proposers` parameter, it exposes the exact same functionality.",
       "name": "proposer",
+      "in": "query",
+      "required": false
+    },
+    "proposers": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "x-algorand-format": "Address"
+      },
+      "description": "Accounts marked as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+      "name": "proposers",
       "in": "query",
       "required": false
     },
@@ -2851,7 +3000,7 @@
         "type": "string",
         "x-algorand-format": "Address"
       },
-      "description": "Account(s) marked as absent in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+      "description": "Accounts marked as absent in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
       "name": "absent",
       "in": "query",
       "required": false
@@ -2862,7 +3011,7 @@
         "type": "string",
         "x-algorand-format": "Address"
       },
-      "description": "Account(s) marked as expired in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+      "description": "Accounts marked as expired in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
       "name": "expired",
       "in": "query",
       "required": false
@@ -2873,7 +3022,7 @@
         "type": "string",
         "x-algorand-format": "Address"
       },
-      "description": "Account(s) marked as expired or absent in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+      "description": "Accounts marked as expired or absent in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
       "name": "updates",
       "in": "query",
       "required": false
@@ -2884,7 +3033,7 @@
         "type": "string",
         "x-algorand-format": "Address"
       },
-      "description": "Account(s) marked as expired, absent or as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
+      "description": "Accounts marked as expired, absent or as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
       "name": "participation",
       "in": "query",
       "required": false
@@ -3092,7 +3241,8 @@
         "axfer",
         "afrz",
         "appl",
-        "stpf"
+        "stpf",
+        "hb"
       ],
       "type": "string",
       "name": "tx-type",

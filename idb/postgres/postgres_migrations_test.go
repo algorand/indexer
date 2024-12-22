@@ -7,9 +7,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	pgtest "github.com/algorand/indexer/v3/idb/postgres/internal/testing"
 	"github.com/algorand/indexer/v3/idb/postgres/internal/types"
+
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 func TestConvertAccountDataIncrementsMigrationNumber(t *testing.T) {

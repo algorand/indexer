@@ -17,13 +17,14 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	sdkcrypto "github.com/algorand/go-algorand-sdk/v2/crypto"
-	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
-	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorand/indexer/v3/api/generated/v2"
 	"github.com/algorand/indexer/v3/idb"
 	"github.com/algorand/indexer/v3/idb/mocks"
 	"github.com/algorand/indexer/v3/types"
+
+	sdkcrypto "github.com/algorand/go-algorand-sdk/v2/crypto"
+	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 func TestTransactionParamToTransactionFilter(t *testing.T) {
@@ -642,6 +643,15 @@ func TestFetchTransactions(t *testing.T) {
 				loadTransactionFromFile("test_resources/state_proof_with_index.response"),
 			},
 		},
+		{
+			name: "Heartbeat Txn",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/heartbeat.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/heartbeat.response"),
+			},
+		},
 	}
 
 	// use for the branch below and createTxn helper func to add a new test case
@@ -654,8 +664,8 @@ func TestFetchTransactions(t *testing.T) {
 			response []generated.Transaction
 			created  uint64
 		}{
-			name:     "State Proof Txn",
-			txnBytes: [][]byte{loadResourceFileOrPanic("test_resources/state_proof.txn")},
+			name:     "HeartBeat Txn",
+			txnBytes: [][]byte{loadResourceFileOrPanic("test_resources/heartbeat.txn")},
 		})
 	}
 	for _, test := range tests {
@@ -845,7 +855,7 @@ func TestTimeouts(t *testing.T) {
 			errString: errTransactionSearch,
 			mockCall:  transactionFunc,
 			callHandler: func(ctx echo.Context, si ServerImplementation) error {
-				return si.LookupAccountTransactions(ctx, "", generated.LookupAccountTransactionsParams{})
+				return si.LookupAccountTransactions(ctx, "MONEYMBRSMUAM2NGL6PCEQEDVHFWAQB6DU47NUS6P5DJM4OJFN7E7DSVBA", generated.LookupAccountTransactionsParams{})
 			},
 		},
 		{
@@ -991,12 +1001,13 @@ func TestApplicationLimits(t *testing.T) {
 		},
 	}
 
-	// Mock backend to capture default limits
-	mockIndexer := &mocks.IndexerDb{}
-	si := testServerImplementation(mockIndexer)
-	si.timeout = 5 * time.Millisecond
-
 	for _, tc := range testcases {
+
+		// Mock backend to capture default limits
+		mockIndexer := &mocks.IndexerDb{}
+		si := testServerImplementation(mockIndexer)
+		si.timeout = 5 * time.Millisecond
+
 		t.Run(tc.name, func(t *testing.T) {
 			// Setup context...
 			e := echo.New()
@@ -1187,7 +1198,7 @@ func TestBigNumbers(t *testing.T) {
 			c := e.NewContext(req, rec1)
 
 			// call handler
-			tc.callHandler(c, *si)
+			require.NoError(t, tc.callHandler(c, *si))
 			assert.Equal(t, http.StatusNotFound, rec1.Code)
 			bodyStr := rec1.Body.String()
 			require.Contains(t, bodyStr, tc.errString)
@@ -1234,7 +1245,7 @@ func TestRewindRoundParameterRejected(t *testing.T) {
 			c := e.NewContext(req, rec1)
 
 			// call handler
-			tc.callHandler(c, *si)
+			require.NoError(t, tc.callHandler(c, *si))
 			assert.Equal(t, http.StatusBadRequest, rec1.Code)
 			bodyStr := rec1.Body.String()
 			require.Contains(t, bodyStr, tc.errString)

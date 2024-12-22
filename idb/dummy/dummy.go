@@ -54,7 +54,7 @@ func (db *dummyIndexerDb) GetBlock(ctx context.Context, round uint64, options id
 }
 
 // Blocks is part of idb.IndexerDB
-func (db *dummyIndexerDb) Blocks(ctx context.Context, bf idb.BlockFilter) (<-chan idb.BlockRow, uint64) {
+func (db *dummyIndexerDb) BlockHeaders(ctx context.Context, bf idb.BlockHeaderFilter) (<-chan idb.BlockRow, uint64) {
 	return nil, 0
 }
 

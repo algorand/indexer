@@ -45,7 +45,7 @@ type ServerImplementation struct {
 // Helper functions //
 //////////////////////
 
-func validateBlockFilter(filter *idb.BlockFilter) error {
+func validateBlockFilter(filter *idb.BlockHeaderFilter) error {
 	var errorArr = make([]string, 0)
 
 	// Int64 overflows
@@ -214,9 +214,9 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 		return badRequest(ctx, errRewindingAccountNotSupported)
 	}
 
-	addr, decodeErrors := decodeAddress(&accountID, "account-id", make([]string, 0))
-	if len(decodeErrors) != 0 {
-		return badRequest(ctx, decodeErrors[0])
+	addr, err := sdk.DecodeAddress(accountID)
+	if err != nil {
+		return badRequest(ctx, fmt.Sprintf("%s: %v", errUnableToParseAddress, err))
 	}
 
 	options := idb.AccountQueryOptions{
@@ -314,9 +314,9 @@ func (si *ServerImplementation) LookupAccountAssets(ctx echo.Context, accountID 
 		return notFound(ctx, errValueExceedingInt64)
 	}
 
-	addr, errors := decodeAddress(&accountID, "account-id", make([]string, 0))
-	if len(errors) != 0 {
-		return badRequest(ctx, errors[0])
+	addr, err := sdk.DecodeAddress(accountID)
+	if err != nil {
+		return badRequest(ctx, fmt.Sprintf("%s: %v", errUnableToParseAddress, err))
 	}
 
 	var assetGreaterThan *uint64
@@ -329,7 +329,7 @@ func (si *ServerImplementation) LookupAccountAssets(ctx echo.Context, accountID 
 	}
 
 	query := idb.AssetBalanceQuery{
-		Address:        addr,
+		Address:        addr[:],
 		AssetID:        params.AssetId,
 		AssetIDGT:      assetGreaterThan,
 		IncludeDeleted: boolOrDefault(params.IncludeAll),
@@ -408,9 +408,13 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		return badRequest(ctx, errRewindingAccountNotSupported)
 	}
 
-	spendingAddr, decodeErrors := decodeAddress(params.AuthAddr, "account-id", make([]string, 0))
-	if len(decodeErrors) != 0 {
-		return badRequest(ctx, decodeErrors[0])
+	var spendingAddrBytes []byte
+	if params.AuthAddr != nil {
+		spendingAddr, err := sdk.DecodeAddress(*params.AuthAddr)
+		if err != nil {
+			return badRequest(ctx, fmt.Sprintf("unable to parse auth addr: %v", err))
+		}
+		spendingAddrBytes = spendingAddr[:]
 	}
 
 	options := idb.AccountQueryOptions{
@@ -421,7 +425,7 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		Limit:                min(uintOrDefaultValue(params.Limit, si.opts.DefaultAccountsLimit), si.opts.MaxAccountsLimit),
 		HasAssetID:           uintOrDefault(params.AssetId),
 		HasAppID:             uintOrDefault(params.ApplicationId),
-		EqualToAuthAddr:      spendingAddr[:],
+		EqualToAuthAddr:      spendingAddrBytes,
 		IncludeDeleted:       boolOrDefault(params.IncludeAll),
 		MaxResources:         si.opts.MaxAPIResourcesPerAccount,
 	}
@@ -486,10 +490,11 @@ func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, acco
 	if (params.AssetId != nil && uint64(*params.AssetId) > math.MaxInt64) || (params.Round != nil && uint64(*params.Round) > math.MaxInt64) {
 		return notFound(ctx, errValueExceedingInt64)
 	}
+
 	// Check that a valid account was provided
-	_, errors := decodeAddress(strPtr(accountID), "account-id", make([]string, 0))
-	if len(errors) != 0 {
-		return badRequest(ctx, errors[0])
+	_, err := sdk.DecodeAddress(accountID)
+	if err != nil {
+		return badRequest(ctx, fmt.Sprintf("%s: %v", errUnableToParseAddress, err))
 	}
 
 	searchParams := generated.SearchForTransactionsParams{
@@ -621,7 +626,7 @@ func (si *ServerImplementation) LookupApplicationBoxByIDAndName(ctx echo.Context
 
 	if len(boxes) == 0 { // this is an unexpected situation as should have received a sql.ErrNoRows from fetchApplicationBoxes's err
 		msg := fmt.Sprintf("%s: round=?=%d, appid=%d, boxName=%s", ErrFailedLookingUpBoxes, round, applicationID, encodedBoxName)
-		return indexerError(ctx, fmt.Errorf(msg))
+		return indexerError(ctx, errors.New(msg))
 	}
 
 	if appid != generated.ApplicationId(applicationID) {
@@ -689,7 +694,7 @@ func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, appl
 
 	if len(boxes) == 0 { // this is an unexpected situation as should have received a sql.ErrNoRows from fetchApplicationBoxes's err
 		msg := fmt.Sprintf("%s: round=?=%d, appid=%d", errFailedSearchingBoxes, round, applicationID)
-		return indexerError(ctx, fmt.Errorf(msg))
+		return indexerError(ctx, errors.New(msg))
 	}
 
 	if appid != generated.ApplicationId(applicationID) {
@@ -1002,11 +1007,17 @@ func (si *ServerImplementation) LookupTransaction(ctx echo.Context, txid string)
 	return ctx.JSON(http.StatusOK, response)
 }
 
-// SearchForBlocks returns block headers matching the provided parameters
+// SearchForBlocks is an alias for SearchForBlockHeaders
 // (GET /v2/blocks)
 func (si *ServerImplementation) SearchForBlocks(ctx echo.Context, params generated.SearchForBlocksParams) error {
+	return si.SearchForBlockHeaders(ctx, (generated.SearchForBlockHeadersParams)(params))
+}
+
+// SearchForBlockHeaders returns block headers matching the provided parameters
+// (GET /v2/blocks)
+func (si *ServerImplementation) SearchForBlockHeaders(ctx echo.Context, params generated.SearchForBlockHeadersParams) error {
 	// Validate query parameters
-	if err := si.verifyHandler("SearchForBlocks", ctx); err != nil {
+	if err := si.verifyHandler("SearchForBlockHeaders", ctx); err != nil {
 		return badRequest(ctx, err.Error())
 	}
 
@@ -1027,12 +1038,52 @@ func (si *ServerImplementation) SearchForBlocks(ctx echo.Context, params generat
 	}
 
 	// Populate the response model and render it
-	response := generated.BlocksResponse{
+	response := generated.BlockHeadersResponse{
 		CurrentRound: round,
 		NextToken:    strPtr(next),
 		Blocks:       blockHeaders,
 	}
 	return ctx.JSON(http.StatusOK, response)
+}
+
+// fetchBlockHeaders is used to query the backend for block headers, and compute the next token
+func (si *ServerImplementation) fetchBlockHeaders(ctx context.Context, bf idb.BlockHeaderFilter) ([]generated.BlockHeader, string, uint64 /*round*/, error) {
+
+	var round uint64
+	var nextToken string
+	results := make([]generated.BlockHeader, 0)
+	err := callWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
+
+		// Open a channel from which result rows will be received
+		var rows <-chan idb.BlockRow
+		rows, round = si.db.BlockHeaders(ctx, bf)
+
+		// Iterate received rows, converting each to a generated.Block
+		var lastRow idb.BlockRow
+		for row := range rows {
+			if row.Error != nil {
+				return row.Error
+			}
+
+			results = append(results, hdrRowToBlock(row))
+			lastRow = row
+		}
+
+		// No next token if there were no results.
+		if len(results) == 0 {
+			return nil
+		}
+
+		// Generate the next token and return
+		var err error
+		nextToken, err = lastRow.Next()
+		return err
+	})
+	if err != nil {
+		return nil, "", 0, err
+	}
+
+	return results, nextToken, round, nil
 }
 
 // SearchForTransactions returns transactions matching the provided parameters
@@ -1468,46 +1519,6 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 		return nil, 0, err
 	}
 	return accounts, round, nil
-}
-
-// fetchBlockHeaders is used to query the backend for block headers, and compute the next token
-func (si *ServerImplementation) fetchBlockHeaders(ctx context.Context, bf idb.BlockFilter) ([]generated.Block, string, uint64 /*round*/, error) {
-
-	var round uint64
-	var nextToken string
-	results := make([]generated.Block, 0)
-	err := callWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
-
-		// Open a channel from which result rows will be received
-		var rows <-chan idb.BlockRow
-		rows, round = si.db.Blocks(ctx, bf)
-
-		// Iterate receieved rows, converting each to a generated.Block
-		var lastRow idb.BlockRow
-		for row := range rows {
-			if row.Error != nil {
-				return row.Error
-			}
-
-			results = append(results, rowToBlock(&row.BlockHeader))
-			lastRow = row
-		}
-
-		// No next token if there were no results.
-		if len(results) == 0 {
-			return nil
-		}
-
-		// Generate the next token and return
-		var err error
-		nextToken, err = lastRow.Next()
-		return err
-	})
-	if err != nil {
-		return nil, "", 0, err
-	}
-
-	return results, nextToken, round, nil
 }
 
 // fetchTransactions is used to query the backend for transactions, and compute the next token

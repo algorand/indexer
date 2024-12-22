@@ -11,27 +11,27 @@ import (
 	"testing"
 	"time"
 
-	"github.com/algorand/indexer/v3/types"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	crypto2 "github.com/algorand/go-algorand-sdk/v2/crypto"
-	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
-	sdk "github.com/algorand/go-algorand-sdk/v2/types"
+	"github.com/algorand/go-codec/codec"
 	"github.com/algorand/indexer/v3/api/generated/v2"
 	"github.com/algorand/indexer/v3/idb"
 	"github.com/algorand/indexer/v3/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/v3/idb/postgres/internal/schema"
 	pgtest "github.com/algorand/indexer/v3/idb/postgres/internal/testing"
 	pgutil "github.com/algorand/indexer/v3/idb/postgres/internal/util"
+	"github.com/algorand/indexer/v3/types"
 	"github.com/algorand/indexer/v3/util"
 	"github.com/algorand/indexer/v3/util/test"
 
+	crypto2 "github.com/algorand/go-algorand-sdk/v2/crypto"
 	"github.com/algorand/go-algorand-sdk/v2/encoding/json"
+	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
 	"github.com/algorand/go-algorand-sdk/v2/protocol"
-	"github.com/algorand/go-codec/codec"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 // TestMaxRoundOnUninitializedDB makes sure we return 0 when getting the max round on a new DB.
@@ -1334,7 +1334,7 @@ func TestAddBlockIncrementsMaxRoundAccounted(t *testing.T) {
 		Block: block,
 		Delta: sdk.LedgerStateDelta{},
 	}
-	db.AddBlock(&vb)
+	require.NoError(t, db.AddBlock(&vb))
 
 	round, err = db.GetNextRoundToAccount()
 	require.NoError(t, err)
@@ -1347,7 +1347,7 @@ func TestAddBlockIncrementsMaxRoundAccounted(t *testing.T) {
 		Block: block,
 		Delta: sdk.LedgerStateDelta{},
 	}
-	db.AddBlock(&vb)
+	require.NoError(t, db.AddBlock(&vb))
 	require.NoError(t, err)
 
 	round, err = db.GetNextRoundToAccount()
@@ -1361,7 +1361,7 @@ func TestAddBlockIncrementsMaxRoundAccounted(t *testing.T) {
 		Block: block,
 		Delta: sdk.LedgerStateDelta{},
 	}
-	db.AddBlock(&vb)
+	require.NoError(t, db.AddBlock(&vb))
 
 	round, err = db.GetNextRoundToAccount()
 	require.NoError(t, err)
@@ -1626,7 +1626,7 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 			Block: test.MakeGenesisBlock(),
 			Delta: sdk.LedgerStateDelta{},
 		}
-		db.AddBlock(&genblk)
+		require.NoError(t, db.AddBlock(&genblk))
 		return db.AddBlock(&vb)
 	}, nil)
 	require.NoError(t, err)
@@ -2186,11 +2186,6 @@ func TestDeleteTransactions(t *testing.T) {
 
 	txns := []sdk.SignedTxn{}
 
-	genBlock := types.ValidatedBlock{
-		Block: test.MakeGenesisBlock(),
-		Delta: sdk.LedgerStateDelta{},
-	}
-	db.AddBlock(&genBlock)
 	// add 4 rounds of txns
 	// txnA := test.MakeCreateAppTxn(test.AccountA)
 	// txnB := test.MakeCreateAppTxn(test.AccountB)

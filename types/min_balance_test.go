@@ -1,10 +1,12 @@
 package types
 
 import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+
 	"github.com/algorand/go-algorand-sdk/v2/protocol/config"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestMinBalance(t *testing.T) {

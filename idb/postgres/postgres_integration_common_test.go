@@ -4,14 +4,15 @@ import (
 	"context"
 	"testing"
 
-	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/indexer/v3/types"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/indexer/v3/idb"
 	pgtest "github.com/algorand/indexer/v3/idb/postgres/internal/testing"
+	"github.com/algorand/indexer/v3/types"
 	"github.com/algorand/indexer/v3/util/test"
+
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 func setupIdbWithConnectionString(t *testing.T, connStr string, genesis sdk.Genesis) *IndexerDb {
@@ -37,7 +38,7 @@ func setupIdb(t *testing.T, genesis sdk.Genesis) (*IndexerDb, func()) {
 		Block: test.MakeGenesisBlock(),
 		Delta: sdk.LedgerStateDelta{},
 	}
-	db.AddBlock(&vb)
+	require.NoError(t, db.AddBlock(&vb))
 
 	return db, newShutdownFunc
 }

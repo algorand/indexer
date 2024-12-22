@@ -4,14 +4,15 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
-	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	itypes "github.com/algorand/indexer/v3/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/indexer/v3/idb"
 	"github.com/algorand/indexer/v3/idb/postgres/internal/types"
+	itypes "github.com/algorand/indexer/v3/types"
+
+	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 func TestEncodeSignedTxnWithAD(t *testing.T) {
@@ -42,7 +43,7 @@ func TestEncodeSignedTxnWithAD(t *testing.T) {
 	var stxn sdk.SignedTxnWithAD
 	for _, mt := range testTxns {
 		t.Run(mt.name, func(t *testing.T) {
-			msgpack.Decode(mt.msgpack, &stxn)
+			require.NoError(t, msgpack.Decode(mt.msgpack, &stxn))
 			js := EncodeSignedTxnWithAD(stxn)
 			require.Equal(t, mt.json, string(js))
 		})
