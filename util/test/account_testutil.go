@@ -4,7 +4,9 @@ import (
 	"crypto/rand"
 	"crypto/sha512"
 	"fmt"
+	"os"
 
+	"github.com/algorand/indexer/v3/idb"
 	"github.com/algorand/indexer/v3/util"
 
 	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
@@ -350,6 +352,31 @@ func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSen
 	}
 
 	return createApp
+}
+
+// MakeHeartbeatTxn creates a heartbeat transaction, overriding fields with the provided values.
+func MakeHeartbeatTxn(sender, hbAddress sdk.Address) sdk.SignedTxnWithAD {
+	var hbTxn sdk.SignedTxn
+	_ = msgpack.Decode(loadResourceFileOrPanic("test_resources/heartbeat.txn"), &hbTxn)
+
+	hbTxn.Txn.Sender = sender
+	hbTxn.Txn.GenesisHash = GenesisHash
+	var fields = hbTxn.Txn.HeartbeatTxnFields
+	fields.HbAddress = hbAddress
+	return sdk.SignedTxnWithAD{
+		SignedTxn: hbTxn,
+	}
+}
+
+func loadResourceFileOrPanic(path string) []byte {
+	data, err := os.ReadFile(path)
+
+	if err != nil {
+		panic(fmt.Sprintf("Failed to load resource file: '%s'", path))
+	}
+	var ret idb.TxnRow
+	_ = msgpack.Decode(data, &ret)
+	return data
 }
 
 // MakeBlockForTxns takes some transactions and constructs a block compatible with the indexer import function.

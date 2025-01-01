@@ -40,6 +40,8 @@ func addTransactionParticipants(stxnad *types.SignedTxnWithAD, includeInner bool
 		for _, address := range txn.ApplicationCallTxnFields.Accounts {
 			add(address)
 		}
+	case types.HeartbeatTx:
+		add(txn.HbAddress)
 	}
 
 	if includeInner {
