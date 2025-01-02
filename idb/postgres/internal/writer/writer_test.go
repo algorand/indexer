@@ -481,9 +481,9 @@ func TestWriterTxnParticipationTableNoPayout(t *testing.T) {
 		tests = append(tests, testcase)
 	}
 	{
-		stxnad := test.MakeCreateAppTxn(sdk.Address(test.AccountA))
+		stxnad := test.MakeCreateAppTxn(test.AccountA)
 		stxnad.Txn.ApplicationCallTxnFields.Accounts =
-			[]sdk.Address{sdk.Address(test.AccountB), sdk.Address(test.AccountC)}
+			[]sdk.Address{test.AccountB, test.AccountC}
 		stib, err := util.EncodeSignedTxn(makeBlockFunc().BlockHeader, stxnad.SignedTxn, stxnad.ApplyData)
 		require.NoError(t, err)
 
@@ -492,17 +492,40 @@ func TestWriterTxnParticipationTableNoPayout(t *testing.T) {
 			payset: []sdk.SignedTxnInBlock{stib},
 			expected: []txnParticipationRow{
 				{
-					addr:  sdk.Address(test.AccountA),
+					addr:  test.AccountA,
 					round: 2,
 					intra: 0,
 				},
 				{
-					addr:  sdk.Address(test.AccountB),
+					addr:  test.AccountB,
 					round: 2,
 					intra: 0,
 				},
 				{
-					addr:  sdk.Address(test.AccountC),
+					addr:  test.AccountC,
+					round: 2,
+					intra: 0,
+				},
+			},
+		}
+		tests = append(tests, testcase)
+	}
+	{
+		stxnad0 := test.MakeHeartbeatTxn(test.AccountA, test.AccountD)
+		stib0, err := util.EncodeSignedTxn(makeBlockFunc().BlockHeader, stxnad0.SignedTxn, stxnad0.ApplyData)
+		require.NoError(t, err)
+
+		testcase := testtype{
+			name:   "heartbeat",
+			payset: []sdk.SignedTxnInBlock{stib0},
+			expected: []txnParticipationRow{
+				{
+					addr:  test.AccountA,
+					round: 2,
+					intra: 0,
+				},
+				{
+					addr:  test.AccountD,
 					round: 2,
 					intra: 0,
 				},
@@ -630,6 +653,40 @@ func TestWriterTxnParticipationTableWithPayout(t *testing.T) {
 				},
 				{
 					addr:  sdk.Address(test.AccountC),
+					round: 2,
+					intra: 0,
+				},
+				// Payout involved accounts
+				{
+					addr:  test.AccountE,
+					round: 2,
+					intra: 1,
+				},
+				{
+					addr:  test.FeeAddr,
+					round: 2,
+					intra: 1,
+				},
+			},
+		}
+		tests = append(tests, testcase)
+	}
+	{
+		stxnad0 := test.MakeHeartbeatTxn(test.AccountA, test.AccountD)
+		stib0, err := util.EncodeSignedTxn(makeBlockFunc().BlockHeader, stxnad0.SignedTxn, stxnad0.ApplyData)
+		require.NoError(t, err)
+
+		testcase := testtype{
+			name:   "heartbeat",
+			payset: []sdk.SignedTxnInBlock{stib0},
+			expected: []txnParticipationRow{
+				{
+					addr:  test.AccountA,
+					round: 2,
+					intra: 0,
+				},
+				{
+					addr:  test.AccountD,
 					round: 2,
 					intra: 0,
 				},
