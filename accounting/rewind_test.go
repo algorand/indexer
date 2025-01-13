@@ -5,14 +5,15 @@ import (
 	"errors"
 	"testing"
 
-	sdk "github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorand/indexer/v3/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
 	models "github.com/algorand/indexer/v3/api/generated/v2"
 	"github.com/algorand/indexer/v3/idb"
 	"github.com/algorand/indexer/v3/idb/mocks"
+	"github.com/algorand/indexer/v3/types"
+
+	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
 
 func TestBasic(t *testing.T) {
