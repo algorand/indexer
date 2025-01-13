@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/algorand/indexer/v3/accounting"
 	models "github.com/algorand/indexer/v3/api/generated/v2"
 	"github.com/algorand/indexer/v3/idb"
 	_ "github.com/algorand/indexer/v3/idb/postgres"
@@ -159,6 +160,9 @@ func main() {
 			MaxRound: account.Round,
 		}
 		printTxnQuery(db, tf)
+		raccount, err := accounting.AccountAtRound(context.Background(), account, round, db)
+		maybeFail(err, "AccountAtRound, %v", err)
+		fmt.Printf("raccount %s\n", string(ajson.Encode(raccount)))
 	}
 
 	if txntest {
