@@ -80,7 +80,8 @@
           },
           {
             "type": "integer",
-            "description": "Deprecated and disallowed. This parameter used to include results for a specified round. Requests with this parameter set are now rejected.",
+            "description": "Include results for the specified round. For performance reasons, this parameter may be disabled on some configurations. Using application-id or asset-id filters will return both creator and opt-in accounts. Filtering by include-all will return creator and opt-in accounts for deleted assets and accounts. Non-opt-in managers are not included in the results when asset-id is used.",
+
             "name": "round",
             "in": "query"
           },
@@ -119,10 +120,7 @@
             "$ref": "#/parameters/account-id"
           },
           {
-            "type": "integer",
-            "description": "Deprecated and disallowed. This parameter used to include results for a specified round. Requests with this parameter set are now rejected.",
-            "name": "round",
-            "in": "query"
+            "$ref": "#/parameters/round"
           },
           {
             "$ref": "#/parameters/include-all"
