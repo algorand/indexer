@@ -163,6 +163,7 @@ func AccountAtRound(ctx context.Context, account models.Account, round uint64, d
 				assetUpdate(&acct, uint64(stxn.Txn.XferAsset), 0, txnrow.Extra.AssetCloseAmount)
 			}
 		case sdk.AssetFreezeTx:
+		case sdk.HeartbeatTx:
 		default:
 			err = fmt.Errorf("%s[%d,%d]: rewinding past txn type %s is not currently supported", account.Address, txnrow.Round, txnrow.Intra, stxn.Txn.Type)
 			return
