@@ -331,7 +331,7 @@ type AccountQueryOptions struct {
 	// MaxResources is the maximum combined number of AppParam, AppLocalState, AssetParam, and AssetHolding objects allowed.
 	MaxResources uint64
 
-	// IncludeDeleted indicated whether to include deleted Assets, Applications, etc within the account.
+	// IncludeDeleted indicates whether to include deleted Assets, Applications, etc within the account.
 	IncludeDeleted bool
 
 	Limit uint64
