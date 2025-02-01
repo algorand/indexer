@@ -38,6 +38,8 @@ const (
 	ErrMultipleBoxes                   = "multiple application boxes found for this app id and box name, please contact us, this shouldn't happen"
 	ErrFailedLookingUpBoxes            = "failed while looking up application boxes"
 	errMultiAcctRewind                 = "multiple accounts rewind is not supported by this server"
+	errOnlineOnlyRewind                = "simultaneously rewinding and searching for online accounts is not supported"
+	errOnlineOnlyDeleted               = "simultaneously searching for online and deleted accounts is not supported"
 	errRewindingAccount                = "error while rewinding account"
 	errLookingUpBlockForRound          = "error while looking up block for round"
 	errBlockHeaderSearch               = "error while searching for block headers"

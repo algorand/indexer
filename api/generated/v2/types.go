@@ -1350,6 +1350,9 @@ type Next = string
 // NotePrefix defines model for note-prefix.
 type NotePrefix = string
 
+// OnlineOnly defines model for online-only.
+type OnlineOnly = bool
+
 // Proposers defines model for proposers.
 type Proposers = []string
 
@@ -1576,6 +1579,9 @@ type SearchForAccountsParams struct {
 
 	// ApplicationId Application ID
 	ApplicationId *uint64 `form:"application-id,omitempty" json:"application-id,omitempty"`
+
+	// OnlineOnly When this is set to true, return only accounts whose participation status is currently online.
+	OnlineOnly *bool `form:"online-only,omitempty" json:"online-only,omitempty"`
 }
 
 // SearchForAccountsParamsExclude defines parameters for SearchForAccounts.

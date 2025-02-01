@@ -304,6 +304,11 @@ type AccountQueryOptions struct {
 	// return any accounts with this auth addr
 	EqualToAuthAddr []byte
 
+	// OnlineOnly, when set to true, indicates that only accounts that are online should be returned.
+	//
+	// When set to false, this parameter is ignored (i.e. it becomes a no-op).
+	OnlineOnly bool
+
 	// Filter on accounts with current balance greater than x
 	AlgosGreaterThan *uint64
 	// Filter on accounts with current balance less than x.
