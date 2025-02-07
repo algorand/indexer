@@ -1179,6 +1179,7 @@ func TestAccountsOnlineOnlyParam(t *testing.T) {
 	require.NoError(t, err)
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
+	api := &ServerImplementation{db: db}
 
 	e := echo.New()
 	{
@@ -1189,7 +1190,6 @@ func TestAccountsOnlineOnlyParam(t *testing.T) {
 		rec := httptest.NewRecorder()
 		c := e.NewContext(req, rec)
 		c.SetPath("/v2/accounts")
-		api := &ServerImplementation{db: db}
 		err = api.SearchForAccounts(c, generated.SearchForAccountsParams{OnlineOnly: boolPtr(true)})
 		//////////
 		// Then // Only AccountA should be returned
@@ -1211,7 +1211,6 @@ func TestAccountsOnlineOnlyParam(t *testing.T) {
 		rec := httptest.NewRecorder()
 		c := e.NewContext(req, rec)
 		c.SetPath("/v2/accounts")
-		api := &ServerImplementation{db: db}
 		err = api.SearchForAccounts(c, generated.SearchForAccountsParams{OnlineOnly: boolPtr(false)})
 		//////////
 		// Then // All accounts should be returned, regardless of whether their status is online or not
@@ -1232,7 +1231,6 @@ func TestAccountsOnlineOnlyParam(t *testing.T) {
 		rec := httptest.NewRecorder()
 		c := e.NewContext(req, rec)
 		c.SetPath("/v2/accounts")
-		api := &ServerImplementation{db: db}
 		err = api.SearchForAccounts(c, generated.SearchForAccountsParams{OnlineOnly: boolPtr(true), IncludeAll: boolPtr(true)})
 		//////////
 		// Then // The response should return an error
