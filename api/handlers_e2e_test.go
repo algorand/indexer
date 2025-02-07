@@ -1192,11 +1192,11 @@ func TestAccountsOnlineOnlyParam(t *testing.T) {
 		api := &ServerImplementation{db: db}
 		onlineOnly := true
 		err = api.SearchForAccounts(c, generated.SearchForAccountsParams{OnlineOnly: &onlineOnly})
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, rec.Code)
 		//////////
 		// Then // Only AccountA should be returned
 		//////////
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code)
 		var response generated.AccountsResponse
 		data := rec.Body.Bytes()
 		err = json.Decode(data, &response)
@@ -1215,16 +1215,35 @@ func TestAccountsOnlineOnlyParam(t *testing.T) {
 		api := &ServerImplementation{db: db}
 		onlineOnly := false
 		err = api.SearchForAccounts(c, generated.SearchForAccountsParams{OnlineOnly: &onlineOnly})
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, rec.Code)
 		//////////
 		// Then // All accounts should be returned, regardless of whether their status is online or not
 		//////////
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code)
 		var response generated.AccountsResponse
 		data := rec.Body.Bytes()
 		err = json.Decode(data, &response)
 		require.NoError(t, err)
 		require.Equal(t, len(test.MakeGenesis().Allocation), len(response.Accounts))
+	}
+	{
+		//////////
+		// When // We query for accounts using both `online-only=true` and `include-all=true` parameters
+		//////////
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath("/v2/accounts")
+		api := &ServerImplementation{db: db}
+		onlineOnly := true
+		includeAll := true
+		err = api.SearchForAccounts(c, generated.SearchForAccountsParams{OnlineOnly: &onlineOnly, IncludeAll: &includeAll})
+		//////////
+		// Then // The response should return an error
+		//////////
+		require.NoError(t, err)
+		require.Contains(t, rec.Body.String(), errOnlineOnlyDeleted)
+		require.Equal(t, http.StatusBadRequest, rec.Code)
 	}
 }
 
