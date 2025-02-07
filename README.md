@@ -110,6 +110,7 @@ Below is a snippet of the output from `algorand-indexer api-config`:
     optional:
         - currency-greater-than: disabled
         - currency-less-than: disabled
+        - online-only: disabled
 /v2/assets/{asset-id}/transactions:
     optional:
         - note-prefix: disabled
