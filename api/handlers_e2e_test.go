@@ -1190,8 +1190,7 @@ func TestAccountsOnlineOnlyParam(t *testing.T) {
 		c := e.NewContext(req, rec)
 		c.SetPath("/v2/accounts")
 		api := &ServerImplementation{db: db}
-		onlineOnly := true
-		err = api.SearchForAccounts(c, generated.SearchForAccountsParams{OnlineOnly: &onlineOnly})
+		err = api.SearchForAccounts(c, generated.SearchForAccountsParams{OnlineOnly: boolPtr(true)})
 		//////////
 		// Then // Only AccountA should be returned
 		//////////
@@ -1213,8 +1212,7 @@ func TestAccountsOnlineOnlyParam(t *testing.T) {
 		c := e.NewContext(req, rec)
 		c.SetPath("/v2/accounts")
 		api := &ServerImplementation{db: db}
-		onlineOnly := false
-		err = api.SearchForAccounts(c, generated.SearchForAccountsParams{OnlineOnly: &onlineOnly})
+		err = api.SearchForAccounts(c, generated.SearchForAccountsParams{OnlineOnly: boolPtr(false)})
 		//////////
 		// Then // All accounts should be returned, regardless of whether their status is online or not
 		//////////
@@ -1235,9 +1233,7 @@ func TestAccountsOnlineOnlyParam(t *testing.T) {
 		c := e.NewContext(req, rec)
 		c.SetPath("/v2/accounts")
 		api := &ServerImplementation{db: db}
-		onlineOnly := true
-		includeAll := true
-		err = api.SearchForAccounts(c, generated.SearchForAccountsParams{OnlineOnly: &onlineOnly, IncludeAll: &includeAll})
+		err = api.SearchForAccounts(c, generated.SearchForAccountsParams{OnlineOnly: boolPtr(true), IncludeAll: boolPtr(true)})
 		//////////
 		// Then // The response should return an error
 		//////////
