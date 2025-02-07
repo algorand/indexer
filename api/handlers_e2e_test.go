@@ -1189,8 +1189,6 @@ func TestAccountsOnlineOnlyParam(t *testing.T) {
 		rec := httptest.NewRecorder()
 		c := e.NewContext(req, rec)
 		c.SetPath("/v2/accounts")
-		c.SetParamNames("online-only")
-		c.SetParamValues("true")
 		api := &ServerImplementation{db: db}
 		onlineOnly := true
 		err = api.SearchForAccounts(c, generated.SearchForAccountsParams{OnlineOnly: &onlineOnly})
@@ -1214,8 +1212,6 @@ func TestAccountsOnlineOnlyParam(t *testing.T) {
 		rec := httptest.NewRecorder()
 		c := e.NewContext(req, rec)
 		c.SetPath("/v2/accounts")
-		c.SetParamNames("online-only")
-		c.SetParamValues("false")
 		api := &ServerImplementation{db: db}
 		onlineOnly := false
 		err = api.SearchForAccounts(c, generated.SearchForAccountsParams{OnlineOnly: &onlineOnly})
