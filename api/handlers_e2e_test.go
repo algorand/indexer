@@ -1236,8 +1236,8 @@ func TestAccountsOnlineOnlyParam(t *testing.T) {
 		// Then // The response should return an error
 		//////////
 		require.NoError(t, err)
-		require.Contains(t, rec.Body.String(), errOnlineOnlyDeleted)
 		require.Equal(t, http.StatusBadRequest, rec.Code)
+		require.Contains(t, rec.Body.String(), errOnlineOnlyDeleted)
 	}
 }
 
