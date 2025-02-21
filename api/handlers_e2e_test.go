@@ -1213,7 +1213,7 @@ func TestAccountsOnlineOnlyParam(t *testing.T) {
 		c.SetPath("/v2/accounts")
 		err = api.SearchForAccounts(c, generated.SearchForAccountsParams{OnlineOnly: boolPtr(true), IncludeAll: boolPtr(true)})
 		//////////
-		// Then // The response should return an error
+		// Then // The response should be a 404 "bad request"
 		//////////
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, rec.Code)
