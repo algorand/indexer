@@ -1153,28 +1153,6 @@ func TestAccountsOnlineOnlyParam(t *testing.T) {
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 
-	//txn := transactions.SignedTxnWithAD{
-	//	SignedTxn: transactions.SignedTxn{
-	//		Txn: transactions.Transaction{
-	//			Type: "keyreg",
-	//			Header: transactions.Header{
-	//				Sender:      test.AccountA,
-	//				GenesisHash: test.GenesisHash,
-	//			},
-	//			KeyregTxnFields: transactions.KeyregTxnFields{
-	//				VotePK:           votePK,
-	//				SelectionPK:      selectionPK,
-	//				StateProofPK:     stateProofPK,
-	//				VoteFirst:        basics.Round(0),
-	//				VoteLast:         basics.Round(100),
-	//				VoteKeyDilution:  1000,
-	//				Nonparticipation: false,
-	//			},
-	//		},
-	//		Sig: test.Signature,
-	//	},
-	//}
-	//
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/KeyregTransactionWithStateProofKeys.vb")
 	require.NoError(t, err)
 	err = db.AddBlock(&vb)
