@@ -1150,9 +1150,11 @@ func TestVersion(t *testing.T) {
 // TestAccountsOnlineOnlyParam exercises the `online-only` parameter in `GET /v2/accounts`.
 func TestAccountsOnlineOnlyParam(t *testing.T) {
 
+	// Spin a fresh database
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 
+	// Load a block (with a keyreg txn) into the database
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/KeyregTransactionWithStateProofKeys.vb")
 	require.NoError(t, err)
 	err = db.AddBlock(&vb)
