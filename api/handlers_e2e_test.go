@@ -1147,6 +1147,80 @@ func TestVersion(t *testing.T) {
 	require.Equal(t, response.Version, "(unknown version)")
 }
 
+// TestAccountsOnlineOnlyParam exercises the `online-only` parameter in `GET /v2/accounts`.
+func TestAccountsOnlineOnlyParam(t *testing.T) {
+
+	// Spin a fresh database
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+
+	// Load a block (with a keyreg txn) into the database
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/KeyregTransactionWithStateProofKeys.vb")
+	require.NoError(t, err)
+	err = db.AddBlock(&vb)
+	require.NoError(t, err)
+	api := &ServerImplementation{db: db}
+
+	e := echo.New()
+	{
+		//////////
+		// When // We query for only online accounts
+		//////////
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath("/v2/accounts")
+		err = api.SearchForAccounts(c, generated.SearchForAccountsParams{OnlineOnly: boolPtr(true)})
+		//////////
+		// Then // Only AccountA should be returned
+		//////////
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code)
+		var response generated.AccountsResponse
+		data := rec.Body.Bytes()
+		err = json.Decode(data, &response)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(response.Accounts))
+		require.Equal(t, test.AccountA.String(), response.Accounts[0].Address)
+	}
+	{
+		//////////
+		// When // We query for accounts using online-only=false
+		//////////
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath("/v2/accounts")
+		err = api.SearchForAccounts(c, generated.SearchForAccountsParams{OnlineOnly: boolPtr(false)})
+		//////////
+		// Then // All accounts should be returned, regardless of whether their status is online or not
+		//////////
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code)
+		var response generated.AccountsResponse
+		data := rec.Body.Bytes()
+		err = json.Decode(data, &response)
+		require.NoError(t, err)
+		require.Equal(t, len(test.MakeGenesis().Allocation), len(response.Accounts))
+	}
+	{
+		//////////
+		// When // We query for accounts using both `online-only=true` and `include-all=true` parameters
+		//////////
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath("/v2/accounts")
+		err = api.SearchForAccounts(c, generated.SearchForAccountsParams{OnlineOnly: boolPtr(true), IncludeAll: boolPtr(true)})
+		//////////
+		// Then // The response should be a 404 "bad request"
+		//////////
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+		require.Contains(t, rec.Body.String(), errOnlineOnlyDeleted)
+	}
+}
+
 func TestAccountClearsNonUTF8(t *testing.T) {
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()

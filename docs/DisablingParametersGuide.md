@@ -25,6 +25,7 @@ The configuration file that is used to enable/disable parameters is a YAML file 
     optional:
         - currency-greater-than: disabled
         - currency-less-than: disabled
+        - online-only: disabled
 /v2/assets/{asset-id}/transactions:
     optional:
         - note-prefix: disabled

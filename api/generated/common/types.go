@@ -1259,6 +1259,9 @@ type Next = string
 // NotePrefix defines model for note-prefix.
 type NotePrefix = string
 
+// OnlineOnly defines model for online-only.
+type OnlineOnly = bool
+
 // Proposers defines model for proposers.
 type Proposers = []string
 

@@ -415,6 +415,14 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		return badRequest(ctx, errMultiAcctRewind)
 	}
 
+	// Input validations related to the "online-only" parameter
+	if params.Round != nil && boolOrDefault(params.OnlineOnly) {
+		return badRequest(ctx, errOnlineOnlyRewind)
+	}
+	if boolOrDefault(params.OnlineOnly) && boolOrDefault(params.IncludeAll) {
+		return badRequest(ctx, errOnlineOnlyDeleted)
+	}
+
 	var spendingAddrBytes []byte
 	if params.AuthAddr != nil {
 		spendingAddr, err := sdk.DecodeAddress(*params.AuthAddr)
@@ -435,6 +443,7 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		EqualToAuthAddr:      spendingAddrBytes,
 		IncludeDeleted:       boolOrDefault(params.IncludeAll),
 		MaxResources:         si.opts.MaxAPIResourcesPerAccount,
+		OnlineOnly:           boolOrDefault(params.OnlineOnly),
 	}
 
 	if params.Exclude != nil {

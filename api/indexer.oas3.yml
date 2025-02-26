@@ -221,6 +221,14 @@
         },
         "x-algorand-format": "base64"
       },
+      "online-only": {
+        "description": "When this is set to true, return only accounts whose participation status is currently online.",
+        "in": "query",
+        "name": "online-only",
+        "schema": {
+          "type": "boolean"
+        }
+      },
       "proposers": {
         "description": "Accounts marked as proposer in the block header's participation updates. This parameter accepts a comma separated list of addresses.",
         "explode": false,
@@ -2643,6 +2651,14 @@
             "name": "application-id",
             "schema": {
               "type": "integer"
+            }
+          },
+          {
+            "description": "When this is set to true, return only accounts whose participation status is currently online.",
+            "in": "query",
+            "name": "online-only",
+            "schema": {
+              "type": "boolean"
             }
           }
         ],

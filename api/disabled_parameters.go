@@ -317,7 +317,7 @@ func GetDefaultDisabledMapConfigForPostgres() *DisabledMapConfig {
 		rval.addEntry(restPath, http.MethodGet, parameterNames)
 	}
 
-	get("/v2/accounts", []string{"currency-greater-than", "currency-less-than"})
+	get("/v2/accounts", []string{"currency-greater-than", "currency-less-than", "online-only"})
 	get("/v2/accounts/{account-id}/transactions", []string{"note-prefix", "tx-type", "sig-type", "asset-id", "before-time", "after-time", "rekey-to"})
 	get("/v2/assets", []string{"name", "unit"})
 	get("/v2/assets/{asset-id}/balances", []string{"currency-greater-than", "currency-less-than"})

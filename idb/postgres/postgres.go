@@ -2031,6 +2031,9 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions, countOnly b
 		whereArgs = append(whereArgs, encoding.Base64(opts.EqualToAuthAddr))
 		partNumber++
 	}
+	if opts.OnlineOnly {
+		whereParts = append(whereParts, "((a.account_data->>'onl' IS NOT NULL) AND (a.account_data->>'voteLst' IS NOT NULL) AND ((a.account_data->>'onl') = '1'))")
+	}
 	query = `SELECT a.addr, a.microalgos, a.rewards_total, a.created_at, a.closed_at, a.deleted, a.rewardsbase, a.keytype, a.account_data FROM account a`
 	if opts.HasAssetID != 0 {
 		// inner join requires match, filtering on presence of asset
