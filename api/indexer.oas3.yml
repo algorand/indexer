@@ -164,7 +164,7 @@
         "style": "form"
       },
       "group-id": {
-        "description": "Lookup transactions by group ID. This field must be base64-encoded, and afterwards, base64 characters that are URL-unsafe (like +, / and =) must be URL-encoded",
+        "description": "Lookup transactions by group ID. This field must be base64-encoded, and afterwards, base64 characters that are URL-unsafe (i.e. =, /, +) must be URL-encoded",
         "in": "query",
         "name": "group-id",
         "schema": {
@@ -5270,7 +5270,7 @@
             }
           },
           {
-            "description": "Lookup transactions by group ID. This field must be base64-encoded, and afterwards, base64 characters that are URL-unsafe (like +, / and =) must be URL-encoded",
+            "description": "Lookup transactions by group ID. This field must be base64-encoded, and afterwards, base64 characters that are URL-unsafe (i.e. =, /, +) must be URL-encoded",
             "in": "query",
             "name": "group-id",
             "schema": {
