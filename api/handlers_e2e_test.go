@@ -2732,10 +2732,14 @@ func TestTxnSearchByGroupID(t *testing.T) {
 	defer shutdownFunc()
 
 	// Ingest a block that contains 4 transactions:
-	// - Q7TE63GWNAD7SAYZ2M22RFY2JE5W3VJRGBKGFS2YS5SX5RACJJNQ (txn group A62qVigWtWo0laUzcE1iZY8+KXWzK1vSkgwN/eKgvjc=)
-	// - AXBJE3C5ZD6ZUW6ROJRJNMP6A6HQSE7TDKUXPEQ2GEFTXFR3AWLQ (txn group A62qVigWtWo0laUzcE1iZY8+KXWzK1vSkgwN/eKgvjc=)
-	// - 7ZLDLORXW5BH575FEAMHMPWOW4NYRRE3UI6UGSJEBL2WRMWQLXRA (txn group A62qVigWtWo0laUzcE1iZY8+KXWzK1vSkgwN/eKgvjc=)
-	// - CVZM3RVPWMEFKPEZH43U3PEXKGIPQY7WMHCTSBRM47WJTYRKOOIQ (does not belong to any group)
+	// - Q7TE63GWNAD7SAYZ2M22RFY2JE5W3VJRGBKGFS2YS5SX5RACJJNQ
+	//    (txn group A62qVigWtWo0laUzcE1iZY8+KXWzK1vSkgwN/eKgvjc=)
+	// - AXBJE3C5ZD6ZUW6ROJRJNMP6A6HQSE7TDKUXPEQ2GEFTXFR3AWLQ
+	//    (txn group A62qVigWtWo0laUzcE1iZY8+KXWzK1vSkgwN/eKgvjc=)
+	// - 7ZLDLORXW5BH575FEAMHMPWOW4NYRRE3UI6UGSJEBL2WRMWQLXRA
+	//    (txn group A62qVigWtWo0laUzcE1iZY8+KXWzK1vSkgwN/eKgvjc=)
+	// - CVZM3RVPWMEFKPEZH43U3PEXKGIPQY7WMHCTSBRM47WJTYRKOOIQ
+	//    (does not belong to any group)
 	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/TxnSearchByGroupID.vb")
 	require.NoError(t, err)
 	err = db.AddBlock(&vb)
