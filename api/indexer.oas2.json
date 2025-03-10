@@ -1009,6 +1009,9 @@
             "$ref": "#/parameters/sig-type"
           },
           {
+            "$ref": "#/parameters/group-id"
+          },
+          {
             "$ref": "#/parameters/txid"
           },
           {
@@ -3023,6 +3026,13 @@
       "name": "auth-addr",
       "in": "query",
       "x-algorand-format": "Address"
+    },
+    "group-id": {
+      "type": "string",
+      "description": "Lookup transactions by group ID. This field must be base64-encoded, and afterwards, base64 characters like +, / and = must be URL-encoded",
+      "name": "group-id",
+      "in": "query",
+      "x-algorand-format": "base64"
     },
     "txid": {
       "type": "string",
