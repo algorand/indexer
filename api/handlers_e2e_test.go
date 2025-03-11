@@ -2789,7 +2789,6 @@ func TestTxnSearchByGroupID(t *testing.T) {
 		// Call the handler for `GET /v2/transactions`
 		api := testServerImplementation(db)
 		err = api.SearchForTransactions(c, tc.InputFilter)
-		fmt.Println(rec.Body.String())
 		require.NoError(t, err)
 
 		// Make assertions about the response
