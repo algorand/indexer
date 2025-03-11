@@ -265,6 +265,7 @@ type TransactionFilter struct {
 	OffsetGT   *uint64 // nil for no filter
 	SigType    SigType // ["", "sig", "msig", "lsig"]
 	NotePrefix []byte
+	GroupID    []byte
 	AlgosGT    *uint64 // implictly filters on "pay" txns for Algos > this. This will be a slightly faster query than EffectiveAmountGT.
 	AlgosLT    *uint64
 	RekeyTo    *bool // nil for no filter
