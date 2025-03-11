@@ -716,6 +716,7 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	}
 
 	// Determine the LIMIT clause
+	var limit string
 	if len(tf.GroupID) > 0 && (tf.Limit == 0 || tf.Limit >= sdk.MaxTxGroupSize) {
 		// The comment below explains an optimization for the case where a group ID is being used.
 		//
@@ -733,9 +734,11 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 		//
 		// This index normally would not be used if we didn't skip the LIMIT clause,
 		// the query execution plan would normally result in a sequential scan over the txn table.
+		limit = ""
 	} else if tf.Limit != 0 {
-		query += fmt.Sprintf(" LIMIT %d", tf.Limit)
+		limit = fmt.Sprintf(" LIMIT %d", tf.Limit)
 	}
+	query += limit
 
 	return
 }
