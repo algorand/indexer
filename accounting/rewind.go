@@ -147,8 +147,12 @@ func AccountAtRound(ctx context.Context, account models.Account, round uint64, d
 			}
 		case sdk.KeyRegistrationTx:
 			// TODO: keyreg does not rewind. workaround: query for txns on an account with typeenum=2 to find previous values it was set to.
+			// We can't rewind keyreg transactions, so null it out.
+			acct.Participation = nil
 		case sdk.ApplicationCallTx:
-			// Skip app calls; app state is cleared later.
+			// We can't rewind app calls, so null out application state.
+			acct.AppsLocalState = nil
+			acct.CreatedApps = nil
 		case sdk.AssetConfigTx:
 			if stxn.Txn.ConfigAsset == 0 {
 				// create asset, unwind the application of the value
@@ -186,10 +190,6 @@ func AccountAtRound(ctx context.Context, account models.Account, round uint64, d
 
 	// TODO: Clear out the closed-at field as well. Like Rewards we cannot know this value for all accounts.
 	//acct.ClosedAt = 0
-
-	// Due to app calls not being supported, we cannot rewind the app state, so null it out.
-	acct.AppsLocalState = nil
-	acct.CreatedApps = nil
 
 	return
 }
