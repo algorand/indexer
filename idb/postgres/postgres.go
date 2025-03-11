@@ -718,7 +718,7 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	// Determine the LIMIT clause
 	var limit string
 	if len(tf.GroupID) > 0 && (tf.Limit == 0 || tf.Limit >= sdk.MaxTxGroupSize) {
-		// The comment below explains an optimization for the case where a group ID is being used.
+		// This is an optimization for the case where a group ID is being used.
 		//
 		// If a group ID is being used, we know that the query will return at most 16 results
 		// (the maximum size of an atomic transaction group).
