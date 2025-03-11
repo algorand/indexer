@@ -625,7 +625,7 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 		partNumber++
 	}
 	if len(tf.GroupID) != 0 {
-		whereParts = append(whereParts, fmt.Sprintf("t.txn->'txn'->>'grp' = $%d AND t.txn->'txn'->>'grp' IS NOT NULL", partNumber))
+		whereParts = append(whereParts, fmt.Sprintf("t.txn #>> '{txn,grp}'::text[] = $%d AND t.txn #>> '{txn,grp}'::text[] IS NOT NULL", partNumber))
 		whereArgs = append(whereArgs, base64.StdEncoding.EncodeToString(tf.GroupID))
 		partNumber++
 	}
@@ -714,9 +714,29 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 		// this should explicitly match the primary key on txn (round,intra)
 		query += " ORDER BY t.round, t.intra"
 	}
-	if tf.Limit != 0 {
+
+	// Determine the LIMIT clause
+	if len(tf.GroupID) > 0 && (tf.Limit == 0 || tf.Limit >= sdk.MaxTxGroupSize) {
+		// The comment below explains an optimization for the case where a group ID is being used.
+		//
+		// If a group ID is being used, we know that the query will return at most 16 results
+		// (the maximum size of an atomic transaction group).
+		//
+		// Therefore, we could get rid of the LIMIT clause.
+		//
+		// Skipping the limit clause seems to make the query optimizer pick the right index:
+		//
+		// CREATE INDEX txn_grp
+		// 	ON public.txn
+		//  USING btree (((txn #>> '{txn,grp}'::text[])))
+		//  WHERE ((txn #>> '{txn,grp}'::text[]) IS NOT NULL);
+		//
+		// This index normally would not be used if we didn't skip the LIMIT clause,
+		// the query execution plan would normally result in a sequential scan over the txn table.
+	} else if tf.Limit != 0 {
 		query += fmt.Sprintf(" LIMIT %d", tf.Limit)
 	}
+
 	return
 }
 
