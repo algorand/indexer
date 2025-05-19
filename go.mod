@@ -1,12 +1,12 @@
 module github.com/algorand/indexer/v3
 
-go 1.23
+go 1.23.0
 
 toolchain go1.23.3
 
 require (
 	github.com/algorand/avm-abi v0.2.0
-	github.com/algorand/go-algorand-sdk/v2 v2.7.0
+	github.com/algorand/go-algorand-sdk/v2 v2.8.1-0.20250519204916-49001c23ba27
 	github.com/algorand/go-codec/codec v1.1.10
 	github.com/algorand/oapi-codegen v1.12.0-algorand.0
 	github.com/davecgh/go-spew v1.1.1
@@ -92,11 +92,11 @@ require (
 	go.opentelemetry.io/otel/trace v1.28.0 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
-	golang.org/x/crypto v0.31.0 // indirect
+	golang.org/x/crypto v0.35.0 // indirect
 	golang.org/x/net v0.29.0 // indirect
-	golang.org/x/sync v0.10.0 // indirect
-	golang.org/x/sys v0.28.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/sync v0.11.0 // indirect
+	golang.org/x/sys v0.30.0 // indirect
+	golang.org/x/text v0.22.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20241015192408-796eee8c2d53 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20241015192408-796eee8c2d53 // indirect
