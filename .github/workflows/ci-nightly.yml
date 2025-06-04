@@ -1,0 +1,166 @@
+name: CI - Nightly Test Suite
+
+on:
+  schedule:
+    - cron: "37 3 * * *"  # Run at 3:37 AM UTC daily
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  GO_VERSION: "1.23.3"
+  UBUNTU_IMAGE: "ubuntu-24.04"
+  CI_E2E_FILENAME: "rel-nightly"
+  CHANNEL: nightly
+
+jobs:
+  test_nightly:
+    runs-on: ubuntu-24.04
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    strategy:
+      matrix:
+        go_version: ["1.23.3"]
+    
+    services:
+      postgres:
+        image: postgres:13.11-bullseye
+        env:
+          POSTGRES_PASSWORD: pgpass
+          POSTGRES_USER: pguser
+          POSTGRES_DB: mydb
+        ports:
+          - 5555:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go_version }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo NEEDRESTART_MODE=a apt -y install python3 python3-pip python3-setuptools python3-wheel libboost-math-dev libffi-dev
+          pip3 install -r misc/requirements.txt
+          pip3 install e2e_tests/
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          echo "/usr/local/go/bin" >> $GITHUB_PATH
+
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.0
+
+      - name: Check formatting
+        run: test -z "$(go fmt ./...)"
+
+      - name: Run linter
+        run: make lint
+
+      - name: Run build check
+        run: make check
+
+      - name: Set up test environment
+        run: |
+          echo 'TEST_PG=host=localhost user=pguser password=pgpass dbname=mydb port=5555 sslmode=disable' >> $GITHUB_ENV
+          echo 'TEST_FLAG=-p 1' >> $GITHUB_ENV
+
+      - name: Run tests
+        run: make test
+        timeout-minutes: 15
+
+      - name: Run test-generate
+        run: make test-generate
+
+      - name: Run fakepackage
+        run: make fakepackage
+
+      - name: Install go-algorand nightly binaries
+        run: |
+          wget https://raw.githubusercontent.com/algorand/go-algorand/rel/stable/cmd/updater/update.sh && chmod 744 update.sh
+          ./update.sh -i -c nightly -n -d ./ -p /usr/local/go/bin
+          export GOPATH=/usr/local/go/
+
+      - name: Run e2e tests (nightly)
+        run: |
+          make e2e
+          make e2e-filter-test
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.txt
+          flags: nightly
+          name: codecov-nightly
+
+      - name: Notify Slack on failure
+        if: failure()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          channel: '#lamprey-builds'  # C056CK9PYRY
+          text: |
+            Failed: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            (${{ github.ref_name }}) 
+            - ${{ github.job }} failed
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  indexer_vs_algod_nightly:
+    runs-on: ubuntu-24.04
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo NEEDRESTART_MODE=a apt -y install python3 python3-pip python3-setuptools python3-wheel libboost-math-dev libffi-dev
+          pip3 install -r misc/requirements.txt
+          pip3 install e2e_tests/
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          echo "/usr/local/go/bin" >> $GITHUB_PATH
+
+      - name: Run indexer vs algod tests
+        run: make indexer-v-algod
+
+      - name: Notify Slack on failure
+        if: failure()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          channel: '#lamprey-builds'  # C056CK9PYRY
+          text: |
+            Failed: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            (${{ github.ref_name }}) 
+            - ${{ github.job }} failed
+
+            This is probably a result of `make indexer-v-algod`
+            See [this wiki page](https://algorand.atlassian.net/wiki/spaces/LAMPREY/pages/2339536905/Nightly+Indexer+Tests#Q%3A-What-does-it-mean-that-the-nightly-test-failed-because-of-make-indexer-v-algod%3F) for more details
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
