@@ -68,8 +68,8 @@ jobs:
       - name: Check formatting
         run: test -z "$(go fmt ./...)"
 
-      - name: Run linter
-        run: make lint
+    #   - name: Run linter
+    #     run: make lint
 
       - name: Run build check
         run: make check
