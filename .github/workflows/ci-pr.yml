@@ -86,9 +86,6 @@ jobs:
       - name: Run test-generate
         run: make test-generate
 
-      - name: Run fakepackage
-        run: make fakepackage
-
       - name: Install go-algorand stable binaries
         run: |
           wget https://raw.githubusercontent.com/algorand/go-algorand/rel/stable/cmd/updater/update.sh && chmod 744 update.sh
