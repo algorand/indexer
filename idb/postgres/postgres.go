@@ -1572,6 +1572,9 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 						NumByteSlice: apps[i].LocalStateSchema.NumByteSlice,
 						NumUint:      apps[i].LocalStateSchema.NumUint,
 					}
+
+					aout[outpos].Params.Version = omitEmpty(apps[i].Version)
+
 					if apps[i].ExtraProgramPages > 0 {
 						epp := uint64(apps[i].ExtraProgramPages)
 						aout[outpos].Params.ExtraProgramPages = &epp
@@ -2528,6 +2531,8 @@ func (db *IndexerDb) yieldApplicationsThread(rows pgx.Rows, out chan idb.Applica
 			NumByteSlice: ap.LocalStateSchema.NumByteSlice,
 			NumUint:      ap.LocalStateSchema.NumUint,
 		}
+
+		rec.Application.Params.Version = omitEmpty(ap.Version)
 
 		if ap.ExtraProgramPages != 0 {
 			rec.Application.Params.ExtraProgramPages = new(uint64)
