@@ -143,7 +143,7 @@ commands:
           name: Install go-algorand stable binaries
           command: |
             wget https://raw.githubusercontent.com/algorand/go-algorand/rel/stable/cmd/updater/update.sh && chmod 744 update.sh
-            ./update.sh -i -c stable -n -d ./ -p /usr/local/go/bin
+            ./update.sh -i -c nightly -n -d ./ -p /usr/local/go/bin
             export GOPATH=/usr/local/go/
       - run: make e2e
       - run: make e2e-filter-test
