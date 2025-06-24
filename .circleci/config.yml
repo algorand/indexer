@@ -140,7 +140,7 @@ commands:
   run_e2e_tests:
     steps:
       - run:
-          name: Install go-algorand stable binaries
+          name: Install go-algorand binaries
           command: |
             wget https://raw.githubusercontent.com/algorand/go-algorand/rel/stable/cmd/updater/update.sh && chmod 744 update.sh
             ./update.sh -i -c nightly -n -d ./ -p /usr/local/go/bin
