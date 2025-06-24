@@ -290,6 +290,9 @@ func equals(indexer, algod generated.Account) (differences []string) {
 			if !stateSchemePtrEqual(algodCreatedApp.Params.GlobalStateSchema, indexerCreatedApp.Params.GlobalStateSchema) {
 				differences = append(differences, fmt.Sprintf("created-app global-state-schema %d", algodCreatedApp.Id))
 			}
+			if !uint64PtrEqual(algodCreatedApp.Params.Version, indexerCreatedApp.Params.Version) {
+				differences = append(differences, fmt.Sprintf("created-app version %d", algodCreatedApp.Id))
+			}
 			if !uint64PtrEqual(algodCreatedApp.Params.ExtraProgramPages, indexerCreatedApp.Params.ExtraProgramPages) {
 				differences = append(differences, fmt.Sprintf("created-app extra-pages %d", algodCreatedApp.Id))
 			}
