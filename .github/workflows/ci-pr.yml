@@ -12,7 +12,7 @@ env:
   # A stable environment for PRs.
   # Set CHANNEL to nightly and update CI_E2E_FILENAME when adding a new feature.
   # Change back to stable once the new feature is released.
-  CI_E2E_FILENAME: "f99e7b0c/rel-nightly"
+  CI_E2E_FILENAME: "rel-nightly"
   CHANNEL: nightly
 
 jobs:
@@ -82,10 +82,10 @@ jobs:
       - name: Run test-generate
         run: make test-generate
 
-      - name: Install go-algorand stable binaries
+      - name: Install go-algorand nightly binaries
         run: |
           wget https://raw.githubusercontent.com/algorand/go-algorand/rel/stable/cmd/updater/update.sh && chmod 744 update.sh
-          ./update.sh -i -c stable -n -d ./ -p /usr/local/go/bin
+          ./update.sh -i -c nightly -n -d ./ -p /usr/local/go/bin
           export GOPATH=/usr/local/go/
 
       - name: Run e2e tests
