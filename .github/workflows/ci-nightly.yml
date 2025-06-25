@@ -3,12 +3,13 @@ name: CI - Nightly Test Suite
 on:
   schedule:
     - cron: "37 3 * * *"  # Run at 3:37 AM UTC daily
-  workflow_dispatch:  # Allow manual trigger
+  workflow_dispatch:
 
 env:
   GO_VERSION: "1.23.3"
   CI_E2E_FILENAME: "rel-nightly"
   CHANNEL: nightly
+  SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
 
 jobs:
   test_nightly:
@@ -36,17 +37,14 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0  # Fetch full history
-
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
-
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.x'
-
       - name: Install dependencies
         run: |
           sudo apt update
@@ -55,61 +53,57 @@ jobs:
           pip3 install e2e_tests/
           echo "$HOME/.local/bin" >> $GITHUB_PATH
           echo "/usr/local/go/bin" >> $GITHUB_PATH
-
       - name: Install golangci-lint
         run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.0
-
       - name: Check formatting
         run: test -z "$(go fmt ./...)"
-
       - name: Run linter
         run: make lint
-
       - name: Run build check
         run: make check
-
       - name: Set up test environment
         run: |
           echo 'TEST_PG=host=localhost user=pguser password=pgpass dbname=mydb port=5555 sslmode=disable' >> $GITHUB_ENV
           echo 'TEST_FLAG=-p 1' >> $GITHUB_ENV
-
       - name: Run tests
         run: make test
         timeout-minutes: 15
-
       - name: Run test-generate
         run: make test-generate
-
       - name: Install go-algorand ${{ env.CHANNEL }} binaries
         run: |
           wget https://raw.githubusercontent.com/algorand/go-algorand/rel/stable/cmd/updater/update.sh && chmod 744 update.sh
           ./update.sh -i -c ${{ env.CHANNEL }} -n -d ./ -p /usr/local/go/bin
           export GOPATH=/usr/local/go/
-
       - name: Run e2e tests (nightly)
         run: |
           make e2e
           make e2e-filter-test
-
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
           file: ./coverage.txt
           flags: nightly
           name: codecov-nightly
-
       - name: Notify Slack on failure
-        if: failure()
-        uses: 8398a7/action-slack@v3
+        if: failure() && env.SLACK_WEBHOOK != ''
+        uses: slackapi/slack-github-action@v2.1.0
         with:
-          status: failure
-          channel: '#lamprey-builds'  # C056CK9PYRY
-          text: |
-            Failed: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-            (${{ github.ref_name }}) 
-            - ${{ github.job }} failed
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook: ${{ secrets.SLACK_WEBHOOK }}
+          webhook-type: webhook-trigger
+          payload: |
+            {
+              "text": "🚨 Indexer Failure Alert",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "test_nightly Job Failure:\n* Branch: `${{ github.ref_name }}`\n* Run URL:  ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  }
+                }
+              ]
+            }
 
   indexer_vs_algod_nightly:
     runs-on: "ubuntu-24.04"
@@ -121,17 +115,14 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0  # Fetch full history
-
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
-
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.x'
-
       - name: Install dependencies
         run: |
           sudo apt update
@@ -140,21 +131,24 @@ jobs:
           pip3 install e2e_tests/
           echo "$HOME/.local/bin" >> $GITHUB_PATH
           echo "/usr/local/go/bin" >> $GITHUB_PATH
-
       - name: Run indexer vs algod tests
         run: make indexer-v-algod
-
       - name: Notify Slack on failure
-        if: failure()
-        uses: 8398a7/action-slack@v3
+        if: failure() && env.SLACK_WEBHOOK != ''
+        uses: slackapi/slack-github-action@v2.1.0
         with:
-          status: failure
-          channel: '#lamprey-builds'  # C056CK9PYRY
-          text: |
-            Failed: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-            (${{ github.ref_name }}) 
-            - ${{ github.job }} failed
-
-            This is probably a result of `make indexer-v-algod`
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook: ${{ secrets.SLACK_WEBHOOK }}
+          webhook-type: webhook-trigger
+          payload: |
+            {
+              "text": "🚨 Indexer Failure Alert",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "indexer_vs_algod_nightly Job Failure:\n* Branch: `${{ github.ref_name }}`\n* Run URL:  ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  }
+                }
+              ]
+            }
