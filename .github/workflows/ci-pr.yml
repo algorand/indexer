@@ -8,7 +8,6 @@ on:
 
 env:
   GO_VERSION: "1.23.3"
-  UBUNTU_IMAGE: "ubuntu-24.04"
   # A stable environment for PRs.
   # Set CHANNEL to nightly and update CI_E2E_FILENAME when adding a new feature.
   # Change back to stable once the new feature is released.
@@ -18,9 +17,6 @@ env:
 jobs:
   test:
     runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        go_version: ["1.23.3"]
     
     services:
       postgres:
@@ -46,7 +42,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: ${{ matrix.go_version }}
+          go-version: ${{ env.GO_VERSION }}
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
@@ -82,10 +78,10 @@ jobs:
       - name: Run test-generate
         run: make test-generate
 
-      - name: Install go-algorand nightly binaries
+      - name: Install go-algorand ${{ env.CHANNEL }} binaries
         run: |
           wget https://raw.githubusercontent.com/algorand/go-algorand/rel/stable/cmd/updater/update.sh && chmod 744 update.sh
-          ./update.sh -i -c nightly -n -d ./ -p /usr/local/go/bin
+          ./update.sh -i -c ${{ env.CHANNEL }} -n -d ./ -p /usr/local/go/bin
           export GOPATH=/usr/local/go/
 
       - name: Run e2e tests

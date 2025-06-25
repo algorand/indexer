@@ -7,17 +7,13 @@ on:
 
 env:
   GO_VERSION: "1.23.3"
-  UBUNTU_IMAGE: "ubuntu-24.04"
   CI_E2E_FILENAME: "rel-nightly"
   CHANNEL: nightly
 
 jobs:
   test_nightly:
-    runs-on: ubuntu-24.04
+    runs-on: "ubuntu-24.04"
     if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
-    strategy:
-      matrix:
-        go_version: ["1.23.3"]
     
     services:
       postgres:
@@ -44,7 +40,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: ${{ matrix.go_version }}
+          go-version: ${{ env.GO_VERSION }}
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -84,10 +80,10 @@ jobs:
       - name: Run test-generate
         run: make test-generate
 
-      - name: Install go-algorand nightly binaries
+      - name: Install go-algorand ${{ env.CHANNEL }} binaries
         run: |
           wget https://raw.githubusercontent.com/algorand/go-algorand/rel/stable/cmd/updater/update.sh && chmod 744 update.sh
-          ./update.sh -i -c nightly -n -d ./ -p /usr/local/go/bin
+          ./update.sh -i -c ${{ env.CHANNEL }} -n -d ./ -p /usr/local/go/bin
           export GOPATH=/usr/local/go/
 
       - name: Run e2e tests (nightly)
@@ -116,7 +112,7 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
   indexer_vs_algod_nightly:
-    runs-on: ubuntu-24.04
+    runs-on: "ubuntu-24.04"
     if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
 
     steps:
@@ -160,6 +156,5 @@ jobs:
             - ${{ github.job }} failed
 
             This is probably a result of `make indexer-v-algod`
-            See [this wiki page](https://algorand.atlassian.net/wiki/spaces/LAMPREY/pages/2339536905/Nightly+Indexer+Tests#Q%3A-What-does-it-mean-that-the-nightly-test-failed-because-of-make-indexer-v-algod%3F) for more details
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
