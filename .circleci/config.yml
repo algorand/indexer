@@ -173,7 +173,6 @@ commands:
           command: make test
           no_output_timeout: 15m
       - run: make test-generate
-      - run: make fakepackage
 
   run_indexer_vs_algod:
     steps:
