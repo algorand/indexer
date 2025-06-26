@@ -1406,7 +1406,7 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64, op
 		upgradeState := generated.BlockUpgradeState{
 			CurrentProtocol:        string(blockHeader.CurrentProtocol),
 			NextProtocol:           strPtr(string(blockHeader.NextProtocol)),
-			NextProtocolApprovals:  uint64Ptr(blockHeader.NextProtocolApprovals),
+			NextProtocolApprovals:  uint64Ptr(uint64(blockHeader.NextProtocolApprovals)),
 			NextProtocolSwitchOn:   uint64Ptr(uint64(blockHeader.NextProtocolSwitchOn)),
 			NextProtocolVoteBefore: uint64Ptr(uint64(blockHeader.NextProtocolVoteBefore)),
 		}

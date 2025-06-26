@@ -192,7 +192,7 @@ func MakeDisabledMapConfigFromFile(swag *openapi3.T, filePath string) (*Disabled
 func MakeDisplayDisabledMapFromConfig(swag *openapi3.T, mapConfig *DisabledMapConfig, limited bool) *DisplayDisabledMap {
 
 	rval := makeDisplayDisabledMap()
-	for restPath, item := range swag.Paths {
+	for restPath, item := range swag.Paths.Map() {
 
 		for opName, opItem := range item.Operations() {
 
@@ -366,7 +366,7 @@ func (dmc *DisabledMapConfig) validate(swag *openapi3.T) error {
 	potentialRval := makeErrDisabledMapConfig()
 
 	for recordedPath, recordedOp := range dmc.Data {
-		swagPath, exists := swag.Paths[recordedPath]
+		swagPath, exists := swag.Paths.Map()[recordedPath]
 		if !exists {
 			// This means that the rest endpoint itself is mis-spelled
 			potentialRval.BadEntries[recordedPath] = map[string][]string{}
@@ -422,7 +422,7 @@ func MakeDisabledMapFromOA3(swag *openapi3.T, config *DisabledMapConfig) (*Disab
 	}
 
 	rval := MakeDisabledMap()
-	for restPath, item := range swag.Paths {
+	for restPath, item := range swag.Paths.Map() {
 		for opName, opItem := range item.Operations() {
 
 			endpointConfig := makeEndpointConfig()

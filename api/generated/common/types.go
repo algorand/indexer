@@ -287,6 +287,9 @@ type ApplicationParams struct {
 
 	// LocalStateSchema Specifies maximums on the number of each type that may be stored.
 	LocalStateSchema *ApplicationStateSchema `json:"local-state-schema,omitempty"`
+
+	// Version the number of updates to the application programs
+	Version *uint64 `json:"version,omitempty"`
 }
 
 // ApplicationStateSchema Specifies maximums on the number of each type that may be stored.

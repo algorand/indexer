@@ -28,7 +28,7 @@ func transactionAssetID(stxnad *types.SignedTxnWithAD, intra uint, block *types.
 	case types.ApplicationCallTx:
 		assetid = uint64(stxnad.Txn.ApplicationID)
 		if assetid == 0 {
-			assetid = stxnad.ApplyData.ApplicationID
+			assetid = uint64(stxnad.ApplyData.ApplicationID)
 		}
 		if assetid == 0 {
 			if block == nil {
@@ -42,7 +42,7 @@ func transactionAssetID(stxnad *types.SignedTxnWithAD, intra uint, block *types.
 	case types.AssetConfigTx:
 		assetid = uint64(stxnad.Txn.ConfigAsset)
 		if assetid == 0 {
-			assetid = stxnad.ApplyData.ConfigAsset
+			assetid = uint64(stxnad.ApplyData.ConfigAsset)
 		}
 		if assetid == 0 {
 			if block == nil {
