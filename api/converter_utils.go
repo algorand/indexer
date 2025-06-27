@@ -125,6 +125,21 @@ func decodeType(str *string, errorArr []string) (t idb.TxnTypeEnum, err []string
 	return 0, errorArr
 }
 
+// decodeGroupID decodes a transaction Group ID from base64 to its byte representation.
+func decodeGroupID(str *string, field string, errorArr []string) ([]byte, []string) {
+	if str != nil {
+		data, err := base64.StdEncoding.DecodeString(*str)
+		if err != nil {
+			return nil, append(errorArr, fmt.Sprintf("%s: '%s'", errUnableToParseBase64, field))
+		}
+		if len(data) != len(sdk.Digest{}) {
+			return nil, append(errorArr, fmt.Sprintf("%s: '%s'", errBadGroupIDLen, field))
+		}
+		return data, errorArr
+	}
+	return nil, errorArr
+}
+
 ////////////////////////////////////////////////////
 // Helpers to convert to and from generated types //
 ////////////////////////////////////////////////////
@@ -825,6 +840,9 @@ func (si *ServerImplementation) transactionParamsToTransactionFilter(params gene
 
 	// Byte array
 	filter.NotePrefix, errorArr = decodeBase64Byte(params.NotePrefix, "note-prefix", errorArr)
+
+	// Group ID
+	filter.GroupID, errorArr = decodeGroupID(params.GroupId, "group-id", errorArr)
 
 	// Time
 	if params.AfterTime != nil {

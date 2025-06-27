@@ -2724,3 +2724,84 @@ func TestPNAHeader(t *testing.T) {
 	require.Equal(t, resp.Header.Get("Access-Control-Allow-Private-Network"), "true")
 	defer resp.Body.Close()
 }
+
+// TestTxnSearchByGroupID exercises the `group-id` parameter in `GET /v2/transactions`.
+func TestTxnSearchByGroupID(t *testing.T) {
+
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+
+	// Ingest a block that contains 4 transactions:
+	// - Q7TE63GWNAD7SAYZ2M22RFY2JE5W3VJRGBKGFS2YS5SX5RACJJNQ
+	//    (txn group A62qVigWtWo0laUzcE1iZY8+KXWzK1vSkgwN/eKgvjc=)
+	// - AXBJE3C5ZD6ZUW6ROJRJNMP6A6HQSE7TDKUXPEQ2GEFTXFR3AWLQ
+	//    (txn group A62qVigWtWo0laUzcE1iZY8+KXWzK1vSkgwN/eKgvjc=)
+	// - 7ZLDLORXW5BH575FEAMHMPWOW4NYRRE3UI6UGSJEBL2WRMWQLXRA
+	//    (txn group A62qVigWtWo0laUzcE1iZY8+KXWzK1vSkgwN/eKgvjc=)
+	// - CVZM3RVPWMEFKPEZH43U3PEXKGIPQY7WMHCTSBRM47WJTYRKOOIQ
+	//    (does not belong to any group)
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/TxnSearchByGroupID.vb")
+	require.NoError(t, err)
+	err = db.AddBlock(&vb)
+	require.NoError(t, err)
+
+	// Define test cases in a table driven style
+	testcases := []struct {
+		InputFilter   generated.SearchForTransactionsParams
+		ExpectedTXIDs []string
+	}{
+		// Searching for transactions without the `group-id` filter, should return all transactions in the database.
+		{
+			InputFilter: generated.SearchForTransactionsParams{},
+			ExpectedTXIDs: []string{
+				"Q7TE63GWNAD7SAYZ2M22RFY2JE5W3VJRGBKGFS2YS5SX5RACJJNQ",
+				"AXBJE3C5ZD6ZUW6ROJRJNMP6A6HQSE7TDKUXPEQ2GEFTXFR3AWLQ",
+				"7ZLDLORXW5BH575FEAMHMPWOW4NYRRE3UI6UGSJEBL2WRMWQLXRA",
+				"CVZM3RVPWMEFKPEZH43U3PEXKGIPQY7WMHCTSBRM47WJTYRKOOIQ",
+			},
+		},
+		// Searching for an existing group ID, should return exactly all transactions in the group.
+		{
+			InputFilter: generated.SearchForTransactionsParams{GroupId: strPtr("A62qVigWtWo0laUzcE1iZY8+KXWzK1vSkgwN/eKgvjc=")},
+			ExpectedTXIDs: []string{
+				"Q7TE63GWNAD7SAYZ2M22RFY2JE5W3VJRGBKGFS2YS5SX5RACJJNQ",
+				"AXBJE3C5ZD6ZUW6ROJRJNMP6A6HQSE7TDKUXPEQ2GEFTXFR3AWLQ",
+				"7ZLDLORXW5BH575FEAMHMPWOW4NYRRE3UI6UGSJEBL2WRMWQLXRA",
+			},
+		},
+		// Searching for a non-existing group ID, should return no transactions.
+		{
+			InputFilter:   generated.SearchForTransactionsParams{GroupId: strPtr("GGtw1eCxEL5umVf584LH2dZzWG6Dk48BT5ThNZkhwoE=")},
+			ExpectedTXIDs: nil,
+		},
+	}
+
+	// Exercise every test case
+	for _, tc := range testcases {
+
+		// Build the HTTP request
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath("/v2/transactions")
+
+		// Call the handler for `GET /v2/transactions`
+		api := testServerImplementation(db)
+		err = api.SearchForTransactions(c, tc.InputFilter)
+		require.NoError(t, err)
+
+		// Make assertions about the response
+		require.Equal(t, http.StatusOK, rec.Code)
+		var response generated.TransactionsResponse
+		err = json.Decode(rec.Body.Bytes(), &response)
+		require.NoError(t, err)
+
+		// Make sure the returned TXIDs match the expectations
+		require.Len(t, response.Transactions, len(tc.ExpectedTXIDs))
+		for i := range tc.ExpectedTXIDs {
+			require.NotNil(t, response.Transactions[i].Id)
+			require.Equal(t, tc.ExpectedTXIDs[i], *(response.Transactions[i].Id))
+		}
+	}
+}

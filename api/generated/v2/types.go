@@ -1332,6 +1332,9 @@ type ExcludeCloseTo = bool
 // Expired defines model for expired.
 type Expired = []string
 
+// GroupId defines model for group-id.
+type GroupId = string
+
 // HeaderOnly defines model for header-only.
 type HeaderOnly = bool
 
@@ -1945,6 +1948,9 @@ type SearchForTransactionsParams struct {
 	// * msig - MultiSig
 	// * lsig - LogicSig
 	SigType *SearchForTransactionsParamsSigType `form:"sig-type,omitempty" json:"sig-type,omitempty"`
+
+	// GroupId Lookup transactions by group ID. This field must be base64-encoded, and afterwards, base64 characters that are URL-unsafe (i.e. =, /, +) must be URL-encoded
+	GroupId *string `form:"group-id,omitempty" json:"group-id,omitempty"`
 
 	// Txid Lookup the specific transaction by ID.
 	Txid *string `form:"txid,omitempty" json:"txid,omitempty"`
