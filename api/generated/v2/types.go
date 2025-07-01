@@ -626,6 +626,15 @@ type BoxDescriptor struct {
 	Name []byte `json:"name"`
 }
 
+// BoxReference BoxReference names a box by its name and the application ID it belongs to.
+type BoxReference struct {
+	// ApplicationId Application ID to which the box belongs.
+	ApplicationId uint64 `json:"application-id"`
+
+	// Name Base64 encoded box name
+	Name []byte `json:"name"`
+}
+
 // EvalDelta Represents a TEAL value delta.
 type EvalDelta struct {
 	// Action \[at\] delta action.
@@ -1051,6 +1060,9 @@ type TransactionApplication struct {
 	// ApprovalProgram \[apap\] Logic executed for every application transaction, except when on-completion is set to "clear". It can read and write global state for the application, as well as account-specific local state. Approval programs may reject the transaction.
 	ApprovalProgram *[]byte `json:"approval-program,omitempty"`
 
+	// BoxReferences \[apbx\] the boxes that can be accessed by this transaction (and others in the same group).
+	BoxReferences *[]BoxReference `json:"box-references,omitempty"`
+
 	// ClearStateProgram \[apsu\] Logic executed for application transactions with on-completion set to "clear". It can read and write global state for the application, as well as account-specific local state. Clear state programs cannot reject the transaction.
 	ClearStateProgram *[]byte `json:"clear-state-program,omitempty"`
 
@@ -1080,6 +1092,9 @@ type TransactionApplication struct {
 	// * update
 	// * delete
 	OnCompletion OnCompletion `json:"on-completion"`
+
+	// RejectVersion \[aprv\] the lowest application version for which this transaction should immediately fail. 0 indicates that no version check should be performed.
+	RejectVersion *uint64 `json:"reject-version,omitempty"`
 }
 
 // TransactionAssetConfig Fields for asset allocation, re-configuration, and destruction.

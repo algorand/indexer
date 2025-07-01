@@ -483,11 +483,29 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 			assets = append(assets, uint64(v))
 		}
 
+		boxRefs := make([]generated.BoxReference, 0)
+		for _, v := range stxn.Txn.BoxReferences {
+			var appID uint64
+			if v.ForeignAppIdx == 0 {
+				appID = uint64(stxn.Txn.ApplicationID)
+			} else if int(v.ForeignAppIdx-1) < len(stxn.Txn.ForeignApps) {
+				// Indexes are 1-based, so we subtract 1
+				appID = uint64(stxn.Txn.ForeignApps[v.ForeignAppIdx-1])
+			} else {
+				continue
+			}
+			boxRefs = append(boxRefs, generated.BoxReference{
+				ApplicationId: appID,
+				Name:          v.Name,
+			})
+		}
+
 		a := generated.TransactionApplication{
 			Accounts:          &accts,
 			ApplicationArgs:   &args,
 			ApplicationId:     uint64(stxn.Txn.ApplicationID),
 			ApprovalProgram:   byteSliceOmitZeroPtr(stxn.Txn.ApprovalProgram),
+			BoxReferences:     &boxRefs,
 			ClearStateProgram: byteSliceOmitZeroPtr(stxn.Txn.ClearStateProgram),
 			ForeignApps:       &apps,
 			ForeignAssets:     &assets,
@@ -501,6 +519,7 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 			},
 			OnCompletion:      onCompletionToTransactionOnCompletion(stxn.Txn.OnCompletion),
 			ExtraProgramPages: uint64PtrOrNil(uint64(stxn.Txn.ExtraProgramPages)),
+			RejectVersion:     uint64PtrOrNil(stxn.Txn.RejectVersion),
 		}
 
 		application = &a

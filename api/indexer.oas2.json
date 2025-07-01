@@ -1852,6 +1852,25 @@
         }
       }
     },
+    "BoxReference": {
+      "description": "BoxReference names a box by its name and the application ID it belongs to.",
+      "type": "object",
+      "required": [
+        "name",
+        "application-id"
+      ],
+      "properties": {
+        "name": {
+          "description": "Base64 encoded box name",
+          "format": "byte",
+          "type": "string"
+        },
+        "application-id": {
+          "description": "Application ID to which the box belongs.",
+          "type": "integer"
+        }
+      }
+    },
     "HealthCheck": {
       "description": "A health check response.",
       "type": "object",
@@ -2251,6 +2270,13 @@
             "x-algorand-format": "Address"
           }
         },
+        "box-references": {
+          "description": "\\[apbx\\] the boxes that can be accessed by this transaction (and others in the same group).",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BoxReference"
+          }
+        },
         "foreign-apps": {
           "description": "\\[apfa\\] Lists the applications in addition to the application-id whose global states may be accessed by this application's approval-program and clear-state-program. The access is read-only.",
           "type": "array",
@@ -2287,6 +2313,10 @@
         },
         "extra-program-pages": {
           "description": "\\[epp\\] specifies the additional app program len requested in pages.",
+          "type": "integer"
+        },
+        "reject-version": {
+          "description": "\\[aprv\\] the lowest application version for which this transaction should immediately fail. 0 indicates that no version check should be performed.",
           "type": "integer"
         }
       }

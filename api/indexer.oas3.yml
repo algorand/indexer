@@ -1531,6 +1531,26 @@
         ],
         "type": "object"
       },
+      "BoxReference": {
+        "description": "BoxReference names a box by its name and the application ID it belongs to.",
+        "properties": {
+          "application-id": {
+            "description": "Application ID to which the box belongs.",
+            "type": "integer"
+          },
+          "name": {
+            "description": "Base64 encoded box name",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "application-id",
+          "name"
+        ],
+        "type": "object"
+      },
       "EvalDelta": {
         "description": "Represents a TEAL value delta.",
         "properties": {
@@ -2208,6 +2228,13 @@
             "type": "string",
             "x-algorand-format": "TEALProgram"
           },
+          "box-references": {
+            "description": "\\[apbx\\] the boxes that can be accessed by this transaction (and others in the same group).",
+            "items": {
+              "$ref": "#/components/schemas/BoxReference"
+            },
+            "type": "array"
+          },
           "clear-state-program": {
             "description": "\\[apsu\\] Logic executed for application transactions with on-completion set to \"clear\". It can read and write global state for the application, as well as account-specific local state. Clear state programs cannot reject the transaction.",
             "format": "byte",
@@ -2241,6 +2268,10 @@
           },
           "on-completion": {
             "$ref": "#/components/schemas/OnCompletion"
+          },
+          "reject-version": {
+            "description": "\\[aprv\\] the lowest application version for which this transaction should immediately fail. 0 indicates that no version check should be performed.",
+            "type": "integer"
           }
         },
         "required": [
