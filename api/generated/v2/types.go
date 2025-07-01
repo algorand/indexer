@@ -628,7 +628,7 @@ type BoxDescriptor struct {
 
 // BoxReference BoxReference names a box by its name and the application ID it belongs to.
 type BoxReference struct {
-	// ApplicationId Application ID to which the box belongs.
+	// ApplicationId Application ID to which the box belongs, or zero if referring to the called application.
 	ApplicationId uint64 `json:"application-id"`
 
 	// Name Base64 encoded box name

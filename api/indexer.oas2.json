@@ -1866,7 +1866,7 @@
           "type": "string"
         },
         "application-id": {
-          "description": "Application ID to which the box belongs.",
+          "description": "Application ID to which the box belongs, or zero if referring to the called application.",
           "type": "integer"
         }
       }
