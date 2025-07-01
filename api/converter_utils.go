@@ -483,7 +483,7 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 			assets = append(assets, uint64(v))
 		}
 
-		boxRefs := make([]generated.BoxReference, 0)
+		boxRefs := make([]generated.BoxReference, len(stxn.Txn.BoxReferences))
 		for _, v := range stxn.Txn.BoxReferences {
 			var appID uint64
 			if v.ForeignAppIdx == 0 {
