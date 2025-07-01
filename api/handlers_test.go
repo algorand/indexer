@@ -517,6 +517,15 @@ func TestFetchTransactions(t *testing.T) {
 			created: 10,
 		},
 		{
+			name: "App Call with Boxes and Reject Version Txn",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_call_box_create.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_call_box_create.response"),
+			},
+		},
+		{
 			name: "Application Clear",
 			txnBytes: [][]byte{
 				loadResourceFileOrPanic("test_resources/app_clear.txn"),
