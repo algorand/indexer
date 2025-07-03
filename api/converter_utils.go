@@ -495,8 +495,8 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 				continue
 			}
 			boxRefs = append(boxRefs, generated.BoxReference{
-				ApplicationId: appID,
-				Name:          v.Name,
+				App:  appID,
+				Name: v.Name,
 			})
 		}
 

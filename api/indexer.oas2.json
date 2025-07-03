@@ -1856,18 +1856,18 @@
       "description": "BoxReference names a box by its name and the application ID it belongs to.",
       "type": "object",
       "required": [
-        "name",
-        "application-id"
+        "app",
+        "name"
       ],
       "properties": {
-        "name": {
-          "description": "Base64 encoded box name",
-          "format": "byte",
-          "type": "string"
-        },
-        "application-id": {
+        "app": {
           "description": "Application ID to which the box belongs, or zero if referring to the called application.",
           "type": "integer"
+        },
+        "name": {
+          "description": "Base64 encoded box name",
+          "type": "string",
+          "format": "byte"
         }
       }
     },

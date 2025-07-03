@@ -1534,7 +1534,7 @@
       "BoxReference": {
         "description": "BoxReference names a box by its name and the application ID it belongs to.",
         "properties": {
-          "application-id": {
+          "app": {
             "description": "Application ID to which the box belongs, or zero if referring to the called application.",
             "type": "integer"
           },
@@ -1546,7 +1546,7 @@
           }
         },
         "required": [
-          "application-id",
+          "app",
           "name"
         ],
         "type": "object"
