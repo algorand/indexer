@@ -142,7 +142,7 @@ func Test_buildTransactionQueryApplicationLogs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			filter := idb.TransactionFilter{
 				RequireApplicationLogs: tt.requireApplicationLogs,
-				ApplicationID:          uintPtr(123),
+				ApplicationID:          uint64Ptr(123),
 				Limit:                  10,
 			}
 
@@ -157,9 +157,3 @@ func Test_buildTransactionQueryApplicationLogs(t *testing.T) {
 		})
 	}
 }
-
-func uintPtr(i uint64) *uint64 {
-	return &i
-}
-
-// Removed the custom containsSubstring function as it is replaced by strings.Contains.
