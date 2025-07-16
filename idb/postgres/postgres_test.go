@@ -149,12 +149,10 @@ func Test_buildTransactionQueryApplicationLogs(t *testing.T) {
 			query, _, err := buildTransactionQuery(filter)
 			require.NoError(t, err)
 
-			containsLogsFilter := containsSubstring(query, "t.txn -> 'dt' -> 'lg' IS NOT NULL")
-
 			if tt.expectedInQuery {
-				assert.True(t, containsLogsFilter, "Query should contain application logs filter")
+				assert.Contains(t, query, "t.txn -> 'dt' -> 'lg' IS NOT NULL", "Query should contain application logs filter")
 			} else {
-				assert.False(t, containsLogsFilter, "Query should not contain application logs filter")
+				assert.NotContains(t, query, "t.txn -> 'dt' -> 'lg' IS NOT NULL", "Query should not contain application logs filter")
 			}
 		})
 	}
