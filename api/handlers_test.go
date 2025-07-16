@@ -833,6 +833,69 @@ func TestLookupApplicationLogsByID(t *testing.T) {
 	}
 }
 
+func TestLookupApplicationLogsByIDWithLimit(t *testing.T) {
+	mockIndexer := &mocks.IndexerDb{}
+	si := testServerImplementation(mockIndexer)
+	si.EnableAddressSearchRoundRewind = true
+
+	txnBytes := loadResourceFileOrPanic("test_resources/app_call_logs.txn")
+	var stxn sdk.SignedTxnWithAD
+	err := msgpack.Decode(txnBytes, &stxn)
+	assert.NoError(t, err)
+
+	roundTime := time.Now()
+	ch := make(chan idb.TxnRow, 1)
+	ch <- idb.TxnRow{
+		Round:     1,
+		Intra:     2,
+		RoundTime: roundTime,
+		Txn:       &stxn,
+		AssetID:   0,
+		Extra: idb.TxnExtra{
+			AssetCloseAmount: 0,
+		},
+		Error: nil,
+	}
+
+	close(ch)
+	var outCh <-chan idb.TxnRow = ch
+	var round uint64 = 1
+
+	// Verify that the filter has RequireApplicationLogs set to true
+	mockIndexer.On("Transactions", mock.Anything, mock.MatchedBy(func(filter idb.TransactionFilter) bool {
+		return filter.RequireApplicationLogs == true && filter.Limit == 1
+	})).Return(outCh, round)
+
+	appIdx := stxn.Txn.ApplicationID
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPath("/v2/applications/:appIdx/logs")
+	c.SetParamNames("appIdx")
+	c.SetParamValues(fmt.Sprintf("%d", appIdx))
+
+	// Test with limit=1
+	params := generated.LookupApplicationLogsByIDParams{Limit: uint64Ptr(1)}
+	err = si.LookupApplicationLogsByID(c, 444, params)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var response generated.ApplicationLogsResponse
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	assert.NoError(t, err)
+
+	assert.Equal(t, uint64(appIdx), response.ApplicationId)
+	assert.NotNil(t, response.LogData)
+	ld := *response.LogData
+	assert.Equal(t, 1, len(ld))
+	assert.Equal(t, sdkcrypto.TransactionIDString(stxn.Txn), ld[0].Txid)
+	assert.Equal(t, len(stxn.ApplyData.EvalDelta.Logs), len(ld[0].Logs))
+	for i, log := range ld[0].Logs {
+		assert.Equal(t, []byte(stxn.ApplyData.EvalDelta.Logs[i]), log)
+	}
+}
+
 func TestTimeouts(t *testing.T) {
 	// function pointers to execute the different DB operations. We really only
 	// care that they timeout with WaitUntil, but the return arguments need to

@@ -119,3 +119,56 @@ func Test_buildTransactionQueryTime(t *testing.T) {
 		})
 	}
 }
+
+func Test_buildTransactionQueryApplicationLogs(t *testing.T) {
+	tests := []struct {
+		name                   string
+		requireApplicationLogs bool
+		expectedInQuery        bool
+	}{
+		{
+			name:                   "RequireApplicationLogs true",
+			requireApplicationLogs: true,
+			expectedInQuery:        true,
+		},
+		{
+			name:                   "RequireApplicationLogs false",
+			requireApplicationLogs: false,
+			expectedInQuery:        false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			filter := idb.TransactionFilter{
+				RequireApplicationLogs: tt.requireApplicationLogs,
+				ApplicationID:          uintPtr(123),
+				Limit:                  10,
+			}
+
+			query, _, err := buildTransactionQuery(filter)
+			require.NoError(t, err)
+
+			containsLogsFilter := containsSubstring(query, "t.txn -> 'dt' -> 'lg' IS NOT NULL")
+
+			if tt.expectedInQuery {
+				assert.True(t, containsLogsFilter, "Query should contain application logs filter")
+			} else {
+				assert.False(t, containsLogsFilter, "Query should not contain application logs filter")
+			}
+		})
+	}
+}
+
+func uintPtr(i uint64) *uint64 {
+	return &i
+}
+
+func containsSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}

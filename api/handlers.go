@@ -768,6 +768,8 @@ func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, appl
 	// If there is a match on an inner transaction, return the inner txn's logs
 	// instead of the root txn's logs.
 	filter.SkipInnerTransactionConversion = true
+	// Only return transactions that have application logs
+	filter.RequireApplicationLogs = true
 
 	err = validateTransactionFilter(&filter)
 	if err != nil {
@@ -782,6 +784,7 @@ func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, appl
 
 	var logData []generated.ApplicationLogData
 	for _, txn := range txns {
+		// Since we set RequireApplicationLogs=true, all returned transactions should have logs
 		if txn.Logs != nil && len(*txn.Logs) > 0 {
 			logData = append(logData, generated.ApplicationLogData{
 				Txid: *txn.Id,
