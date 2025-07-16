@@ -162,11 +162,4 @@ func uintPtr(i uint64) *uint64 {
 	return &i
 }
 
-func containsSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}
+// Removed the custom containsSubstring function as it is replaced by strings.Contains.
