@@ -877,7 +877,7 @@ func TestLookupApplicationLogsByIDWithLimit(t *testing.T) {
 
 	// Test with limit=1
 	params := generated.LookupApplicationLogsByIDParams{Limit: uint64Ptr(1)}
-	err = si.LookupApplicationLogsByID(c, 444, params)
+	err = si.LookupApplicationLogsByID(c, appIdx, params)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, rec.Code)
 
