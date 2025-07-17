@@ -57,3 +57,6 @@ coverage.txt
 
 # conduit example
 cmd/conduit/data
+
+# ignore local claude config changes
+CLAUDE.local.md
