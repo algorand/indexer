@@ -685,6 +685,9 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	if tf.SkipInnerTransactions {
 		whereParts = append(whereParts, "t.txid IS NOT NULL")
 	}
+	if tf.RequireApplicationLogs {
+		whereParts = append(whereParts, "t.txn -> 'dt' -> 'lg' IS NOT NULL")
+	}
 
 	// If these flags are true, return the root transaction
 	if tf.SkipInnerTransactionConversion || tf.SkipInnerTransactions {
