@@ -1,4 +1,4 @@
-# Claude Development Guide
+# Agent Development Guide
 
 This file contains essential development commands for the Algorand Indexer project.
 
