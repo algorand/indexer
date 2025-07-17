@@ -295,6 +295,10 @@ type TransactionFilter struct {
 	// If this flag is set to true, then the query returns the block excluding
 	// the transactions
 	HeaderOnly bool
+
+	// If this flag is set to true, then the query only returns transactions
+	// that have application logs (t.txn -> 'dt' -> 'lg' IS NOT NULL)
+	RequireApplicationLogs bool
 }
 
 // AccountQueryOptions is a parameter object with all of the account filter options.
