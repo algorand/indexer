@@ -864,8 +864,9 @@ func TestLookupApplicationLogsByIDWithLimit(t *testing.T) {
 	var round uint64 = 1
 
 	// Verify that the filter has RequireApplicationLogs set to true
+	// The filter.Limit should be requestedLimit + 1 (i.e., 2 when requesting 1)
 	mockIndexer.On("Transactions", mock.Anything, mock.MatchedBy(func(filter idb.TransactionFilter) bool {
-		return filter.RequireApplicationLogs == true && filter.Limit == 1
+		return filter.RequireApplicationLogs == true && filter.Limit == 2
 	})).Return(outCh, round)
 
 	appIdx := stxn.Txn.ApplicationID
@@ -1116,7 +1117,7 @@ func TestApplicationLimits(t *testing.T) {
 					require.Len(t, args, 2)
 					require.IsType(t, idb.ApplicationQuery{}, args[1])
 					params := args[1].(idb.ApplicationQuery)
-					require.Equal(t, params.Limit, tc.expected)
+					require.Equal(t, params.Limit, tc.expected+1) // +1 for pagination detection
 				})
 
 			err := si.SearchForApplications(c, generated.SearchForApplicationsParams{

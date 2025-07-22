@@ -300,7 +300,7 @@ func (si *ServerImplementation) LookupAccountAppLocalStates(ctx echo.Context, ac
 	}
 
 	var next *string
-	if len(apps) > int(requestedLimit) {
+	if len(apps) > int(requestedLimit) && requestedLimit > 0 {
 		next = strPtr(strconv.FormatUint(apps[requestedLimit-1].Id, 10))
 		apps = apps[:requestedLimit]
 	}
@@ -352,7 +352,7 @@ func (si *ServerImplementation) LookupAccountAssets(ctx echo.Context, accountID 
 	}
 
 	var next *string
-	if len(assets) > int(requestedLimit) {
+	if len(assets) > int(requestedLimit) && requestedLimit > 0 {
 		next = strPtr(strconv.FormatUint(assets[requestedLimit-1].AssetId, 10))
 		assets = assets[:requestedLimit]
 	}
@@ -490,7 +490,7 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 
 	// Check if we have more results than requested (indicating more pages exist)
 	var next *string
-	if len(accounts) > int(requestedLimit) {
+	if len(accounts) > int(requestedLimit) && requestedLimit > 0 {
 		// More results exist, so provide next token based on the last result we'll return
 		next = strPtr(accounts[requestedLimit-1].Address)
 		// Truncate results to only return the requested amount
@@ -574,7 +574,7 @@ func (si *ServerImplementation) SearchForApplications(ctx echo.Context, params g
 
 	// Check if we have more results than requested (indicating more pages exist)
 	var next *string
-	if len(apps) > int(requestedLimit) {
+	if len(apps) > int(requestedLimit) && requestedLimit > 0 {
 		// More results exist, so provide next token based on the last result we'll return
 		next = strPtr(strconv.FormatUint(apps[requestedLimit-1].Id, 10))
 		// Truncate results to only return the requested amount
@@ -740,7 +740,7 @@ func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, appl
 	}
 
 	var next *string
-	if len(boxes) > int(requestedLimit) {
+	if len(boxes) > int(requestedLimit) && requestedLimit > 0 {
 		finalNameBytes := boxes[requestedLimit-1].Name
 		if finalNameBytes != nil {
 			encoded := base64.StdEncoding.EncodeToString(finalNameBytes)
@@ -915,7 +915,7 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID ui
 	}
 
 	var next *string
-	if len(balances) > int(requestedLimit) {
+	if len(balances) > int(requestedLimit) && requestedLimit > 0 {
 		next = strPtr(balances[requestedLimit-1].Address)
 		balances = balances[:requestedLimit]
 	}
@@ -987,7 +987,7 @@ func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generat
 
 	// Check if we have more results than requested (indicating more pages exist)
 	var next *string
-	if len(assets) > int(requestedLimit) {
+	if len(assets) > int(requestedLimit) && requestedLimit > 0 {
 		// More results exist, so provide next token based on the last result we'll return
 		next = strPtr(strconv.FormatUint(assets[requestedLimit-1].Index, 10))
 		// Truncate results to only return the requested amount
