@@ -1408,12 +1408,14 @@ func TestPaginationBehavior(t *testing.T) {
 		DefaultBalancesLimit:     1000,
 		DefaultApplicationsLimit: 50,
 		DefaultBlocksLimit:       100,
+		DefaultBoxesLimit:        20,
 		MaxTransactionsLimit:     10000,
 		MaxAccountsLimit:         1000,
 		MaxAssetsLimit:           1000,
 		MaxBalancesLimit:         10000,
 		MaxApplicationsLimit:     1000,
 		MaxBlocksLimit:           1000,
+		MaxBoxesLimit:            100,
 	}
 
 	// Helper function to create server implementation
