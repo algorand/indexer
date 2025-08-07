@@ -639,12 +639,26 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 		}
 	}
 	if tf.AssetAmountGT != nil {
-		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'aamt')::numeric(20) > $%d", partNumber))
+		// Handle asset amount filtering with proper field selection and NULL handling
+		if tf.AssetID != nil && *tf.AssetID == 0 {
+			// For Algo transfers (asset-id=0), use the 'amt' field with COALESCE
+			whereParts = append(whereParts, fmt.Sprintf("COALESCE((t.txn -> 'txn' -> 'amt')::bigint, 0) > $%d", partNumber))
+		} else {
+			// For asset transfers, use the 'aamt' field with COALESCE
+			whereParts = append(whereParts, fmt.Sprintf("COALESCE((t.txn -> 'txn' -> 'aamt')::numeric(20), 0) > $%d", partNumber))
+		}
 		whereArgs = append(whereArgs, *tf.AssetAmountGT)
 		partNumber++
 	}
 	if tf.AssetAmountLT != nil {
-		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'aamt')::numeric(20) < $%d", partNumber))
+		// Handle asset amount filtering with proper field selection and NULL handling
+		if tf.AssetID != nil && *tf.AssetID == 0 {
+			// For Algo transfers (asset-id=0), use the 'amt' field with COALESCE
+			whereParts = append(whereParts, fmt.Sprintf("COALESCE((t.txn -> 'txn' -> 'amt')::bigint, 0) < $%d", partNumber))
+		} else {
+			// For asset transfers, use the 'aamt' field with COALESCE
+			whereParts = append(whereParts, fmt.Sprintf("COALESCE((t.txn -> 'txn' -> 'aamt')::numeric(20), 0) < $%d", partNumber))
+		}
 		whereArgs = append(whereArgs, *tf.AssetAmountLT)
 		partNumber++
 	}
@@ -694,12 +708,14 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 		partNumber++
 	}
 	if tf.AlgosGT != nil {
-		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'amt')::bigint > $%d", partNumber))
+		// Handle Algo amount filtering with COALESCE for NULL values
+		whereParts = append(whereParts, fmt.Sprintf("COALESCE((t.txn -> 'txn' -> 'amt')::bigint, 0) > $%d", partNumber))
 		whereArgs = append(whereArgs, *tf.AlgosGT)
 		partNumber++
 	}
 	if tf.AlgosLT != nil {
-		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'amt')::bigint < $%d", partNumber))
+		// Handle Algo amount filtering with COALESCE for NULL values
+		whereParts = append(whereParts, fmt.Sprintf("COALESCE((t.txn -> 'txn' -> 'amt')::bigint, 0) < $%d", partNumber))
 		whereArgs = append(whereArgs, *tf.AlgosLT)
 		partNumber++
 	}

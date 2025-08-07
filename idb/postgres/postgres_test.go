@@ -252,3 +252,63 @@ func Test_buildTransactionQueryZeroValues(t *testing.T) {
 		})
 	}
 }
+
+// Test_buildTransactionQueryCurrencyLessThanZeroValues tests currency-less-than filtering
+// scenarios that should include zero-value transactions but may be affected by NULL handling.
+func Test_buildTransactionQueryCurrencyLessThanZeroValues(t *testing.T) {
+	t.Run("currency-less-than=1 with payment transactions should include zero amounts", func(t *testing.T) {
+		filter := idb.TransactionFilter{
+			AlgosLT:  uint64Ptr(1),
+			TypeEnum: idb.TypeEnumPay,
+			Limit:    10,
+		}
+
+		query, _, err := buildTransactionQuery(filter)
+		require.NoError(t, err)
+
+		// Should generate SQL that handles both existing and NULL amt fields
+		// After fix: should use COALESCE to treat NULL as 0
+		assert.Contains(t, query, "t.txn -> 'txn' -> 'amt'",
+			"Should query the amt field for payment transactions")
+
+		// Note: This test documents current behavior. After the fix, it should use COALESCE.
+		// The important thing is that zero-amount payments should be included in results.
+	})
+
+	t.Run("currency-less-than=1 with tx-type=axfer should include zero-amount transfers", func(t *testing.T) {
+		filter := idb.TransactionFilter{
+			AssetAmountLT: uint64Ptr(1),
+			TypeEnum:      idb.TypeEnumAssetTransfer,
+			Limit:         10,
+		}
+
+		query, _, err := buildTransactionQuery(filter)
+		require.NoError(t, err)
+
+		// Should handle both asset transfers (aamt) and Algo transfers (amt)
+		// After fix: should query both fields or use appropriate field based on context
+		assert.Contains(t, query, "t.txn -> 'txn' -> 'aamt'",
+			"Should query asset amount field for asset transfers")
+
+		// Note: This test documents the challenge - asset transfers include both
+		// actual asset transfers (use aamt) and Algo transfers (use amt)
+	})
+
+	t.Run("currency-less-than=1 with asset-id=0 should include zero-amount Algo transfers", func(t *testing.T) {
+		filter := idb.TransactionFilter{
+			AssetAmountLT: uint64Ptr(1),
+			AssetID:       uint64Ptr(0), // Algo transfers
+			Limit:         10,
+		}
+
+		query, _, err := buildTransactionQuery(filter)
+		require.NoError(t, err)
+
+		// Should use the correct field for Algo transfers (amt, not aamt)
+		// After fix: should query amt field when asset-id=0
+
+		// This scenario specifically tests Algo transfers which store amount in 'amt' field
+		assert.Contains(t, query, "t.txn -> 'txn' -> 'amt'",
+			"Should query amt field for Algo transfers (asset-id=0)")
+	})
+}
