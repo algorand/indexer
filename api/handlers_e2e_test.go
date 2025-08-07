@@ -2826,3 +2826,153 @@ func TestTxnSearchByGroupID(t *testing.T) {
 		}
 	}
 }
+
+// TestApplicationCreationZeroValueFilteringE2E tests application creation zero-value filtering
+// end-to-end with real application transaction data.
+func TestApplicationCreationZeroValueFilteringE2E(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+
+	// Load test data that contains application creation transactions
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/ApplicationHandlers.vb")
+	require.NoError(t, err)
+	err = db.AddBlock(&vb)
+	require.NoError(t, err)
+
+	api := testServerImplementation(db)
+
+	t.Run("application-id=0 should find app creation transactions", func(t *testing.T) {
+		// First, get all application transactions to establish baseline
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodGet, "/v2/transactions?tx-type=appl", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		txType := generated.SearchForTransactionsParamsTxType("appl")
+		params := generated.SearchForTransactionsParams{TxType: &txType}
+		err := api.SearchForTransactions(c, params)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var allApplResponse generated.TransactionsResponse
+		err = json.Decode(rec.Body.Bytes(), &allApplResponse)
+		require.NoError(t, err)
+
+		// Find transactions that have ApplicationID=0 (creation transactions)
+		var creationTransactions []generated.Transaction
+		for _, txn := range allApplResponse.Transactions {
+			if txn.ApplicationTransaction != nil && txn.ApplicationTransaction.ApplicationId == 0 {
+				creationTransactions = append(creationTransactions, txn)
+			}
+		}
+
+		// Fail the test if we don't have creation transactions in the test data
+		// This ensures we're actually testing what we claim to test
+		require.Greater(t, len(creationTransactions), 0,
+			"Test data must contain application creation transactions to validate application-id=0 filtering")
+
+		// Now test the zero-value filtering
+		req2 := httptest.NewRequest(http.MethodGet, "/v2/transactions?application-id=0", nil)
+		rec2 := httptest.NewRecorder()
+		c2 := e.NewContext(req2, rec2)
+
+		applicationID := uint64(0)
+		params2 := generated.SearchForTransactionsParams{ApplicationId: &applicationID}
+		err = api.SearchForTransactions(c2, params2)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec2.Code)
+
+		var filteredResponse generated.TransactionsResponse
+		err = json.Decode(rec2.Body.Bytes(), &filteredResponse)
+		require.NoError(t, err)
+
+		// After our fix, this should find the creation transactions
+		assert.Equal(t, len(creationTransactions), len(filteredResponse.Transactions),
+			"application-id=0 filter should return the same number of transactions as creation transactions found")
+
+		// Verify all returned transactions are application creation transactions
+		for _, txn := range filteredResponse.Transactions {
+			require.NotNil(t, txn.ApplicationTransaction, "All filtered transactions should be application transactions")
+			assert.Equal(t, uint64(0), txn.ApplicationTransaction.ApplicationId,
+				"All filtered transactions should have ApplicationID=0 (creation transactions)")
+		}
+	})
+}
+
+// TestAssetCreationZeroValueFilteringE2E tests asset creation zero-value filtering
+// end-to-end with real asset transaction data.
+func TestAssetCreationZeroValueFilteringE2E(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+
+	// Load test data that contains asset creation transactions
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/AssetHoldings1.vb")
+	require.NoError(t, err)
+	err = db.AddBlock(&vb)
+	require.NoError(t, err)
+
+	api := testServerImplementation(db)
+
+	t.Run("asset-id=0 should find asset creation transactions", func(t *testing.T) {
+		// First, get all asset config transactions to see what we have
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodGet, "/v2/transactions?tx-type=acfg", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		txType := generated.SearchForTransactionsParamsTxType("acfg")
+		params := generated.SearchForTransactionsParams{TxType: &txType}
+		err := api.SearchForTransactions(c, params)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var allAssetConfigResponse generated.TransactionsResponse
+		err = json.Decode(rec.Body.Bytes(), &allAssetConfigResponse)
+		require.NoError(t, err)
+
+		// Look for asset creation transactions (where the transaction creates a new asset)
+		var assetCreationTransactions []generated.Transaction
+		for _, txn := range allAssetConfigResponse.Transactions {
+			if txn.AssetConfigTransaction != nil {
+				// Asset creation transactions have AssetId=0 and a non-zero CreatedAssetIndex
+				if txn.AssetConfigTransaction.AssetId != nil && *txn.AssetConfigTransaction.AssetId == 0 &&
+					txn.CreatedAssetIndex != nil && *txn.CreatedAssetIndex > 0 {
+					assetCreationTransactions = append(assetCreationTransactions, txn)
+				}
+			}
+		}
+
+		// Fail the test if we don't have asset creation transactions in the test data
+		// This ensures we're actually testing what we claim to test
+		require.Greater(t, len(assetCreationTransactions), 0,
+			"Test data must contain asset creation transactions to validate asset-id=0 filtering")
+
+		// Now test the zero-value filtering
+		req2 := httptest.NewRequest(http.MethodGet, "/v2/transactions?asset-id=0", nil)
+		rec2 := httptest.NewRecorder()
+		c2 := e.NewContext(req2, rec2)
+
+		assetID := uint64(0)
+		params2 := generated.SearchForTransactionsParams{AssetId: &assetID}
+		err = api.SearchForTransactions(c2, params2)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec2.Code)
+
+		var filteredResponse generated.TransactionsResponse
+		err = json.Decode(rec2.Body.Bytes(), &filteredResponse)
+		require.NoError(t, err)
+
+		// After our fix, this should find the creation transactions
+		assert.Equal(t, len(assetCreationTransactions), len(filteredResponse.Transactions),
+			"asset-id=0 filter should return the same number of transactions as asset creation transactions found")
+
+		// Verify all returned transactions are asset creation transactions
+		for _, txn := range filteredResponse.Transactions {
+			if txn.AssetConfigTransaction != nil {
+				require.NotNil(t, txn.AssetConfigTransaction.AssetId, "AssetConfigTransaction.AssetId should not be nil")
+				assert.Equal(t, uint64(0), *txn.AssetConfigTransaction.AssetId,
+					"All filtered transactions should have AssetId=0 (creation transactions)")
+			}
+		}
+	})
+}

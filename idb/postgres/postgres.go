@@ -590,19 +590,53 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	}
 	if tf.AssetID != nil || tf.ApplicationID != nil {
 		var creatableID uint64
+		var isApplicationID bool
 		if tf.AssetID != nil {
 			creatableID = *tf.AssetID
+			isApplicationID = false
 			if tf.ApplicationID != nil {
 				if *tf.AssetID != *tf.ApplicationID {
 					return "", nil, fmt.Errorf("cannot search both assetid and appid")
 				}
+				isApplicationID = true // Both are set with same value
 			}
 		} else {
 			creatableID = *tf.ApplicationID
+			isApplicationID = true
 		}
-		whereParts = append(whereParts, fmt.Sprintf("t.asset = $%d", partNumber))
-		whereArgs = append(whereArgs, creatableID)
-		partNumber++
+
+		// For zero values, we need to query the original JSON field to find creation transactions
+		// For non-zero values, we can use the optimized t.asset column
+		if creatableID == 0 {
+			if isApplicationID {
+				// ApplicationID=0 means application creation - query the original field
+				// We also need to restrict to application call transactions
+				whereParts = append(whereParts, fmt.Sprintf("t.typeenum = $%d", partNumber))
+				whereArgs = append(whereArgs, int(idb.TypeEnumApplication))
+				partNumber++
+
+				// For application creation, the apid field might be 0, null, or missing
+				// We check for all these cases
+				whereParts = append(whereParts, fmt.Sprintf("((t.txn -> 'txn' -> 'apid')::bigint = $%d OR (t.txn -> 'txn' -> 'apid') IS NULL)", partNumber))
+				whereArgs = append(whereArgs, creatableID)
+				partNumber++
+			} else {
+				// AssetID=0 can mean:
+				// 1. Asset transfers of Algos (XferAsset=0) - these work with t.asset=0
+				// 2. Asset creation (ConfigAsset=0) - these need original field query
+				// We need to handle both cases with an OR condition
+				whereParts = append(whereParts, fmt.Sprintf("(t.asset = $%d OR (t.typeenum = $%d AND ((t.txn -> 'txn' -> 'caid')::bigint = $%d OR (t.txn -> 'txn' -> 'caid') IS NULL)))", partNumber, partNumber+1, partNumber+2))
+				whereArgs = append(whereArgs, creatableID)                  // For asset transfers (XferAsset=0)
+				whereArgs = append(whereArgs, int(idb.TypeEnumAssetConfig)) // Asset creation transactions
+				whereArgs = append(whereArgs, creatableID)                  // For asset creation (ConfigAsset=0)
+				partNumber += 3
+			}
+		} else {
+			// Non-zero values: continue using the optimized t.asset column
+			whereParts = append(whereParts, fmt.Sprintf("t.asset = $%d", partNumber))
+			whereArgs = append(whereArgs, creatableID)
+			partNumber++
+		}
 	}
 	if tf.AssetAmountGT != nil {
 		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'aamt')::numeric(20) > $%d", partNumber))
