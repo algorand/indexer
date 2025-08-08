@@ -679,9 +679,7 @@ func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, appl
 	q := idb.ApplicationBoxQuery{
 		ApplicationID: applicationID,
 		OmitValues:    true,
-	}
-	if params.Limit != nil {
-		q.Limit = *params.Limit
+		Limit:         min(uintOrDefaultValue(params.Limit, si.opts.DefaultBoxesLimit), si.opts.MaxBoxesLimit),
 	}
 	if params.Next != nil {
 		encodedBoxName := *params.Next

@@ -1125,6 +1125,64 @@ func TestApplicationLimits(t *testing.T) {
 	}
 }
 
+func TestBoxLimits(t *testing.T) {
+	testcases := []struct {
+		name     string
+		limit    *uint64
+		expected uint64
+	}{
+		{
+			name:     "Default",
+			limit:    nil,
+			expected: defaultOpts.DefaultBoxesLimit,
+		},
+		{
+			name:     "Max",
+			limit:    uint64Ptr(math.MaxUint64),
+			expected: defaultOpts.MaxBoxesLimit,
+		},
+		{
+			name:     "Within bounds",
+			limit:    uint64Ptr(500),
+			expected: 500,
+		},
+	}
+
+	for _, tc := range testcases {
+
+		// Mock backend to capture default limits
+		mockIndexer := &mocks.IndexerDb{}
+		si := testServerImplementation(mockIndexer)
+		si.timeout = 5 * time.Millisecond
+
+		t.Run(tc.name, func(t *testing.T) {
+			// Setup context...
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			rec1 := httptest.NewRecorder()
+			c := e.NewContext(req, rec1)
+
+			// check parameters passed to the backend
+			ch := make(chan idb.ApplicationBoxRow)
+			close(ch) // Close immediately so fetchApplicationBoxes returns no results
+			mockIndexer.
+				On("ApplicationBoxes", mock.Anything, mock.Anything).
+				Return((<-chan idb.ApplicationBoxRow)(ch), uint64(0)).
+				Run(func(args mock.Arguments) {
+					require.Len(t, args, 2)
+					require.IsType(t, idb.ApplicationBoxQuery{}, args[1])
+					params := args[1].(idb.ApplicationBoxQuery)
+					require.Equal(t, params.Limit, tc.expected)
+				})
+
+			err := si.SearchForApplicationBoxes(c, uint64(1), generated.SearchForApplicationBoxesParams{
+				Limit: tc.limit,
+			})
+			require.NoError(t, err)
+		})
+	}
+}
+
 func TestBigNumbers(t *testing.T) {
 
 	testcases := []struct {
