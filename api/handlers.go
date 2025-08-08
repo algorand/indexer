@@ -800,18 +800,20 @@ func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, appl
 	}
 
 	// Fetch the transactions
-	txns, next, round, err := si.fetchTransactions(ctx.Request().Context(), filter)
+	txns, next, round, rawResultCount, err := si.fetchTransactions(ctx.Request().Context(), filter)
 	if err != nil {
 		return indexerError(ctx, fmt.Errorf("%s: %w", errTransactionSearch, err))
 	}
 
 	// Check if we have more results than requested (indicating more pages exist)
 	var nextToken *string
-	if len(txns) > int(effectiveLimit) {
-		// More results exist, so we need to provide a next token
+	if rawResultCount > int(effectiveLimit) && effectiveLimit > 0 {
+		// More results exist based on raw database count, so we need to provide a next token
 		nextToken = strPtr(next)
 		// Truncate results to only return the requested amount
-		txns = txns[:effectiveLimit]
+		if len(txns) > int(effectiveLimit) {
+			txns = txns[:effectiveLimit]
+		}
 	}
 
 	var logData []generated.ApplicationLogData
@@ -1048,7 +1050,7 @@ func (si *ServerImplementation) LookupTransaction(ctx echo.Context, txid string)
 	}
 
 	// Fetch the transactions
-	txns, _, round, err := si.fetchTransactions(ctx.Request().Context(), filter)
+	txns, _, round, _, err := si.fetchTransactions(ctx.Request().Context(), filter)
 	if err != nil {
 		return indexerError(ctx, fmt.Errorf("%s: %w", errTransactionSearch, err))
 	}
@@ -1182,19 +1184,21 @@ func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params g
 	}
 
 	// Fetch the transactions
-	txns, next, round, err := si.fetchTransactions(ctx.Request().Context(), filter)
+	txns, next, round, rawResultCount, err := si.fetchTransactions(ctx.Request().Context(), filter)
 	if err != nil {
 		return indexerError(ctx, fmt.Errorf("%s: %w", errTransactionSearch, err))
 	}
 
 	// Check if we have more results than requested (indicating more pages exist)
 	var nextToken *string
-	if len(txns) > int(effectiveLimit) {
-		// More results exist, so we need to provide a next token
+	if rawResultCount > int(effectiveLimit) && effectiveLimit > 0 {
+		// More results exist based on raw database count, so we need to provide a next token
 		// The fetchTransactions function handles next token generation internally
 		nextToken = strPtr(next)
 		// Truncate results to only return the requested amount
-		txns = txns[:effectiveLimit]
+		if len(txns) > int(effectiveLimit) {
+			txns = txns[:effectiveLimit]
+		}
 	}
 	// If len(txns) <= effectiveLimit, nextToken stays nil (no more results)
 
@@ -1628,10 +1632,12 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 
 // fetchTransactions is used to query the backend for transactions, and compute the next token
 // If returnInnerTxnOnly is false, then the root txn is returned for a inner txn match.
-func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter idb.TransactionFilter) ([]generated.Transaction, string, uint64 /*round*/, error) {
+// Returns: transactions, nextToken, round, rawResultCount, error
+func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter idb.TransactionFilter) ([]generated.Transaction, string, uint64 /*round*/, int /*rawResultCount*/, error) {
 	var round uint64
 	var nextToken string
 	results := make([]generated.Transaction, 0)
+	var rawResultCount int
 	err := callWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
 		var txchan <-chan idb.TxnRow
 		txchan, round = si.db.Transactions(ctx, filter)
@@ -1639,6 +1645,8 @@ func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter id
 		rootTxnDedupeMap := make(map[string]struct{})
 		var lastTxrow idb.TxnRow
 		for txrow := range txchan {
+			rawResultCount++ // Count every row from database before deduplication
+
 			tx, err := txnRowToTransaction(txrow)
 			if err != nil {
 				return err
@@ -1667,10 +1675,10 @@ func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter id
 		return err
 	})
 	if err != nil {
-		return nil, "", 0, err
+		return nil, "", 0, 0, err
 	}
 
-	return results, nextToken, round, nil
+	return results, nextToken, round, rawResultCount, nil
 }
 
 //////////////////////
