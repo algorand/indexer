@@ -1,7 +1,6 @@
 package api
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -25,7 +24,6 @@ import (
 	"github.com/algorand/indexer/v3/types"
 
 	sdkcrypto "github.com/algorand/go-algorand-sdk/v2/crypto"
-	algorandJson "github.com/algorand/go-algorand-sdk/v2/encoding/json"
 	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
 	sdk "github.com/algorand/go-algorand-sdk/v2/types"
 )
@@ -864,9 +862,8 @@ func TestLookupApplicationLogsByIDWithLimit(t *testing.T) {
 	var round uint64 = 1
 
 	// Verify that the filter has RequireApplicationLogs set to true
-	// The filter.Limit should be requestedLimit + 1 (i.e., 2 when requesting 1)
 	mockIndexer.On("Transactions", mock.Anything, mock.MatchedBy(func(filter idb.TransactionFilter) bool {
-		return filter.RequireApplicationLogs == true && filter.Limit == 2
+		return filter.RequireApplicationLogs == true && filter.Limit == 1
 	})).Return(outCh, round)
 
 	appIdx := stxn.Txn.ApplicationID
@@ -1117,10 +1114,68 @@ func TestApplicationLimits(t *testing.T) {
 					require.Len(t, args, 2)
 					require.IsType(t, idb.ApplicationQuery{}, args[1])
 					params := args[1].(idb.ApplicationQuery)
-					require.Equal(t, params.Limit, tc.expected+1) // +1 for pagination detection
+					require.Equal(t, params.Limit, tc.expected)
 				})
 
 			err := si.SearchForApplications(c, generated.SearchForApplicationsParams{
+				Limit: tc.limit,
+			})
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestBoxLimits(t *testing.T) {
+	testcases := []struct {
+		name     string
+		limit    *uint64
+		expected uint64
+	}{
+		{
+			name:     "Default",
+			limit:    nil,
+			expected: defaultOpts.DefaultBoxesLimit,
+		},
+		{
+			name:     "Max",
+			limit:    uint64Ptr(math.MaxUint64),
+			expected: defaultOpts.MaxBoxesLimit,
+		},
+		{
+			name:     "Within bounds",
+			limit:    uint64Ptr(500),
+			expected: 500,
+		},
+	}
+
+	for _, tc := range testcases {
+
+		// Mock backend to capture default limits
+		mockIndexer := &mocks.IndexerDb{}
+		si := testServerImplementation(mockIndexer)
+		si.timeout = 5 * time.Millisecond
+
+		t.Run(tc.name, func(t *testing.T) {
+			// Setup context...
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			rec1 := httptest.NewRecorder()
+			c := e.NewContext(req, rec1)
+
+			// check parameters passed to the backend
+			ch := make(chan idb.ApplicationBoxRow)
+			close(ch) // Close immediately so fetchApplicationBoxes returns no results
+			mockIndexer.
+				On("ApplicationBoxes", mock.Anything, mock.Anything).
+				Return((<-chan idb.ApplicationBoxRow)(ch), uint64(0)).
+				Run(func(args mock.Arguments) {
+					require.Len(t, args, 2)
+					require.IsType(t, idb.ApplicationBoxQuery{}, args[1])
+					params := args[1].(idb.ApplicationBoxQuery)
+					require.Equal(t, params.Limit, tc.expected)
+				})
+
+			err := si.SearchForApplicationBoxes(c, uint64(1), generated.SearchForApplicationBoxesParams{
 				Limit: tc.limit,
 			})
 			require.NoError(t, err)
@@ -1397,632 +1452,4 @@ func TestFetchBlock(t *testing.T) {
 			assert.EqualValues(t, tc.expected, blkOutput)
 		})
 	}
-}
-
-// TestPaginationBehavior tests all 10 endpoints with comprehensive pagination scenarios
-func TestPaginationBehavior(t *testing.T) {
-	defaultOpts := ExtraOptions{
-		DefaultTransactionsLimit: 1000,
-		DefaultAccountsLimit:     100,
-		DefaultAssetsLimit:       100,
-		DefaultBalancesLimit:     1000,
-		DefaultApplicationsLimit: 50,
-		DefaultBlocksLimit:       100,
-		DefaultBoxesLimit:        20,
-		MaxTransactionsLimit:     10000,
-		MaxAccountsLimit:         1000,
-		MaxAssetsLimit:           1000,
-		MaxBalancesLimit:         10000,
-		MaxApplicationsLimit:     1000,
-		MaxBlocksLimit:           1000,
-		MaxBoxesLimit:            100,
-	}
-
-	// Helper function to create server implementation
-	createServerImpl := func() (*mocks.IndexerDb, *ServerImplementation) {
-		mockIndexer := &mocks.IndexerDb{}
-		si := &ServerImplementation{
-			db:   mockIndexer,
-			opts: defaultOpts,
-		}
-		return mockIndexer, si
-	}
-
-	// ========== 1. SearchForAccounts ==========
-	t.Run("SearchForAccounts - no next token when results < limit", func(t *testing.T) {
-		mockIndexer, si := createServerImpl()
-
-		accountsChan := make(chan idb.AccountRow, 3)
-		for i := 0; i < 3; i++ {
-			accountsChan <- idb.AccountRow{Account: generated.Account{Address: fmt.Sprintf("ACCOUNT%d", i)}}
-		}
-		close(accountsChan)
-
-		mockIndexer.On("GetAccounts", mock.Anything, mock.MatchedBy(func(opts idb.AccountQueryOptions) bool {
-			return opts.Limit == 4
-		})).Return((<-chan idb.AccountRow)(accountsChan), uint64(100))
-
-		ctx := createTestContext(t, "/v2/accounts?limit=3", nil)
-		err := si.SearchForAccounts(ctx, generated.SearchForAccountsParams{Limit: uint64Ptr(3)})
-		require.NoError(t, err)
-
-		var response generated.AccountsResponse
-		responseBytes := ctx.Response().Writer.(*httptest.ResponseRecorder).Body.Bytes()
-		err = algorandJson.Decode(responseBytes, &response)
-		require.NoError(t, err)
-		require.Len(t, response.Accounts, 3)
-		require.Nil(t, response.NextToken)
-		mockIndexer.AssertExpectations(t)
-	})
-
-	t.Run("SearchForAccounts - has next token when results = limit+1", func(t *testing.T) {
-		mockIndexer, si := createServerImpl()
-
-		accountsChan := make(chan idb.AccountRow, 4)
-		for i := 0; i < 4; i++ {
-			accountsChan <- idb.AccountRow{Account: generated.Account{Address: fmt.Sprintf("ACCOUNT%d", i)}}
-		}
-		close(accountsChan)
-
-		mockIndexer.On("GetAccounts", mock.Anything, mock.MatchedBy(func(opts idb.AccountQueryOptions) bool {
-			return opts.Limit == 4
-		})).Return((<-chan idb.AccountRow)(accountsChan), uint64(100))
-
-		ctx := createTestContext(t, "/v2/accounts?limit=3", nil)
-		err := si.SearchForAccounts(ctx, generated.SearchForAccountsParams{Limit: uint64Ptr(3)})
-		require.NoError(t, err)
-
-		var response generated.AccountsResponse
-		responseBytes := ctx.Response().Writer.(*httptest.ResponseRecorder).Body.Bytes()
-		err = algorandJson.Decode(responseBytes, &response)
-		require.NoError(t, err)
-		require.Len(t, response.Accounts, 3)
-		require.NotNil(t, response.NextToken)
-		mockIndexer.AssertExpectations(t)
-	})
-
-	// ========== 2. SearchForTransactions ==========
-	t.Run("SearchForTransactions - no next token when results < limit", func(t *testing.T) {
-		mockIndexer, si := createServerImpl()
-
-		txnsChan := make(chan idb.TxnRow, 2)
-		for i := 0; i < 2; i++ {
-			var sender sdk.Address
-			sender[31] = byte(i)
-			txnsChan <- idb.TxnRow{
-				Round: uint64(1000 + i), Intra: i, RoundTime: time.Now(),
-				Txn: &sdk.SignedTxnWithAD{
-					SignedTxn: sdk.SignedTxn{Txn: sdk.Transaction{Type: sdk.PaymentTx, Header: sdk.Header{Sender: sender}}},
-					ApplyData: sdk.ApplyData{ApplicationID: 1},
-				},
-			}
-		}
-		close(txnsChan)
-
-		mockIndexer.On("Transactions", mock.Anything, mock.MatchedBy(func(filter idb.TransactionFilter) bool {
-			return filter.Limit == 3
-		})).Return((<-chan idb.TxnRow)(txnsChan), uint64(100))
-
-		ctx := createTestContext(t, "/v2/transactions?limit=2", nil)
-		err := si.SearchForTransactions(ctx, generated.SearchForTransactionsParams{Limit: uint64Ptr(2)})
-		require.NoError(t, err)
-
-		var response generated.TransactionsResponse
-		responseBytes := ctx.Response().Writer.(*httptest.ResponseRecorder).Body.Bytes()
-		err = algorandJson.Decode(responseBytes, &response)
-		require.NoError(t, err)
-		require.Len(t, response.Transactions, 2)
-		require.Nil(t, response.NextToken)
-		mockIndexer.AssertExpectations(t)
-	})
-
-	t.Run("SearchForTransactions - has next token when results = limit+1", func(t *testing.T) {
-		mockIndexer, si := createServerImpl()
-
-		txnsChan := make(chan idb.TxnRow, 3)
-		for i := 0; i < 3; i++ {
-			var sender sdk.Address
-			sender[31] = byte(i)
-			txnsChan <- idb.TxnRow{
-				Round: uint64(1000 + i), Intra: i, RoundTime: time.Now(),
-				Txn: &sdk.SignedTxnWithAD{
-					SignedTxn: sdk.SignedTxn{Txn: sdk.Transaction{Type: sdk.PaymentTx, Header: sdk.Header{Sender: sender}}},
-					ApplyData: sdk.ApplyData{ApplicationID: 1},
-				},
-			}
-		}
-		close(txnsChan)
-
-		mockIndexer.On("Transactions", mock.Anything, mock.MatchedBy(func(filter idb.TransactionFilter) bool {
-			return filter.Limit == 3
-		})).Return((<-chan idb.TxnRow)(txnsChan), uint64(100))
-
-		ctx := createTestContext(t, "/v2/transactions?limit=2", nil)
-		err := si.SearchForTransactions(ctx, generated.SearchForTransactionsParams{Limit: uint64Ptr(2)})
-		require.NoError(t, err)
-
-		var response generated.TransactionsResponse
-		responseBytes := ctx.Response().Writer.(*httptest.ResponseRecorder).Body.Bytes()
-		err = algorandJson.Decode(responseBytes, &response)
-		require.NoError(t, err)
-		require.Len(t, response.Transactions, 2)
-		require.NotNil(t, response.NextToken)
-		mockIndexer.AssertExpectations(t)
-	})
-
-	// ========== 3. SearchForAssets ==========
-	t.Run("SearchForAssets - no next token when results < limit", func(t *testing.T) {
-		mockIndexer, si := createServerImpl()
-
-		assetsChan := make(chan idb.AssetRow, 2)
-		for i := 0; i < 2; i++ {
-			var creator sdk.Address
-			creator[31] = byte(i)
-			assetsChan <- idb.AssetRow{AssetID: uint64(i + 1), Creator: creator[:], Params: sdk.AssetParams{Total: 1000, Decimals: 6}}
-		}
-		close(assetsChan)
-
-		mockIndexer.On("Assets", mock.Anything, mock.MatchedBy(func(filter idb.AssetsQuery) bool {
-			return filter.Limit == 3
-		})).Return((<-chan idb.AssetRow)(assetsChan), uint64(100))
-
-		ctx := createTestContext(t, "/v2/assets?limit=2", nil)
-		err := si.SearchForAssets(ctx, generated.SearchForAssetsParams{Limit: uint64Ptr(2)})
-		require.NoError(t, err)
-
-		var response generated.AssetsResponse
-		responseBytes := ctx.Response().Writer.(*httptest.ResponseRecorder).Body.Bytes()
-		err = algorandJson.Decode(responseBytes, &response)
-		require.NoError(t, err)
-		require.Len(t, response.Assets, 2)
-		require.Nil(t, response.NextToken)
-		mockIndexer.AssertExpectations(t)
-	})
-
-	t.Run("SearchForAssets - has next token when results = limit+1", func(t *testing.T) {
-		mockIndexer, si := createServerImpl()
-
-		assetsChan := make(chan idb.AssetRow, 3)
-		for i := 0; i < 3; i++ {
-			var creator sdk.Address
-			creator[31] = byte(i)
-			assetsChan <- idb.AssetRow{AssetID: uint64(i + 1), Creator: creator[:], Params: sdk.AssetParams{Total: 1000, Decimals: 6}}
-		}
-		close(assetsChan)
-
-		mockIndexer.On("Assets", mock.Anything, mock.MatchedBy(func(filter idb.AssetsQuery) bool {
-			return filter.Limit == 3
-		})).Return((<-chan idb.AssetRow)(assetsChan), uint64(100))
-
-		ctx := createTestContext(t, "/v2/assets?limit=2", nil)
-		err := si.SearchForAssets(ctx, generated.SearchForAssetsParams{Limit: uint64Ptr(2)})
-		require.NoError(t, err)
-
-		var response generated.AssetsResponse
-		responseBytes := ctx.Response().Writer.(*httptest.ResponseRecorder).Body.Bytes()
-		err = algorandJson.Decode(responseBytes, &response)
-		require.NoError(t, err)
-		require.Len(t, response.Assets, 2)
-		require.NotNil(t, response.NextToken)
-		mockIndexer.AssertExpectations(t)
-	})
-
-	// ========== 4. SearchForApplications ==========
-	t.Run("SearchForApplications - no next token when results < limit", func(t *testing.T) {
-		mockIndexer, si := createServerImpl()
-
-		appsChan := make(chan idb.ApplicationRow, 1)
-		appsChan <- idb.ApplicationRow{
-			Application: generated.Application{Id: uint64(1), Params: generated.ApplicationParams{ApprovalProgram: []byte("test")}},
-		}
-		close(appsChan)
-
-		mockIndexer.On("Applications", mock.Anything, mock.MatchedBy(func(filter idb.ApplicationQuery) bool {
-			return filter.Limit == 2
-		})).Return((<-chan idb.ApplicationRow)(appsChan), uint64(100))
-
-		ctx := createTestContext(t, "/v2/applications?limit=1", nil)
-		err := si.SearchForApplications(ctx, generated.SearchForApplicationsParams{Limit: uint64Ptr(1)})
-		require.NoError(t, err)
-
-		var response generated.ApplicationsResponse
-		responseBytes := ctx.Response().Writer.(*httptest.ResponseRecorder).Body.Bytes()
-		err = algorandJson.Decode(responseBytes, &response)
-		require.NoError(t, err)
-		require.Len(t, response.Applications, 1)
-		require.Nil(t, response.NextToken)
-		mockIndexer.AssertExpectations(t)
-	})
-
-	t.Run("SearchForApplications - has next token when results = limit+1", func(t *testing.T) {
-		mockIndexer, si := createServerImpl()
-
-		appsChan := make(chan idb.ApplicationRow, 2)
-		for i := 1; i <= 2; i++ {
-			appsChan <- idb.ApplicationRow{
-				Application: generated.Application{Id: uint64(i), Params: generated.ApplicationParams{ApprovalProgram: []byte("test")}},
-			}
-		}
-		close(appsChan)
-
-		mockIndexer.On("Applications", mock.Anything, mock.MatchedBy(func(filter idb.ApplicationQuery) bool {
-			return filter.Limit == 2
-		})).Return((<-chan idb.ApplicationRow)(appsChan), uint64(100))
-
-		ctx := createTestContext(t, "/v2/applications?limit=1", nil)
-		err := si.SearchForApplications(ctx, generated.SearchForApplicationsParams{Limit: uint64Ptr(1)})
-		require.NoError(t, err)
-
-		var response generated.ApplicationsResponse
-		responseBytes := ctx.Response().Writer.(*httptest.ResponseRecorder).Body.Bytes()
-		err = algorandJson.Decode(responseBytes, &response)
-		require.NoError(t, err)
-		require.Len(t, response.Applications, 1)
-		require.NotNil(t, response.NextToken)
-		mockIndexer.AssertExpectations(t)
-	})
-
-	// ========== 5. LookupAccountAssets ==========
-	t.Run("LookupAccountAssets - no next token when results < limit", func(t *testing.T) {
-		mockIndexer, si := createServerImpl()
-
-		assetsChan := make(chan idb.AssetBalanceRow, 2)
-		for i := 1; i <= 2; i++ {
-			var addr sdk.Address
-			addr[31] = byte(i)
-			assetsChan <- idb.AssetBalanceRow{Address: addr[:], AssetID: uint64(i * 10), Amount: uint64(i * 100)}
-		}
-		close(assetsChan)
-
-		mockIndexer.On("AssetBalances", mock.Anything, mock.MatchedBy(func(query idb.AssetBalanceQuery) bool {
-			return query.Limit == 3
-		})).Return((<-chan idb.AssetBalanceRow)(assetsChan), uint64(100))
-
-		ctx := createTestContext(t, "/v2/accounts/test/assets?limit=2", nil)
-		err := si.LookupAccountAssets(ctx, "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
-			generated.LookupAccountAssetsParams{Limit: uint64Ptr(2)})
-		require.NoError(t, err)
-
-		var response generated.AssetHoldingsResponse
-		responseBytes := ctx.Response().Writer.(*httptest.ResponseRecorder).Body.Bytes()
-		err = algorandJson.Decode(responseBytes, &response)
-		require.NoError(t, err)
-		require.Len(t, response.Assets, 2)
-		require.Nil(t, response.NextToken)
-		mockIndexer.AssertExpectations(t)
-	})
-
-	t.Run("LookupAccountAssets - has next token when results = limit+1", func(t *testing.T) {
-		mockIndexer, si := createServerImpl()
-
-		assetsChan := make(chan idb.AssetBalanceRow, 3)
-		for i := 1; i <= 3; i++ {
-			var addr sdk.Address
-			addr[31] = byte(i)
-			assetsChan <- idb.AssetBalanceRow{Address: addr[:], AssetID: uint64(i * 10), Amount: uint64(i * 100)}
-		}
-		close(assetsChan)
-
-		mockIndexer.On("AssetBalances", mock.Anything, mock.MatchedBy(func(query idb.AssetBalanceQuery) bool {
-			return query.Limit == 3
-		})).Return((<-chan idb.AssetBalanceRow)(assetsChan), uint64(100))
-
-		ctx := createTestContext(t, "/v2/accounts/test/assets?limit=2", nil)
-		err := si.LookupAccountAssets(ctx, "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
-			generated.LookupAccountAssetsParams{Limit: uint64Ptr(2)})
-		require.NoError(t, err)
-
-		var response generated.AssetHoldingsResponse
-		responseBytes := ctx.Response().Writer.(*httptest.ResponseRecorder).Body.Bytes()
-		err = algorandJson.Decode(responseBytes, &response)
-		require.NoError(t, err)
-		require.Len(t, response.Assets, 2)
-		require.NotNil(t, response.NextToken)
-		mockIndexer.AssertExpectations(t)
-	})
-
-	// ========== 6. LookupAssetBalances ==========
-	t.Run("LookupAssetBalances - no next token when results < limit", func(t *testing.T) {
-		mockIndexer, si := createServerImpl()
-
-		balancesChan := make(chan idb.AssetBalanceRow, 2)
-		for i := 1; i <= 2; i++ {
-			var addr sdk.Address
-			addr[31] = byte(i)
-			balancesChan <- idb.AssetBalanceRow{Address: addr[:], AssetID: 1, Amount: uint64(i * 100)}
-		}
-		close(balancesChan)
-
-		mockIndexer.On("AssetBalances", mock.Anything, mock.MatchedBy(func(query idb.AssetBalanceQuery) bool {
-			return query.Limit == 3 && *query.AssetID == 1
-		})).Return((<-chan idb.AssetBalanceRow)(balancesChan), uint64(100))
-
-		ctx := createTestContext(t, "/v2/assets/1/balances?limit=2", nil)
-		err := si.LookupAssetBalances(ctx, 1, generated.LookupAssetBalancesParams{Limit: uint64Ptr(2)})
-		require.NoError(t, err)
-
-		var response generated.AssetBalancesResponse
-		responseBytes := ctx.Response().Writer.(*httptest.ResponseRecorder).Body.Bytes()
-		err = algorandJson.Decode(responseBytes, &response)
-		require.NoError(t, err)
-		require.Len(t, response.Balances, 2)
-		require.Nil(t, response.NextToken)
-		mockIndexer.AssertExpectations(t)
-	})
-
-	t.Run("LookupAssetBalances - has next token when results = limit+1", func(t *testing.T) {
-		mockIndexer, si := createServerImpl()
-
-		balancesChan := make(chan idb.AssetBalanceRow, 3)
-		for i := 1; i <= 3; i++ {
-			var addr sdk.Address
-			addr[31] = byte(i)
-			balancesChan <- idb.AssetBalanceRow{Address: addr[:], AssetID: 1, Amount: uint64(i * 100)}
-		}
-		close(balancesChan)
-
-		mockIndexer.On("AssetBalances", mock.Anything, mock.MatchedBy(func(query idb.AssetBalanceQuery) bool {
-			return query.Limit == 3 && *query.AssetID == 1
-		})).Return((<-chan idb.AssetBalanceRow)(balancesChan), uint64(100))
-
-		ctx := createTestContext(t, "/v2/assets/1/balances?limit=2", nil)
-		err := si.LookupAssetBalances(ctx, 1, generated.LookupAssetBalancesParams{Limit: uint64Ptr(2)})
-		require.NoError(t, err)
-
-		var response generated.AssetBalancesResponse
-		responseBytes := ctx.Response().Writer.(*httptest.ResponseRecorder).Body.Bytes()
-		err = algorandJson.Decode(responseBytes, &response)
-		require.NoError(t, err)
-		require.Len(t, response.Balances, 2)
-		require.NotNil(t, response.NextToken)
-		mockIndexer.AssertExpectations(t)
-	})
-
-	// ========== 7. LookupAccountAppLocalStates ==========
-	t.Run("LookupAccountAppLocalStates - no next token when results < limit", func(t *testing.T) {
-		mockIndexer, si := createServerImpl()
-
-		appsChan := make(chan idb.AppLocalStateRow, 2)
-		for i := 1; i <= 2; i++ {
-			appsChan <- idb.AppLocalStateRow{AppLocalState: generated.ApplicationLocalState{Id: uint64(i)}}
-		}
-		close(appsChan)
-
-		mockIndexer.On("AppLocalState", mock.Anything, mock.MatchedBy(func(query idb.ApplicationQuery) bool {
-			return query.Limit == 3
-		})).Return((<-chan idb.AppLocalStateRow)(appsChan), uint64(100))
-
-		ctx := createTestContext(t, "/v2/accounts/test/apps-local-state?limit=2", nil)
-		err := si.LookupAccountAppLocalStates(ctx, "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
-			generated.LookupAccountAppLocalStatesParams{Limit: uint64Ptr(2)})
-		require.NoError(t, err)
-
-		var response generated.ApplicationLocalStatesResponse
-		responseBytes := ctx.Response().Writer.(*httptest.ResponseRecorder).Body.Bytes()
-		err = algorandJson.Decode(responseBytes, &response)
-		require.NoError(t, err)
-		require.Len(t, response.AppsLocalStates, 2)
-		require.Nil(t, response.NextToken)
-		mockIndexer.AssertExpectations(t)
-	})
-
-	t.Run("LookupAccountAppLocalStates - has next token when results = limit+1", func(t *testing.T) {
-		mockIndexer, si := createServerImpl()
-
-		appsChan := make(chan idb.AppLocalStateRow, 3)
-		for i := 1; i <= 3; i++ {
-			appsChan <- idb.AppLocalStateRow{AppLocalState: generated.ApplicationLocalState{Id: uint64(i)}}
-		}
-		close(appsChan)
-
-		mockIndexer.On("AppLocalState", mock.Anything, mock.MatchedBy(func(query idb.ApplicationQuery) bool {
-			return query.Limit == 3
-		})).Return((<-chan idb.AppLocalStateRow)(appsChan), uint64(100))
-
-		ctx := createTestContext(t, "/v2/accounts/test/apps-local-state?limit=2", nil)
-		err := si.LookupAccountAppLocalStates(ctx, "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
-			generated.LookupAccountAppLocalStatesParams{Limit: uint64Ptr(2)})
-		require.NoError(t, err)
-
-		var response generated.ApplicationLocalStatesResponse
-		responseBytes := ctx.Response().Writer.(*httptest.ResponseRecorder).Body.Bytes()
-		err = algorandJson.Decode(responseBytes, &response)
-		require.NoError(t, err)
-		require.Len(t, response.AppsLocalStates, 2)
-		require.NotNil(t, response.NextToken)
-		mockIndexer.AssertExpectations(t)
-	})
-
-	// ========== 8. SearchForApplicationBoxes ==========
-	t.Run("SearchForApplicationBoxes - no next token when results < limit", func(t *testing.T) {
-		mockIndexer, si := createServerImpl()
-
-		boxesChan := make(chan idb.ApplicationBoxRow, 2)
-		for i := 1; i <= 2; i++ {
-			boxName := []byte(fmt.Sprintf("box%d", i))
-			boxesChan <- idb.ApplicationBoxRow{App: 1, Box: generated.Box{Name: boxName, Value: []byte("data")}}
-		}
-		close(boxesChan)
-
-		mockIndexer.On("ApplicationBoxes", mock.Anything, mock.MatchedBy(func(query idb.ApplicationBoxQuery) bool {
-			return query.ApplicationID == 1 && query.Limit == 3
-		})).Return((<-chan idb.ApplicationBoxRow)(boxesChan), uint64(100))
-
-		ctx := createTestContext(t, "/v2/applications/1/boxes?limit=2", nil)
-		err := si.SearchForApplicationBoxes(ctx, 1, generated.SearchForApplicationBoxesParams{Limit: uint64Ptr(2)})
-		require.NoError(t, err)
-
-		var response generated.BoxesResponse
-		responseBytes := ctx.Response().Writer.(*httptest.ResponseRecorder).Body.Bytes()
-		err = algorandJson.Decode(responseBytes, &response)
-		require.NoError(t, err)
-		require.Len(t, response.Boxes, 2)
-		require.Nil(t, response.NextToken)
-		mockIndexer.AssertExpectations(t)
-	})
-
-	t.Run("SearchForApplicationBoxes - has next token when results = limit+1", func(t *testing.T) {
-		mockIndexer, si := createServerImpl()
-
-		boxesChan := make(chan idb.ApplicationBoxRow, 3)
-		for i := 1; i <= 3; i++ {
-			boxName := []byte(fmt.Sprintf("box%d", i))
-			boxesChan <- idb.ApplicationBoxRow{App: 1, Box: generated.Box{Name: boxName, Value: []byte("data")}}
-		}
-		close(boxesChan)
-
-		mockIndexer.On("ApplicationBoxes", mock.Anything, mock.MatchedBy(func(query idb.ApplicationBoxQuery) bool {
-			return query.ApplicationID == 1 && query.Limit == 3
-		})).Return((<-chan idb.ApplicationBoxRow)(boxesChan), uint64(100))
-
-		ctx := createTestContext(t, "/v2/applications/1/boxes?limit=2", nil)
-		err := si.SearchForApplicationBoxes(ctx, 1, generated.SearchForApplicationBoxesParams{Limit: uint64Ptr(2)})
-		require.NoError(t, err)
-
-		var response generated.BoxesResponse
-		responseBytes := ctx.Response().Writer.(*httptest.ResponseRecorder).Body.Bytes()
-		err = algorandJson.Decode(responseBytes, &response)
-		require.NoError(t, err)
-		require.Len(t, response.Boxes, 2)
-		require.NotNil(t, response.NextToken)
-		mockIndexer.AssertExpectations(t)
-	})
-
-	// ========== 9. LookupApplicationLogsByID ==========
-	t.Run("LookupApplicationLogsByID - no next token when results < limit", func(t *testing.T) {
-		mockIndexer, si := createServerImpl()
-
-		txnsChan := make(chan idb.TxnRow, 2)
-		for i := 1; i <= 2; i++ {
-			var sender sdk.Address
-			sender[31] = byte(i)
-			txnsChan <- idb.TxnRow{
-				Round: uint64(1000 + i), Intra: i, RoundTime: time.Now(),
-				Txn: &sdk.SignedTxnWithAD{
-					SignedTxn: sdk.SignedTxn{Txn: sdk.Transaction{Type: sdk.ApplicationCallTx, Header: sdk.Header{Sender: sender}}},
-					ApplyData: sdk.ApplyData{ApplicationID: 1},
-				},
-			}
-		}
-		close(txnsChan)
-
-		mockIndexer.On("Transactions", mock.Anything, mock.MatchedBy(func(filter idb.TransactionFilter) bool {
-			return filter.Limit == 3 && filter.RequireApplicationLogs
-		})).Return((<-chan idb.TxnRow)(txnsChan), uint64(100))
-
-		ctx := createTestContext(t, "/v2/applications/1/logs?limit=2", nil)
-		err := si.LookupApplicationLogsByID(ctx, 1, generated.LookupApplicationLogsByIDParams{Limit: uint64Ptr(2)})
-		require.NoError(t, err)
-
-		var response generated.ApplicationLogsResponse
-		responseBytes := ctx.Response().Writer.(*httptest.ResponseRecorder).Body.Bytes()
-		err = algorandJson.Decode(responseBytes, &response)
-		require.NoError(t, err)
-		require.Nil(t, response.NextToken)
-		mockIndexer.AssertExpectations(t)
-	})
-
-	t.Run("LookupApplicationLogsByID - has next token when results = limit+1", func(t *testing.T) {
-		mockIndexer, si := createServerImpl()
-
-		txnsChan := make(chan idb.TxnRow, 3)
-		for i := 1; i <= 3; i++ {
-			var sender sdk.Address
-			sender[31] = byte(i)
-			txnsChan <- idb.TxnRow{
-				Round: uint64(1000 + i), Intra: i, RoundTime: time.Now(),
-				Txn: &sdk.SignedTxnWithAD{
-					SignedTxn: sdk.SignedTxn{Txn: sdk.Transaction{Type: sdk.ApplicationCallTx, Header: sdk.Header{Sender: sender}}},
-					ApplyData: sdk.ApplyData{ApplicationID: 1},
-				},
-			}
-		}
-		close(txnsChan)
-
-		mockIndexer.On("Transactions", mock.Anything, mock.MatchedBy(func(filter idb.TransactionFilter) bool {
-			return filter.Limit == 3 && filter.RequireApplicationLogs
-		})).Return((<-chan idb.TxnRow)(txnsChan), uint64(100))
-
-		ctx := createTestContext(t, "/v2/applications/1/logs?limit=2", nil)
-		err := si.LookupApplicationLogsByID(ctx, 1, generated.LookupApplicationLogsByIDParams{Limit: uint64Ptr(2)})
-		require.NoError(t, err)
-
-		var response generated.ApplicationLogsResponse
-		responseBytes := ctx.Response().Writer.(*httptest.ResponseRecorder).Body.Bytes()
-		err = algorandJson.Decode(responseBytes, &response)
-		require.NoError(t, err)
-		require.NotNil(t, response.NextToken)
-		mockIndexer.AssertExpectations(t)
-	})
-
-	// ========== 10. SearchForBlockHeaders ==========
-	t.Run("SearchForBlockHeaders - no next token when results < limit", func(t *testing.T) {
-		mockIndexer, si := createServerImpl()
-
-		blocksChan := make(chan idb.BlockRow, 2)
-		for i := 1; i <= 2; i++ {
-			blocksChan <- idb.BlockRow{
-				BlockHeader: sdk.BlockHeader{Round: sdk.Round(i), TimeStamp: int64(1000000 + i)},
-			}
-		}
-		close(blocksChan)
-
-		mockIndexer.On("BlockHeaders", mock.Anything, mock.MatchedBy(func(filter idb.BlockHeaderFilter) bool {
-			return filter.Limit == 3
-		})).Return((<-chan idb.BlockRow)(blocksChan), uint64(100))
-
-		ctx := createTestContext(t, "/v2/blocks?limit=2", nil)
-		err := si.SearchForBlockHeaders(ctx, generated.SearchForBlockHeadersParams{Limit: uint64Ptr(2)})
-		require.NoError(t, err)
-
-		var response generated.BlockHeadersResponse
-		responseBytes := ctx.Response().Writer.(*httptest.ResponseRecorder).Body.Bytes()
-		err = algorandJson.Decode(responseBytes, &response)
-		require.NoError(t, err)
-		require.Len(t, response.Blocks, 2)
-		require.Nil(t, response.NextToken)
-		mockIndexer.AssertExpectations(t)
-	})
-
-	t.Run("SearchForBlockHeaders - has next token when results = limit+1", func(t *testing.T) {
-		mockIndexer, si := createServerImpl()
-
-		blocksChan := make(chan idb.BlockRow, 3)
-		for i := 1; i <= 3; i++ {
-			blocksChan <- idb.BlockRow{
-				BlockHeader: sdk.BlockHeader{Round: sdk.Round(i), TimeStamp: int64(1000000 + i)},
-			}
-		}
-		close(blocksChan)
-
-		mockIndexer.On("BlockHeaders", mock.Anything, mock.MatchedBy(func(filter idb.BlockHeaderFilter) bool {
-			return filter.Limit == 3
-		})).Return((<-chan idb.BlockRow)(blocksChan), uint64(100))
-
-		ctx := createTestContext(t, "/v2/blocks?limit=2", nil)
-		err := si.SearchForBlockHeaders(ctx, generated.SearchForBlockHeadersParams{Limit: uint64Ptr(2)})
-		require.NoError(t, err)
-
-		var response generated.BlockHeadersResponse
-		responseBytes := ctx.Response().Writer.(*httptest.ResponseRecorder).Body.Bytes()
-		err = algorandJson.Decode(responseBytes, &response)
-		require.NoError(t, err)
-		require.Len(t, response.Blocks, 2)
-		require.NotNil(t, response.NextToken)
-		mockIndexer.AssertExpectations(t)
-	})
-}
-
-func createTestContext(t *testing.T, url string, body []byte) echo.Context {
-	e := echo.New()
-	var req *http.Request
-	if body != nil {
-		req = httptest.NewRequest(http.MethodPost, url, bytes.NewReader(body))
-		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	} else {
-		req = httptest.NewRequest(http.MethodGet, url, nil)
-	}
-	rec := httptest.NewRecorder()
-	ctx := e.NewContext(req, rec)
-	return ctx
 }
