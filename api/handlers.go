@@ -281,12 +281,11 @@ func (si *ServerImplementation) LookupAccountAppLocalStates(ctx echo.Context, ac
 		return notFound(ctx, errValueExceedingInt64)
 	}
 
-	effectiveLimit := uintOrDefaultValue(params.Limit, si.opts.DefaultApplicationsLimit)
 	search := generated.SearchForApplicationsParams{
 		Creator:       &accountID,
 		ApplicationId: params.ApplicationId,
 		IncludeAll:    params.IncludeAll,
-		Limit:         uint64Ptr(effectiveLimit + 1), // Request one more than needed
+		Limit:         params.Limit,
 		Next:          params.Next,
 	}
 	options, err := si.appParamsToApplicationQuery(search)
@@ -300,9 +299,8 @@ func (si *ServerImplementation) LookupAccountAppLocalStates(ctx echo.Context, ac
 	}
 
 	var next *string
-	if len(apps) > int(effectiveLimit) && effectiveLimit > 0 {
-		next = strPtr(strconv.FormatUint(apps[effectiveLimit-1].Id, 10))
-		apps = apps[:effectiveLimit]
+	if len(apps) > 0 {
+		next = strPtr(strconv.FormatUint(apps[len(apps)-1].Id, 10))
 	}
 
 	out := generated.ApplicationLocalStatesResponse{
@@ -337,13 +335,12 @@ func (si *ServerImplementation) LookupAccountAssets(ctx echo.Context, accountID 
 		assetGreaterThan = &agt
 	}
 
-	effectiveLimit := min(uintOrDefaultValue(params.Limit, si.opts.DefaultBalancesLimit), si.opts.MaxBalancesLimit)
 	query := idb.AssetBalanceQuery{
 		Address:        addr[:],
 		AssetID:        params.AssetId,
 		AssetIDGT:      assetGreaterThan,
 		IncludeDeleted: boolOrDefault(params.IncludeAll),
-		Limit:          effectiveLimit + 1, // Request one more than needed
+		Limit:          min(uintOrDefaultValue(params.Limit, si.opts.DefaultBalancesLimit), si.opts.MaxBalancesLimit),
 	}
 
 	assets, round, err := si.fetchAssetHoldings(ctx.Request().Context(), query)
@@ -352,9 +349,8 @@ func (si *ServerImplementation) LookupAccountAssets(ctx echo.Context, accountID 
 	}
 
 	var next *string
-	if len(assets) > int(effectiveLimit) && effectiveLimit > 0 {
-		next = strPtr(strconv.FormatUint(assets[effectiveLimit-1].AssetId, 10))
-		assets = assets[:effectiveLimit]
+	if len(assets) > 0 {
+		next = strPtr(strconv.FormatUint(assets[len(assets)-1].AssetId, 10))
 	}
 
 	return ctx.JSON(http.StatusOK, generated.AssetHoldingsResponse{
@@ -436,13 +432,12 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		spendingAddrBytes = spendingAddr[:]
 	}
 
-	effectiveLimit := min(uintOrDefaultValue(params.Limit, si.opts.DefaultAccountsLimit), si.opts.MaxAccountsLimit)
 	options := idb.AccountQueryOptions{
 		IncludeAssetHoldings: true,
 		IncludeAssetParams:   true,
 		IncludeAppLocalState: true,
 		IncludeAppParams:     true,
-		Limit:                effectiveLimit + 1, // Request one more than needed to detect if more results exist
+		Limit:                min(uintOrDefaultValue(params.Limit, si.opts.DefaultAccountsLimit), si.opts.MaxAccountsLimit),
 		HasAssetID:           uintOrDefault(params.AssetId),
 		HasAppID:             uintOrDefault(params.ApplicationId),
 		EqualToAuthAddr:      spendingAddrBytes,
@@ -488,15 +483,10 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		return indexerError(ctx, fmt.Errorf("%s: %w", errFailedSearchingAccount, err))
 	}
 
-	// Check if we have more results than requested (indicating more pages exist)
 	var next *string
-	if len(accounts) > int(effectiveLimit) && effectiveLimit > 0 {
-		// More results exist, so provide next token based on the last result we'll return
-		next = strPtr(accounts[effectiveLimit-1].Address)
-		// Truncate results to only return the requested amount
-		accounts = accounts[:effectiveLimit]
+	if len(accounts) > 0 {
+		next = strPtr(accounts[len(accounts)-1].Address)
 	}
-	// If len(accounts) <= effectiveLimit, next stays nil (no more results)
 
 	response := generated.AccountsResponse{
 		CurrentRound: round,
@@ -563,24 +553,15 @@ func (si *ServerImplementation) SearchForApplications(ctx echo.Context, params g
 		return badRequest(ctx, err.Error())
 	}
 
-	// Store the requested limit and increase the query limit by 1
-	effectiveLimit := options.Limit
-	options.Limit = effectiveLimit + 1
-
 	apps, round, err := si.fetchApplications(ctx.Request().Context(), options)
 	if err != nil {
 		return indexerError(ctx, fmt.Errorf("%s: %w", errFailedSearchingApplication, err))
 	}
 
-	// Check if we have more results than requested (indicating more pages exist)
 	var next *string
-	if len(apps) > int(effectiveLimit) && effectiveLimit > 0 {
-		// More results exist, so provide next token based on the last result we'll return
-		next = strPtr(strconv.FormatUint(apps[effectiveLimit-1].Id, 10))
-		// Truncate results to only return the requested amount
-		apps = apps[:effectiveLimit]
+	if len(apps) > 0 {
+		next = strPtr(strconv.FormatUint(apps[len(apps)-1].Id, 10))
 	}
-	// If len(apps) <= effectiveLimit, next stays nil (no more results)
 
 	out := generated.ApplicationsResponse{
 		Applications: apps,
@@ -695,12 +676,12 @@ func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, appl
 	}
 	happyResponse := generated.BoxesResponse{ApplicationId: applicationID, Boxes: []generated.BoxDescriptor{}}
 
-	effectiveLimit := min(uintOrDefaultValue(params.Limit, si.opts.DefaultBoxesLimit), si.opts.MaxBoxesLimit)
-
 	q := idb.ApplicationBoxQuery{
 		ApplicationID: applicationID,
 		OmitValues:    true,
-		Limit:         effectiveLimit + 1, // Request one more than needed
+	}
+	if params.Limit != nil {
+		q.Limit = *params.Limit
 	}
 	if params.Next != nil {
 		encodedBoxName := *params.Next
@@ -737,13 +718,13 @@ func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, appl
 	}
 
 	var next *string
-	if len(boxes) > int(effectiveLimit) && effectiveLimit > 0 {
-		finalNameBytes := boxes[effectiveLimit-1].Name
-		if finalNameBytes != nil {
-			encoded := base64.StdEncoding.EncodeToString(finalNameBytes)
-			next = strPtr("b64:" + encoded)
+	finalNameBytes := boxes[len(boxes)-1].Name
+	if finalNameBytes != nil {
+		encoded := base64.StdEncoding.EncodeToString(finalNameBytes)
+		next = strPtr(encoded)
+		if next != nil {
+			next = strPtr("b64:" + string(*next))
 		}
-		boxes = boxes[:effectiveLimit]
 	}
 	happyResponse.NextToken = next
 	descriptors := []generated.BoxDescriptor{}
@@ -790,10 +771,6 @@ func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, appl
 	// Only return transactions that have application logs
 	filter.RequireApplicationLogs = true
 
-	// Store the requested limit and increase the filter limit by 1
-	effectiveLimit := filter.Limit
-	filter.Limit = effectiveLimit + 1
-
 	err = validateTransactionFilter(&filter)
 	if err != nil {
 		return badRequest(ctx, err.Error())
@@ -803,15 +780,6 @@ func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, appl
 	txns, next, round, err := si.fetchTransactions(ctx.Request().Context(), filter)
 	if err != nil {
 		return indexerError(ctx, fmt.Errorf("%s: %w", errTransactionSearch, err))
-	}
-
-	// Check if we have more results than requested (indicating more pages exist)
-	var nextToken *string
-	if len(txns) > int(effectiveLimit) {
-		// More results exist, so we need to provide a next token
-		nextToken = strPtr(next)
-		// Truncate results to only return the requested amount
-		txns = txns[:effectiveLimit]
 	}
 
 	var logData []generated.ApplicationLogData
@@ -833,7 +801,7 @@ func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, appl
 	response := generated.ApplicationLogsResponse{
 		ApplicationId: applicationID,
 		CurrentRound:  round,
-		NextToken:     nextToken,
+		NextToken:     strPtr(next),
 		LogData:       logDataResult,
 	}
 
@@ -889,13 +857,12 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID ui
 		return notFound(ctx, errValueExceedingInt64)
 	}
 
-	effectiveLimit := min(uintOrDefaultValue(params.Limit, si.opts.DefaultBalancesLimit), si.opts.MaxBalancesLimit)
 	query := idb.AssetBalanceQuery{
 		AssetID:        &assetID,
 		AmountGT:       params.CurrencyGreaterThan,
 		AmountLT:       params.CurrencyLessThan,
 		IncludeDeleted: boolOrDefault(params.IncludeAll),
-		Limit:          effectiveLimit + 1, // Request one more than needed
+		Limit:          min(uintOrDefaultValue(params.Limit, si.opts.DefaultBalancesLimit), si.opts.MaxBalancesLimit),
 	}
 
 	if params.Next != nil {
@@ -912,9 +879,8 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID ui
 	}
 
 	var next *string
-	if len(balances) > int(effectiveLimit) && effectiveLimit > 0 {
-		next = strPtr(balances[effectiveLimit-1].Address)
-		balances = balances[:effectiveLimit]
+	if len(balances) > 0 {
+		next = strPtr(balances[len(balances)-1].Address)
 	}
 
 	return ctx.JSON(http.StatusOK, generated.AssetBalancesResponse{
@@ -973,24 +939,15 @@ func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generat
 		return badRequest(ctx, err.Error())
 	}
 
-	// Store the effective limit and increase the query limit by 1
-	effectiveLimit := options.Limit
-	options.Limit = effectiveLimit + 1
-
 	assets, round, err := si.fetchAssets(ctx.Request().Context(), options)
 	if err != nil {
 		return indexerError(ctx, fmt.Errorf("%s: %w", errFailedSearchingAsset, err))
 	}
 
-	// Check if we have more results than requested (indicating more pages exist)
 	var next *string
-	if len(assets) > int(effectiveLimit) && effectiveLimit > 0 {
-		// More results exist, so provide next token based on the last result we'll return
-		next = strPtr(strconv.FormatUint(assets[effectiveLimit-1].Index, 10))
-		// Truncate results to only return the requested amount
-		assets = assets[:effectiveLimit]
+	if len(assets) > 0 {
+		next = strPtr(strconv.FormatUint(assets[len(assets)-1].Index, 10))
 	}
-	// If len(assets) <= effectiveLimit, next stays nil (no more results)
 
 	return ctx.JSON(http.StatusOK, generated.AssetsResponse{
 		CurrentRound: round,
@@ -1082,11 +1039,6 @@ func (si *ServerImplementation) SearchForBlockHeaders(ctx echo.Context, params g
 	if err != nil {
 		return badRequest(ctx, err.Error())
 	}
-
-	// Store the requested limit and increase the filter limit by 1
-	effectiveLimit := filter.Limit
-	filter.Limit = effectiveLimit + 1
-
 	err = validateBlockFilter(&filter)
 	if err != nil {
 		return badRequest(ctx, err.Error())
@@ -1098,18 +1050,10 @@ func (si *ServerImplementation) SearchForBlockHeaders(ctx echo.Context, params g
 		return indexerError(ctx, fmt.Errorf("%s: %w", errBlockHeaderSearch, err))
 	}
 
-	// Check if we have more results than requested (indicating more pages exist)
-	var nextToken *string
-	if len(blockHeaders) > int(effectiveLimit) {
-		// More results exist, so we need to provide a next token
-		nextToken = strPtr(next)
-		// Truncate results to only return the requested amount
-		blockHeaders = blockHeaders[:effectiveLimit]
-	}
-
+	// Populate the response model and render it
 	response := generated.BlockHeadersResponse{
 		CurrentRound: round,
-		NextToken:    nextToken,
+		NextToken:    strPtr(next),
 		Blocks:       blockHeaders,
 	}
 	return ctx.JSON(http.StatusOK, response)
@@ -1172,10 +1116,6 @@ func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params g
 		return badRequest(ctx, err.Error())
 	}
 
-	// Store the requested limit and increase the filter limit by 1
-	effectiveLimit := filter.Limit
-	filter.Limit = effectiveLimit + 1
-
 	err = validateTransactionFilter(&filter)
 	if err != nil {
 		return badRequest(ctx, err.Error())
@@ -1187,20 +1127,9 @@ func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params g
 		return indexerError(ctx, fmt.Errorf("%s: %w", errTransactionSearch, err))
 	}
 
-	// Check if we have more results than requested (indicating more pages exist)
-	var nextToken *string
-	if len(txns) > int(effectiveLimit) {
-		// More results exist, so we need to provide a next token
-		// The fetchTransactions function handles next token generation internally
-		nextToken = strPtr(next)
-		// Truncate results to only return the requested amount
-		txns = txns[:effectiveLimit]
-	}
-	// If len(txns) <= effectiveLimit, nextToken stays nil (no more results)
-
 	response := generated.TransactionsResponse{
 		CurrentRound: round,
-		NextToken:    nextToken,
+		NextToken:    strPtr(next),
 		Transactions: txns,
 	}
 

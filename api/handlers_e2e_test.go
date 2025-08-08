@@ -675,9 +675,6 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 			require.NotEmpty(t, response.Assets)
 			assets = append(assets, response.Assets...)
 			next = response.NextToken // paginate
-			if next == nil {
-				break // No more pages
-			}
 		}
 		//////////
 		// Then // We can see all the assets, even though there were more than the limit
@@ -709,9 +706,6 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 			require.NotEmpty(t, response.Assets)
 			assets = append(assets, response.Assets...)
 			next = response.NextToken // paginate
-			if next == nil {
-				break // No more pages
-			}
 		}
 		//////////
 		// Then // We can see all the assets, even though there were more than the limit
@@ -743,9 +737,6 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 			require.NotEmpty(t, response.AppsLocalStates)
 			apps = append(apps, response.AppsLocalStates...)
 			next = response.NextToken // paginate
-			if next == nil {
-				break // No more pages
-			}
 		}
 		//////////
 		// Then // We can see all the apps, even though there were more than the limit
@@ -777,9 +768,6 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 			require.NotEmpty(t, response.Applications)
 			apps = append(apps, response.Applications...)
 			next = response.NextToken // paginate
-			if next == nil {
-				break // No more pages
-			}
 		}
 		//////////
 		// Then // We can see all the apps, even though there were more than the limit
@@ -971,15 +959,6 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, response.Transactions, 1)
 			require.Equal(t, expectedID, *(response.Transactions[0].Id))
-
-			// The test expects pagination, but if there's only one result total,
-			// then NextToken will be nil and the deduplication is working correctly.
-			// This means no pagination is needed since all inner transactions
-			// have been properly deduplicated to a single root transaction.
-			if response.NextToken == nil {
-				// Success - deduplication worked correctly, no pagination needed
-				return
-			}
 			pageOneNextToken := *response.NextToken
 
 			// Second page, using "NextToken" from first page.
@@ -1180,7 +1159,7 @@ func TestAccountsOnlineOnlyParam(t *testing.T) {
 	require.NoError(t, err)
 	err = db.AddBlock(&vb)
 	require.NoError(t, err)
-	api := testServerImplementation(db)
+	api := &ServerImplementation{db: db}
 
 	e := echo.New()
 	{
@@ -1500,7 +1479,7 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 			c.SetParamNames("appIdx")
 			c.SetParamValues(fmt.Sprintf("%d", tc.appID))
 
-			api := testServerImplementation(db)
+			api := &ServerImplementation{db: db, timeout: 30 * time.Second}
 			err = api.LookupApplicationLogsByID(c, tc.appID, params)
 			require.NoError(t, err)
 
