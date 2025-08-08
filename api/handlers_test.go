@@ -1553,11 +1553,11 @@ func TestPaginationBehavior(t *testing.T) {
 	t.Run("SearchForTransactions - should provide next token despite deduplication", func(t *testing.T) {
 		mockIndexer, si := createServerImpl()
 
-		// Create 3 txn rows that will be deduplicated to 1 result
-		// This simulates the real scenario where inner transactions share the root transaction ID
-		txnsChan := make(chan idb.TxnRow, 3)
+		// Create 4 txn rows that will be deduplicated, but database returns more than limit+1
+		// This simulates: limit=2, query=3, but database has more (returns 4), after deduplication < limit
+		txnsChan := make(chan idb.TxnRow, 4)
 
-		for i := 0; i < 3; i++ {
+		for i := 0; i < 4; i++ {
 			var sender sdk.Address
 			sender[31] = byte(i + 1)
 			txn := &sdk.SignedTxnWithAD{
@@ -1578,7 +1578,7 @@ func TestPaginationBehavior(t *testing.T) {
 		}
 		close(txnsChan)
 
-		// Mock database returns 3 rows (limit+1), indicating more data exists
+		// Mock database returns 4 rows (more than limit+1), indicating more data exists beyond our query
 		mockIndexer.On("Transactions", mock.Anything, mock.MatchedBy(func(filter idb.TransactionFilter) bool {
 			return filter.Limit == 3 // limit of 2 + 1
 		})).Return((<-chan idb.TxnRow)(txnsChan), uint64(100))
@@ -1592,8 +1592,8 @@ func TestPaginationBehavior(t *testing.T) {
 		err = algorandJson.Decode(responseBytes, &response)
 		require.NoError(t, err)
 
-		// With the fix: should have next-token since database returned 3 rows (more than limit+1=3)
-		// The key insight: rawResultCount=3 > effectiveLimit=2, so next-token should be provided
+		// With the fix: should have next-token since database returned 4 rows (more than limit+1=3)
+		// The key insight: rawResultCount=4 > effectiveLimit=2, so next-token should be provided
 		require.NotNil(t, response.NextToken, "Should provide next-token when database has more data, even after deduplication")
 		mockIndexer.AssertExpectations(t)
 	})
@@ -1601,12 +1601,12 @@ func TestPaginationBehavior(t *testing.T) {
 	t.Run("LookupApplicationLogsByID - should provide next token despite deduplication", func(t *testing.T) {
 		mockIndexer, si := createServerImpl()
 
-		// Create 3 transactions that will have the same transaction ID (to trigger deduplication)
-		// but ensure they have application logs
-		txnsChan := make(chan idb.TxnRow, 3)
+		// Create 4 transactions with logs that will trigger deduplication
+		// This simulates: limit=2, query=3, but database has more (returns 4), after deduplication < limit
+		txnsChan := make(chan idb.TxnRow, 4)
 
 		// Create transactions with logs - they'll be deduplicated but raw count > limit
-		for i := 0; i < 3; i++ {
+		for i := 0; i < 4; i++ {
 			var sender sdk.Address
 			sender[31] = byte(i + 1)
 
@@ -1634,7 +1634,7 @@ func TestPaginationBehavior(t *testing.T) {
 		}
 		close(txnsChan)
 
-		// Mock database returns 3 rows (limit+1), indicating more data exists
+		// Mock database returns 4 rows (more than limit+1), indicating more data exists beyond our query
 		mockIndexer.On("Transactions", mock.Anything, mock.MatchedBy(func(filter idb.TransactionFilter) bool {
 			return filter.Limit == 3 && filter.RequireApplicationLogs == true
 		})).Return((<-chan idb.TxnRow)(txnsChan), uint64(100))
@@ -1652,7 +1652,7 @@ func TestPaginationBehavior(t *testing.T) {
 		require.NotNil(t, response.LogData, "Should have log data")
 		require.True(t, len(*response.LogData) > 0, "Should have at least one log entry")
 
-		// With the fix: should have next-token since database returned 3 rows (more than limit=2)
+		// With the fix: should have next-token since database returned 4 rows (more than limit=2)
 		require.NotNil(t, response.NextToken, "Should provide next-token when database has more data, even after deduplication")
 		mockIndexer.AssertExpectations(t)
 	})
