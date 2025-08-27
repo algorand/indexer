@@ -1672,6 +1672,11 @@
           "type": "string",
           "format": "byte"
         },
+        "previous-512-block-hash": {
+          "description": "\\[prev512\\] Previous block hash, using SHA-512.",
+          "type": "string",
+          "format": "byte"
+        },
         "rewards": {
           "$ref": "#/definitions/BlockRewards"
         },

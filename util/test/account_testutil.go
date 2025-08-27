@@ -413,9 +413,10 @@ func MakeGenesisBlock() sdk.Block {
 
 	blk := sdk.Block{
 		BlockHeader: sdk.BlockHeader{
-			Round:  0,
-			Branch: sdk.BlockHash{},
-			Seed:   sdk.Seed(genesis.Hash()),
+			Round:     0,
+			Branch:    sdk.BlockHash{},
+			Branch512: sdk.Sha512Digest{},
+			Seed:      sdk.Seed(genesis.Hash()),
 			TxnCommitments: sdk.TxnCommitments{
 				NativeSha512_256Commitment: sdk.Digest(sha512.Sum512_256(hashRep)),
 				Sha256Commitment:           sdk.Digest{},

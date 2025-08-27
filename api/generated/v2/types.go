@@ -512,6 +512,9 @@ type Block struct {
 	// ParticipationUpdates Participation account data that needs to be checked/acted on by the network.
 	ParticipationUpdates *ParticipationUpdates `json:"participation-updates,omitempty"`
 
+	// Previous512BlockHash \[prev512\] Previous block hash, using SHA-512.
+	Previous512BlockHash *[]byte `json:"previous-512-block-hash,omitempty"`
+
 	// PreviousBlockHash \[prev\] Previous block hash.
 	PreviousBlockHash []byte `json:"previous-block-hash"`
 

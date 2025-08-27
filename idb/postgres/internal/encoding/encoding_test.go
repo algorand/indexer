@@ -222,9 +222,13 @@ func TestBlockHeaderEncoding(t *testing.T) {
 	var branch sdk.BlockHash
 	branch[0] = 5
 
+	var branch512 sdk.Sha512Digest
+	branch512[0] = 6
+
 	header := sdk.BlockHeader{
-		Round:  3,
-		Branch: branch,
+		Round:     3,
+		Branch:    branch,
+		Branch512: branch512,
 		RewardsState: sdk.RewardsState{
 			FeeSink:     newaddr(),
 			RewardsPool: newaddr(),
@@ -238,7 +242,7 @@ func TestBlockHeaderEncoding(t *testing.T) {
 
 	buf := EncodeBlockHeader(header)
 
-	template := `{"fees":"AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","partupdabs":["AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJVBPJXY"],"partupdrmv":["%s"],"prev":"BQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","prp":"AUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITAR5VI","rnd":3,"rwd":"AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}`
+	template := `{"fees":"AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","partupdabs":["AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJVBPJXY"],"partupdrmv":["%s"],"prev":"BQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","prev512":"BgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==","prp":"AUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITAR5VI","rnd":3,"rwd":"AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}`
 	expectedString := fmt.Sprintf(template, "AMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANVWEXNA")
 	assert.Equal(t, expectedString, string(buf))
 

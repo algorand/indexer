@@ -371,6 +371,7 @@ func hdrRowToBlock(row idb.BlockRow) generated.Block {
 		GenesisHash:            row.BlockHeader.GenesisHash[:],
 		GenesisId:              row.BlockHeader.GenesisID,
 		ParticipationUpdates:   partUpdates,
+		Previous512BlockHash:   byteSliceOmitZeroPtr(row.BlockHeader.Branch512[:]),
 		PreviousBlockHash:      row.BlockHeader.Branch[:],
 		Proposer:               addrPtr(row.BlockHeader.Proposer),
 		ProposerPayout:         uint64PtrOrNil(uint64(row.BlockHeader.ProposerPayout)),
