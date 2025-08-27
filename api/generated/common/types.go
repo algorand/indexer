@@ -609,6 +609,15 @@ type HealthCheck struct {
 	Version string `json:"version"`
 }
 
+// HoldingRef HoldingRef names a holding by referring to an Address and Asset it belongs to.
+type HoldingRef struct {
+	// Address \[d\] Address in access list, or zero if referring to the sender.
+	Address string `json:"address"`
+
+	// Asset \[s\] Asset ID for asset in access list.
+	Asset uint64 `json:"asset"`
+}
+
 // IndexerStateProofMessage defines model for IndexerStateProofMessage.
 type IndexerStateProofMessage struct {
 	// BlockHeadersCommitment \[b\]
@@ -625,6 +634,15 @@ type IndexerStateProofMessage struct {
 
 	// VotersCommitment \[v\]
 	VotersCommitment *[]byte `json:"voters-commitment,omitempty"`
+}
+
+// LocalsRef LocalsRef names a local state by referring to an Address and App it belongs to.
+type LocalsRef struct {
+	// Address \[d\] Address in access list, or zero if referring to the sender.
+	Address string `json:"address"`
+
+	// App \[p\] Application ID for app in access list, or zero if referring to the called application.
+	App uint64 `json:"app"`
 }
 
 // MerkleArrayProof defines model for MerkleArrayProof.
@@ -673,6 +691,30 @@ type ParticipationUpdates struct {
 
 	// ExpiredParticipationAccounts \[partupdrmv\] a list of online accounts that needs to be converted to offline since their participation key expired.
 	ExpiredParticipationAccounts *[]string `json:"expired-participation-accounts,omitempty"`
+}
+
+// ResourceRef ResourceRef names a single resource. Only one of the fields should be set.
+type ResourceRef struct {
+	// Address \[d\] Account whose balance record is accessible by the executing ApprovalProgram or ClearStateProgram.
+	Address *string `json:"address,omitempty"`
+
+	// ApplicationId \[p\] Application id whose GlobalState (or Local, since v4) may be read by the executing
+	//  ApprovalProgram or ClearStateProgram.
+	ApplicationId *uint64 `json:"application-id,omitempty"`
+
+	// AssetId \[s\] Asset whose AssetParams
+	//  (and since v4, Holdings) may be read by the executing
+	//  ApprovalProgram or ClearStateProgram.
+	AssetId *uint64 `json:"asset-id,omitempty"`
+
+	// Box BoxReference names a box by its name and the application ID it belongs to.
+	Box *BoxReference `json:"box,omitempty"`
+
+	// Holding HoldingRef names a holding by referring to an Address and Asset it belongs to.
+	Holding *HoldingRef `json:"holding,omitempty"`
+
+	// Local LocalsRef names a local state by referring to an Address and App it belongs to.
+	Local *LocalsRef `json:"local,omitempty"`
 }
 
 // StateDelta Application state delta.
@@ -960,6 +1002,9 @@ type TransactionTxType string
 // Definition:
 // data/transactions/application.go : ApplicationCallTxnFields
 type TransactionApplication struct {
+	// Access \[al\] Access unifies `accounts`, `foreign-apps`, `foreign-assets`, and `box-references` under a single list. If access is non-empty, these lists must be empty. If access is empty, these lists may be non-empty.
+	Access *[]ResourceRef `json:"access,omitempty"`
+
 	// Accounts \[apat\] List of accounts in addition to the sender that may be accessed from the application's approval-program and clear-state-program.
 	Accounts *[]string `json:"accounts,omitempty"`
 

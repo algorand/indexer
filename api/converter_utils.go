@@ -501,7 +501,94 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 			})
 		}
 
+		access := make([]generated.ResourceRef, 0, len(stxn.Txn.Access))
+		for _, v := range stxn.Txn.Access {
+			resourceRef := generated.ResourceRef{}
+
+			// Only should be setting a single field on resourceRef
+			if v.Address != (sdk.Address{}) {
+				resourceRef.Address = strPtr(v.Address.String())
+			} else if v.App != 0 {
+				resourceRef.ApplicationId = uint64Ptr(uint64(v.App))
+			} else if v.Asset != 0 {
+				resourceRef.AssetId = uint64Ptr(uint64(v.Asset))
+			} else if v.Holding.Asset != 0 {
+				var address sdk.Address
+				if v.Holding.Address == 0 {
+					// indicates the sender
+					address = sdk.Address{}
+				} else if int(v.Holding.Address-1) < len(stxn.Txn.Access) {
+					address = stxn.Txn.Access[v.Holding.Address-1].Address
+				} else {
+					// this should not happen
+					continue
+				}
+
+				var asset sdk.AssetIndex
+				// Asset must be non-zero
+				if int(v.Holding.Asset-1) < len(stxn.Txn.Access) {
+					asset = stxn.Txn.Access[v.Holding.Asset-1].Asset
+				} else {
+					// this should not happen
+					continue
+				}
+
+				resourceRef.Holding = &generated.HoldingRef{
+					Address: address.String(),
+					Asset:   uint64(asset),
+				}
+			} else if v.Locals.Address != 0 || v.Locals.App != 0 {
+				var address sdk.Address
+				if v.Locals.Address == 0 {
+					// indicates the sender
+					address = sdk.Address{}
+				} else if int(v.Locals.Address-1) < len(stxn.Txn.Access) {
+					address = stxn.Txn.Access[v.Locals.Address-1].Address
+				} else {
+					// this should not happen
+					continue
+				}
+
+				var app sdk.AppIndex
+				if v.Locals.App == 0 {
+					// indicates this application
+					app = sdk.AppIndex(0)
+				} else if int(v.Locals.App-1) < len(stxn.Txn.Access) {
+					app = stxn.Txn.Access[v.Locals.App-1].App
+				} else {
+					// this should not happen
+					continue
+				}
+
+				resourceRef.Local = &generated.LocalsRef{
+					Address: address.String(),
+					App:     uint64(app),
+				}
+			} else {
+				// If all else empty, default to a boxref
+				var appID uint64
+				if v.Box.ForeignAppIdx == 0 {
+					appID = 0
+				} else if int(v.Box.ForeignAppIdx-1) < len(stxn.Txn.Access) {
+					// Indexes are 1-based, so we subtract 1
+					appID = uint64(stxn.Txn.Access[v.Box.ForeignAppIdx-1].App)
+				} else {
+					// this should not happen
+					continue
+				}
+				boxRef := generated.BoxReference{
+					App:  appID,
+					Name: v.Box.Name,
+				}
+
+				resourceRef.Box = &boxRef
+			}
+
+			access = append(access, resourceRef)
+		}
+
 		a := generated.TransactionApplication{
+			Access:            &access,
 			Accounts:          &accts,
 			ApplicationArgs:   &args,
 			ApplicationId:     uint64(stxn.Txn.ApplicationID),
