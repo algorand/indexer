@@ -2029,7 +2029,7 @@
           "x-algorand-format": "Address"
         },
         "application-id": {
-          "description": "\\[p\\] Application id whose GlobalState (or Local, since v4) may be read by the executing\n ApprovalProgram or ClearStateProgram.",
+          "description": "\\[p\\] Application id whose GlobalState may be read by the executing\n ApprovalProgram or ClearStateProgram.",
           "type": "integer"
         },
         "asset-id": {
