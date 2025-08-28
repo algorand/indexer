@@ -2333,7 +2333,7 @@
           }
         },
         "access": {
-          "description": "\\[al\\] Access unifies `accounts`, `foreign-apps`, `foreign-assets`, and `box-references` under a single list. If access is non-empty, these lists must be empty. If access is empty, these lists may be non-empty.",
+          "description": "\\[al\\] Access unifies `accounts`, `foreign-apps`, `foreign-assets`, and `box-references` under a single list. If access is non-empty, these lists must be empty. If access is empty, those lists may be non-empty.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/ResourceRef"
