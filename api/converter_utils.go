@@ -488,7 +488,13 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 		for _, v := range stxn.Txn.BoxReferences {
 			var appID uint64
 			if v.ForeignAppIdx == 0 {
-				appID = 0
+				// indicates this application, resolve app id
+				if stxn.Txn.ApplicationID == 0 {
+					// Use applyData.ApplicationID if Txn.ApplicationID is 0 (creation case)
+					appID = uint64(stxn.ApplyData.ApplicationID)
+				} else {
+					appID = uint64(stxn.Txn.ApplicationID)
+				}
 			} else if int(v.ForeignAppIdx-1) < len(stxn.Txn.ForeignApps) {
 				// Indexes are 1-based, so we subtract 1
 				appID = uint64(stxn.Txn.ForeignApps[v.ForeignAppIdx-1])

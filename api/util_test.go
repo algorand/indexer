@@ -672,4 +672,166 @@ func TestTxnAccessConversion(t *testing.T) {
 		// Ensure holding is nil
 		assert.Nil(t, boxItem.Holding)
 	})
+
+	t.Run("BoxReferences Conversion - ForeignAppIdx 0", func(t *testing.T) {
+		// Test conversion of stxn.Txn.BoxReferences with ForeignAppIdx: 0
+		sender := makeAddress(12)
+		boxName := []byte("test-box")
+		txn := sdk.Transaction{
+			Type: sdk.ApplicationCallTx,
+			Header: sdk.Header{
+				Sender:     sender,
+				Fee:        sdk.MicroAlgos(1000),
+				FirstValid: 1000,
+				LastValid:  2000,
+			},
+			ApplicationFields: sdk.ApplicationFields{
+				ApplicationCallTxnFields: sdk.ApplicationCallTxnFields{
+					ApplicationID: 555,
+					BoxReferences: []sdk.BoxReference{
+						{ForeignAppIdx: 0, Name: boxName}, // this app
+					},
+				},
+			},
+		}
+
+		stxn := &sdk.SignedTxnWithAD{
+			SignedTxn: sdk.SignedTxn{
+				Txn: txn,
+			},
+		}
+
+		result, err := signedTxnWithAdToTransaction(stxn, extra)
+		require.NoError(t, err)
+
+		require.NotNil(t, result.ApplicationTransaction)
+		require.NotNil(t, result.ApplicationTransaction.BoxReferences)
+		require.Equal(t, 1, len(*result.ApplicationTransaction.BoxReferences))
+
+		boxRef := (*result.ApplicationTransaction.BoxReferences)[0]
+		assert.Equal(t, uint64(555), boxRef.App) // Should resolve to ApplicationID
+		assert.Equal(t, boxName, boxRef.Name)
+	})
+
+	t.Run("BoxReferences Conversion - App Creation", func(t *testing.T) {
+		// Test conversion during app creation (ApplicationID = 0, ForeignAppIdx = 0)
+		sender := makeAddress(13)
+		boxName := []byte("creation-box")
+		txn := sdk.Transaction{
+			Type: sdk.ApplicationCallTx,
+			Header: sdk.Header{
+				Sender:     sender,
+				Fee:        sdk.MicroAlgos(1000),
+				FirstValid: 1000,
+				LastValid:  2000,
+			},
+			ApplicationFields: sdk.ApplicationFields{
+				ApplicationCallTxnFields: sdk.ApplicationCallTxnFields{
+					ApplicationID: 0, // App creation
+					BoxReferences: []sdk.BoxReference{
+						{ForeignAppIdx: 0, Name: boxName}, // this app during creation
+					},
+				},
+			},
+		}
+
+		stxn := &sdk.SignedTxnWithAD{
+			SignedTxn: sdk.SignedTxn{
+				Txn: txn,
+			},
+			ApplyData: sdk.ApplyData{
+				ApplicationID: 999, // Created app ID from ApplyData
+			},
+		}
+
+		result, err := signedTxnWithAdToTransaction(stxn, extra)
+		require.NoError(t, err)
+
+		require.NotNil(t, result.ApplicationTransaction)
+		require.NotNil(t, result.ApplicationTransaction.BoxReferences)
+		require.Equal(t, 1, len(*result.ApplicationTransaction.BoxReferences))
+
+		boxRef := (*result.ApplicationTransaction.BoxReferences)[0]
+		assert.Equal(t, uint64(999), boxRef.App) // Should resolve to ApplyData.ApplicationID
+		assert.Equal(t, boxName, boxRef.Name)
+	})
+
+	t.Run("BoxReferences Conversion - Valid ForeignAppIdx", func(t *testing.T) {
+		// Test conversion with valid ForeignAppIdx reference
+		sender := makeAddress(14)
+		boxName := []byte("foreign-box")
+		txn := sdk.Transaction{
+			Type: sdk.ApplicationCallTx,
+			Header: sdk.Header{
+				Sender:     sender,
+				Fee:        sdk.MicroAlgos(1000),
+				FirstValid: 1000,
+				LastValid:  2000,
+			},
+			ApplicationFields: sdk.ApplicationFields{
+				ApplicationCallTxnFields: sdk.ApplicationCallTxnFields{
+					ApplicationID: 123,
+					ForeignApps:   []sdk.AppIndex{777},
+					BoxReferences: []sdk.BoxReference{
+						{ForeignAppIdx: 1, Name: boxName}, // references ForeignApps[0]
+					},
+				},
+			},
+		}
+
+		stxn := &sdk.SignedTxnWithAD{
+			SignedTxn: sdk.SignedTxn{
+				Txn: txn,
+			},
+		}
+
+		result, err := signedTxnWithAdToTransaction(stxn, extra)
+		require.NoError(t, err)
+
+		require.NotNil(t, result.ApplicationTransaction)
+		require.NotNil(t, result.ApplicationTransaction.BoxReferences)
+		require.Equal(t, 1, len(*result.ApplicationTransaction.BoxReferences))
+
+		boxRef := (*result.ApplicationTransaction.BoxReferences)[0]
+		assert.Equal(t, uint64(777), boxRef.App) // Should resolve to ForeignApps[0]
+		assert.Equal(t, boxName, boxRef.Name)
+	})
+
+	t.Run("BoxReferences Conversion - Invalid ForeignAppIdx", func(t *testing.T) {
+		// Test conversion with invalid ForeignAppIdx (should be skipped due to continue)
+		sender := makeAddress(15)
+		boxName := []byte("invalid-box")
+		txn := sdk.Transaction{
+			Type: sdk.ApplicationCallTx,
+			Header: sdk.Header{
+				Sender:     sender,
+				Fee:        sdk.MicroAlgos(1000),
+				FirstValid: 1000,
+				LastValid:  2000,
+			},
+			ApplicationFields: sdk.ApplicationFields{
+				ApplicationCallTxnFields: sdk.ApplicationCallTxnFields{
+					ApplicationID: 123,
+					ForeignApps:   []sdk.AppIndex{777},
+					BoxReferences: []sdk.BoxReference{
+						{ForeignAppIdx: 10, Name: boxName}, // invalid index
+					},
+				},
+			},
+		}
+
+		stxn := &sdk.SignedTxnWithAD{
+			SignedTxn: sdk.SignedTxn{
+				Txn: txn,
+			},
+		}
+
+		result, err := signedTxnWithAdToTransaction(stxn, extra)
+		require.NoError(t, err)
+
+		require.NotNil(t, result.ApplicationTransaction)
+		require.NotNil(t, result.ApplicationTransaction.BoxReferences)
+		// Should have 0 items because the invalid reference was skipped via continue
+		assert.Equal(t, 0, len(*result.ApplicationTransaction.BoxReferences))
+	})
 }
