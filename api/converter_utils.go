@@ -383,6 +383,7 @@ func hdrRowToBlock(row idb.BlockRow) generated.Block {
 		Transactions:           nil,
 		TransactionsRoot:       row.BlockHeader.TxnCommitments.NativeSha512_256Commitment[:],
 		TransactionsRootSha256: row.BlockHeader.TxnCommitments.Sha256Commitment[:],
+		TransactionsRootSha512: byteSliceOmitZeroPtr(row.BlockHeader.TxnCommitments.Sha512Commitment[:]),
 		TxnCounter:             uint64Ptr(row.BlockHeader.TxnCounter),
 		UpgradeState:           &upgradeState,
 		UpgradeVote:            &upgradeVote,

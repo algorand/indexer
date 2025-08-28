@@ -1470,7 +1470,7 @@ func TestFetchBlock(t *testing.T) {
 			expected:     loadBlockFromFile("test_resources/proposer_incentives_block_response.json"),
 		},
 		{
-			name:         "Block with Previous 512 Block Hash",
+			name:         "Block with SHA-512 Hash and Transaction Commitment",
 			blockBytes:   loadResourceFileOrPanic("test_resources/branch512_block.block"),
 			blockOptions: idb.GetBlockOptions{Transactions: true},
 			expected:     loadBlockFromFile("test_resources/branch512_block_response.json"),

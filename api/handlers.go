@@ -1475,6 +1475,7 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64, op
 			Transactions:           nil,
 			TransactionsRoot:       blockHeader.TxnCommitments.NativeSha512_256Commitment[:],
 			TransactionsRootSha256: blockHeader.TxnCommitments.Sha256Commitment[:],
+			TransactionsRootSha512: byteSliceOmitZeroPtr(blockHeader.TxnCommitments.Sha512Commitment[:]),
 			TxnCounter:             uint64Ptr(blockHeader.TxnCounter),
 			UpgradeState:           &upgradeState,
 			UpgradeVote:            &upgradeVote,
