@@ -1,0 +1,38 @@
+{
+  "application-transaction": {
+    "access": [
+      {
+        "address": "AEBAGBAFAYDQQCIKBMGA2DQPCAIREEYUCULBOGAZDINRYHI6D4QDTYK3BA"
+      }
+    ],
+    "accounts": [],
+    "application-args": [],
+    "application-id": 123,
+    "box-references": [],
+    "foreign-apps": [],
+    "foreign-assets": [],
+    "global-state-schema": {
+      "num-byte-slice": 0,
+      "num-uint": 0
+    },
+    "local-state-schema": {
+      "num-byte-slice": 0,
+      "num-uint": 0
+    },
+    "on-completion": "noop"
+  },
+  "close-rewards": 0,
+  "closing-amount": 0,
+  "confirmed-round": 1,
+  "fee": 1000,
+  "first-valid": 1000,
+  "id": "EIDBIPWWUU6OWP67SEJWF3YU3XEDSRA6RTXVY7E4HZKVIG26SBHQ",
+  "intra-round-offset": 2,
+  "last-valid": 2000,
+  "receiver-rewards": 0,
+  "round-time": 1756351776,
+  "sender": "BIFQYDIOB4IBCEQTCQKRMFYYDENBWHA5DYPSAIJCEMSCKJRHFAURAA2UFY",
+  "sender-rewards": 0,
+  "signature": {},
+  "tx-type": "appl"
+}

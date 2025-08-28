@@ -405,6 +405,9 @@ func loadBlockFromFile(path string) generated.Block {
 	return ret
 }
 
+
+
+
 func TestFetchTransactions(t *testing.T) {
 	// Add in txnRows (with TxnBytes to parse), verify that they are properly serialized to generated.TransactionResponse
 	tests := []struct {
@@ -660,6 +663,78 @@ func TestFetchTransactions(t *testing.T) {
 			},
 			response: []generated.Transaction{
 				loadTransactionFromFile("test_resources/heartbeat.response"),
+			},
+		},
+		{
+			name: "Application txnAccess - Direct Address",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/txnaccess_address.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/txnaccess_address.response"),
+			},
+		},
+		{
+			name: "Application txnAccess - Direct App",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/txnaccess_app.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/txnaccess_app.response"),
+			},
+		},
+		{
+			name: "Application txnAccess - Direct Asset",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/txnaccess_asset.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/txnaccess_asset.response"),
+			},
+		},
+		{
+			name: "Application txnAccess - Asset Holding",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/txnaccess_holding.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/txnaccess_holding.response"),
+			},
+		},
+		{
+			name: "Application txnAccess - Local State",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/txnaccess_local.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/txnaccess_local.response"),
+			},
+		},
+		{
+			name: "Application txnAccess - Box Reference",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/txnaccess_box.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/txnaccess_box.response"),
+			},
+		},
+		{
+			name: "Application txnAccess - Multiple Types",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/txnaccess_multiple.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/txnaccess_multiple.response"),
+			},
+		},
+		{
+			name: "Application txnAccess - Empty Access Array",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/txnaccess_empty.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/txnaccess_empty.response"),
 			},
 		},
 	}
