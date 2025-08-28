@@ -232,7 +232,7 @@ func TestTxnAccessConversion(t *testing.T) {
 
 		holdingItem := (*result.ApplicationTransaction.Access)[1]
 		require.NotNil(t, holdingItem.Holding)
-		assert.Equal(t, sdk.Address{}.String(), holdingItem.Holding.Address) // sender = zero address
+		assert.Equal(t, makeAddress(10).String(), holdingItem.Holding.Address) // sender = makeAddress(10) from createAppCallTxn
 		assert.Equal(t, uint64(200), holdingItem.Holding.Asset)
 	})
 
@@ -284,7 +284,7 @@ func TestTxnAccessConversion(t *testing.T) {
 		localItem := (*result.ApplicationTransaction.Access)[1]
 		require.NotNil(t, localItem.Local)
 		assert.Equal(t, testAddr.String(), localItem.Local.Address)
-		assert.Equal(t, uint64(0), localItem.Local.App) // this app = 0
+		assert.Equal(t, uint64(123), localItem.Local.App) // this app = 123 (ApplicationID from createAppCallTxn)
 	})
 
 	t.Run("Local State Access - Sender Reference", func(t *testing.T) {
@@ -303,7 +303,7 @@ func TestTxnAccessConversion(t *testing.T) {
 
 		localItem := (*result.ApplicationTransaction.Access)[1]
 		require.NotNil(t, localItem.Local)
-		assert.Equal(t, sdk.Address{}.String(), localItem.Local.Address) // sender = zero address
+		assert.Equal(t, makeAddress(10).String(), localItem.Local.Address) // sender = makeAddress(10) from createAppCallTxn
 		assert.Equal(t, uint64(500), localItem.Local.App)
 	})
 
@@ -352,7 +352,7 @@ func TestTxnAccessConversion(t *testing.T) {
 
 		boxItem := (*result.ApplicationTransaction.Access)[0]
 		require.NotNil(t, boxItem.Box)
-		assert.Equal(t, uint64(0), boxItem.Box.App) // this app = 0
+		assert.Equal(t, uint64(123), boxItem.Box.App) // this app = 123 (ApplicationID from createAppCallTxn)
 		assert.Equal(t, boxName, boxItem.Box.Name)
 	})
 
@@ -375,7 +375,7 @@ func TestTxnAccessConversion(t *testing.T) {
 		// Should have created a box reference as the default
 		boxItem := (*result.ApplicationTransaction.Access)[0]
 		require.NotNil(t, boxItem.Box)
-		assert.Equal(t, uint64(0), boxItem.Box.App)
+		assert.Equal(t, uint64(123), boxItem.Box.App) // ForeignAppIdx 0 resolves to ApplicationID (123)
 		assert.Equal(t, boxName, boxItem.Box.Name)
 	})
 
@@ -431,8 +431,8 @@ func TestTxnAccessConversion(t *testing.T) {
 		assert.Equal(t, boxName, accessArray[5].Box.Name)
 	})
 
-	t.Run("Invalid Reference Indices", func(t *testing.T) {
-		// Test that invalid reference indices are handled gracefully (should be skipped)
+	t.Run("Invalid Reference Indices - Holding", func(t *testing.T) {
+		// Test that invalid holding reference indices result in zero values
 		access := []sdk.ResourceRef{
 			{Holding: sdk.HoldingRef{Address: 10, Asset: 20}}, // Invalid indices
 		}
@@ -443,7 +443,233 @@ func TestTxnAccessConversion(t *testing.T) {
 
 		require.NotNil(t, result.ApplicationTransaction)
 		require.NotNil(t, result.ApplicationTransaction.Access)
-		// Should have 0 items because the invalid reference was skipped
-		assert.Equal(t, 0, len(*result.ApplicationTransaction.Access))
+		require.Equal(t, 1, len(*result.ApplicationTransaction.Access))
+
+		holdingItem := (*result.ApplicationTransaction.Access)[0]
+		require.NotNil(t, holdingItem.Holding)
+		// Invalid indices should result in zero address and zero asset
+		assert.Equal(t, sdk.Address{}.String(), holdingItem.Holding.Address)
+		assert.Equal(t, uint64(0), holdingItem.Holding.Asset)
+	})
+
+	t.Run("Invalid Reference Indices - Locals", func(t *testing.T) {
+		// Test that invalid locals reference indices result in zero values
+		access := []sdk.ResourceRef{
+			{Locals: sdk.LocalsRef{Address: 5, App: 10}}, // Invalid indices
+		}
+		stxn := createAppCallTxn(access)
+
+		result, err := signedTxnWithAdToTransaction(stxn, extra)
+		require.NoError(t, err)
+
+		require.NotNil(t, result.ApplicationTransaction)
+		require.NotNil(t, result.ApplicationTransaction.Access)
+		require.Equal(t, 1, len(*result.ApplicationTransaction.Access))
+
+		localItem := (*result.ApplicationTransaction.Access)[0]
+		require.NotNil(t, localItem.Local)
+		// Invalid indices should result in zero address and zero app
+		assert.Equal(t, sdk.Address{}.String(), localItem.Local.Address)
+		assert.Equal(t, uint64(0), localItem.Local.App)
+	})
+
+	t.Run("Invalid Reference Indices - Box", func(t *testing.T) {
+		// Test that invalid box reference indices result in zero appID
+		boxName := []byte("invalid-box")
+		access := []sdk.ResourceRef{
+			{Box: sdk.BoxReference{ForeignAppIdx: 10, Name: boxName}}, // Invalid index
+		}
+		stxn := createAppCallTxn(access)
+
+		result, err := signedTxnWithAdToTransaction(stxn, extra)
+		require.NoError(t, err)
+
+		require.NotNil(t, result.ApplicationTransaction)
+		require.NotNil(t, result.ApplicationTransaction.Access)
+		// Should have 1 item with zero appID due to invalid reference
+		require.Equal(t, 1, len(*result.ApplicationTransaction.Access))
+
+		boxItem := (*result.ApplicationTransaction.Access)[0]
+		require.NotNil(t, boxItem.Box)
+		assert.Equal(t, uint64(0), boxItem.Box.App) // Invalid index should result in 0
+		assert.Equal(t, boxName, boxItem.Box.Name)
+	})
+
+	t.Run("Partially Invalid Reference Indices", func(t *testing.T) {
+		// Test mixed valid and invalid reference indices
+		testAddr := makeAddress(6)
+		access := []sdk.ResourceRef{
+			{Address: testAddr},                             // Valid - index 0
+			{Holding: sdk.HoldingRef{Address: 1, Asset: 5}}, // Valid address ref, invalid asset ref
+			{Locals: sdk.LocalsRef{Address: 8, App: 1}},     // Invalid address ref, but App should resolve to zero
+		}
+		stxn := createAppCallTxn(access)
+
+		result, err := signedTxnWithAdToTransaction(stxn, extra)
+		require.NoError(t, err)
+
+		require.NotNil(t, result.ApplicationTransaction)
+		require.NotNil(t, result.ApplicationTransaction.Access)
+		require.Equal(t, 3, len(*result.ApplicationTransaction.Access))
+
+		// First item should be valid direct address
+		assert.NotNil(t, (*result.ApplicationTransaction.Access)[0].Address)
+		assert.Equal(t, testAddr.String(), *(*result.ApplicationTransaction.Access)[0].Address)
+
+		// Second item: holding with valid address but invalid asset reference
+		holdingItem := (*result.ApplicationTransaction.Access)[1]
+		require.NotNil(t, holdingItem.Holding)
+		assert.Equal(t, testAddr.String(), holdingItem.Holding.Address) // Should resolve to testAddr
+		assert.Equal(t, uint64(0), holdingItem.Holding.Asset)           // Invalid asset ref should be 0
+
+		// Third item: locals with invalid address but app should be resolved
+		localItem := (*result.ApplicationTransaction.Access)[2]
+		require.NotNil(t, localItem.Local)
+		assert.Equal(t, sdk.Address{}.String(), localItem.Local.Address) // Invalid address ref should be zero
+		assert.Equal(t, uint64(0), localItem.Local.App)                  // Should try to resolve but get 0
+	})
+
+	t.Run("Edge Case - App Creation Local State Access", func(t *testing.T) {
+		// Test local state access during app creation (ApplicationID = 0)
+		sender := makeAddress(10)
+		txn := sdk.Transaction{
+			Type: sdk.ApplicationCallTx,
+			Header: sdk.Header{
+				Sender:     sender,
+				Fee:        sdk.MicroAlgos(1000),
+				FirstValid: 1000,
+				LastValid:  2000,
+			},
+			ApplicationFields: sdk.ApplicationFields{
+				ApplicationCallTxnFields: sdk.ApplicationCallTxnFields{
+					ApplicationID: 0, // App creation
+					Access: []sdk.ResourceRef{
+						{Locals: sdk.LocalsRef{Address: 0, App: 0}}, // sender's locals for this app
+					},
+				},
+			},
+		}
+
+		stxn := &sdk.SignedTxnWithAD{
+			SignedTxn: sdk.SignedTxn{
+				Txn: txn,
+			},
+			ApplyData: sdk.ApplyData{
+				ApplicationID: 456, // Created app ID from ApplyData
+			},
+		}
+
+		result, err := signedTxnWithAdToTransaction(stxn, extra)
+		require.NoError(t, err)
+
+		require.NotNil(t, result.ApplicationTransaction)
+		require.NotNil(t, result.ApplicationTransaction.Access)
+		require.Equal(t, 1, len(*result.ApplicationTransaction.Access))
+
+		accessItem := (*result.ApplicationTransaction.Access)[0]
+		// Since both Address and App are 0, this will fall through to the default case (box reference)
+		require.NotNil(t, accessItem.Box)
+		assert.Equal(t, uint64(456), accessItem.Box.App) // ForeignAppIdx 0 resolves to ApplyData.ApplicationID (456)
+		assert.Equal(t, []byte(nil), accessItem.Box.Name)
+		assert.Nil(t, accessItem.Local)
+	})
+
+	t.Run("Edge Case - Mixed Zero and Non-Zero in ResourceRef", func(t *testing.T) {
+		// Test a ResourceRef where only some fields are set
+		boxName := []byte("mixed-box")
+		access := []sdk.ResourceRef{
+			{
+				// This tests the "else" fallback case where direct fields are zero but Box is set
+				Box: sdk.BoxReference{ForeignAppIdx: 0, Name: boxName},
+			},
+		}
+		stxn := createAppCallTxn(access)
+
+		result, err := signedTxnWithAdToTransaction(stxn, extra)
+		require.NoError(t, err)
+
+		require.NotNil(t, result.ApplicationTransaction)
+		require.NotNil(t, result.ApplicationTransaction.Access)
+		require.Equal(t, 1, len(*result.ApplicationTransaction.Access))
+
+		boxItem := (*result.ApplicationTransaction.Access)[0]
+		require.NotNil(t, boxItem.Box)
+		assert.Equal(t, uint64(123), boxItem.Box.App) // ForeignAppIdx 0 should resolve to ApplicationID (123)
+		assert.Equal(t, boxName, boxItem.Box.Name)
+		// Ensure other fields are nil
+		assert.Nil(t, boxItem.Address)
+		assert.Nil(t, boxItem.ApplicationId)
+		assert.Nil(t, boxItem.AssetId)
+		assert.Nil(t, boxItem.Holding)
+		assert.Nil(t, boxItem.Local)
+	})
+
+	t.Run("Edge Case - Box Creation During App Creation", func(t *testing.T) {
+		// Test box reference during app creation (ApplicationID = 0, ForeignAppIdx = 0)
+		sender := makeAddress(11)
+		boxName := []byte("creation-box")
+		txn := sdk.Transaction{
+			Type: sdk.ApplicationCallTx,
+			Header: sdk.Header{
+				Sender:     sender,
+				Fee:        sdk.MicroAlgos(1000),
+				FirstValid: 1000,
+				LastValid:  2000,
+			},
+			ApplicationFields: sdk.ApplicationFields{
+				ApplicationCallTxnFields: sdk.ApplicationCallTxnFields{
+					ApplicationID: 0, // App creation
+					Access: []sdk.ResourceRef{
+						{Box: sdk.BoxReference{ForeignAppIdx: 0, Name: boxName}}, // this app during creation
+					},
+				},
+			},
+		}
+
+		stxn := &sdk.SignedTxnWithAD{
+			SignedTxn: sdk.SignedTxn{
+				Txn: txn,
+			},
+			ApplyData: sdk.ApplyData{
+				ApplicationID: 789, // Created app ID from ApplyData
+			},
+		}
+
+		result, err := signedTxnWithAdToTransaction(stxn, extra)
+		require.NoError(t, err)
+
+		require.NotNil(t, result.ApplicationTransaction)
+		require.NotNil(t, result.ApplicationTransaction.Access)
+		require.Equal(t, 1, len(*result.ApplicationTransaction.Access))
+
+		boxItem := (*result.ApplicationTransaction.Access)[0]
+		require.NotNil(t, boxItem.Box)
+		assert.Equal(t, uint64(789), boxItem.Box.App) // Should use ApplyData.ApplicationID
+		assert.Equal(t, boxName, boxItem.Box.Name)
+	})
+
+	t.Run("Edge Case - Zero Asset in Holding", func(t *testing.T) {
+		// Test holding reference where asset is zero - this will NOT create a holding because Asset == 0 fails the condition check
+		// Instead it will fall through to the default case (box reference)
+		boxName := []byte("") // Empty box name
+		access := []sdk.ResourceRef{
+			{Holding: sdk.HoldingRef{Address: 1, Asset: 0}, Box: sdk.BoxReference{ForeignAppIdx: 0, Name: boxName}}, // Asset = 0, falls to default
+		}
+		stxn := createAppCallTxn(access)
+
+		result, err := signedTxnWithAdToTransaction(stxn, extra)
+		require.NoError(t, err)
+
+		require.NotNil(t, result.ApplicationTransaction)
+		require.NotNil(t, result.ApplicationTransaction.Access)
+		require.Equal(t, 1, len(*result.ApplicationTransaction.Access))
+
+		// Should be a box reference due to fallthrough from Asset == 0
+		boxItem := (*result.ApplicationTransaction.Access)[0]
+		require.NotNil(t, boxItem.Box)
+		assert.Equal(t, uint64(123), boxItem.Box.App) // ForeignAppIdx 0 resolves to ApplicationID (123)
+		assert.Equal(t, boxName, boxItem.Box.Name)
+		// Ensure holding is nil
+		assert.Nil(t, boxItem.Holding)
 	})
 }

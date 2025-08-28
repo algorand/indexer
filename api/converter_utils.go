@@ -515,22 +515,16 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 			} else if v.Holding.Asset != 0 {
 				var address sdk.Address
 				if v.Holding.Address == 0 {
-					// indicates the sender
-					address = sdk.Address{}
+					// indicates the sender, resolved below
+					address = stxn.Txn.Sender
 				} else if int(v.Holding.Address-1) < len(stxn.Txn.Access) {
 					address = stxn.Txn.Access[v.Holding.Address-1].Address
-				} else {
-					// this should not happen
-					continue
 				}
 
 				var asset sdk.AssetIndex
-				// Asset must be non-zero
+				// Asset should always be non-zero, but sanity check
 				if int(v.Holding.Asset-1) < len(stxn.Txn.Access) {
 					asset = stxn.Txn.Access[v.Holding.Asset-1].Asset
-				} else {
-					// this should not happen
-					continue
 				}
 
 				resourceRef.Holding = &generated.HoldingRef{
@@ -540,24 +534,23 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 			} else if v.Locals.Address != 0 || v.Locals.App != 0 {
 				var address sdk.Address
 				if v.Locals.Address == 0 {
-					// indicates the sender
-					address = sdk.Address{}
+					// indicates the sender, resolved below
+					address = stxn.Txn.Sender
 				} else if int(v.Locals.Address-1) < len(stxn.Txn.Access) {
 					address = stxn.Txn.Access[v.Locals.Address-1].Address
-				} else {
-					// this should not happen
-					continue
 				}
 
 				var app sdk.AppIndex
 				if v.Locals.App == 0 {
-					// indicates this application
-					app = sdk.AppIndex(0)
+					// indicates this application, resolve app id
+					if stxn.Txn.ApplicationID == 0 {
+						// Use applyData.ApplicationID if Txn.ApplicationID is 0 (creation case)
+						app = stxn.ApplyData.ApplicationID
+					} else {
+						app = stxn.Txn.ApplicationID
+					}
 				} else if int(v.Locals.App-1) < len(stxn.Txn.Access) {
 					app = stxn.Txn.Access[v.Locals.App-1].App
-				} else {
-					// this should not happen
-					continue
 				}
 
 				resourceRef.Local = &generated.LocalsRef{
@@ -565,16 +558,19 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 					App:     uint64(app),
 				}
 			} else {
-				// If all else empty, default to a boxref, because a boxref is the only ResourceRef that should ever be empty 
+				// If all else empty, default to a boxref, because a boxref is the only ResourceRef that should ever be empty
 				var appID uint64
 				if v.Box.ForeignAppIdx == 0 {
-					appID = 0
+					// indicates this application, resolve app id
+					if stxn.Txn.ApplicationID == 0 {
+						// Use applyData.ApplicationID if Txn.ApplicationID is 0 (creation case)
+						appID = uint64(stxn.ApplyData.ApplicationID)
+					} else {
+						appID = uint64(stxn.Txn.ApplicationID)
+					}
 				} else if int(v.Box.ForeignAppIdx-1) < len(stxn.Txn.Access) {
 					// Indexes are 1-based, so we subtract 1
 					appID = uint64(stxn.Txn.Access[v.Box.ForeignAppIdx-1].App)
-				} else {
-					// this should not happen
-					continue
 				}
 				boxRef := generated.BoxReference{
 					App:  appID,

@@ -698,12 +698,11 @@ type ResourceRef struct {
 	// Address \[d\] Account whose balance record is accessible by the executing ApprovalProgram or ClearStateProgram.
 	Address *string `json:"address,omitempty"`
 
-	// ApplicationId \[p\] Application id whose GlobalState (or Local, since v4) may be read by the executing
+	// ApplicationId \[p\] Application id whose GlobalState may be read by the executing
 	//  ApprovalProgram or ClearStateProgram.
 	ApplicationId *uint64 `json:"application-id,omitempty"`
 
-	// AssetId \[s\] Asset whose AssetParams
-	//  (and since v4, Holdings) may be read by the executing
+	// AssetId \[s\] Asset whose AssetParams may be read by the executing
 	//  ApprovalProgram or ClearStateProgram.
 	AssetId *uint64 `json:"asset-id,omitempty"`
 
@@ -1002,7 +1001,7 @@ type TransactionTxType string
 // Definition:
 // data/transactions/application.go : ApplicationCallTxnFields
 type TransactionApplication struct {
-	// Access \[al\] Access unifies `accounts`, `foreign-apps`, `foreign-assets`, and `box-references` under a single list. If access is non-empty, these lists must be empty. If access is empty, these lists may be non-empty.
+	// Access \[al\] Access unifies `accounts`, `foreign-apps`, `foreign-assets`, and `box-references` under a single list. If access is non-empty, these lists must be empty. If access is empty, those lists may be non-empty.
 	Access *[]ResourceRef `json:"access,omitempty"`
 
 	// Accounts \[apat\] List of accounts in addition to the sender that may be accessed from the application's approval-program and clear-state-program.
