@@ -405,9 +405,6 @@ func loadBlockFromFile(path string) generated.Block {
 	return ret
 }
 
-
-
-
 func TestFetchTransactions(t *testing.T) {
 	// Add in txnRows (with TxnBytes to parse), verify that they are properly serialized to generated.TransactionResponse
 	tests := []struct {

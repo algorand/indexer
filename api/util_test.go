@@ -60,7 +60,7 @@ func TestInvalidTxnRow(t *testing.T) {
 }
 
 // TestTxnAccessConversion tests the conversion of txn.Access field combinations
-// from SDK types to the generated API types, exercising all the logic in 
+// from SDK types to the generated API types, exercising all the logic in
 // converter_utils.go lines 504-588
 func TestTxnAccessConversion(t *testing.T) {
 	// Helper to create a valid non-zero address
@@ -75,7 +75,7 @@ func TestTxnAccessConversion(t *testing.T) {
 	// Helper to create a basic signed transaction with application call
 	createAppCallTxn := func(access []sdk.ResourceRef) *sdk.SignedTxnWithAD {
 		sender := makeAddress(10)
-		
+
 		txn := sdk.Transaction{
 			Type: sdk.ApplicationCallTx,
 			Header: sdk.Header{
@@ -91,14 +91,14 @@ func TestTxnAccessConversion(t *testing.T) {
 				},
 			},
 		}
-		
+
 		return &sdk.SignedTxnWithAD{
 			SignedTxn: sdk.SignedTxn{
 				Txn: txn,
 			},
 		}
 	}
-	
+
 	extra := rowData{
 		Round:     1,
 		RoundTime: 1234567890,
@@ -107,10 +107,10 @@ func TestTxnAccessConversion(t *testing.T) {
 
 	t.Run("Empty Access Array", func(t *testing.T) {
 		stxn := createAppCallTxn([]sdk.ResourceRef{})
-		
+
 		result, err := signedTxnWithAdToTransaction(stxn, extra)
 		require.NoError(t, err)
-		
+
 		require.NotNil(t, result.ApplicationTransaction)
 		require.NotNil(t, result.ApplicationTransaction.Access)
 		assert.Equal(t, 0, len(*result.ApplicationTransaction.Access))
@@ -118,19 +118,19 @@ func TestTxnAccessConversion(t *testing.T) {
 
 	t.Run("Direct Address Access", func(t *testing.T) {
 		testAddr := makeAddress(1)
-		
+
 		access := []sdk.ResourceRef{
 			{Address: testAddr},
 		}
 		stxn := createAppCallTxn(access)
-		
+
 		result, err := signedTxnWithAdToTransaction(stxn, extra)
 		require.NoError(t, err)
-		
+
 		require.NotNil(t, result.ApplicationTransaction)
 		require.NotNil(t, result.ApplicationTransaction.Access)
 		require.Equal(t, 1, len(*result.ApplicationTransaction.Access))
-		
+
 		accessItem := (*result.ApplicationTransaction.Access)[0]
 		require.NotNil(t, accessItem.Address)
 		assert.Equal(t, testAddr.String(), *accessItem.Address)
@@ -146,14 +146,14 @@ func TestTxnAccessConversion(t *testing.T) {
 			{App: sdk.AppIndex(456)},
 		}
 		stxn := createAppCallTxn(access)
-		
+
 		result, err := signedTxnWithAdToTransaction(stxn, extra)
 		require.NoError(t, err)
-		
+
 		require.NotNil(t, result.ApplicationTransaction)
 		require.NotNil(t, result.ApplicationTransaction.Access)
 		require.Equal(t, 1, len(*result.ApplicationTransaction.Access))
-		
+
 		accessItem := (*result.ApplicationTransaction.Access)[0]
 		require.NotNil(t, accessItem.ApplicationId)
 		assert.Equal(t, uint64(456), *accessItem.ApplicationId)
@@ -169,14 +169,14 @@ func TestTxnAccessConversion(t *testing.T) {
 			{Asset: sdk.AssetIndex(789)},
 		}
 		stxn := createAppCallTxn(access)
-		
+
 		result, err := signedTxnWithAdToTransaction(stxn, extra)
 		require.NoError(t, err)
-		
+
 		require.NotNil(t, result.ApplicationTransaction)
 		require.NotNil(t, result.ApplicationTransaction.Access)
 		require.Equal(t, 1, len(*result.ApplicationTransaction.Access))
-		
+
 		accessItem := (*result.ApplicationTransaction.Access)[0]
 		require.NotNil(t, accessItem.AssetId)
 		assert.Equal(t, uint64(789), *accessItem.AssetId)
@@ -189,21 +189,21 @@ func TestTxnAccessConversion(t *testing.T) {
 
 	t.Run("Asset Holding Access", func(t *testing.T) {
 		testAddr := makeAddress(2)
-		
+
 		access := []sdk.ResourceRef{
-			{Address: testAddr},     // index 0 - address reference
-			{Asset: sdk.AssetIndex(100)}, // index 1 - asset reference
+			{Address: testAddr},                             // index 0 - address reference
+			{Asset: sdk.AssetIndex(100)},                    // index 1 - asset reference
 			{Holding: sdk.HoldingRef{Address: 1, Asset: 2}}, // holding referencing indices
 		}
 		stxn := createAppCallTxn(access)
-		
+
 		result, err := signedTxnWithAdToTransaction(stxn, extra)
 		require.NoError(t, err)
-		
+
 		require.NotNil(t, result.ApplicationTransaction)
 		require.NotNil(t, result.ApplicationTransaction.Access)
 		require.Equal(t, 3, len(*result.ApplicationTransaction.Access))
-		
+
 		// Check the holding access item (should be index 2)
 		holdingItem := (*result.ApplicationTransaction.Access)[2]
 		require.NotNil(t, holdingItem.Holding)
@@ -218,18 +218,18 @@ func TestTxnAccessConversion(t *testing.T) {
 
 	t.Run("Asset Holding Access - Sender Reference", func(t *testing.T) {
 		access := []sdk.ResourceRef{
-			{Asset: sdk.AssetIndex(200)}, // index 0
+			{Asset: sdk.AssetIndex(200)},                    // index 0
 			{Holding: sdk.HoldingRef{Address: 0, Asset: 1}}, // Address: 0 = sender
 		}
 		stxn := createAppCallTxn(access)
-		
+
 		result, err := signedTxnWithAdToTransaction(stxn, extra)
 		require.NoError(t, err)
-		
+
 		require.NotNil(t, result.ApplicationTransaction)
 		require.NotNil(t, result.ApplicationTransaction.Access)
 		require.Equal(t, 2, len(*result.ApplicationTransaction.Access))
-		
+
 		holdingItem := (*result.ApplicationTransaction.Access)[1]
 		require.NotNil(t, holdingItem.Holding)
 		assert.Equal(t, sdk.Address{}.String(), holdingItem.Holding.Address) // sender = zero address
@@ -238,21 +238,21 @@ func TestTxnAccessConversion(t *testing.T) {
 
 	t.Run("Local State Access", func(t *testing.T) {
 		testAddr := makeAddress(3)
-		
+
 		access := []sdk.ResourceRef{
-			{Address: testAddr},         // index 0 - address reference
-			{App: sdk.AppIndex(300)},    // index 1 - app reference
+			{Address: testAddr},                         // index 0 - address reference
+			{App: sdk.AppIndex(300)},                    // index 1 - app reference
 			{Locals: sdk.LocalsRef{Address: 1, App: 2}}, // local referencing indices
 		}
 		stxn := createAppCallTxn(access)
-		
+
 		result, err := signedTxnWithAdToTransaction(stxn, extra)
 		require.NoError(t, err)
-		
+
 		require.NotNil(t, result.ApplicationTransaction)
 		require.NotNil(t, result.ApplicationTransaction.Access)
 		require.Equal(t, 3, len(*result.ApplicationTransaction.Access))
-		
+
 		// Check the local access item (should be index 2)
 		localItem := (*result.ApplicationTransaction.Access)[2]
 		require.NotNil(t, localItem.Local)
@@ -267,20 +267,20 @@ func TestTxnAccessConversion(t *testing.T) {
 
 	t.Run("Local State Access - This App Reference", func(t *testing.T) {
 		testAddr := makeAddress(4)
-		
+
 		access := []sdk.ResourceRef{
-			{Address: testAddr},         // index 0
+			{Address: testAddr},                         // index 0
 			{Locals: sdk.LocalsRef{Address: 1, App: 0}}, // App: 0 = this app
 		}
 		stxn := createAppCallTxn(access)
-		
+
 		result, err := signedTxnWithAdToTransaction(stxn, extra)
 		require.NoError(t, err)
-		
+
 		require.NotNil(t, result.ApplicationTransaction)
 		require.NotNil(t, result.ApplicationTransaction.Access)
 		require.Equal(t, 2, len(*result.ApplicationTransaction.Access))
-		
+
 		localItem := (*result.ApplicationTransaction.Access)[1]
 		require.NotNil(t, localItem.Local)
 		assert.Equal(t, testAddr.String(), localItem.Local.Address)
@@ -289,18 +289,18 @@ func TestTxnAccessConversion(t *testing.T) {
 
 	t.Run("Local State Access - Sender Reference", func(t *testing.T) {
 		access := []sdk.ResourceRef{
-			{App: sdk.AppIndex(500)}, // index 0
+			{App: sdk.AppIndex(500)},                    // index 0
 			{Locals: sdk.LocalsRef{Address: 0, App: 1}}, // Address: 0 = sender
 		}
 		stxn := createAppCallTxn(access)
-		
+
 		result, err := signedTxnWithAdToTransaction(stxn, extra)
 		require.NoError(t, err)
-		
+
 		require.NotNil(t, result.ApplicationTransaction)
 		require.NotNil(t, result.ApplicationTransaction.Access)
 		require.Equal(t, 2, len(*result.ApplicationTransaction.Access))
-		
+
 		localItem := (*result.ApplicationTransaction.Access)[1]
 		require.NotNil(t, localItem.Local)
 		assert.Equal(t, sdk.Address{}.String(), localItem.Local.Address) // sender = zero address
@@ -309,20 +309,20 @@ func TestTxnAccessConversion(t *testing.T) {
 
 	t.Run("Box Reference Access", func(t *testing.T) {
 		boxName := []byte("test-box-name")
-		
+
 		access := []sdk.ResourceRef{
-			{App: sdk.AppIndex(400)}, // index 0 - app reference
+			{App: sdk.AppIndex(400)},                                 // index 0 - app reference
 			{Box: sdk.BoxReference{ForeignAppIdx: 1, Name: boxName}}, // box referencing app
 		}
 		stxn := createAppCallTxn(access)
-		
+
 		result, err := signedTxnWithAdToTransaction(stxn, extra)
 		require.NoError(t, err)
-		
+
 		require.NotNil(t, result.ApplicationTransaction)
 		require.NotNil(t, result.ApplicationTransaction.Access)
 		require.Equal(t, 2, len(*result.ApplicationTransaction.Access))
-		
+
 		// Check the box access item (should be index 1)
 		boxItem := (*result.ApplicationTransaction.Access)[1]
 		require.NotNil(t, boxItem.Box)
@@ -337,19 +337,19 @@ func TestTxnAccessConversion(t *testing.T) {
 
 	t.Run("Box Reference Access - This App", func(t *testing.T) {
 		boxName := []byte("this-app-box")
-		
+
 		access := []sdk.ResourceRef{
 			{Box: sdk.BoxReference{ForeignAppIdx: 0, Name: boxName}}, // ForeignAppIdx: 0 = this app
 		}
 		stxn := createAppCallTxn(access)
-		
+
 		result, err := signedTxnWithAdToTransaction(stxn, extra)
 		require.NoError(t, err)
-		
+
 		require.NotNil(t, result.ApplicationTransaction)
 		require.NotNil(t, result.ApplicationTransaction.Access)
 		require.Equal(t, 1, len(*result.ApplicationTransaction.Access))
-		
+
 		boxItem := (*result.ApplicationTransaction.Access)[0]
 		require.NotNil(t, boxItem.Box)
 		assert.Equal(t, uint64(0), boxItem.Box.App) // this app = 0
@@ -359,19 +359,19 @@ func TestTxnAccessConversion(t *testing.T) {
 	t.Run("Default to Box Reference", func(t *testing.T) {
 		// Test the default case: when all fields are empty/zero, it should default to box reference
 		boxName := []byte("default-box")
-		
+
 		access := []sdk.ResourceRef{
 			{Box: sdk.BoxReference{ForeignAppIdx: 0, Name: boxName}}, // All other fields zero
 		}
 		stxn := createAppCallTxn(access)
-		
+
 		result, err := signedTxnWithAdToTransaction(stxn, extra)
 		require.NoError(t, err)
-		
+
 		require.NotNil(t, result.ApplicationTransaction)
 		require.NotNil(t, result.ApplicationTransaction.Access)
 		require.Equal(t, 1, len(*result.ApplicationTransaction.Access))
-		
+
 		// Should have created a box reference as the default
 		boxItem := (*result.ApplicationTransaction.Access)[0]
 		require.NotNil(t, boxItem.Box)
@@ -382,49 +382,49 @@ func TestTxnAccessConversion(t *testing.T) {
 	t.Run("Multiple Access Types", func(t *testing.T) {
 		testAddr1 := makeAddress(5)
 		boxName := []byte("multi-test-box")
-		
+
 		access := []sdk.ResourceRef{
-			{Address: testAddr1},                    // Direct address
-			{App: sdk.AppIndex(500)},               // Direct app
-			{Asset: sdk.AssetIndex(600)},           // Direct asset
-			{Holding: sdk.HoldingRef{Address: 1, Asset: 3}}, // Holding reference
-			{Locals: sdk.LocalsRef{Address: 1, App: 2}},     // Local reference  
+			{Address: testAddr1},                                     // Direct address
+			{App: sdk.AppIndex(500)},                                 // Direct app
+			{Asset: sdk.AssetIndex(600)},                             // Direct asset
+			{Holding: sdk.HoldingRef{Address: 1, Asset: 3}},          // Holding reference
+			{Locals: sdk.LocalsRef{Address: 1, App: 2}},              // Local reference
 			{Box: sdk.BoxReference{ForeignAppIdx: 2, Name: boxName}}, // Box reference
 		}
 		stxn := createAppCallTxn(access)
-		
+
 		result, err := signedTxnWithAdToTransaction(stxn, extra)
 		require.NoError(t, err)
-		
+
 		require.NotNil(t, result.ApplicationTransaction)
 		require.NotNil(t, result.ApplicationTransaction.Access)
 		assert.Equal(t, 6, len(*result.ApplicationTransaction.Access))
-		
+
 		// Verify each access type
 		accessArray := *result.ApplicationTransaction.Access
-		
+
 		// Index 0: Direct address
 		assert.NotNil(t, accessArray[0].Address)
 		assert.Equal(t, testAddr1.String(), *accessArray[0].Address)
-		
+
 		// Index 1: Direct app
 		assert.NotNil(t, accessArray[1].ApplicationId)
 		assert.Equal(t, uint64(500), *accessArray[1].ApplicationId)
-		
+
 		// Index 2: Direct asset
 		assert.NotNil(t, accessArray[2].AssetId)
 		assert.Equal(t, uint64(600), *accessArray[2].AssetId)
-		
+
 		// Index 3: Holding reference
 		require.NotNil(t, accessArray[3].Holding)
 		assert.Equal(t, testAddr1.String(), accessArray[3].Holding.Address) // references index 1
 		assert.Equal(t, uint64(600), accessArray[3].Holding.Asset)          // references index 3
-		
+
 		// Index 4: Local reference
 		require.NotNil(t, accessArray[4].Local)
 		assert.Equal(t, testAddr1.String(), accessArray[4].Local.Address) // references index 1
 		assert.Equal(t, uint64(500), accessArray[4].Local.App)            // references index 2
-		
+
 		// Index 5: Box reference
 		require.NotNil(t, accessArray[5].Box)
 		assert.Equal(t, uint64(500), accessArray[5].Box.App) // references index 2
@@ -437,10 +437,10 @@ func TestTxnAccessConversion(t *testing.T) {
 			{Holding: sdk.HoldingRef{Address: 10, Asset: 20}}, // Invalid indices
 		}
 		stxn := createAppCallTxn(access)
-		
+
 		result, err := signedTxnWithAdToTransaction(stxn, extra)
 		require.NoError(t, err)
-		
+
 		require.NotNil(t, result.ApplicationTransaction)
 		require.NotNil(t, result.ApplicationTransaction.Access)
 		// Should have 0 items because the invalid reference was skipped
