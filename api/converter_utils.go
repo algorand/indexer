@@ -565,7 +565,7 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 					App:     uint64(app),
 				}
 			} else {
-				// If all else empty, default to a boxref
+				// If all else empty, default to a boxref, because a boxref is the only ResourceRef that should ever be empty 
 				var appID uint64
 				if v.Box.ForeignAppIdx == 0 {
 					appID = 0
