@@ -2033,7 +2033,7 @@
           "type": "integer"
         },
         "asset-id": {
-          "description": "\\[s\\] Asset whose AssetParams\n (and since v4, Holdings) may be read by the executing\n ApprovalProgram or ClearStateProgram.",
+          "description": "\\[s\\] Asset whose AssetParams may be read by the executing\n ApprovalProgram or ClearStateProgram.",
           "type": "integer"
         },
         "box":{
