@@ -732,7 +732,7 @@ type LocalsRef struct {
 	// Address \[d\] Address in access list, or the sender of the transaction.
 	Address string `json:"address"`
 
-	// App \[p\] Application ID for app in access list, or ID of the calling application.
+	// App \[p\] Application ID for app in access list, or zero if referring to the called application.
 	App uint64 `json:"app"`
 }
 

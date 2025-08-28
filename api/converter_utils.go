@@ -488,13 +488,7 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 		for _, v := range stxn.Txn.BoxReferences {
 			var appID uint64
 			if v.ForeignAppIdx == 0 {
-				// indicates this application, resolve app id
-				if stxn.Txn.ApplicationID == 0 {
-					// Use applyData.ApplicationID if Txn.ApplicationID is 0 (creation case)
-					appID = uint64(stxn.ApplyData.ApplicationID)
-				} else {
-					appID = uint64(stxn.Txn.ApplicationID)
-				}
+				appID = 0
 			} else if int(v.ForeignAppIdx-1) < len(stxn.Txn.ForeignApps) {
 				// Indexes are 1-based, so we subtract 1
 				appID = uint64(stxn.Txn.ForeignApps[v.ForeignAppIdx-1])
@@ -548,13 +542,7 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 
 				var app sdk.AppIndex
 				if v.Locals.App == 0 {
-					// indicates this application, resolve app id
-					if stxn.Txn.ApplicationID == 0 {
-						// Use applyData.ApplicationID if Txn.ApplicationID is 0 (creation case)
-						app = stxn.ApplyData.ApplicationID
-					} else {
-						app = stxn.Txn.ApplicationID
-					}
+					app = 0
 				} else if int(v.Locals.App-1) < len(stxn.Txn.Access) {
 					app = stxn.Txn.Access[v.Locals.App-1].App
 				}
@@ -567,13 +555,7 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 				// If all else empty, default to a boxref, because a boxref is the only ResourceRef that should ever be empty
 				var appID uint64
 				if v.Box.ForeignAppIdx == 0 {
-					// indicates this application, resolve app id
-					if stxn.Txn.ApplicationID == 0 {
-						// Use applyData.ApplicationID if Txn.ApplicationID is 0 (creation case)
-						appID = uint64(stxn.ApplyData.ApplicationID)
-					} else {
-						appID = uint64(stxn.Txn.ApplicationID)
-					}
+					appID = 0
 				} else if int(v.Box.ForeignAppIdx-1) < len(stxn.Txn.Access) {
 					// Indexes are 1-based, so we subtract 1
 					appID = uint64(stxn.Txn.Access[v.Box.ForeignAppIdx-1].App)

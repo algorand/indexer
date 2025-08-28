@@ -1947,7 +1947,7 @@
           "x-algorand-format": "Address"
         },
         "app": {
-          "description": "\\[p\\] Application ID for app in access list, or ID of the calling application.",
+          "description": "\\[p\\] Application ID for app in access list, or zero if referring to the called application.",
           "type": "integer"
         }
       }

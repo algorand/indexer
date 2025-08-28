@@ -284,7 +284,7 @@ func TestTxnAccessConversion(t *testing.T) {
 		localItem := (*result.ApplicationTransaction.Access)[1]
 		require.NotNil(t, localItem.Local)
 		assert.Equal(t, testAddr.String(), localItem.Local.Address)
-		assert.Equal(t, uint64(123), localItem.Local.App) // this app = 123 (ApplicationID from createAppCallTxn)
+		assert.Equal(t, uint64(0), localItem.Local.App) // App: 0 should remain 0
 	})
 
 	t.Run("Local State Access - Sender Reference", func(t *testing.T) {
@@ -352,7 +352,7 @@ func TestTxnAccessConversion(t *testing.T) {
 
 		boxItem := (*result.ApplicationTransaction.Access)[0]
 		require.NotNil(t, boxItem.Box)
-		assert.Equal(t, uint64(123), boxItem.Box.App) // this app = 123 (ApplicationID from createAppCallTxn)
+		assert.Equal(t, uint64(0), boxItem.Box.App) // ForeignAppIdx: 0 should remain 0
 		assert.Equal(t, boxName, boxItem.Box.Name)
 	})
 
@@ -375,7 +375,7 @@ func TestTxnAccessConversion(t *testing.T) {
 		// Should have created a box reference as the default
 		boxItem := (*result.ApplicationTransaction.Access)[0]
 		require.NotNil(t, boxItem.Box)
-		assert.Equal(t, uint64(123), boxItem.Box.App) // ForeignAppIdx 0 resolves to ApplicationID (123)
+		assert.Equal(t, uint64(0), boxItem.Box.App) // ForeignAppIdx: 0 should remain 0
 		assert.Equal(t, boxName, boxItem.Box.Name)
 	})
 
@@ -569,7 +569,7 @@ func TestTxnAccessConversion(t *testing.T) {
 		accessItem := (*result.ApplicationTransaction.Access)[0]
 		// Since both Address and App are 0, this will fall through to the default case (box reference)
 		require.NotNil(t, accessItem.Box)
-		assert.Equal(t, uint64(456), accessItem.Box.App) // ForeignAppIdx 0 resolves to ApplyData.ApplicationID (456)
+		assert.Equal(t, uint64(0), accessItem.Box.App) // ForeignAppIdx: 0 should remain 0
 		assert.Equal(t, []byte(nil), accessItem.Box.Name)
 		assert.Nil(t, accessItem.Local)
 	})
@@ -594,7 +594,7 @@ func TestTxnAccessConversion(t *testing.T) {
 
 		boxItem := (*result.ApplicationTransaction.Access)[0]
 		require.NotNil(t, boxItem.Box)
-		assert.Equal(t, uint64(123), boxItem.Box.App) // ForeignAppIdx 0 should resolve to ApplicationID (123)
+		assert.Equal(t, uint64(0), boxItem.Box.App) // ForeignAppIdx: 0 should remain 0
 		assert.Equal(t, boxName, boxItem.Box.Name)
 		// Ensure other fields are nil
 		assert.Nil(t, boxItem.Address)
@@ -644,7 +644,7 @@ func TestTxnAccessConversion(t *testing.T) {
 
 		boxItem := (*result.ApplicationTransaction.Access)[0]
 		require.NotNil(t, boxItem.Box)
-		assert.Equal(t, uint64(789), boxItem.Box.App) // Should use ApplyData.ApplicationID
+		assert.Equal(t, uint64(0), boxItem.Box.App) // ForeignAppIdx: 0 should remain 0
 		assert.Equal(t, boxName, boxItem.Box.Name)
 	})
 
@@ -667,7 +667,7 @@ func TestTxnAccessConversion(t *testing.T) {
 		// Should be a box reference due to fallthrough from Asset == 0
 		boxItem := (*result.ApplicationTransaction.Access)[0]
 		require.NotNil(t, boxItem.Box)
-		assert.Equal(t, uint64(123), boxItem.Box.App) // ForeignAppIdx 0 resolves to ApplicationID (123)
+		assert.Equal(t, uint64(0), boxItem.Box.App) // ForeignAppIdx: 0 should remain 0
 		assert.Equal(t, boxName, boxItem.Box.Name)
 		// Ensure holding is nil
 		assert.Nil(t, boxItem.Holding)
@@ -709,7 +709,7 @@ func TestTxnAccessConversion(t *testing.T) {
 		require.Equal(t, 1, len(*result.ApplicationTransaction.BoxReferences))
 
 		boxRef := (*result.ApplicationTransaction.BoxReferences)[0]
-		assert.Equal(t, uint64(555), boxRef.App) // Should resolve to ApplicationID
+		assert.Equal(t, uint64(0), boxRef.App) // ForeignAppIdx: 0 should remain 0
 		assert.Equal(t, boxName, boxRef.Name)
 	})
 
@@ -752,7 +752,7 @@ func TestTxnAccessConversion(t *testing.T) {
 		require.Equal(t, 1, len(*result.ApplicationTransaction.BoxReferences))
 
 		boxRef := (*result.ApplicationTransaction.BoxReferences)[0]
-		assert.Equal(t, uint64(999), boxRef.App) // Should resolve to ApplyData.ApplicationID
+		assert.Equal(t, uint64(0), boxRef.App) // ForeignAppIdx: 0 should remain 0
 		assert.Equal(t, boxName, boxRef.Name)
 	})
 
