@@ -1323,14 +1323,14 @@
           "participation-updates": {
             "$ref": "#/components/schemas/ParticipationUpdates"
           },
-          "previous-512-block-hash": {
-            "description": "\\[prev512\\] Previous block hash, using SHA-512.",
+          "previous-block-hash": {
+            "description": "\\[prev\\] Previous block hash.",
             "format": "byte",
             "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
             "type": "string"
           },
-          "previous-block-hash": {
-            "description": "\\[prev\\] Previous block hash.",
+          "previous-block-hash-512": {
+            "description": "\\[prev512\\] Previous block hash, using SHA-512.",
             "format": "byte",
             "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
             "type": "string"
@@ -1692,7 +1692,7 @@
         "description": "HoldingRef names a holding by referring to an Address and Asset it belongs to.",
         "properties": {
           "address": {
-            "description": "\\[d\\] Address in access list, or zero if referring to the sender.",
+            "description": "\\[d\\] Address in access list, or the sender of the transaction.",
             "type": "string",
             "x-algorand-format": "Address"
           },
@@ -1743,12 +1743,12 @@
         "description": "LocalsRef names a local state by referring to an Address and App it belongs to.",
         "properties": {
           "address": {
-            "description": "\\[d\\] Address in access list, or zero if referring to the sender.",
+            "description": "\\[d\\] Address in access list, or the sender of the transaction.",
             "type": "string",
             "x-algorand-format": "Address"
           },
           "app": {
-            "description": "\\[p\\] Application ID for app in access list, or zero if referring to the called application.",
+            "description": "\\[p\\] Application ID for app in access list, or ID of the calling application.",
             "type": "integer"
           }
         },

@@ -512,11 +512,11 @@ type Block struct {
 	// ParticipationUpdates Participation account data that needs to be checked/acted on by the network.
 	ParticipationUpdates *ParticipationUpdates `json:"participation-updates,omitempty"`
 
-	// Previous512BlockHash \[prev512\] Previous block hash, using SHA-512.
-	Previous512BlockHash *[]byte `json:"previous-512-block-hash,omitempty"`
-
 	// PreviousBlockHash \[prev\] Previous block hash.
 	PreviousBlockHash []byte `json:"previous-block-hash"`
+
+	// PreviousBlockHash512 \[prev512\] Previous block hash, using SHA-512.
+	PreviousBlockHash512 *[]byte `json:"previous-block-hash-512,omitempty"`
 
 	// Proposer the proposer of this block.
 	Proposer *string `json:"proposer,omitempty"`
@@ -702,7 +702,7 @@ type HealthCheck struct {
 
 // HoldingRef HoldingRef names a holding by referring to an Address and Asset it belongs to.
 type HoldingRef struct {
-	// Address \[d\] Address in access list, or zero if referring to the sender.
+	// Address \[d\] Address in access list, or the sender of the transaction.
 	Address string `json:"address"`
 
 	// Asset \[s\] Asset ID for asset in access list.
@@ -729,10 +729,10 @@ type IndexerStateProofMessage struct {
 
 // LocalsRef LocalsRef names a local state by referring to an Address and App it belongs to.
 type LocalsRef struct {
-	// Address \[d\] Address in access list, or zero if referring to the sender.
+	// Address \[d\] Address in access list, or the sender of the transaction.
 	Address string `json:"address"`
 
-	// App \[p\] Application ID for app in access list, or zero if referring to the called application.
+	// App \[p\] Application ID for app in access list, or ID of the calling application.
 	App uint64 `json:"app"`
 }
 

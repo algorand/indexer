@@ -1463,7 +1463,7 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64, op
 			GenesisHash:            blockHeader.GenesisHash[:],
 			GenesisId:              blockHeader.GenesisID,
 			ParticipationUpdates:   partUpdates,
-			Previous512BlockHash:   byteSliceOmitZeroPtr(blockHeader.Branch512[:]),
+			PreviousBlockHash512:   byteSliceOmitZeroPtr(blockHeader.Branch512[:]),
 			PreviousBlockHash:      blockHeader.Branch[:],
 			Proposer:               addrPtr(blockHeader.Proposer),
 			ProposerPayout:         uint64PtrOrNil(uint64(blockHeader.ProposerPayout)),
