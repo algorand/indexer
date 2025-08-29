@@ -185,10 +185,11 @@ func lsigToTransactionLsig(lsig sdk.LogicSig) *generated.TransactionSignatureLog
 	}
 
 	ret := generated.TransactionSignatureLogicsig{
-		Args:              &args,
-		Logic:             lsig.Logic,
-		MultisigSignature: msigToTransactionMsig(lsig.Msig),
-		Signature:         sigToTransactionSig(lsig.Sig),
+		Args:                   &args,
+		Logic:                  lsig.Logic,
+		LogicMultisigSignature: msigToTransactionMsig(lsig.LMsig),
+		MultisigSignature:      msigToTransactionMsig(lsig.Msig),
+		Signature:              sigToTransactionSig(lsig.Sig),
 	}
 
 	return &ret
@@ -371,6 +372,7 @@ func hdrRowToBlock(row idb.BlockRow) generated.Block {
 		GenesisHash:            row.BlockHeader.GenesisHash[:],
 		GenesisId:              row.BlockHeader.GenesisID,
 		ParticipationUpdates:   partUpdates,
+		PreviousBlockHash512:   byteSliceOmitZeroPtr(row.BlockHeader.Branch512[:]),
 		PreviousBlockHash:      row.BlockHeader.Branch[:],
 		Proposer:               addrPtr(row.BlockHeader.Proposer),
 		ProposerPayout:         uint64PtrOrNil(uint64(row.BlockHeader.ProposerPayout)),
@@ -382,6 +384,7 @@ func hdrRowToBlock(row idb.BlockRow) generated.Block {
 		Transactions:           nil,
 		TransactionsRoot:       row.BlockHeader.TxnCommitments.NativeSha512_256Commitment[:],
 		TransactionsRootSha256: row.BlockHeader.TxnCommitments.Sha256Commitment[:],
+		TransactionsRootSha512: byteSliceOmitZeroPtr(row.BlockHeader.TxnCommitments.Sha512Commitment[:]),
 		TxnCounter:             uint64Ptr(row.BlockHeader.TxnCounter),
 		UpgradeState:           &upgradeState,
 		UpgradeVote:            &upgradeVote,
@@ -500,7 +503,78 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 			})
 		}
 
+		access := make([]generated.ResourceRef, 0, len(stxn.Txn.Access))
+		for _, v := range stxn.Txn.Access {
+			resourceRef := generated.ResourceRef{}
+
+			// Only should be setting a single field on resourceRef
+			if v.Address != (sdk.Address{}) {
+				resourceRef.Address = strPtr(v.Address.String())
+			} else if v.App != 0 {
+				resourceRef.ApplicationId = uint64Ptr(uint64(v.App))
+			} else if v.Asset != 0 {
+				resourceRef.AssetId = uint64Ptr(uint64(v.Asset))
+			} else if v.Holding.Asset != 0 {
+				var address sdk.Address
+				if v.Holding.Address == 0 {
+					// indicates the sender, resolved below
+					address = stxn.Txn.Sender
+				} else if int(v.Holding.Address-1) < len(stxn.Txn.Access) {
+					address = stxn.Txn.Access[v.Holding.Address-1].Address
+				}
+
+				var asset sdk.AssetIndex
+				// Asset should always be non-zero, but sanity check
+				if int(v.Holding.Asset-1) < len(stxn.Txn.Access) {
+					asset = stxn.Txn.Access[v.Holding.Asset-1].Asset
+				}
+
+				resourceRef.Holding = &generated.HoldingRef{
+					Address: address.String(),
+					Asset:   uint64(asset),
+				}
+			} else if v.Locals.Address != 0 || v.Locals.App != 0 {
+				var address sdk.Address
+				if v.Locals.Address == 0 {
+					// indicates the sender, resolved below
+					address = stxn.Txn.Sender
+				} else if int(v.Locals.Address-1) < len(stxn.Txn.Access) {
+					address = stxn.Txn.Access[v.Locals.Address-1].Address
+				}
+
+				var app sdk.AppIndex
+				if v.Locals.App == 0 {
+					app = 0
+				} else if int(v.Locals.App-1) < len(stxn.Txn.Access) {
+					app = stxn.Txn.Access[v.Locals.App-1].App
+				}
+
+				resourceRef.Local = &generated.LocalsRef{
+					Address: address.String(),
+					App:     uint64(app),
+				}
+			} else {
+				// If all else empty, default to a boxref, because a boxref is the only ResourceRef that should ever be empty
+				var appID uint64
+				if v.Box.ForeignAppIdx == 0 {
+					appID = 0
+				} else if int(v.Box.ForeignAppIdx-1) < len(stxn.Txn.Access) {
+					// Indexes are 1-based, so we subtract 1
+					appID = uint64(stxn.Txn.Access[v.Box.ForeignAppIdx-1].App)
+				}
+				boxRef := generated.BoxReference{
+					App:  appID,
+					Name: v.Box.Name,
+				}
+
+				resourceRef.Box = &boxRef
+			}
+
+			access = append(access, resourceRef)
+		}
+
 		a := generated.TransactionApplication{
+			Access:            &access,
 			Accounts:          &accts,
 			ApplicationArgs:   &args,
 			ApplicationId:     uint64(stxn.Txn.ApplicationID),

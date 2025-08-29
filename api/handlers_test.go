@@ -90,6 +90,12 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 			[]string{errUnknownSigType, errUnknownTxType},
 		},
 		{
+			"Valid MSig type",
+			generated.SearchForTransactionsParams{SigType: (*generated.SearchForTransactionsParamsSigType)(strPtr("msig"))},
+			idb.TransactionFilter{SigType: "msig", Limit: defaultOpts.DefaultTransactionsLimit},
+			nil,
+		},
+		{
 			"As many fields as possible",
 			generated.SearchForTransactionsParams{
 				Limit:               uint64Ptr(defaultOpts.DefaultTransactionsLimit + 1),
@@ -660,6 +666,78 @@ func TestFetchTransactions(t *testing.T) {
 			},
 			response: []generated.Transaction{
 				loadTransactionFromFile("test_resources/heartbeat.response"),
+			},
+		},
+		{
+			name: "Application txnAccess - Direct Address",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/txnaccess_address.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/txnaccess_address.response"),
+			},
+		},
+		{
+			name: "Application txnAccess - Direct App",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/txnaccess_app.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/txnaccess_app.response"),
+			},
+		},
+		{
+			name: "Application txnAccess - Direct Asset",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/txnaccess_asset.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/txnaccess_asset.response"),
+			},
+		},
+		{
+			name: "Application txnAccess - Asset Holding",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/txnaccess_holding.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/txnaccess_holding.response"),
+			},
+		},
+		{
+			name: "Application txnAccess - Local State",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/txnaccess_local.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/txnaccess_local.response"),
+			},
+		},
+		{
+			name: "Application txnAccess - Box Reference",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/txnaccess_box.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/txnaccess_box.response"),
+			},
+		},
+		{
+			name: "Application txnAccess - Multiple Types",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/txnaccess_multiple.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/txnaccess_multiple.response"),
+			},
+		},
+		{
+			name: "Application txnAccess - Empty Access Array",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/txnaccess_empty.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/txnaccess_empty.response"),
 			},
 		},
 	}
@@ -1396,6 +1474,12 @@ func TestFetchBlock(t *testing.T) {
 			blockBytes:   loadResourceFileOrPanic("test_resources/proposer_incentives_block.block"),
 			blockOptions: idb.GetBlockOptions{Transactions: true},
 			expected:     loadBlockFromFile("test_resources/proposer_incentives_block_response.json"),
+		},
+		{
+			name:         "Block with SHA-512 Hash and Transaction Commitment",
+			blockBytes:   loadResourceFileOrPanic("test_resources/branch512_block.block"),
+			blockOptions: idb.GetBlockOptions{Transactions: true},
+			expected:     loadBlockFromFile("test_resources/branch512_block_response.json"),
 		},
 	}
 

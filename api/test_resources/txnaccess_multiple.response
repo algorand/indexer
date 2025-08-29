@@ -1,0 +1,62 @@
+{
+  "application-transaction": {
+    "access": [
+      {
+        "address": "AUDAOCAJBIFQYDIOB4IBCEQTCQKRMFYYDENBWHA5DYPSAIJCEMSERPTKLQ"
+      },
+      {
+        "application-id": 500
+      },
+      {
+        "asset-id": 600
+      },
+      {
+        "holding": {
+          "address": "AUDAOCAJBIFQYDIOB4IBCEQTCQKRMFYYDENBWHA5DYPSAIJCEMSERPTKLQ",
+          "asset": 600
+        }
+      },
+      {
+        "local": {
+          "address": "AUDAOCAJBIFQYDIOB4IBCEQTCQKRMFYYDENBWHA5DYPSAIJCEMSERPTKLQ",
+          "app": 500
+        }
+      },
+      {
+        "box": {
+          "app": 500,
+          "name": "bXVsdGktdGVzdC1ib3g="
+        }
+      }
+    ],
+    "accounts": [],
+    "application-args": [],
+    "application-id": 123,
+    "box-references": [],
+    "foreign-apps": [],
+    "foreign-assets": [],
+    "global-state-schema": {
+      "num-byte-slice": 0,
+      "num-uint": 0
+    },
+    "local-state-schema": {
+      "num-byte-slice": 0,
+      "num-uint": 0
+    },
+    "on-completion": "noop"
+  },
+  "close-rewards": 0,
+  "closing-amount": 0,
+  "confirmed-round": 1,
+  "fee": 1000,
+  "first-valid": 1000,
+  "id": "IO7QTGGDUNL62BOBM6YCJQA5DTYVJ5LA2DDIY4VSHHS3KUIMMKTA",
+  "intra-round-offset": 2,
+  "last-valid": 2000,
+  "receiver-rewards": 0,
+  "round-time": 1756351776,
+  "sender": "BIFQYDIOB4IBCEQTCQKRMFYYDENBWHA5DYPSAIJCEMSCKJRHFAURAA2UFY",
+  "sender-rewards": 0,
+  "signature": {},
+  "tx-type": "appl"
+}
