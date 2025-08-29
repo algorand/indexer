@@ -57,6 +57,9 @@ func SignatureType(stxn *sdk.SignedTxn) (SigType, error) {
 		if !stxn.Lsig.Msig.Blank() {
 			return Msig, nil
 		}
+		if !stxn.Lsig.LMsig.Blank() {
+			return Msig, nil
+		}
 		return Lsig, nil
 	}
 

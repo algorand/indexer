@@ -90,6 +90,12 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 			[]string{errUnknownSigType, errUnknownTxType},
 		},
 		{
+			"Valid MSig type",
+			generated.SearchForTransactionsParams{SigType: (*generated.SearchForTransactionsParamsSigType)(strPtr("msig"))},
+			idb.TransactionFilter{SigType: "msig", Limit: defaultOpts.DefaultTransactionsLimit},
+			nil,
+		},
+		{
 			"As many fields as possible",
 			generated.SearchForTransactionsParams{
 				Limit:               uint64Ptr(defaultOpts.DefaultTransactionsLimit + 1),

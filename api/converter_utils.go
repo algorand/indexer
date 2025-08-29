@@ -185,10 +185,11 @@ func lsigToTransactionLsig(lsig sdk.LogicSig) *generated.TransactionSignatureLog
 	}
 
 	ret := generated.TransactionSignatureLogicsig{
-		Args:              &args,
-		Logic:             lsig.Logic,
-		MultisigSignature: msigToTransactionMsig(lsig.Msig),
-		Signature:         sigToTransactionSig(lsig.Sig),
+		Args:                   &args,
+		Logic:                  lsig.Logic,
+		LogicMultisigSignature: msigToTransactionMsig(lsig.LMsig),
+		MultisigSignature:      msigToTransactionMsig(lsig.Msig),
+		Signature:              sigToTransactionSig(lsig.Sig),
 	}
 
 	return &ret

@@ -2638,6 +2638,9 @@
         "multisig-signature": {
           "$ref": "#/definitions/TransactionSignatureMultisig"
         },
+        "logic-multisig-signature": {
+          "$ref": "#/definitions/TransactionSignatureLogicMultisig"
+        },
         "signature": {
           "description": "\\[sig\\] ed25519 signature.",
           "type": "string",
@@ -2646,7 +2649,7 @@
       }
     },
     "TransactionSignatureMultisig": {
-      "description": "\\[msig\\] structure holding multiple subsignatures.\n\nDefinition:\ncrypto/multisig.go : MultisigSig",
+      "description": "structure holding multiple subsignatures.\n\nDefinition:\ncrypto/multisig.go : MultisigSig",
       "type": "object",
       "properties": {
         "subsignature": {
@@ -2665,6 +2668,14 @@
           "type": "integer"
         }
       }
+    },
+    "TransactionSignatureLogicMultisig": {
+      "description": "\\[lmsig\\] Accepted on transactions if consensus param LogicSigLMsig=true",
+      "allOf": [
+        {
+          "$ref": "#/definitions/TransactionSignatureMultisig"
+        }
+      ]
     },
     "TransactionSignatureMultisigSubsignature": {
       "type": "object",
