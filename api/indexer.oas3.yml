@@ -2559,14 +2559,6 @@
         },
         "type": "object"
       },
-      "TransactionSignatureLogicMultisig": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/TransactionSignatureMultisig"
-          }
-        ],
-        "description": "\\[lmsig\\] Accepted on transactions if consensus param LogicSigLMsig=true"
-      },
       "TransactionSignatureLogicsig": {
         "description": "\\[lsig\\] Programatic transaction signature.\n\nDefinition:\ndata/transactions/logicsig.go",
         "properties": {
@@ -2584,7 +2576,7 @@
             "type": "string"
           },
           "logic-multisig-signature": {
-            "$ref": "#/components/schemas/TransactionSignatureLogicMultisig"
+            "$ref": "#/components/schemas/TransactionSignatureMultisig"
           },
           "multisig-signature": {
             "$ref": "#/components/schemas/TransactionSignatureMultisig"

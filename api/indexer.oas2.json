@@ -2639,7 +2639,7 @@
           "$ref": "#/definitions/TransactionSignatureMultisig"
         },
         "logic-multisig-signature": {
-          "$ref": "#/definitions/TransactionSignatureLogicMultisig"
+          "$ref": "#/definitions/TransactionSignatureMultisig"
         },
         "signature": {
           "description": "\\[sig\\] ed25519 signature.",
@@ -2668,14 +2668,6 @@
           "type": "integer"
         }
       }
-    },
-    "TransactionSignatureLogicMultisig": {
-      "description": "\\[lmsig\\] Accepted on transactions if consensus param LogicSigLMsig=true",
-      "allOf": [
-        {
-          "$ref": "#/definitions/TransactionSignatureMultisig"
-        }
-      ]
     },
     "TransactionSignatureMultisigSubsignature": {
       "type": "object",
