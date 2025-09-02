@@ -1290,12 +1290,6 @@ type TransactionSignature struct {
 	Sig *[]byte `json:"sig,omitempty"`
 }
 
-// TransactionSignatureLogicMultisig structure holding multiple subsignatures.
-//
-// Definition:
-// crypto/multisig.go : MultisigSig
-type TransactionSignatureLogicMultisig = TransactionSignatureMultisig
-
 // TransactionSignatureLogicsig \[lsig\] Programatic transaction signature.
 //
 // Definition:
@@ -1307,8 +1301,11 @@ type TransactionSignatureLogicsig struct {
 	// Logic \[l\] Program signed by a signature or multi signature, or hashed to be the address of ana ccount. Base64 encoded TEAL program.
 	Logic []byte `json:"logic"`
 
-	// LogicMultisigSignature \[lmsig\] Accepted on transactions if consensus param LogicSigLMsig=true
-	LogicMultisigSignature *TransactionSignatureLogicMultisig `json:"logic-multisig-signature,omitempty"`
+	// LogicMultisigSignature structure holding multiple subsignatures.
+	//
+	// Definition:
+	// crypto/multisig.go : MultisigSig
+	LogicMultisigSignature *TransactionSignatureMultisig `json:"logic-multisig-signature,omitempty"`
 
 	// MultisigSignature structure holding multiple subsignatures.
 	//
