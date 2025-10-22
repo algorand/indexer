@@ -1418,7 +1418,7 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64, op
 			UpgradePropose: strPtr(string(blockHeader.UpgradePropose)),
 		}
 
-		var partUpdates *generated.ParticipationUpdates = &generated.ParticipationUpdates{}
+		var partUpdates = &generated.ParticipationUpdates{}
 		if len(blockHeader.ExpiredParticipationAccounts) > 0 {
 			addrs := make([]string, len(blockHeader.ExpiredParticipationAccounts))
 			for i := 0; i < len(addrs); i++ {
@@ -1473,9 +1473,9 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64, op
 			StateProofTracking:     &trackingArray,
 			Timestamp:              uint64(blockHeader.TimeStamp),
 			Transactions:           nil,
-			TransactionsRoot:       blockHeader.TxnCommitments.NativeSha512_256Commitment[:],
-			TransactionsRootSha256: blockHeader.TxnCommitments.Sha256Commitment[:],
-			TransactionsRootSha512: byteSliceOmitZeroPtr(blockHeader.TxnCommitments.Sha512Commitment[:]),
+			TransactionsRoot:       blockHeader.NativeSha512_256Commitment[:],
+			TransactionsRootSha256: blockHeader.Sha256Commitment[:],
+			TransactionsRootSha512: byteSliceOmitZeroPtr(blockHeader.Sha512Commitment[:]),
 			TxnCounter:             uint64Ptr(blockHeader.TxnCounter),
 			UpgradeState:           &upgradeState,
 			UpgradeVote:            &upgradeVote,

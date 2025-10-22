@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -125,7 +126,7 @@ func (ddm *DisplayDisabledMap) validateSchema() error {
 		}
 	}
 
-	return fmt.Errorf(sb.String())
+	return errors.New(sb.String())
 }
 
 // toDisabledMapConfig creates a disabled map config from a display disabled map.  If the swag pointer

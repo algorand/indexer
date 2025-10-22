@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 env:
-  GO_VERSION: "1.23.3"
+  GO_VERSION: "1.25.3"
   CI_E2E_FILENAME: "rel-nightly"
   CHANNEL: nightly
   SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
@@ -53,7 +53,7 @@ jobs:
           echo "$HOME/.local/bin" >> $GITHUB_PATH
           echo "/usr/local/go/bin" >> $GITHUB_PATH
       - name: Install golangci-lint
-        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.0
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
       - name: Check formatting
         run: test -z "$(go fmt ./...)"
       - name: Run linter

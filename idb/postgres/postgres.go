@@ -183,7 +183,7 @@ func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 	}
 
 	block := vb.Block
-	round := block.BlockHeader.Round
+	round := block.Round
 	db.log.Printf("adding block %d", round)
 
 	db.accountingLock.Lock()
@@ -701,7 +701,7 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	}
 
 	// join in the root transaction if needed
-	if !(tf.SkipInnerTransactionConversion || tf.SkipInnerTransactions) {
+	if !tf.SkipInnerTransactionConversion && !tf.SkipInnerTransactions {
 		query += " LEFT OUTER JOIN txn root ON t.round = root.round AND (t.extra->>'root-intra')::int = root.intra"
 	}
 

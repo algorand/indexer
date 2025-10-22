@@ -327,7 +327,7 @@ func hdrRowToBlock(row idb.BlockRow) generated.Block {
 		UpgradePropose: strPtr(string(row.BlockHeader.UpgradePropose)),
 	}
 
-	var partUpdates *generated.ParticipationUpdates = &generated.ParticipationUpdates{}
+	var partUpdates = &generated.ParticipationUpdates{}
 	if len(row.BlockHeader.ExpiredParticipationAccounts) > 0 {
 		addrs := make([]string, len(row.BlockHeader.ExpiredParticipationAccounts))
 		for i := 0; i < len(addrs); i++ {
@@ -382,9 +382,9 @@ func hdrRowToBlock(row idb.BlockRow) generated.Block {
 		StateProofTracking:     &trackingArray,
 		Timestamp:              uint64(row.BlockHeader.TimeStamp),
 		Transactions:           nil,
-		TransactionsRoot:       row.BlockHeader.TxnCommitments.NativeSha512_256Commitment[:],
-		TransactionsRootSha256: row.BlockHeader.TxnCommitments.Sha256Commitment[:],
-		TransactionsRootSha512: byteSliceOmitZeroPtr(row.BlockHeader.TxnCommitments.Sha512Commitment[:]),
+		TransactionsRoot:       row.BlockHeader.NativeSha512_256Commitment[:],
+		TransactionsRootSha256: row.BlockHeader.Sha256Commitment[:],
+		TransactionsRootSha512: byteSliceOmitZeroPtr(row.BlockHeader.Sha512Commitment[:]),
 		TxnCounter:             uint64Ptr(row.BlockHeader.TxnCounter),
 		UpgradeState:           &upgradeState,
 		UpgradeVote:            &upgradeVote,
@@ -405,7 +405,7 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 	switch stxn.Txn.Type {
 	case sdk.PaymentTx:
 		p := generated.TransactionPayment{
-			CloseAmount:      uint64Ptr(uint64(stxn.ApplyData.ClosingAmount)),
+			CloseAmount:      uint64Ptr(uint64(stxn.ClosingAmount)),
 			CloseRemainderTo: addrPtr(stxn.Txn.CloseRemainderTo),
 			Receiver:         stxn.Txn.Receiver.String(),
 			Amount:           uint64(stxn.Txn.Amount),
@@ -721,7 +721,7 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 		keys := make([]tuple, 0)
 
 		for k := range stxn.ApplyData.EvalDelta.LocalDeltas {
-			addr, err := edIndexToAddress(k, stxn.Txn, stxn.ApplyData.EvalDelta.SharedAccts)
+			addr, err := edIndexToAddress(k, stxn.Txn, stxn.EvalDelta.SharedAccts)
 			if err != nil {
 				return generated.Transaction{}, err
 			}
@@ -759,11 +759,12 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 		itxns := make([]generated.Transaction, 0, len(stxn.ApplyData.EvalDelta.InnerTxns))
 		for _, t := range stxn.ApplyData.EvalDelta.InnerTxns {
 			extra2 := extra
-			if t.Txn.Type == sdk.ApplicationCallTx {
+			switch t.Txn.Type {
+			case sdk.ApplicationCallTx:
 				extra2.AssetID = uint64(t.ApplyData.ApplicationID)
-			} else if t.Txn.Type == sdk.AssetConfigTx {
+			case sdk.AssetConfigTx:
 				extra2.AssetID = uint64(t.ApplyData.ConfigAsset)
-			} else {
+			default:
 				extra2.AssetID = 0
 			}
 			extra2.AssetCloseAmount = t.ApplyData.AssetClosingAmount

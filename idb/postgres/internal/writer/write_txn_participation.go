@@ -37,7 +37,7 @@ func addTransactionParticipants(stxnad *types.SignedTxnWithAD, includeInner bool
 	case types.AssetFreezeTx:
 		add(txn.FreezeAccount)
 	case types.ApplicationCallTx:
-		for _, address := range txn.ApplicationCallTxnFields.Accounts {
+		for _, address := range txn.Accounts {
 			add(address)
 		}
 	case types.HeartbeatTx:
@@ -45,7 +45,7 @@ func addTransactionParticipants(stxnad *types.SignedTxnWithAD, includeInner bool
 	}
 
 	if includeInner {
-		for _, inner := range stxnad.ApplyData.EvalDelta.InnerTxns {
+		for _, inner := range stxnad.EvalDelta.InnerTxns {
 			addTransactionParticipants(&inner, includeInner, add)
 		}
 	}

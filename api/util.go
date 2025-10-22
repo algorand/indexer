@@ -30,7 +30,7 @@ func misbehavingHandlerDetector(log *log.Logger, ch chan struct{}) {
 		// Good. This means the handler returns shortly after the context finished.
 		return
 	case <-time.After(1 * time.Second):
-		log.Warnf(errMisbehavingHandler)
+		log.Warn(errMisbehavingHandler)
 	}
 }
 
