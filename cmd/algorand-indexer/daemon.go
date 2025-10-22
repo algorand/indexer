@@ -15,6 +15,8 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
+	sdkConfig "github.com/algorand/go-algorand-sdk/v2/protocol/config"
+	
 	"github.com/algorand/indexer/v3/api"
 	"github.com/algorand/indexer/v3/api/generated/v2"
 	"github.com/algorand/indexer/v3/config"
@@ -207,6 +209,14 @@ func runDaemon(daemonConfig *daemonConfig) error {
 	if daemonConfig.configFile == "" {
 		daemonConfig.configFile = os.Getenv("INDEXER_CONFIGFILE")
 	}
+
+	// Read custom consensus file for custom protocols
+	var consensus sdkConfig.ConsensusProtocols
+	consensus , consensusErr := sdkConfig.PreloadConfigurableConsensusProtocols(daemonConfig.indexerDataDir)
+	if consensusErr != nil {
+		return consensusErr
+	}
+	sdkConfig.Consensus = consensus
 
 	// Create the data directory if necessary/possible
 	if err = configureIndexerDataDir(daemonConfig.indexerDataDir); err != nil {
