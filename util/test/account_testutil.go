@@ -290,7 +290,7 @@ func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSen
 	// since db.AddBlock uses ApplyData from the block and not from the evaluator,
 	// fake ApplyData to have inner txn
 	// otherwise it requires funding the app account and other special setup
-	createApp.EvalDelta.InnerTxns = []sdk.SignedTxnWithAD{
+	createApp.ApplyData.EvalDelta.InnerTxns = []sdk.SignedTxnWithAD{
 		{
 			SignedTxn: sdk.SignedTxn{
 				Txn: sdk.Transaction{

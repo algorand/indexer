@@ -382,9 +382,9 @@ func hdrRowToBlock(row idb.BlockRow) generated.Block {
 		StateProofTracking:     &trackingArray,
 		Timestamp:              uint64(row.BlockHeader.TimeStamp),
 		Transactions:           nil,
-		TransactionsRoot:       row.BlockHeader.NativeSha512_256Commitment[:],
-		TransactionsRootSha256: row.BlockHeader.Sha256Commitment[:],
-		TransactionsRootSha512: byteSliceOmitZeroPtr(row.BlockHeader.Sha512Commitment[:]),
+		TransactionsRoot:       row.BlockHeader.TxnCommitments.NativeSha512_256Commitment[:],
+		TransactionsRootSha256: row.BlockHeader.TxnCommitments.Sha256Commitment[:],
+		TransactionsRootSha512: byteSliceOmitZeroPtr(row.BlockHeader.TxnCommitments.Sha512Commitment[:]),
 		TxnCounter:             uint64Ptr(row.BlockHeader.TxnCounter),
 		UpgradeState:           &upgradeState,
 		UpgradeVote:            &upgradeVote,
@@ -405,7 +405,7 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 	switch stxn.Txn.Type {
 	case sdk.PaymentTx:
 		p := generated.TransactionPayment{
-			CloseAmount:      uint64Ptr(uint64(stxn.ClosingAmount)),
+			CloseAmount:      uint64Ptr(uint64(stxn.ApplyData.ClosingAmount)),
 			CloseRemainderTo: addrPtr(stxn.Txn.CloseRemainderTo),
 			Receiver:         stxn.Txn.Receiver.String(),
 			Amount:           uint64(stxn.Txn.Amount),
@@ -721,7 +721,7 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 		keys := make([]tuple, 0)
 
 		for k := range stxn.ApplyData.EvalDelta.LocalDeltas {
-			addr, err := edIndexToAddress(k, stxn.Txn, stxn.EvalDelta.SharedAccts)
+			addr, err := edIndexToAddress(k, stxn.Txn, stxn.ApplyData.EvalDelta.SharedAccts)
 			if err != nil {
 				return generated.Transaction{}, err
 			}

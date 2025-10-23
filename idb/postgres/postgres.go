@@ -183,7 +183,7 @@ func (db *IndexerDb) AddBlock(vb *itypes.ValidatedBlock) error {
 	}
 
 	block := vb.Block
-	round := block.Round
+	round := block.BlockHeader.Round
 	db.log.Printf("adding block %d", round)
 
 	db.accountingLock.Lock()

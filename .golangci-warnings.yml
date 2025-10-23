@@ -6,6 +6,14 @@ linters:
   enable:
     - staticcheck
     - unused
+  settings:
+    staticcheck:
+      checks:
+        - all
+        - '-ST1000' # don't require package comments
+        - '-ST1003' # don't require currentDBRound vs currentDbRound
+        - '-SA3001' # we assign to b.N in several benchmarks
+        - '-QF1008' # ignore suggestions to remove embedded fields (e.g., txn.SignedTxn.Txn -> txn.Txn)
   exclusions:
     generated: lax
     rules:
