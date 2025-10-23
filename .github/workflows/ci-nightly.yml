@@ -37,7 +37,7 @@ jobs:
         with:
           fetch-depth: 0  # Fetch full history
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: Set up Python
@@ -115,7 +115,7 @@ jobs:
           submodules: recursive
           fetch-depth: 0  # Fetch full history
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: Set up Python

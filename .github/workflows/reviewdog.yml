@@ -11,9 +11,9 @@ jobs:
         with:
           fetch-depth: 0 # required for new-from-rev option in .golangci.yml
       - name: Install specific golang
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: '1.25.3'
+          go-version-file: 'go.mod'
       - name: reviewdog-golangci-lint
         uses: reviewdog/action-golangci-lint@v2.8
         with:
@@ -34,9 +34,9 @@ jobs:
         with:
           fetch-depth: 0 # required for new-from-rev option in .golangci.yml
       - name: Install specific golang
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: '1.25.3'
+          go-version-file: 'go.mod'
       - name: reviewdog-golangci-lint
         uses: reviewdog/action-golangci-lint@v2.8
         with:
