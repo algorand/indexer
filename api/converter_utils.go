@@ -327,7 +327,7 @@ func hdrRowToBlock(row idb.BlockRow) generated.Block {
 		UpgradePropose: strPtr(string(row.BlockHeader.UpgradePropose)),
 	}
 
-	var partUpdates *generated.ParticipationUpdates = &generated.ParticipationUpdates{}
+	var partUpdates = &generated.ParticipationUpdates{}
 	if len(row.BlockHeader.ExpiredParticipationAccounts) > 0 {
 		addrs := make([]string, len(row.BlockHeader.ExpiredParticipationAccounts))
 		for i := 0; i < len(addrs); i++ {
@@ -759,11 +759,12 @@ func signedTxnWithAdToTransaction(stxn *sdk.SignedTxnWithAD, extra rowData) (gen
 		itxns := make([]generated.Transaction, 0, len(stxn.ApplyData.EvalDelta.InnerTxns))
 		for _, t := range stxn.ApplyData.EvalDelta.InnerTxns {
 			extra2 := extra
-			if t.Txn.Type == sdk.ApplicationCallTx {
+			switch t.Txn.Type {
+			case sdk.ApplicationCallTx:
 				extra2.AssetID = uint64(t.ApplyData.ApplicationID)
-			} else if t.Txn.Type == sdk.AssetConfigTx {
+			case sdk.AssetConfigTx:
 				extra2.AssetID = uint64(t.ApplyData.ConfigAsset)
-			} else {
+			default:
 				extra2.AssetID = 0
 			}
 			extra2.AssetCloseAmount = t.ApplyData.AssetClosingAmount

@@ -20,7 +20,7 @@ idb/postgres/internal/schema/setup_postgres_sql.go:	idb/postgres/internal/schema
 	cd idb/postgres/internal/schema && go generate
 
 idb/mocks/IndexerDb.go:	idb/idb.go
-	go install github.com/vektra/mockery/v2@v2.47.0
+	go install github.com/vektra/mockery/v2@v2.53.5
 	cd idb && mockery --name=IndexerDb
 
 # check that all packages (except tests) compile
@@ -31,7 +31,7 @@ test: idb/mocks/IndexerDb.go cmd/algorand-indexer/algorand-indexer
 	go test -coverpkg=$(COVERPKG) ./... -coverprofile=coverage.txt -covermode=atomic ${TEST_FLAG}
 
 lint:
-	golangci-lint run -c .golangci.yml
+	GOTOOLCHAIN=auto go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.5.0 run -c .golangci.yml
 	go vet ./...
 
 fmt:

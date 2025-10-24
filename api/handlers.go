@@ -1418,7 +1418,7 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64, op
 			UpgradePropose: strPtr(string(blockHeader.UpgradePropose)),
 		}
 
-		var partUpdates *generated.ParticipationUpdates = &generated.ParticipationUpdates{}
+		var partUpdates = &generated.ParticipationUpdates{}
 		if len(blockHeader.ExpiredParticipationAccounts) > 0 {
 			addrs := make([]string, len(blockHeader.ExpiredParticipationAccounts))
 			for i := 0; i < len(addrs); i++ {

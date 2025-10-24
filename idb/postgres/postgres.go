@@ -701,7 +701,7 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	}
 
 	// join in the root transaction if needed
-	if !(tf.SkipInnerTransactionConversion || tf.SkipInnerTransactions) {
+	if !tf.SkipInnerTransactionConversion && !tf.SkipInnerTransactions {
 		query += " LEFT OUTER JOIN txn root ON t.round = root.round AND (t.extra->>'root-intra')::int = root.intra"
 	}
 
