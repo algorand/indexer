@@ -529,32 +529,32 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 				whereArgs = append(whereArgs, addrBase64)
 				partNumber++
 			}
-			if tf.AddressRole&idb.AddressRoleReceiver != 0 {
+			if tf.AddressRole&idb.AddressRoleReceiver != 0 && tf.TypeEnum == idb.TypeEnumPay {
 				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'rcv' = $%d", partNumber))
 				whereArgs = append(whereArgs, addrBase64)
 				partNumber++
 			}
-			if tf.AddressRole&idb.AddressRoleCloseRemainderTo != 0 {
+			if tf.AddressRole&idb.AddressRoleCloseRemainderTo != 0 && tf.TypeEnum == idb.TypeEnumPay {
 				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'close' = $%d", partNumber))
 				whereArgs = append(whereArgs, addrBase64)
 				partNumber++
 			}
-			if tf.AddressRole&idb.AddressRoleAssetSender != 0 {
+			if tf.AddressRole&idb.AddressRoleAssetSender != 0 && tf.TypeEnum == idb.TypeEnumAssetTransfer {
 				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'asnd' = $%d", partNumber))
 				whereArgs = append(whereArgs, addrBase64)
 				partNumber++
 			}
-			if tf.AddressRole&idb.AddressRoleAssetReceiver != 0 {
+			if tf.AddressRole&idb.AddressRoleAssetReceiver != 0 && tf.TypeEnum == idb.TypeEnumAssetTransfer {
 				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'arcv' = $%d", partNumber))
 				whereArgs = append(whereArgs, addrBase64)
 				partNumber++
 			}
-			if tf.AddressRole&idb.AddressRoleAssetCloseTo != 0 {
+			if tf.AddressRole&idb.AddressRoleAssetCloseTo != 0 && tf.TypeEnum == idb.TypeEnumAssetTransfer {
 				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'aclose' = $%d", partNumber))
 				whereArgs = append(whereArgs, addrBase64)
 				partNumber++
 			}
-			if tf.AddressRole&idb.AddressRoleFreeze != 0 {
+			if tf.AddressRole&idb.AddressRoleFreeze != 0 && tf.TypeEnum == idb.TypeEnumAssetFreeze {
 				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'fadd' = $%d", partNumber))
 				whereArgs = append(whereArgs, addrBase64)
 				partNumber++
