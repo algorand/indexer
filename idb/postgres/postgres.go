@@ -996,6 +996,7 @@ finish:
 
 func buildBlockHeadersQuery(bf idb.BlockHeaderFilter) (query string, err error) {
 
+	participationFilter := false
 	// Build the terms for the WHERE clause based on the input parameters
 	var whereTerms []string
 	{
@@ -1054,6 +1055,7 @@ func buildBlockHeadersQuery(bf idb.BlockHeaderFilter) (query string, err error) 
 				whereTerms,
 				fmt.Sprintf("( (bh.header->'prp') IS NOT NULL AND ((bh.header->'prp')::TEXT IN (%s)) )", strings.Join(ps, ",")),
 			)
+			participationFilter = true
 		}
 		if len(bf.ExpiredParticipationAccounts) > 0 {
 			var es []string
@@ -1064,6 +1066,7 @@ func buildBlockHeadersQuery(bf idb.BlockHeaderFilter) (query string, err error) 
 				whereTerms,
 				fmt.Sprintf("( (bh.header->'partupdrmv') IS NOT NULL AND (bh.header->'partupdrmv') ?| array[%s] )", strings.Join(es, ",")),
 			)
+			participationFilter = true
 		}
 		if len(bf.AbsentParticipationAccounts) > 0 {
 			var as []string
@@ -1074,6 +1077,7 @@ func buildBlockHeadersQuery(bf idb.BlockHeaderFilter) (query string, err error) 
 				whereTerms,
 				fmt.Sprintf("( (bh.header->'partupdabs') IS NOT NULL AND (bh.header->'partupdabs') ?| array[%s] )", strings.Join(as, ",")),
 			)
+			participationFilter = true
 		}
 
 	}
@@ -1083,13 +1087,20 @@ func buildBlockHeadersQuery(bf idb.BlockHeaderFilter) (query string, err error) 
 	if len(whereTerms) > 0 {
 		whereClause = "WHERE " + strings.Join(whereTerms, " AND ")
 	}
+
+	orderBy := "bh.round ASC"
+	if participationFilter {
+		//Postgres hack to force indexes other than primary
+		orderBy = "bh.round+0 ASC"
+	}
+
 	tmpl := `
 			SELECT bh.header
 			FROM block_header bh
 			%s
-			ORDER BY bh.round ASC
+			ORDER BY %s
 			LIMIT %d`
-	query = fmt.Sprintf(tmpl, whereClause, bf.Limit)
+	query = fmt.Sprintf(tmpl, whereClause, orderBy, bf.Limit)
 
 	return query, nil
 }
