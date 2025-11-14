@@ -529,32 +529,32 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 				whereArgs = append(whereArgs, addrBase64)
 				partNumber++
 			}
-			if tf.AddressRole&idb.AddressRoleReceiver != 0 && tf.TypeEnum == idb.TypeEnumPay {
+			if tf.AddressRole&idb.AddressRoleReceiver != 0 {
 				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'rcv' = $%d", partNumber))
 				whereArgs = append(whereArgs, addrBase64)
 				partNumber++
 			}
-			if tf.AddressRole&idb.AddressRoleCloseRemainderTo != 0 && tf.TypeEnum == idb.TypeEnumPay {
+			if tf.AddressRole&idb.AddressRoleCloseRemainderTo != 0 {
 				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'close' = $%d", partNumber))
 				whereArgs = append(whereArgs, addrBase64)
 				partNumber++
 			}
-			if tf.AddressRole&idb.AddressRoleAssetSender != 0 && tf.TypeEnum == idb.TypeEnumAssetTransfer {
+			if tf.AddressRole&idb.AddressRoleAssetSender != 0 {
 				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'asnd' = $%d", partNumber))
 				whereArgs = append(whereArgs, addrBase64)
 				partNumber++
 			}
-			if tf.AddressRole&idb.AddressRoleAssetReceiver != 0 && tf.TypeEnum == idb.TypeEnumAssetTransfer {
+			if tf.AddressRole&idb.AddressRoleAssetReceiver != 0 {
 				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'arcv' = $%d", partNumber))
 				whereArgs = append(whereArgs, addrBase64)
 				partNumber++
 			}
-			if tf.AddressRole&idb.AddressRoleAssetCloseTo != 0 && tf.TypeEnum == idb.TypeEnumAssetTransfer {
+			if tf.AddressRole&idb.AddressRoleAssetCloseTo != 0 {
 				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'aclose' = $%d", partNumber))
 				whereArgs = append(whereArgs, addrBase64)
 				partNumber++
 			}
-			if tf.AddressRole&idb.AddressRoleFreeze != 0 && tf.TypeEnum == idb.TypeEnumAssetFreeze {
+			if tf.AddressRole&idb.AddressRoleFreeze != 0 {
 				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'fadd' = $%d", partNumber))
 				whereArgs = append(whereArgs, addrBase64)
 				partNumber++
@@ -576,25 +576,15 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	}
 	if !tf.BeforeTime.IsZero() {
 		convertedTime := tf.BeforeTime.In(time.UTC)
-		if joinParticipation {
-			whereParts = append(whereParts, fmt.Sprintf("p.round <= ("+
-				"SELECT round from block_header WHERE realtime < $%d ORDER BY realtime DESC LIMIT 1)", partNumber))
-		} else {
-			whereParts = append(whereParts, fmt.Sprintf("t.round <= ("+
-				"SELECT round from block_header WHERE realtime < $%d ORDER BY realtime DESC LIMIT 1)", partNumber))
-		}
+		whereParts = append(whereParts, fmt.Sprintf("t.round <= ("+
+			"SELECT round from block_header WHERE realtime < $%d ORDER BY realtime DESC LIMIT 1)", partNumber))
 		whereArgs = append(whereArgs, convertedTime)
 		partNumber++
 	}
 	if !tf.AfterTime.IsZero() {
 		convertedTime := tf.AfterTime.In(time.UTC)
-		if joinParticipation {
-			whereParts = append(whereParts, fmt.Sprintf("p.round >= ("+
-				"SELECT round from block_header WHERE realtime > $%d ORDER BY realtime ASC LIMIT 1)", partNumber))
-		} else {
-			whereParts = append(whereParts, fmt.Sprintf("t.round >= ("+
-				"SELECT round from block_header WHERE realtime > $%d ORDER BY realtime ASC LIMIT 1)", partNumber))
-		}
+		whereParts = append(whereParts, fmt.Sprintf("t.round >= ("+
+			"SELECT round from block_header WHERE realtime > $%d ORDER BY realtime ASC LIMIT 1)", partNumber))
 		whereArgs = append(whereArgs, convertedTime)
 		partNumber++
 	}
@@ -996,7 +986,6 @@ finish:
 
 func buildBlockHeadersQuery(bf idb.BlockHeaderFilter) (query string, err error) {
 
-	participationFilter := false
 	// Build the terms for the WHERE clause based on the input parameters
 	var whereTerms []string
 	{
@@ -1055,7 +1044,6 @@ func buildBlockHeadersQuery(bf idb.BlockHeaderFilter) (query string, err error) 
 				whereTerms,
 				fmt.Sprintf("( (bh.header->'prp') IS NOT NULL AND ((bh.header->'prp')::TEXT IN (%s)) )", strings.Join(ps, ",")),
 			)
-			participationFilter = true
 		}
 		if len(bf.ExpiredParticipationAccounts) > 0 {
 			var es []string
@@ -1066,7 +1054,6 @@ func buildBlockHeadersQuery(bf idb.BlockHeaderFilter) (query string, err error) 
 				whereTerms,
 				fmt.Sprintf("( (bh.header->'partupdrmv') IS NOT NULL AND (bh.header->'partupdrmv') ?| array[%s] )", strings.Join(es, ",")),
 			)
-			participationFilter = true
 		}
 		if len(bf.AbsentParticipationAccounts) > 0 {
 			var as []string
@@ -1077,7 +1064,6 @@ func buildBlockHeadersQuery(bf idb.BlockHeaderFilter) (query string, err error) 
 				whereTerms,
 				fmt.Sprintf("( (bh.header->'partupdabs') IS NOT NULL AND (bh.header->'partupdabs') ?| array[%s] )", strings.Join(as, ",")),
 			)
-			participationFilter = true
 		}
 
 	}
@@ -1087,20 +1073,13 @@ func buildBlockHeadersQuery(bf idb.BlockHeaderFilter) (query string, err error) 
 	if len(whereTerms) > 0 {
 		whereClause = "WHERE " + strings.Join(whereTerms, " AND ")
 	}
-
-	orderBy := "bh.round ASC"
-	if participationFilter {
-		//Postgres hack to force indexes other than primary
-		orderBy = "bh.round+0 ASC"
-	}
-
 	tmpl := `
 			SELECT bh.header
 			FROM block_header bh
 			%s
-			ORDER BY %s
+			ORDER BY bh.round ASC
 			LIMIT %d`
-	query = fmt.Sprintf(tmpl, whereClause, orderBy, bf.Limit)
+	query = fmt.Sprintf(tmpl, whereClause, bf.Limit)
 
 	return query, nil
 }
