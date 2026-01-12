@@ -12,10 +12,12 @@ linters:
   exclusions:
     generated: lax
     rules:
-      # revive: types is an acceptable package name in this codebase
+      # revive: types and util are acceptable package names in this codebase
       - linters:
           - revive
-        path: types/
+        paths:
+          - types/
+          - util/
         text: 'var-naming: avoid meaningless package names'
       # ignore govet false positive fixed in https://github.com/golang/go/issues/45043
       - path: (.+)\.go$

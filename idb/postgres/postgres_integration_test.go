@@ -2206,6 +2206,17 @@ func TestDeleteTransactions(t *testing.T) {
 	err := db.DeleteTransactions(context.Background(), 2)
 	assert.NoError(t, err)
 
+	// verify txn_participation only has records for rounds >= 2
+	var minRound uint64
+	err = db.db.QueryRow(context.Background(), "SELECT MIN(round) FROM txn_participation").Scan(&minRound)
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, minRound, uint64(2), "txn_participation should only have records for rounds >= 2")
+
+	var participationRoundsLessThan2 int
+	err = db.db.QueryRow(context.Background(), "SELECT COUNT(*) FROM txn_participation WHERE round < 2").Scan(&participationRoundsLessThan2)
+	require.NoError(t, err)
+	assert.Equal(t, 0, participationRoundsLessThan2, "txn_participation should not have any records for round < 2")
+
 	// query txns
 	rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
 
@@ -2236,6 +2247,16 @@ func TestDeleteTransactions(t *testing.T) {
 	// keep round 5
 	err = db.DeleteTransactions(context.Background(), 5)
 	assert.NoError(t, err)
+
+	// verify txn_participation only has records for rounds >= 5
+	err = db.db.QueryRow(context.Background(), "SELECT MIN(round) FROM txn_participation").Scan(&minRound)
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, minRound, uint64(5), "txn_participation should only have records for rounds >= 5")
+
+	var participationRoundsLessThan5 int
+	err = db.db.QueryRow(context.Background(), "SELECT COUNT(*) FROM txn_participation WHERE round < 5").Scan(&participationRoundsLessThan5)
+	require.NoError(t, err)
+	assert.Equal(t, 0, participationRoundsLessThan5, "txn_participation should not have any records for round < 5")
 
 	// 2 txns in round 5
 	rowsCh, _ = db.Transactions(context.Background(), idb.TransactionFilter{})
