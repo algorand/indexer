@@ -1,6 +1,6 @@
 # Agent Development Guide
 
-This file contains essential development commands for the Algorand Indexer project.
+This files contains essential development commands for the Algorand Indexer project.
 
 ## Build Commands
 
