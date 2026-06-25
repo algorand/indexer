@@ -533,7 +533,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"application-id\":9223372036854775807,\"boxes\":[]}\n"
+        "body": "{\"application-id\":9223372036854775807,\"boxes\":[],\"round\":9}\n"
       },
       "witness": {
         "goType": "generated.BoxesResponse",
@@ -569,7 +569,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"application-id\":1337,\"boxes\":[]}\n"
+        "body": "{\"application-id\":1337,\"boxes\":[],\"round\":9}\n"
       },
       "witness": {
         "goType": "generated.BoxesResponse",
@@ -590,7 +590,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"application-id\":3,\"boxes\":[]}\n"
+        "body": "{\"application-id\":3,\"boxes\":[],\"round\":9}\n"
       },
       "witness": {
         "goType": "generated.BoxesResponse",
@@ -611,7 +611,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"application-id\":5,\"boxes\":[{\"name\":\"AAAAAAAAACo=\"},{\"name\":\"AAAAAAAAAGQ=\"},{\"name\":\"AAAAAAAAAY8ADAAWAAhwbHMgcGFzcwACgA==\"},{\"name\":\"WybsRnqz5Ux5MxW1SJI+w3ZiTT0p5wCDvSVV7yTag4M=\"},{\"name\":\"YjMy\"},{\"name\":\"YjY0\"},{\"name\":\"YmFzZTMy\"},{\"name\":\"YmFzZTY0\"},{\"name\":\"Ynl0ZSBiYXNlMzI=\"},{\"name\":\"Ynl0ZSBiYXNlNjQ=\"},{\"name\":\"c3Ry\"},{\"name\":\"c3RyaW5n\"},{\"name\":\"1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg=\"}],\"next-token\":\"b64:1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg=\"}\n"
+        "body": "{\"application-id\":5,\"boxes\":[{\"name\":\"AAAAAAAAACo=\"},{\"name\":\"AAAAAAAAAGQ=\"},{\"name\":\"AAAAAAAAAY8ADAAWAAhwbHMgcGFzcwACgA==\"},{\"name\":\"WybsRnqz5Ux5MxW1SJI+w3ZiTT0p5wCDvSVV7yTag4M=\"},{\"name\":\"YjMy\"},{\"name\":\"YjY0\"},{\"name\":\"YmFzZTMy\"},{\"name\":\"YmFzZTY0\"},{\"name\":\"Ynl0ZSBiYXNlMzI=\"},{\"name\":\"Ynl0ZSBiYXNlNjQ=\"},{\"name\":\"c3Ry\"},{\"name\":\"c3RyaW5n\"},{\"name\":\"1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg=\"}],\"next-token\":\"b64:1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg=\",\"round\":9}\n"
       },
       "witness": {
         "goType": "generated.BoxesResponse",
@@ -673,7 +673,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"QVZNIGlzIHRoZSBuZXcgRVZN\"},{\"name\":\"SSB3aWxsIGJlIGFzc2ltaWxhdGVk\"},{\"name\":\"Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ==\"},{\"name\":\"YSBncmVhdCBib3g=\"},{\"name\":\"YW5vdGhlciBncmVhdCBib3g=\"},{\"name\":\"Ym94ICM4\"},{\"name\":\"ZGlzYXBwb2ludGluZyBib3g=\"},{\"name\":\"ZG9uJ3QgYm94IG1lIGluIHRoaXMgd2F5\"},{\"name\":\"ZmFudGFidWxvdXM=\"}],\"next-token\":\"b64:ZmFudGFidWxvdXM=\"}\n"
+        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"QVZNIGlzIHRoZSBuZXcgRVZN\"},{\"name\":\"SSB3aWxsIGJlIGFzc2ltaWxhdGVk\"},{\"name\":\"Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ==\"},{\"name\":\"YSBncmVhdCBib3g=\"},{\"name\":\"YW5vdGhlciBncmVhdCBib3g=\"},{\"name\":\"Ym94ICM4\"},{\"name\":\"ZGlzYXBwb2ludGluZyBib3g=\"},{\"name\":\"ZG9uJ3QgYm94IG1lIGluIHRoaXMgd2F5\"},{\"name\":\"ZmFudGFidWxvdXM=\"}],\"next-token\":\"b64:ZmFudGFidWxvdXM=\",\"round\":9}\n"
       },
       "witness": {
         "goType": "generated.BoxesResponse",
@@ -728,7 +728,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"QVZNIGlzIHRoZSBuZXcgRVZN\"},{\"name\":\"SSB3aWxsIGJlIGFzc2ltaWxhdGVk\"},{\"name\":\"Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ==\"}],\"next-token\":\"b64:Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ==\"}\n"
+        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"QVZNIGlzIHRoZSBuZXcgRVZN\"},{\"name\":\"SSB3aWxsIGJlIGFzc2ltaWxhdGVk\"},{\"name\":\"Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ==\"}],\"next-token\":\"b64:Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ==\",\"round\":9}\n"
       },
       "witness": {
         "goType": "generated.BoxesResponse",
@@ -769,7 +769,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"YSBncmVhdCBib3g=\"},{\"name\":\"YW5vdGhlciBncmVhdCBib3g=\"},{\"name\":\"Ym94ICM4\"}],\"next-token\":\"b64:Ym94ICM4\"}\n"
+        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"YSBncmVhdCBib3g=\"},{\"name\":\"YW5vdGhlciBncmVhdCBib3g=\"},{\"name\":\"Ym94ICM4\"}],\"next-token\":\"b64:Ym94ICM4\",\"round\":9}\n"
       },
       "witness": {
         "goType": "generated.BoxesResponse",
@@ -810,7 +810,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"ZGlzYXBwb2ludGluZyBib3g=\"},{\"name\":\"ZG9uJ3QgYm94IG1lIGluIHRoaXMgd2F5\"},{\"name\":\"ZmFudGFidWxvdXM=\"}],\"next-token\":\"b64:ZmFudGFidWxvdXM=\"}\n"
+        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"ZGlzYXBwb2ludGluZyBib3g=\"},{\"name\":\"ZG9uJ3QgYm94IG1lIGluIHRoaXMgd2F5\"},{\"name\":\"ZmFudGFidWxvdXM=\"}],\"next-token\":\"b64:ZmFudGFidWxvdXM=\",\"round\":9}\n"
       },
       "witness": {
         "goType": "generated.BoxesResponse",
@@ -875,7 +875,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"ZGlzYXBwb2ludGluZyBib3g=\"},{\"name\":\"ZG9uJ3QgYm94IG1lIGluIHRoaXMgd2F5\"},{\"name\":\"ZmFudGFidWxvdXM=\"}],\"next-token\":\"b64:ZmFudGFidWxvdXM=\"}\n"
+        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"ZGlzYXBwb2ludGluZyBib3g=\"},{\"name\":\"ZG9uJ3QgYm94IG1lIGluIHRoaXMgd2F5\"},{\"name\":\"ZmFudGFidWxvdXM=\"}],\"next-token\":\"b64:ZmFudGFidWxvdXM=\",\"round\":9}\n"
       },
       "witness": {
         "goType": "generated.BoxesResponse",
@@ -916,7 +916,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"application-id\":1,\"boxes\":[]}\n"
+        "body": "{\"application-id\":1,\"boxes\":[],\"round\":9}\n"
       },
       "witness": {
         "goType": "generated.BoxesResponse",

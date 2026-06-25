@@ -1997,6 +1997,13 @@ func compareAppBoxesAgainstHandler(t *testing.T, db *postgres.IndexerDb,
 			require.Contains(t, expectedBoxes, string(box.Name), msg)
 			require.NotNil(t, box.Value, msg)
 			require.Equal(t, expectedBoxes[string(box.Name)], string(*box.Value), msg)
+			// // An empty box value may round-trip as a nil pointer; treat it as "".
+			// var gotValue string
+			// if box.Value != nil {
+			// 	gotValue = string(*box.Value)
+			// }
+			// require.Equal(t, expectedBoxes[string(box.Name)], gotValue, msg)
+
 		}
 
 		if verifyTotals {
