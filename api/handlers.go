@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -676,9 +677,12 @@ func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, appl
 	}
 	happyResponse := generated.BoxesResponse{ApplicationId: applicationID, Boxes: []generated.BoxDescriptor{}}
 
+	// Box values are only fetched and returned when the caller opts in via `include=values`.
+	includeValues := params.Include != nil && slices.Contains(*params.Include, generated.Values)
+
 	q := idb.ApplicationBoxQuery{
 		ApplicationID: applicationID,
-		OmitValues:    true,
+		OmitValues:    !includeValues,
 		Limit:         min(uintOrDefaultValue(params.Limit, si.opts.DefaultBoxesLimit), si.opts.MaxBoxesLimit),
 	}
 	if params.Next != nil {
@@ -695,6 +699,8 @@ func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, appl
 	}
 
 	appid, boxes, round, err := si.fetchApplicationBoxes(ctx.Request().Context(), q)
+	// round is valid even when no boxes are found, so set it on every return path below.
+	happyResponse.Round = &round
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -730,7 +736,12 @@ func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, appl
 		if box.Name == nil {
 			continue
 		}
-		descriptors = append(descriptors, generated.BoxDescriptor{Name: box.Name})
+		descriptor := generated.BoxDescriptor{Name: box.Name}
+		if includeValues {
+			value := box.Value
+			descriptor.Value = &value
+		}
+		descriptors = append(descriptors, descriptor)
 	}
 	happyResponse.Boxes = descriptors
 

@@ -107,6 +107,11 @@ const (
 	LookupAccountTransactionsParamsSigTypeSig  LookupAccountTransactionsParamsSigType = "sig"
 )
 
+// Defines values for SearchForApplicationBoxesParamsInclude.
+const (
+	Values SearchForApplicationBoxesParamsInclude = "values"
+)
+
 // Defines values for LookupAssetTransactionsParamsTxType.
 const (
 	LookupAssetTransactionsParamsTxTypeAcfg   LookupAssetTransactionsParamsTxType = "acfg"
@@ -626,10 +631,13 @@ type Box struct {
 	Value []byte `json:"value"`
 }
 
-// BoxDescriptor Box descriptor describes an app box without a value.
+// BoxDescriptor Box descriptor describes an app box.
 type BoxDescriptor struct {
 	// Name Base64 encoded box name
 	Name []byte `json:"name"`
+
+	// Value Base64 encoded box value. Present only when the `values` query parameter is set to true.
+	Value *[]byte `json:"value,omitempty"`
 }
 
 // BoxReference BoxReference names a box by its name and the application ID it belongs to.
@@ -1591,6 +1599,9 @@ type BoxesResponse struct {
 
 	// NextToken Used for pagination, when making another request provide this token with the next parameter.
 	NextToken *string `json:"next-token,omitempty"`
+
+	// Round The round for which this information is relevant.
+	Round *uint64 `json:"round,omitempty"`
 }
 
 // ErrorResponse defines model for ErrorResponse.
@@ -1831,7 +1842,13 @@ type SearchForApplicationBoxesParams struct {
 
 	// Next The next page of results. Use the next token provided by the previous results.
 	Next *string `form:"next,omitempty" json:"next,omitempty"`
+
+	// Include Include additional items in the response. Use `values` to include box values. Multiple values can be comma-separated.
+	Include *[]SearchForApplicationBoxesParamsInclude `form:"include,omitempty" json:"include,omitempty"`
 }
+
+// SearchForApplicationBoxesParamsInclude defines parameters for SearchForApplicationBoxes.
+type SearchForApplicationBoxesParamsInclude string
 
 // LookupApplicationLogsByIDParams defines parameters for LookupApplicationLogsByID.
 type LookupApplicationLogsByIDParams struct {

@@ -1964,11 +1964,39 @@ func compareAppBoxesAgainstHandler(t *testing.T, db *postgres.IndexerDb,
 
 		require.Equal(t, uint64(appIdx), uint64(resp.ApplicationId), msg)
 
+		// The round is always populated, even without the include=values option.
+		require.NotNil(t, resp.Round, msg)
+
 		boxes := resp.Boxes
 		require.NotNil(t, boxes, msg)
 		require.Len(t, boxes, len(expectedBoxes), msg)
 		for _, box := range boxes {
 			require.Contains(t, expectedBoxes, string(box.Name), msg)
+			// Without include=values, box values are omitted.
+			require.Nil(t, box.Value, msg)
+		}
+
+		// Repeat the search with include=values and verify the box values and round.
+		c, api, rec = setupRequest("/v2/applications/:appidx/boxes", "appidx", strconv.Itoa(int(appIdx)))
+		valuesParams := generated.SearchForApplicationBoxesParams{
+			Include: &[]generated.SearchForApplicationBoxesParamsInclude{generated.Values},
+		}
+		err = api.SearchForApplicationBoxes(c, uint64(appIdx), valuesParams)
+		require.NoError(t, err, msg)
+		require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("msg: %s. unexpected return code, body: %s", msg, rec.Body.String()))
+
+		var valuesResp generated.BoxesResponse
+		err = json.Decode(rec.Body.Bytes(), &valuesResp)
+		require.NoError(t, err, msg)
+
+		require.Equal(t, uint64(appIdx), uint64(valuesResp.ApplicationId), msg)
+		require.NotNil(t, valuesResp.Round, msg)
+		require.Equal(t, *resp.Round, *valuesResp.Round, msg)
+		require.Len(t, valuesResp.Boxes, len(expectedBoxes), msg)
+		for _, box := range valuesResp.Boxes {
+			require.Contains(t, expectedBoxes, string(box.Name), msg)
+			require.NotNil(t, box.Value, msg)
+			require.Equal(t, expectedBoxes[string(box.Name)], string(*box.Value), msg)
 		}
 
 		if verifyTotals {

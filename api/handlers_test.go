@@ -1261,6 +1261,87 @@ func TestBoxLimits(t *testing.T) {
 	}
 }
 
+// TestSearchForApplicationBoxesValuesAndRound verifies that the box-listing
+// handler always returns the round, and only fetches/returns box values when
+// the caller opts in via `include=values`.
+func TestSearchForApplicationBoxesValuesAndRound(t *testing.T) {
+	const appID = uint64(1)
+	const expectedRound = uint64(42)
+	boxName := []byte("foo")
+	boxValue := []byte("bar")
+
+	testcases := []struct {
+		name             string
+		include          *[]generated.SearchForApplicationBoxesParamsInclude
+		expectOmitValues bool
+		expectValue      bool
+	}{
+		{
+			name:             "names only (no include)",
+			include:          nil,
+			expectOmitValues: true,
+			expectValue:      false,
+		},
+		{
+			name:             "include values",
+			include:          &[]generated.SearchForApplicationBoxesParamsInclude{generated.Values},
+			expectOmitValues: false,
+			expectValue:      true,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockIndexer := &mocks.IndexerDb{}
+			si := testServerImplementation(mockIndexer)
+
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+
+			// Pre-fill a closed channel with a single box row.
+			ch := make(chan idb.ApplicationBoxRow, 1)
+			ch <- idb.ApplicationBoxRow{App: appID, Box: generated.Box{Name: boxName, Value: boxValue}}
+			close(ch)
+
+			mockIndexer.
+				On("ApplicationBoxes", mock.Anything, mock.Anything).
+				Return((<-chan idb.ApplicationBoxRow)(ch), expectedRound).
+				Run(func(args mock.Arguments) {
+					require.Len(t, args, 2)
+					require.IsType(t, idb.ApplicationBoxQuery{}, args[1])
+					q := args[1].(idb.ApplicationBoxQuery)
+					require.Equal(t, tc.expectOmitValues, q.OmitValues)
+				})
+
+			err := si.SearchForApplicationBoxes(c, appID, generated.SearchForApplicationBoxesParams{
+				Include: tc.include,
+			})
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+			var resp generated.BoxesResponse
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+
+			// Round is always populated, regardless of the include parameter.
+			require.NotNil(t, resp.Round)
+			require.Equal(t, expectedRound, *resp.Round)
+
+			require.Equal(t, appID, resp.ApplicationId)
+			require.Len(t, resp.Boxes, 1)
+			require.Equal(t, boxName, []byte(resp.Boxes[0].Name))
+
+			if tc.expectValue {
+				require.NotNil(t, resp.Boxes[0].Value)
+				require.Equal(t, boxValue, []byte(*resp.Boxes[0].Value))
+			} else {
+				require.Nil(t, resp.Boxes[0].Value)
+			}
+		})
+	}
+}
+
 func TestBigNumbers(t *testing.T) {
 
 	testcases := []struct {
