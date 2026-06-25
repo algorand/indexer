@@ -535,10 +535,13 @@ type Box struct {
 	Value []byte `json:"value"`
 }
 
-// BoxDescriptor Box descriptor describes an app box without a value.
+// BoxDescriptor Box descriptor describes an app box.
 type BoxDescriptor struct {
 	// Name Base64 encoded box name
 	Name []byte `json:"name"`
+
+	// Value Base64 encoded box value. Present only when the `values` query parameter is set to true.
+	Value *[]byte `json:"value,omitempty"`
 }
 
 // BoxReference BoxReference names a box by its name and the application ID it belongs to.
@@ -1500,6 +1503,9 @@ type BoxesResponse struct {
 
 	// NextToken Used for pagination, when making another request provide this token with the next parameter.
 	NextToken *string `json:"next-token,omitempty"`
+
+	// Round The round for which this information is relevant.
+	Round *uint64 `json:"round,omitempty"`
 }
 
 // ErrorResponse defines model for ErrorResponse.
