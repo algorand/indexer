@@ -296,6 +296,15 @@ func equals(indexer, algod generated.Account) (differences []string) {
 			if !uint64PtrEqual(algodCreatedApp.Params.ExtraProgramPages, indexerCreatedApp.Params.ExtraProgramPages) {
 				differences = append(differences, fmt.Sprintf("created-app extra-pages %d", algodCreatedApp.Id))
 			}
+			if !stringPtrEqual(algodCreatedApp.Params.SizeSponsor, indexerCreatedApp.Params.SizeSponsor) {
+				differences = append(differences, fmt.Sprintf("created-app size-sponsor %d", algodCreatedApp.Id))
+			}
+			if !boolPtrEqual(algodCreatedApp.Params.ForeignBoxReads, indexerCreatedApp.Params.ForeignBoxReads) {
+				differences = append(differences, fmt.Sprintf("created-app foreign-box-reads %d", algodCreatedApp.Id))
+			}
+			if !boolPtrEqual(algodCreatedApp.Params.FamilyBoxAccess, indexerCreatedApp.Params.FamilyBoxAccess) {
+				differences = append(differences, fmt.Sprintf("created-app family-box-access %d", algodCreatedApp.Id))
+			}
 		}
 	}
 

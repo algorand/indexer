@@ -1116,6 +1116,14 @@
             "description": "the number of extra program pages available to this app.",
             "type": "integer"
           },
+          "family-box-access": {
+            "description": "if true, apps with the same creator may read and write this app's boxes",
+            "type": "boolean"
+          },
+          "foreign-box-reads": {
+            "description": "if true, any app may read this app's boxes",
+            "type": "boolean"
+          },
           "global-state": {
             "$ref": "#/components/schemas/TealKeyValueStore"
           },
@@ -1124,6 +1132,11 @@
           },
           "local-state-schema": {
             "$ref": "#/components/schemas/ApplicationStateSchema"
+          },
+          "size-sponsor": {
+            "description": "the account responsible for extra pages and global state MBR",
+            "type": "string",
+            "x-algorand-format": "Address"
           },
           "version": {
             "description": "the number of updates to the application programs",
@@ -2662,7 +2675,7 @@
         "type": "object"
       },
       "TransactionSignaturePQsig": {
-        "description": "structure holding a post-quantum signature.\n\nDefinition:\ntransactions/pqsig.go : PQSig",
+        "description": "structure holding a post-quantum signature.\n\nDefinition:\ndata/transactions/pqsig.go : PQSig",
         "properties": {
           "public-key": {
             "description": "\\[pk\\]",

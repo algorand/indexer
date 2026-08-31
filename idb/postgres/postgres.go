@@ -1621,6 +1621,10 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 						epp := uint64(apps[i].ExtraProgramPages)
 						aout[outpos].Params.ExtraProgramPages = &epp
 					}
+
+					aout[outpos].Params.SizeSponsor = addrStr(apps[i].SizeSponsor)
+					aout[outpos].Params.ForeignBoxReads = omitEmpty(apps[i].ForeignBoxReads)
+					aout[outpos].Params.FamilyBoxAccess = omitEmpty(apps[i].FamilyBoxAccess)
 				}
 
 				outpos++
@@ -2580,6 +2584,10 @@ func (db *IndexerDb) yieldApplicationsThread(rows pgx.Rows, out chan idb.Applica
 			rec.Application.Params.ExtraProgramPages = new(uint64)
 			*rec.Application.Params.ExtraProgramPages = uint64(ap.ExtraProgramPages)
 		}
+
+		rec.Application.Params.SizeSponsor = addrStr(ap.SizeSponsor)
+		rec.Application.Params.ForeignBoxReads = omitEmpty(ap.ForeignBoxReads)
+		rec.Application.Params.FamilyBoxAccess = omitEmpty(ap.FamilyBoxAccess)
 
 		out <- rec
 	}
