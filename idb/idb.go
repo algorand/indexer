@@ -74,6 +74,15 @@ func (tr TxnRow) Next(ascending bool) (string, error) {
 	var b [12]byte
 	binary.LittleEndian.PutUint64(b[:8], tr.Round)
 
+	// An inner transaction without its root was returned as its own result
+	// (SkipInnerTransactionConversion), so resume right after this row. Using the
+	// root intra would select this row again, and on the last page return the same
+	// next token forever.
+	if tr.Extra.RootIntra.Present && tr.RootTxn == nil && tr.Txn != nil {
+		binary.LittleEndian.PutUint32(b[8:], uint32(tr.Intra))
+		return base64.URLEncoding.EncodeToString(b[:]), nil
+	}
+
 	intra := uint(tr.Intra)
 	if tr.Extra.RootIntra.Present {
 		// initialize for descending order, the root intra.
