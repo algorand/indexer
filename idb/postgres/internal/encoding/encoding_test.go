@@ -440,6 +440,33 @@ func TestAppParamsEncoding(t *testing.T) {
 	assert.Equal(t, params, paramsNew)
 }
 
+// Test that the size sponsor and box access flags survive a round trip through the
+// `app.params` column.
+func TestAppParamsSizeSponsorEncoding(t *testing.T) {
+	var sponsor sdk.Address
+	sponsor[0] = 1
+
+	params := sdk.AppParams{
+		ApprovalProgram: []byte{0x02},
+		SizeSponsor:     sponsor,
+		ForeignBoxReads: true,
+		FamilyBoxAccess: true,
+	}
+
+	buf := EncodeAppParams(params)
+
+	expectedString := `{"approv":"Ag==","fba":true,"fbr":true,"ss":"AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}`
+	assert.Equal(t, expectedString, string(buf))
+
+	paramsNew, err := DecodeAppParams(buf)
+	require.NoError(t, err)
+	assert.Equal(t, params, paramsNew)
+
+	// The zero value must stay omitted so existing rows are unaffected.
+	buf = EncodeAppParams(sdk.AppParams{ApprovalProgram: []byte{0x02}})
+	assert.Equal(t, `{"approv":"Ag=="}`, string(buf))
+}
+
 // Test that encoding of AppLocalState is as expected and that decoding results in the
 // same object.
 func TestSpecialAddressesEncoding(t *testing.T) {

@@ -382,6 +382,12 @@ type ApplicationParams struct {
 	// ExtraProgramPages the number of extra program pages available to this app.
 	ExtraProgramPages *uint64 `json:"extra-program-pages,omitempty"`
 
+	// FamilyBoxAccess if true, apps with the same creator may read and write this app's boxes
+	FamilyBoxAccess *bool `json:"family-box-access,omitempty"`
+
+	// ForeignBoxReads if true, any app may read this app's boxes
+	ForeignBoxReads *bool `json:"foreign-box-reads,omitempty"`
+
 	// GlobalState Represents a key-value store for use in an application.
 	GlobalState *TealKeyValueStore `json:"global-state,omitempty"`
 
@@ -390,6 +396,9 @@ type ApplicationParams struct {
 
 	// LocalStateSchema Specifies maximums on the number of each type that may be stored.
 	LocalStateSchema *ApplicationStateSchema `json:"local-state-schema,omitempty"`
+
+	// SizeSponsor the account responsible for extra pages and global state MBR
+	SizeSponsor *string `json:"size-sponsor,omitempty"`
 
 	// Version the number of updates to the application programs
 	Version *uint64 `json:"version,omitempty"`
@@ -1313,7 +1322,7 @@ type TransactionSignature struct {
 	// Pqsig structure holding a post-quantum signature.
 	//
 	// Definition:
-	// transactions/pqsig.go : PQSig
+	// data/transactions/pqsig.go : PQSig
 	Pqsig *TransactionSignaturePQsig `json:"pqsig,omitempty"`
 
 	// Sig \[sig\] Standard ed25519 signature.
@@ -1346,7 +1355,7 @@ type TransactionSignatureLogicsig struct {
 	// Pqsig structure holding a post-quantum signature.
 	//
 	// Definition:
-	// transactions/pqsig.go : PQSig
+	// data/transactions/pqsig.go : PQSig
 	Pqsig *TransactionSignaturePQsig `json:"pqsig,omitempty"`
 
 	// Signature \[sig\] ed25519 signature.
@@ -1380,7 +1389,7 @@ type TransactionSignatureMultisigSubsignature struct {
 // TransactionSignaturePQsig structure holding a post-quantum signature.
 //
 // Definition:
-// transactions/pqsig.go : PQSig
+// data/transactions/pqsig.go : PQSig
 type TransactionSignaturePQsig struct {
 	// PublicKey \[pk\]
 	PublicKey []byte `json:"public-key"`

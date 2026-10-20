@@ -888,6 +888,130 @@ func TestAppExtraPages(t *testing.T) {
 	require.Equal(t, uint64(extraPages), *app.Params.ExtraProgramPages)
 }
 
+// addAppWithParams commits a block at round 1 creating `appID` owned by AccountA with
+// the given params, so that both the Applications and GetAccounts read paths have
+// something to return.
+func addAppWithParams(t *testing.T, db *IndexerDb, appID sdk.AppIndex, params sdk.AppParams) {
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader)
+	require.NoError(t, err)
+	block.BlockHeader.Round = 1
+
+	var delta sdk.LedgerStateDelta
+	delta.Accts.Accts = append(delta.Accts.Accts, sdk.BalanceRecord{
+		Addr: test.AccountA,
+		AccountData: sdk.AccountData{
+			AccountBaseData: sdk.AccountBaseData{
+				MicroAlgos:     100000,
+				TotalAppParams: 1,
+			},
+		},
+	})
+	delta.Accts.AppResources = append(delta.Accts.AppResources, sdk.AppResourceRecord{
+		Aidx:   appID,
+		Addr:   test.AccountA,
+		Params: sdk.AppParamsDelta{Params: &params},
+	})
+
+	vb := types.ValidatedBlock{Block: block, Delta: delta}
+	require.NoError(t, db.AddBlock(&vb))
+}
+
+// TestAppSizeSponsorAndBoxAccess checks that size-sponsor, foreign-box-reads and
+// family-box-access make it from the state delta out to the API model on both app
+// read paths: /v2/applications and an account's created-apps.
+func TestAppSizeSponsorAndBoxAccess(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+
+	const appID = sdk.AppIndex(3)
+	addAppWithParams(t, db, appID, sdk.AppParams{
+		ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+		ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+		SizeSponsor:       test.AccountB,
+		ForeignBoxReads:   true,
+		FamilyBoxAccess:   true,
+	})
+
+	checkParams := func(t *testing.T, params generated.ApplicationParams) {
+		require.NotNil(t, params.SizeSponsor)
+		require.Equal(t, test.AccountB.String(), *params.SizeSponsor)
+		require.NotNil(t, params.ForeignBoxReads)
+		require.True(t, *params.ForeignBoxReads)
+		require.NotNil(t, params.FamilyBoxAccess)
+		require.True(t, *params.FamilyBoxAccess)
+	}
+
+	t.Run("applications", func(t *testing.T) {
+		filter := idb.ApplicationQuery{ApplicationID: uint64Ptr(uint64(appID))}
+		appRows, _ := db.Applications(context.Background(), filter)
+		num := 0
+		for row := range appRows {
+			require.NoError(t, row.Error)
+			num++
+			checkParams(t, row.Application.Params)
+		}
+		require.Equal(t, 1, num)
+	})
+
+	t.Run("created-apps", func(t *testing.T) {
+		rows, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{
+			EqualToAddress: test.AccountA[:], IncludeAppParams: true})
+		num := 0
+		var createdApps *[]generated.Application
+		for row := range rows {
+			require.NoError(t, row.Error)
+			num++
+			createdApps = row.Account.CreatedApps
+		}
+		require.Equal(t, 1, num)
+
+		require.NotNil(t, createdApps)
+		require.Len(t, *createdApps, 1)
+		checkParams(t, (*createdApps)[0].Params)
+	})
+}
+
+// TestAppSizeSponsorAndBoxAccessOmitted checks that an app which uses none of these
+// features reports them as absent rather than as a zero address / false.
+func TestAppSizeSponsorAndBoxAccessOmitted(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+
+	const appID = sdk.AppIndex(3)
+	addAppWithParams(t, db, appID, sdk.AppParams{
+		ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+		ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+	})
+
+	checkParams := func(t *testing.T, params generated.ApplicationParams) {
+		require.Nil(t, params.SizeSponsor)
+		require.Nil(t, params.ForeignBoxReads)
+		require.Nil(t, params.FamilyBoxAccess)
+	}
+
+	filter := idb.ApplicationQuery{ApplicationID: uint64Ptr(uint64(appID))}
+	appRows, _ := db.Applications(context.Background(), filter)
+	num := 0
+	for row := range appRows {
+		require.NoError(t, row.Error)
+		num++
+		checkParams(t, row.Application.Params)
+	}
+	require.Equal(t, 1, num)
+
+	rows, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{
+		EqualToAddress: test.AccountA[:], IncludeAppParams: true})
+	num = 0
+	for row := range rows {
+		require.NoError(t, row.Error)
+		num++
+		require.NotNil(t, row.Account.CreatedApps)
+		require.Len(t, *row.Account.CreatedApps, 1)
+		checkParams(t, (*row.Account.CreatedApps)[0].Params)
+	}
+	require.Equal(t, 1, num)
+}
+
 func assertKeytype(t *testing.T, db *IndexerDb, address sdk.Address, keytype *generated.AccountSigType) {
 	opts := idb.AccountQueryOptions{
 		EqualToAddress: address[:],

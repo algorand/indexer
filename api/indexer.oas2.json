@@ -1469,6 +1469,19 @@
         "version": {
           "description": "the number of updates to the application programs",
           "type": "integer"
+        },
+        "size-sponsor": {
+          "description": "the account responsible for extra pages and global state MBR",
+          "type": "string",
+          "x-algorand-format": "Address"
+        },
+        "foreign-box-reads": {
+          "description": "if true, any app may read this app's boxes",
+          "type": "boolean"
+        },
+        "family-box-access": {
+          "description": "if true, apps with the same creator may read and write this app's boxes",
+          "type": "boolean"
         }
       }
     },
