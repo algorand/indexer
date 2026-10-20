@@ -1313,6 +1313,38 @@ func TestAddBlockAssetCloseAmountInTxnExtra(t *testing.T) {
 	require.False(t, ok)
 }
 
+func TestAddBlockConsensusV43(t *testing.T) {
+	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
+	defer shutdownFunc()
+
+	genesis := test.MakeGenesis()
+	genesis.Proto = string(protocol.ConsensusV42)
+	db := setupIdbWithConnectionString(t, connStr, genesis)
+	defer db.Close()
+
+	genesisBlock := test.MakeGenesisBlock()
+	genesisBlock.CurrentProtocol = string(protocol.ConsensusV42)
+	require.NoError(t, db.AddBlock(&types.ValidatedBlock{Block: genesisBlock}))
+
+	previousHeader, _, err := db.GetBlock(context.Background(), 0, idb.GetBlockOptions{})
+	require.NoError(t, err)
+	require.Equal(t, string(protocol.ConsensusV42), previousHeader.CurrentProtocol)
+
+	block, err := test.MakeBlockForTxns(previousHeader)
+	require.NoError(t, err)
+	block.Round = 1
+	block.CurrentProtocol = string(protocol.ConsensusV43)
+	require.NoError(t, db.AddBlock(&types.ValidatedBlock{Block: block}))
+
+	header, _, err := db.GetBlock(context.Background(), 1, idb.GetBlockOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, block.BlockHeader, header)
+
+	nextRound, err := db.GetNextRoundToAccount()
+	require.NoError(t, err)
+	assert.Equal(t, uint64(2), nextRound)
+}
+
 func TestAddBlockIncrementsMaxRoundAccounted(t *testing.T) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
