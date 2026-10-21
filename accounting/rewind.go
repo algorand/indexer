@@ -147,6 +147,18 @@ func AccountAtRound(ctx context.Context, account models.Account, round uint64, d
 			}
 		case sdk.KeyRegistrationTx:
 			// TODO: keyreg does not rewind. workaround: query for txns on an account with typeenum=2 to find previous values it was set to.
+			// We can't rewind keyreg transactions, so null it out.
+			acct.Participation = nil
+		case sdk.ApplicationCallTx:
+			// We can't rewind app calls, so null out application state.
+			acct.AppsLocalState = nil
+			acct.AppsTotalExtraPages = nil
+			acct.AppsTotalSchema = nil
+			acct.CreatedApps = nil
+			acct.TotalAppsOptedIn = 0
+			acct.TotalBoxBytes = 0
+			acct.TotalBoxes = 0
+			acct.TotalCreatedApps = 0
 		case sdk.AssetConfigTx:
 			if stxn.Txn.ConfigAsset == 0 {
 				// create asset, unwind the application of the value
@@ -182,8 +194,13 @@ func AccountAtRound(ctx context.Context, account models.Account, round uint64, d
 	// MinBalance is not supported.
 	acct.MinBalance = 0
 
-	// TODO: Clear out the closed-at field as well. Like Rewards we cannot know this value for all accounts.
-	//acct.ClosedAt = 0
+	// Clear out the closed-at field as well. Like Rewards we cannot know this value for all accounts.
+	acct.ClosedAtRound = nil
+
+	// Clear out incentives fields, they change according to block header data, not transactions
+	acct.IncentiveEligible = nil
+	acct.LastHeartbeat = nil
+	acct.LastProposed = nil
 
 	return
 }
