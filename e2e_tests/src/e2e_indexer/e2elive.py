@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import atexit
 import functools
-import glob
 import gzip
 import inspect
 import io
@@ -26,7 +25,7 @@ from e2e_common.util import (
     ensure_test_db,
     firstFromS3Prefix,
     hassuffix,
-    countblocks,
+    fixture_last_round,
 )
 import e2e_indexer.validate_accounting
 from e2e_indexer.validate_accounting import logger as va_logger, validate_accounting
@@ -53,8 +52,10 @@ def main():
         atexit.register(shutil.rmtree, tempdir, onerror=logger.error)
     else:
         logger.info("leaving temp dir %r", tempdir)
-    # Sane default for lastblock--used for read_only runs
-    lastblock = 93
+    lastblock = None
+    if args.read_only:
+        with open(args.expected_round_file) as round_file:
+            lastblock = int(round_file.read().strip())
     algoddir = None
     if args.keep_alive:
         # register after keep_temps so that the temp files are still there.
@@ -89,7 +90,9 @@ def main():
 
     indexerurl = "http://localhost:{}/".format(aiport)
     healthurl = indexerurl + "health"
-    for attempt in range(20):
+    # Read-only runs start alongside Conduit and must wait for the whole fixture.
+    attempts = 120 if args.read_only else 20
+    for attempt in range(attempts):
         (ok, healthJson) = tryhealthurl(healthurl, args.verbose, waitforround=lastblock)
         if ok:
             logger.debug("health round={} OK".format(lastblock))
@@ -165,12 +168,18 @@ def get_args():
     )
     ap.add_argument(
         "--read-only",
-        default=False,
-        type=bool,
+        action="store_true",
         help="Run the indexer daemon in read-only mode.",
     )
     ap.add_argument("--verbose", default=False, action="store_true")
-    return ap.parse_args()
+    ap.add_argument(
+        "--expected-round-file",
+        help="File containing the fixture's final round. Required when read-only.",
+    )
+    args = ap.parse_args()
+    if args.read_only and not args.expected_round_file:
+        ap.error("--expected-round-file is required with --read-only")
+    return args
 
 
 def setup_algod(tempdir, sourcenet, s3_source_net):
@@ -217,10 +226,7 @@ def setup_algod(tempdir, sourcenet, s3_source_net):
         xrun(["tar", "-C", tempdir, "-x", "-f", sourcenet])
     else:
         xrun(["rsync", "-a", sourcenet + "/", tempnet + "/"])
-    blockfiles = glob.glob(
-        os.path.join(tempdir, "net", "Primary", "*", "*.block.sqlite")
-    )
-    lastblock = countblocks(blockfiles[0])
+    lastblock = fixture_last_round(os.path.join(tempdir, "net"))
     logger.info(f"lastblock in downloaded network is {lastblock}")
     # Reset the secondary node, and enable follow mode.
     # This is what conduit will connect to for data access.

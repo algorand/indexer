@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import atexit
+import glob
 import logging
 import os
 import random
@@ -209,6 +210,18 @@ def firstFromS3Prefix(
     if not found_needle:
         logger.warning(f"file {desired_filename} not found in s3://{bucket}/{prefix}")
     return found_needle
+
+
+def fixture_last_round(netdir):
+    blockfiles = glob.glob(os.path.join(netdir, "Primary", "*", "*.block.sqlite"))
+    if len(blockfiles) != 1:
+        raise ValueError(
+            f"Expected one Primary block database in {netdir}, found {len(blockfiles)}"
+        )
+    last_round = countblocks(blockfiles[0])
+    if last_round is None:
+        raise ValueError(f"No blocks found in fixture database {blockfiles[0]}")
+    return last_round
 
 
 def countblocks(path):
