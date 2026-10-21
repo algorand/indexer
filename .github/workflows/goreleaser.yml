@@ -1,6 +1,12 @@
 name: goreleaser
 
 on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v3.11.1)'
+        required: true
+        type: string
   push:
     tags:
       - 'v3.**'
@@ -14,6 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: refs/tags/${{ inputs.tag || github.ref_name }}
           fetch-depth: 0
       - run: git fetch --force --tags
 
@@ -47,5 +54,6 @@ jobs:
           version: latest
           args: release --clean
         env:
+          GORELEASER_CURRENT_TAG: ${{ inputs.tag || github.ref_name }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
