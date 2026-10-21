@@ -54,7 +54,7 @@ def main():
     else:
         logger.info("leaving temp dir %r", tempdir)
     # Sane default for lastblock--used for read_only runs
-    lastblock = 93
+    lastblock = 92
     algoddir = None
     if args.keep_alive:
         # register after keep_temps so that the temp files are still there.
