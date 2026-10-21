@@ -13,6 +13,7 @@ from e2e_common.util import (
     atexitrun,
     firstFromS3Prefix,
     hassuffix,
+    fixture_last_round,
 )
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,10 @@ def main():
         help="Directory to run algod network in.",
     )
     ap.add_argument("--verbose", default=False, action="store_true")
+    ap.add_argument(
+        "--output-round-file",
+        help="Write the downloaded network's final round to this file.",
+    )
     args = ap.parse_args()
     if not args.s3_source_net:
         raise Exception("Must provide --s3-source-net")
@@ -54,6 +59,11 @@ def main():
     sourcenet = tarpath
     tempnet = os.path.join(args.algod_dir, "net")
     xrun(["tar", "-C", args.algod_dir, "-x", "-f", sourcenet])
+
+    if args.output_round_file:
+        lastblock = fixture_last_round(tempnet)
+        with open(args.output_round_file, "w") as round_file:
+            round_file.write(f"{lastblock}\n")
 
     # Reset the secondary node, and enable follow mode.
     # This is what conduit will connect to for data access.

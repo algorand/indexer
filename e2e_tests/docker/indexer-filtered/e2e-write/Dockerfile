@@ -44,7 +44,8 @@ ENV INDEXER_DATA="${HOME}/indexer/"
 WORKDIR /opt/go/indexer
 
 # Retrieve the network data
-RUN get-test-data --s3-source-net ${CI_E2E_FILENAME} --algod-dir /opt/algod-dir
+# Record the round in the image; publish it at startup once the volume is mounted.
+RUN get-test-data --s3-source-net ${CI_E2E_FILENAME} --algod-dir /opt/algod-dir --output-round-file /opt/expected-round
 
 RUN echo "Channel: $CHANNEL"
 RUN echo "AWS tarball: $CI_E2E_FILENAME"
@@ -52,6 +53,7 @@ RUN echo "AWS tarball: $CI_E2E_FILENAME"
 # Run test script
 CMD ["/bin/bash", "-c", \
     "env && \
+    cp /opt/expected-round /test-data/expected-round && \
     goal network start -r /opt/algod-dir/net/ && \
     export ALGOD_ADDR=http://$(cat /opt/algod-dir/net/Node/algod.net) && \
     export ALGOD_TOKEN=$(cat /opt/algod-dir/net/Node/algod.token) && \

@@ -1,5 +1,14 @@
 services:
   e2e-write:
+    volumes:
+      - test-data:/test-data
+    # A reused volume may contain a different fixture's round. Start the reader
+    # only after the writer has published the value from its current image.
+    healthcheck:
+      test: [ "CMD", "cmp", "-s", "/opt/expected-round", "/test-data/expected-round" ]
+      interval: 1s
+      timeout: 1s
+      retries: 30
     build:
       context: ../../../.
       dockerfile: ./e2e_tests/docker/indexer-filtered/e2e-write/Dockerfile
@@ -15,11 +24,14 @@ services:
       # EXTRA: "${EXTRA}"
 
   e2e-read:
+    volumes:
+      - test-data:/test-data:ro
     build:
       context: ../../../.
       dockerfile: ./e2e_tests/docker/indexer-filtered/e2e-read/Dockerfile
     depends_on:
-      - e2e-write
+      e2e-write:
+        condition: service_healthy
     environment:
       CONNECTION_STRING: "host=e2e-db-filtered port=5432 user=algorand password=algorand dbname=indexer_db sslmode=disable"
       # Add --keep-alive to this variable to pause the container on an error
@@ -36,3 +48,5 @@ services:
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -q " ]
 
+volumes:
+  test-data:
