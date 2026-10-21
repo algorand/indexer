@@ -157,3 +157,98 @@ func Test_buildTransactionQueryApplicationLogs(t *testing.T) {
 		})
 	}
 }
+
+// Test_buildTransactionQueryZeroValues tests the SQL generation for zero-value filters.
+// This test verifies the custom behavior for application-id=0 and asset-id=0 filtering.
+func Test_buildTransactionQueryZeroValues(t *testing.T) {
+	tests := []struct {
+		name           string
+		filter         idb.TransactionFilter
+		expectedSQL    []string // SQL fragments that should be present
+		notExpectedSQL []string // SQL fragments that should NOT be present
+		expectedArgs   []interface{}
+		description    string
+	}{
+		{
+			name: "ApplicationID zero - query original JSON field for app creation",
+			filter: idb.TransactionFilter{
+				ApplicationID: uint64Ptr(0),
+				Limit:         10,
+			},
+			expectedSQL:    []string{"t.typeenum = ", "t.txn -> 'txn' -> 'apid'", "IS NULL"},
+			notExpectedSQL: []string{},
+			expectedArgs:   []interface{}{int(idb.TypeEnumApplication), uint64(0)},
+			description:    "should query original JSON field for application creation transactions",
+		},
+		{
+			name: "ApplicationID non-zero - should query t.asset",
+			filter: idb.TransactionFilter{
+				ApplicationID: uint64Ptr(123),
+				Limit:         10,
+			},
+			expectedSQL:    []string{"t.asset = "},
+			notExpectedSQL: []string{"t.txn -> 'txn' -> 'apid'"},
+			expectedArgs:   []interface{}{uint64(123)},
+			description:    "Non-zero ApplicationID should use t.asset column",
+		},
+		{
+			name: "AssetID zero - should work for both transfers and creation",
+			filter: idb.TransactionFilter{
+				AssetID: uint64Ptr(0),
+				Limit:   10,
+			},
+			expectedSQL:    []string{"t.asset = ", "t.typeenum = ", "t.txn -> 'txn' -> 'caid'", "IS NULL"},
+			notExpectedSQL: []string{},
+			expectedArgs:   []interface{}{uint64(0), int(idb.TypeEnumAssetConfig), uint64(0)},
+			description:    "AssetID=0 should work for both Algo transfers (t.asset=0) and asset creation (original JSON field)",
+		},
+		{
+			name: "AssetID non-zero - should query t.asset",
+			filter: idb.TransactionFilter{
+				AssetID: uint64Ptr(456),
+				Limit:   10,
+			},
+			expectedSQL:    []string{"t.asset = "},
+			notExpectedSQL: []string{},
+			expectedArgs:   []interface{}{uint64(456)},
+			description:    "Non-zero AssetID should use t.asset column",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			query, whereArgs, err := buildTransactionQuery(tt.filter)
+			require.NoError(t, err, "buildTransactionQuery should not error: %s", tt.description)
+
+			// Check that expected SQL fragments are present
+			for _, expectedFragment := range tt.expectedSQL {
+				assert.Contains(t, query, expectedFragment,
+					"Query should contain '%s': %s", expectedFragment, tt.description)
+			}
+
+			// Check that unexpected SQL fragments are NOT present
+			for _, notExpectedFragment := range tt.notExpectedSQL {
+				assert.NotContains(t, query, notExpectedFragment,
+					"Query should NOT contain '%s': %s", notExpectedFragment, tt.description)
+			}
+
+			// Check that the arguments match expected values
+			if len(tt.expectedArgs) > 0 {
+				// Note: whereArgs may have more arguments than we're testing,
+				// so we just check that our expected args are somewhere in there
+				foundExpectedArgs := 0
+				for _, expectedArg := range tt.expectedArgs {
+					for _, actualArg := range whereArgs {
+						if actualArg == expectedArg {
+							foundExpectedArgs++
+							break
+						}
+					}
+				}
+				assert.Equal(t, len(tt.expectedArgs), foundExpectedArgs,
+					"Should find all expected arguments in whereArgs: %s", tt.description)
+			}
+
+		})
+	}
+}
