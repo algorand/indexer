@@ -67,6 +67,34 @@ func TestTxnRowNext(t *testing.T) {
 			intra: 54, // RootIntra + RootTxnBytes.numInnerTxns()
 		},
 		{
+			name:      "inner txn without root ascending",
+			ascending: true,
+			txnRow: idb.TxnRow{
+				Txn: &stxn.ApplyData.EvalDelta.InnerTxns[0],
+				Extra: idb.TxnExtra{
+					RootIntra: idb.OptionalUint{Present: true, Value: 50},
+				},
+				Intra: 51,
+				Round: 1_234_567_890,
+			},
+			round: 1_234_567_890,
+			intra: 51, // the inner txn itself, not RootIntra
+		},
+		{
+			name:      "inner txn without root descending",
+			ascending: false,
+			txnRow: idb.TxnRow{
+				Txn: &stxn.ApplyData.EvalDelta.InnerTxns[0],
+				Extra: idb.TxnExtra{
+					RootIntra: idb.OptionalUint{Present: true, Value: 50},
+				},
+				Intra: 51,
+				Round: 1_234_567_890,
+			},
+			round: 1_234_567_890,
+			intra: 51, // the inner txn itself, not RootIntra
+		},
+		{
 			name:      "root txn absent",
 			ascending: true,
 			txnRow: idb.TxnRow{

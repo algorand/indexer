@@ -2782,3 +2782,98 @@ func TestTxnSearchByGroupID(t *testing.T) {
 		}
 	}
 }
+
+// TestLookupInnerLogsPagination pages through logs one result at a time and
+// checks that pages ending on an inner transaction resume after that inner
+// transaction, rather than returning it again with the same next token.
+func TestLookupInnerLogsPagination(t *testing.T) {
+	testcases := []struct {
+		name  string
+		appID uint64
+		logs  []string
+	}{
+		{
+			name:  "single match on inner",
+			appID: 789,
+			logs: []string{
+				"testing inner log",
+				"appId 789 log",
+			},
+		},
+		{
+			name:  "multiple matches on inner",
+			appID: 222,
+			logs: []string{
+				"testing multiple logs 1",
+				"appId 222 log 1",
+				"testing multiple logs 2",
+				"appId 222 log 2",
+				"testing multiple logs 3",
+				"appId 222 log 3",
+			},
+		},
+	}
+
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+
+	///////////
+	// Given // a DB with an app call whose inner txns emit logs.
+	///////////
+	vb, err := test.ReadValidatedBlockFromFile("test_resources/validated_blocks/LookupMultiInnerLogs.vb")
+	require.NoError(t, err)
+	err = db.AddBlock(&vb)
+	require.NoError(t, err)
+
+	api := testServerImplementation(db)
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			//////////
+			// When // we page through the logs with limit 1
+			//////////
+			var logs []string
+			var next *string
+			const maxPages = 10
+			pages := 0
+			for ; pages < maxPages; pages++ {
+				e := echo.New()
+				req := httptest.NewRequest(http.MethodGet, "/", nil)
+				rec := httptest.NewRecorder()
+				c := e.NewContext(req, rec)
+				c.SetPath("/v2/applications/:appIdx/logs")
+				c.SetParamNames("appIdx")
+				c.SetParamValues(fmt.Sprintf("%d", tc.appID))
+
+				params := generated.LookupApplicationLogsByIDParams{Limit: uint64Ptr(1), Next: next}
+				err := api.LookupApplicationLogsByID(c, tc.appID, params)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, rec.Code)
+
+				var response generated.ApplicationLogsResponse
+				json.Decode(rec.Body.Bytes(), &response)
+
+				if response.LogData == nil {
+					require.Nil(t, response.NextToken)
+					break
+				}
+				require.Len(t, *response.LogData, 1)
+				for _, log := range (*response.LogData)[0].Logs {
+					logs = append(logs, string(log))
+				}
+
+				require.NotNil(t, response.NextToken)
+				if next != nil {
+					require.NotEqual(t, *next, *response.NextToken, "next token did not advance")
+				}
+				next = response.NextToken
+			}
+
+			//////////
+			// Then // every log is returned exactly once and paging terminates
+			//////////
+			require.Less(t, pages, maxPages, "paging did not terminate")
+			require.Equal(t, tc.logs, logs)
+		})
+	}
+}
