@@ -75,12 +75,6 @@ jobs:
         run: |
           make e2e
           make e2e-filter-test
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./coverage.txt
-          flags: nightly
-          name: codecov-nightly
       - name: Notify Slack on failure
         if: failure() && env.SLACK_WEBHOOK != ''
         uses: slackapi/slack-github-action@v2.1.0
