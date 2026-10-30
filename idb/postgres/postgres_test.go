@@ -120,6 +120,68 @@ func Test_buildTransactionQueryTime(t *testing.T) {
 	}
 }
 
+const rootTransactionJoinClause = " LEFT OUTER JOIN txn root ON t.round = root.round AND (t.extra->>'root-intra')::int = root.intra"
+
+func Test_buildTransactionQueryRootTransactionJoin(t *testing.T) {
+	tests := []struct {
+		name                  string
+		filter                idb.TransactionFilter
+		expectRootJoin        bool
+		expectRootTxnInSelect bool
+	}{
+		{
+			name: "transaction search includes root join",
+			filter: idb.TransactionFilter{
+				ApplicationID: uint64Ptr(123),
+				Limit:         10,
+			},
+			expectRootJoin:        true,
+			expectRootTxnInSelect: true,
+		},
+		{
+			name: "SkipInnerTransactions omits root join",
+			filter: idb.TransactionFilter{
+				ApplicationID:         uint64Ptr(123),
+				Limit:                 10,
+				SkipInnerTransactions: true,
+			},
+			expectRootJoin:        false,
+			expectRootTxnInSelect: false,
+		},
+		{
+			name: "SkipInnerTransactionConversion omits root join",
+			filter: idb.TransactionFilter{
+				ApplicationID:                  uint64Ptr(123),
+				Limit:                          10,
+				SkipInnerTransactionConversion: true,
+			},
+			expectRootJoin:        false,
+			expectRootTxnInSelect: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			query, _, err := buildTransactionQuery(tt.filter)
+			require.NoError(t, err)
+
+			if tt.expectRootJoin {
+				assert.Contains(t, query, rootTransactionJoinClause)
+				assert.Contains(t, query, "(t.extra->>'root-intra')::int = root.intra")
+			} else {
+				assert.NotContains(t, query, rootTransactionJoinClause)
+				assert.NotContains(t, query, "(t.extra->>'root-intra')::int = root.intra")
+			}
+
+			if tt.expectRootTxnInSelect {
+				assert.Contains(t, query, "root.txn")
+			} else {
+				assert.NotContains(t, query, "root.txn")
+			}
+		})
+	}
+}
+
 func Test_buildTransactionQueryApplicationLogs(t *testing.T) {
 	tests := []struct {
 		name                   string
